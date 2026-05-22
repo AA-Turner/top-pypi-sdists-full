@@ -55,13 +55,13 @@ class Wave(PostFxEffect):
     """Effet post-processing: distorsion ondulatoire
 
     Args:
-        amplitude_x: amplitude horizontale en fraction de l'écran *[0, 1]*
-        amplitude_y: amplitude verticale en fraction de l'écran *[0, 1]*
+        amplitude_x: amplitude horizontale en unités monde *(>=0)*
+        amplitude_y: amplitude verticale en unités monde *(>=0)*
         frequency_x: fréquence spatiale horizontale *(cycles par écran)*
         frequency_y: fréquence spatiale verticale *(cycles par écran)*
         speed: vitesse d'animation en cycles par seconde *(> 0)*
     """
-    amplitude_x: Real = 0.01
+    amplitude_x: Real = 10
     amplitude_y: Real = 0.0
     frequency_x: Real = 8.0
     frequency_y: Real = 8.0
@@ -90,17 +90,10 @@ class WavePostFxRenderer(SpecializedPostFxRenderer):
 
     _HANDLES: ClassVar[frozenset[type[PostFxEffect]]] = frozenset({Wave})
 
+    _REQUIRES_TIME: ClassVar[bool] = True
+
     _program: ClassVar[ShaderProgram | None] = None
     _time: ClassVar[float] = 0.0
-
-    @classmethod
-    def tick(cls, dt: float) -> None:
-        """Avance l'horloge interne partagée entre toutes les instances
-
-        Args:
-            dt: delta-time en secondes
-        """
-        cls._time += dt
 
     @classmethod
     def _get_program(cls) -> ShaderProgram:
@@ -122,10 +115,14 @@ class WavePostFxRenderer(SpecializedPostFxRenderer):
             effect: paramètres de l'onde
             mask: données de masque spatial
         """
+        ax, ay = pipeline.scale_to_framebuffer(effect.amplitude_x, effect.amplitude_y)
+        ax /= pipeline.fbo.width
+        ay /= pipeline.fbo.height
+        
         pipeline.apply_shader(
             self._get_program(),
-            u_amplitude_x=effect.amplitude_x,
-            u_amplitude_y=effect.amplitude_y,
+            u_amplitude_x=ax,
+            u_amplitude_y=ay,
             u_frequency_x=effect.frequency_x,
             u_frequency_y=effect.frequency_y,
             u_time=self._time * effect.speed,

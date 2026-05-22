@@ -40,7 +40,10 @@ from .literals import (
     ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
+    DatasetSchemaTypeType,
+    DatasetStatusType,
     DescriptorTypeType,
+    DraftStatusType,
     EndpointIpAddressTypeType,
     EvaluatorLevelType,
     EvaluatorStatusType,
@@ -102,6 +105,8 @@ __all__ = (
     "ActionOutputTypeDef",
     "ActionTypeDef",
     "ActionUnionTypeDef",
+    "AddDatasetExamplesRequestTypeDef",
+    "AddDatasetExamplesResponseTypeDef",
     "AgentCardDefinitionTypeDef",
     "AgentRuntimeArtifactOutputTypeDef",
     "AgentRuntimeArtifactTypeDef",
@@ -189,6 +194,10 @@ __all__ = (
     "CreateCodeInterpreterResponseTypeDef",
     "CreateConfigurationBundleRequestTypeDef",
     "CreateConfigurationBundleResponseTypeDef",
+    "CreateDatasetRequestTypeDef",
+    "CreateDatasetResponseTypeDef",
+    "CreateDatasetVersionRequestTypeDef",
+    "CreateDatasetVersionResponseTypeDef",
     "CreateEvaluatorRequestTypeDef",
     "CreateEvaluatorResponseTypeDef",
     "CreateGatewayRequestTypeDef",
@@ -248,6 +257,9 @@ __all__ = (
     "DataSourceConfigOutputTypeDef",
     "DataSourceConfigTypeDef",
     "DataSourceConfigUnionTypeDef",
+    "DataSourceTypeTypeDef",
+    "DatasetSummaryTypeDef",
+    "DatasetVersionSummaryTypeDef",
     "DeleteAgentRuntimeEndpointRequestTypeDef",
     "DeleteAgentRuntimeEndpointResponseTypeDef",
     "DeleteAgentRuntimeRequestTypeDef",
@@ -261,6 +273,10 @@ __all__ = (
     "DeleteCodeInterpreterResponseTypeDef",
     "DeleteConfigurationBundleRequestTypeDef",
     "DeleteConfigurationBundleResponseTypeDef",
+    "DeleteDatasetExamplesRequestTypeDef",
+    "DeleteDatasetExamplesResponseTypeDef",
+    "DeleteDatasetRequestTypeDef",
+    "DeleteDatasetResponseTypeDef",
     "DeleteEvaluatorRequestTypeDef",
     "DeleteEvaluatorResponseTypeDef",
     "DeleteGatewayRequestTypeDef",
@@ -347,6 +363,8 @@ __all__ = (
     "GetConfigurationBundleResponseTypeDef",
     "GetConfigurationBundleVersionRequestTypeDef",
     "GetConfigurationBundleVersionResponseTypeDef",
+    "GetDatasetRequestTypeDef",
+    "GetDatasetResponseTypeDef",
     "GetEvaluatorRequestTypeDef",
     "GetEvaluatorResponseTypeDef",
     "GetGatewayRequestTypeDef",
@@ -453,6 +471,7 @@ __all__ = (
     "IndexedKeyTypeDef",
     "InferenceConfigurationOutputTypeDef",
     "InferenceConfigurationTypeDef",
+    "InlineExamplesSourceTypeDef",
     "InterceptorConfigurationTypeDef",
     "InterceptorInputConfigurationTypeDef",
     "InvocationConfigurationInputTypeDef",
@@ -492,6 +511,15 @@ __all__ = (
     "ListConfigurationBundlesRequestPaginateTypeDef",
     "ListConfigurationBundlesRequestTypeDef",
     "ListConfigurationBundlesResponseTypeDef",
+    "ListDatasetExamplesRequestPaginateTypeDef",
+    "ListDatasetExamplesRequestTypeDef",
+    "ListDatasetExamplesResponseTypeDef",
+    "ListDatasetVersionsRequestPaginateTypeDef",
+    "ListDatasetVersionsRequestTypeDef",
+    "ListDatasetVersionsResponseTypeDef",
+    "ListDatasetsRequestPaginateTypeDef",
+    "ListDatasetsRequestTypeDef",
+    "ListDatasetsResponseTypeDef",
     "ListEvaluatorsRequestPaginateTypeDef",
     "ListEvaluatorsRequestTypeDef",
     "ListEvaluatorsResponseTypeDef",
@@ -688,6 +716,7 @@ __all__ = (
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
     "S3LocationTypeDef",
+    "S3SourceTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
     "SalesforceOauth2ProviderConfigOutputTypeDef",
     "SamplingConfigTypeDef",
@@ -779,6 +808,10 @@ __all__ = (
     "UpdateApiKeyCredentialProviderResponseTypeDef",
     "UpdateConfigurationBundleRequestTypeDef",
     "UpdateConfigurationBundleResponseTypeDef",
+    "UpdateDatasetExamplesRequestTypeDef",
+    "UpdateDatasetExamplesResponseTypeDef",
+    "UpdateDatasetRequestTypeDef",
+    "UpdateDatasetResponseTypeDef",
     "UpdateEvaluatorRequestTypeDef",
     "UpdateEvaluatorResponseTypeDef",
     "UpdateGatewayRequestTypeDef",
@@ -861,6 +894,13 @@ __all__ = (
 class AgentCardDefinitionTypeDef(TypedDict):
     schemaVersion: NotRequired[str]
     inlineContent: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 class ContainerConfigurationTypeDef(TypedDict):
     containerUri: str
@@ -1084,13 +1124,6 @@ class CreateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 class LifecycleConfigurationTypeDef(TypedDict):
     idleRuntimeSessionTimeout: NotRequired[int]
     maxLifetime: NotRequired[int]
@@ -1115,6 +1148,10 @@ class CreateBrowserProfileRequestTypeDef(TypedDict):
 class VersionCreatedBySourceTypeDef(TypedDict):
     name: str
     arn: NotRequired[str]
+
+class CreateDatasetVersionRequestTypeDef(TypedDict):
+    datasetId: str
+    clientToken: NotRequired[str]
 
 class GatewayPolicyEngineConfigurationTypeDef(TypedDict):
     arn: str
@@ -1235,6 +1272,29 @@ class UserPreferenceExtractionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
+class InlineExamplesSourceTypeDef(TypedDict):
+    examples: Sequence[Mapping[str, Any]]
+
+class S3SourceTypeDef(TypedDict):
+    s3Uri: str
+
+class DatasetSummaryTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    datasetName: str
+    status: DatasetStatusType
+    schemaType: DatasetSchemaTypeType
+    exampleCount: int
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    draftStatus: NotRequired[DraftStatusType]
+
+class DatasetVersionSummaryTypeDef(TypedDict):
+    datasetVersion: str
+    exampleCount: int
+    createdAt: datetime
+
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
     endpointName: str
@@ -1261,6 +1321,15 @@ class DeleteCodeInterpreterRequestTypeDef(TypedDict):
 
 class DeleteConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
+
+class DeleteDatasetExamplesRequestTypeDef(TypedDict):
+    datasetId: str
+    exampleIds: Sequence[str]
+    clientToken: NotRequired[str]
+
+class DeleteDatasetRequestTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: NotRequired[str]
 
 class DeleteEvaluatorRequestTypeDef(TypedDict):
     evaluatorId: str
@@ -1408,6 +1477,10 @@ class GetConfigurationBundleRequestTypeDef(TypedDict):
 class GetConfigurationBundleVersionRequestTypeDef(TypedDict):
     bundleId: str
     versionId: str
+
+class GetDatasetRequestTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: NotRequired[str]
 
 class GetEvaluatorRequestTypeDef(TypedDict):
     evaluatorId: str
@@ -1653,6 +1726,21 @@ class VersionFilterTypeDef(TypedDict):
     latestPerBranch: NotRequired[bool]
 
 class ListConfigurationBundlesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListDatasetExamplesRequestTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListDatasetVersionsRequestTypeDef(TypedDict):
+    datasetId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListDatasetsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -2116,6 +2204,16 @@ class UpdateApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
     apiKey: str
 
+class UpdateDatasetExamplesRequestTypeDef(TypedDict):
+    datasetId: str
+    examples: Sequence[Mapping[str, Any]]
+    clientToken: NotRequired[str]
+
+class UpdateDatasetRequestTypeDef(TypedDict):
+    datasetId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
 class UpdatedDescriptionTypeDef(TypedDict):
     optionalValue: NotRequired[str]
 
@@ -2135,142 +2233,14 @@ class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
 class A2aDescriptorTypeDef(TypedDict):
     agentCard: NotRequired[AgentCardDefinitionTypeDef]
 
-class HarnessEnvironmentArtifactTypeDef(TypedDict):
-    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
-
-class UpdatedSkillDefinitionTypeDef(TypedDict):
-    optionalValue: NotRequired[SkillDefinitionTypeDef]
-
-class AgentSkillsDescriptorTypeDef(TypedDict):
-    skillMd: NotRequired[SkillMdDefinitionTypeDef]
-    skillDefinition: NotRequired[SkillDefinitionTypeDef]
-
-class UpdatedSkillMdDefinitionTypeDef(TypedDict):
-    optionalValue: NotRequired[SkillMdDefinitionTypeDef]
-
-class ApiGatewayToolConfigurationOutputTypeDef(TypedDict):
-    toolFilters: list[ApiGatewayToolFilterOutputTypeDef]
-    toolOverrides: NotRequired[list[ApiGatewayToolOverrideTypeDef]]
-
-class ApiGatewayToolConfigurationTypeDef(TypedDict):
-    toolFilters: Sequence[ApiGatewayToolFilterTypeDef]
-    toolOverrides: NotRequired[Sequence[ApiGatewayToolOverrideTypeDef]]
-
-class ApiSchemaConfigurationTypeDef(TypedDict):
-    s3: NotRequired[S3ConfigurationTypeDef]
-    inlinePayload: NotRequired[str]
-
-class McpToolSchemaConfigurationTypeDef(TypedDict):
-    s3: NotRequired[S3ConfigurationTypeDef]
-    inlinePayload: NotRequired[str]
-
-class UpdatedApprovalConfigurationTypeDef(TypedDict):
-    optionalValue: NotRequired[ApprovalConfigurationTypeDef]
-
-class AuthorizationDataTypeDef(TypedDict):
-    oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
-
-class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
-    claimMatchValue: ClaimMatchValueTypeOutputTypeDef
-    claimMatchOperator: ClaimMatchOperatorTypeType
-
-class BedrockEvaluatorModelConfigOutputTypeDef(TypedDict):
-    modelId: str
-    inferenceConfig: NotRequired[InferenceConfigurationOutputTypeDef]
-    additionalModelRequestFields: NotRequired[dict[str, Any]]
-
-class BedrockEvaluatorModelConfigTypeDef(TypedDict):
-    modelId: str
-    inferenceConfig: NotRequired[InferenceConfigurationTypeDef]
-    additionalModelRequestFields: NotRequired[Mapping[str, Any]]
-
-class BrowserNetworkConfigurationOutputTypeDef(TypedDict):
-    networkMode: BrowserNetworkModeType
-    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-class CodeInterpreterNetworkConfigurationOutputTypeDef(TypedDict):
-    networkMode: CodeInterpreterNetworkModeType
-    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-class NetworkConfigurationOutputTypeDef(TypedDict):
-    networkMode: NetworkModeType
-    networkModeConfig: NotRequired[VpcConfigOutputTypeDef]
-
-class BrowserNetworkConfigurationTypeDef(TypedDict):
-    networkMode: BrowserNetworkModeType
-    vpcConfig: NotRequired[VpcConfigTypeDef]
-
-class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
-    networkMode: CodeInterpreterNetworkModeType
-    vpcConfig: NotRequired[VpcConfigTypeDef]
-
-VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
-
-class CertificateLocationTypeDef(TypedDict):
-    secretsManager: NotRequired[SecretsManagerLocationTypeDef]
-
-ClaimMatchValueTypeUnionTypeDef = Union[
-    ClaimMatchValueTypeTypeDef, ClaimMatchValueTypeOutputTypeDef
-]
-
-class DataSourceConfigOutputTypeDef(TypedDict):
-    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigOutputTypeDef]
-
-class DataSourceConfigTypeDef(TypedDict):
-    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigTypeDef]
-
-class OutputConfigTypeDef(TypedDict):
-    cloudWatchConfig: CloudWatchOutputConfigTypeDef
-
-class CodeBasedEvaluatorConfigTypeDef(TypedDict):
-    lambdaConfig: NotRequired[LambdaEvaluatorConfigTypeDef]
-
-class CodeTypeDef(TypedDict):
-    s3: NotRequired[S3LocationTypeDef]
-
-class RecordingConfigTypeDef(TypedDict):
-    enabled: NotRequired[bool]
-    s3Location: NotRequired[S3LocationTypeDef]
-
-class ResourceLocationTypeDef(TypedDict):
-    s3: NotRequired[S3LocationTypeDef]
-
-class CoinbaseCdpConfigurationOutputTypeDef(TypedDict):
-    apiKeyId: str
-    apiKeySecretArn: SecretTypeDef
-    walletSecretArn: SecretTypeDef
-
-class StripePrivyConfigurationOutputTypeDef(TypedDict):
-    appId: str
-    appSecretArn: SecretTypeDef
-    authorizationPrivateKeyArn: SecretTypeDef
-    authorizationId: str
-
-ComponentConfigurationUnionTypeDef = Union[
-    ComponentConfigurationTypeDef, ComponentConfigurationOutputTypeDef
-]
-
-class TrafficSplitEntryOutputTypeDef(TypedDict):
-    name: str
-    weight: int
-    configurationBundle: ConfigurationBundleReferenceTypeDef
-    description: NotRequired[str]
-    metadata: NotRequired[dict[str, str]]
-
-class TrafficSplitEntryTypeDef(TypedDict):
-    name: str
-    weight: int
-    configurationBundle: ConfigurationBundleReferenceTypeDef
-    description: NotRequired[str]
-    metadata: NotRequired[Mapping[str, str]]
-
-class KinesisResourceOutputTypeDef(TypedDict):
-    dataStreamArn: str
-    contentConfigurations: list[ContentConfigurationTypeDef]
-
-class KinesisResourceTypeDef(TypedDict):
-    dataStreamArn: str
-    contentConfigurations: Sequence[ContentConfigurationTypeDef]
+class AddDatasetExamplesResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    addedCount: int
+    updatedAt: datetime
+    exampleIds: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     targetVersion: str
@@ -2280,12 +2250,6 @@ class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     endpointName: str
     status: AgentRuntimeEndpointStatusType
     createdAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBrowserProfileResponseTypeDef(TypedDict):
@@ -2313,6 +2277,21 @@ class CreateConfigurationBundleResponseTypeDef(TypedDict):
     bundleArn: str
     bundleId: str
     versionId: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateDatasetResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateDatasetVersionResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    datasetVersion: str
     createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2384,6 +2363,22 @@ class DeleteCodeInterpreterResponseTypeDef(TypedDict):
 class DeleteConfigurationBundleResponseTypeDef(TypedDict):
     bundleId: str
     status: ConfigurationBundleStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteDatasetExamplesResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    deletedCount: int
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteDatasetResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    datasetVersion: str
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteEvaluatorResponseTypeDef(TypedDict):
@@ -2465,14 +2460,6 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
     },
 )
 
-class GetApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    createdTime: datetime
-    lastUpdatedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class GetBrowserProfileResponseTypeDef(TypedDict):
     profileId: str
     profileArn: str
@@ -2484,6 +2471,25 @@ class GetBrowserProfileResponseTypeDef(TypedDict):
     lastSavedAt: datetime
     lastSavedBrowserSessionId: str
     lastSavedBrowserId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDatasetResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    datasetVersion: str
+    datasetName: str
+    description: str
+    status: DatasetStatusType
+    draftStatus: DraftStatusType
+    failureReason: str
+    schemaType: DatasetSchemaTypeType
+    kmsKeyArn: str
+    exampleCount: int
+    downloadUrl: str
+    downloadUrlExpiresAt: datetime
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPolicyEngineResponseTypeDef(TypedDict):
@@ -2530,43 +2536,11 @@ class GetWorkloadIdentityResponseTypeDef(TypedDict):
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ListAgentRuntimeEndpointsResponseTypeDef(TypedDict):
-    runtimeEndpoints: list[AgentRuntimeEndpointTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAgentRuntimeVersionsResponseTypeDef(TypedDict):
-    agentRuntimes: list[AgentRuntimeTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAgentRuntimesResponseTypeDef(TypedDict):
-    agentRuntimes: list[AgentRuntimeTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListApiKeyCredentialProvidersResponseTypeDef(TypedDict):
-    credentialProviders: list[ApiKeyCredentialProviderItemTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListBrowserProfilesResponseTypeDef(TypedDict):
-    profileSummaries: list[BrowserProfileSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListBrowsersResponseTypeDef(TypedDict):
-    browserSummaries: list[BrowserSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListCodeInterpretersResponseTypeDef(TypedDict):
-    codeInterpreterSummaries: list[CodeInterpreterSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListConfigurationBundlesResponseTypeDef(TypedDict):
-    bundles: list[ConfigurationBundleSummaryTypeDef]
+class ListDatasetExamplesResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    datasetVersion: str
+    examples: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2596,18 +2570,24 @@ class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    createdTime: datetime
-    lastUpdatedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class UpdateConfigurationBundleResponseTypeDef(TypedDict):
     bundleArn: str
     bundleId: str
     versionId: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateDatasetExamplesResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    status: DatasetStatusType
+    updatedCount: int
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateDatasetResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2655,6 +2635,205 @@ class UpdateWorkloadIdentityResponseTypeDef(TypedDict):
     createdTime: datetime
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class HarnessEnvironmentArtifactTypeDef(TypedDict):
+    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
+
+class ListAgentRuntimeEndpointsResponseTypeDef(TypedDict):
+    runtimeEndpoints: list[AgentRuntimeEndpointTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAgentRuntimeVersionsResponseTypeDef(TypedDict):
+    agentRuntimes: list[AgentRuntimeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAgentRuntimesResponseTypeDef(TypedDict):
+    agentRuntimes: list[AgentRuntimeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdatedSkillDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[SkillDefinitionTypeDef]
+
+class AgentSkillsDescriptorTypeDef(TypedDict):
+    skillMd: NotRequired[SkillMdDefinitionTypeDef]
+    skillDefinition: NotRequired[SkillDefinitionTypeDef]
+
+class UpdatedSkillMdDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[SkillMdDefinitionTypeDef]
+
+class ApiGatewayToolConfigurationOutputTypeDef(TypedDict):
+    toolFilters: list[ApiGatewayToolFilterOutputTypeDef]
+    toolOverrides: NotRequired[list[ApiGatewayToolOverrideTypeDef]]
+
+class ApiGatewayToolConfigurationTypeDef(TypedDict):
+    toolFilters: Sequence[ApiGatewayToolFilterTypeDef]
+    toolOverrides: NotRequired[Sequence[ApiGatewayToolOverrideTypeDef]]
+
+class ListApiKeyCredentialProvidersResponseTypeDef(TypedDict):
+    credentialProviders: list[ApiKeyCredentialProviderItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ApiSchemaConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3ConfigurationTypeDef]
+    inlinePayload: NotRequired[str]
+
+class McpToolSchemaConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3ConfigurationTypeDef]
+    inlinePayload: NotRequired[str]
+
+class UpdatedApprovalConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[ApprovalConfigurationTypeDef]
+
+class AuthorizationDataTypeDef(TypedDict):
+    oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
+
+class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
+    claimMatchValue: ClaimMatchValueTypeOutputTypeDef
+    claimMatchOperator: ClaimMatchOperatorTypeType
+
+class BedrockEvaluatorModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationOutputTypeDef]
+    additionalModelRequestFields: NotRequired[dict[str, Any]]
+
+class BedrockEvaluatorModelConfigTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationTypeDef]
+    additionalModelRequestFields: NotRequired[Mapping[str, Any]]
+
+class BrowserNetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: BrowserNetworkModeType
+    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+class CodeInterpreterNetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: CodeInterpreterNetworkModeType
+    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+class NetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: NetworkModeType
+    networkModeConfig: NotRequired[VpcConfigOutputTypeDef]
+
+class BrowserNetworkConfigurationTypeDef(TypedDict):
+    networkMode: BrowserNetworkModeType
+    vpcConfig: NotRequired[VpcConfigTypeDef]
+
+class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
+    networkMode: CodeInterpreterNetworkModeType
+    vpcConfig: NotRequired[VpcConfigTypeDef]
+
+VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
+
+class ListBrowserProfilesResponseTypeDef(TypedDict):
+    profileSummaries: list[BrowserProfileSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListBrowsersResponseTypeDef(TypedDict):
+    browserSummaries: list[BrowserSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CertificateLocationTypeDef(TypedDict):
+    secretsManager: NotRequired[SecretsManagerLocationTypeDef]
+
+ClaimMatchValueTypeUnionTypeDef = Union[
+    ClaimMatchValueTypeTypeDef, ClaimMatchValueTypeOutputTypeDef
+]
+
+class DataSourceConfigOutputTypeDef(TypedDict):
+    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigOutputTypeDef]
+
+class DataSourceConfigTypeDef(TypedDict):
+    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigTypeDef]
+
+class OutputConfigTypeDef(TypedDict):
+    cloudWatchConfig: CloudWatchOutputConfigTypeDef
+
+class CodeBasedEvaluatorConfigTypeDef(TypedDict):
+    lambdaConfig: NotRequired[LambdaEvaluatorConfigTypeDef]
+
+class ListCodeInterpretersResponseTypeDef(TypedDict):
+    codeInterpreterSummaries: list[CodeInterpreterSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CodeTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
+
+class RecordingConfigTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    s3Location: NotRequired[S3LocationTypeDef]
+
+class ResourceLocationTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
+
+class CoinbaseCdpConfigurationOutputTypeDef(TypedDict):
+    apiKeyId: str
+    apiKeySecretArn: SecretTypeDef
+    walletSecretArn: SecretTypeDef
+
+class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StripePrivyConfigurationOutputTypeDef(TypedDict):
+    appId: str
+    appSecretArn: SecretTypeDef
+    authorizationPrivateKeyArn: SecretTypeDef
+    authorizationId: str
+
+class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ComponentConfigurationUnionTypeDef = Union[
+    ComponentConfigurationTypeDef, ComponentConfigurationOutputTypeDef
+]
+
+class TrafficSplitEntryOutputTypeDef(TypedDict):
+    name: str
+    weight: int
+    configurationBundle: ConfigurationBundleReferenceTypeDef
+    description: NotRequired[str]
+    metadata: NotRequired[dict[str, str]]
+
+class TrafficSplitEntryTypeDef(TypedDict):
+    name: str
+    weight: int
+    configurationBundle: ConfigurationBundleReferenceTypeDef
+    description: NotRequired[str]
+    metadata: NotRequired[Mapping[str, str]]
+
+class ListConfigurationBundlesResponseTypeDef(TypedDict):
+    bundles: list[ConfigurationBundleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class KinesisResourceOutputTypeDef(TypedDict):
+    dataStreamArn: str
+    contentConfigurations: list[ContentConfigurationTypeDef]
+
+class KinesisResourceTypeDef(TypedDict):
+    dataStreamArn: str
+    contentConfigurations: Sequence[ContentConfigurationTypeDef]
 
 class CreateAgentRuntimeResponseTypeDef(TypedDict):
     agentRuntimeArn: str
@@ -2749,6 +2928,20 @@ class CustomExtractionConfigurationTypeDef(TypedDict):
     semanticExtractionOverride: NotRequired[SemanticExtractionOverrideTypeDef]
     userPreferenceExtractionOverride: NotRequired[UserPreferenceExtractionOverrideTypeDef]
     episodicExtractionOverride: NotRequired[EpisodicExtractionOverrideTypeDef]
+
+class DataSourceTypeTypeDef(TypedDict):
+    inlineExamples: NotRequired[InlineExamplesSourceTypeDef]
+    s3Source: NotRequired[S3SourceTypeDef]
+
+class ListDatasetsResponseTypeDef(TypedDict):
+    datasets: list[DatasetSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListDatasetVersionsResponseTypeDef(TypedDict):
+    versions: list[DatasetVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListEvaluatorsResponseTypeDef(TypedDict):
     evaluators: list[EvaluatorSummaryTypeDef]
@@ -2967,6 +3160,18 @@ ListCodeInterpretersRequestPaginateTypeDef = TypedDict(
 )
 
 class ListConfigurationBundlesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDatasetExamplesRequestPaginateTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDatasetVersionsRequestPaginateTypeDef(TypedDict):
+    datasetId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDatasetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEvaluatorsRequestPaginateTypeDef(TypedDict):
@@ -3494,6 +3699,20 @@ class ModifyExtractionConfigurationTypeDef(TypedDict):
 
 class ExtractionConfigurationTypeDef(TypedDict):
     customExtractionConfiguration: NotRequired[CustomExtractionConfigurationTypeDef]
+
+class AddDatasetExamplesRequestTypeDef(TypedDict):
+    datasetId: str
+    source: DataSourceTypeTypeDef
+    clientToken: NotRequired[str]
+
+class CreateDatasetRequestTypeDef(TypedDict):
+    datasetName: str
+    source: DataSourceTypeTypeDef
+    schemaType: DatasetSchemaTypeType
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class HarnessAgentCoreRuntimeEnvironmentTypeDef(TypedDict):
     agentRuntimeArn: str

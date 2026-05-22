@@ -394,39 +394,70 @@ def plan_fastapi_jwt() -> list[FileSpec]:
     return [
         FileSpec(
             path="pyproject.toml",
-            role="Python project config with pinned current versions",
+            role=(
+                f"Python project pyproject.toml for FastAPI backend. "
+                f"REQUIRED EXACT VERSIONS: fastapi=={pyv['fastapi']}, uvicorn[standard]=={pyv['uvicorn']}, "
+                f"sqlmodel=={pyv['sqlmodel']}, sqlalchemy=={pyv['sqlalchemy']}, asyncpg=={pyv['asyncpg']}, "
+                f"alembic=={pyv['alembic']}, pydantic=={pyv['pydantic']}, pydantic-settings=={pyv['pydantic-settings']}, "
+                f"passlib[bcrypt]=={pyv['passlib']}, python-jose[cryptography]=={pyv['python-jose']}, "
+                f"python-multipart=={pyv['python-multipart']}. "
+                "Add ALL additional packages that this project requires. "
+                "dev extras: pytest, pytest-asyncio, httpx, ruff, mypy. "
+                "requires-python: >=3.11. asyncio_mode=auto. ruff line-length=100 target-version=py311."
+            ),
             language="toml",
-            template=_render_pyproject_fastapi(pyv),
         ),
         FileSpec(
             path=".env.example",
-            role="Environment variables template (no secrets)",
+            role=(
+                "Environment variables template for the FastAPI backend (no real secrets). "
+                "Include DATABASE_URL (postgresql+asyncpg), SECRET_KEY placeholder, "
+                "ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, CORS_ORIGINS. "
+                "Add any other env vars this specific project requires. "
+                "Comment each variable with a brief description."
+            ),
             language="env",
-            template=_ENV_FASTAPI_TEMPLATE,
         ),
         FileSpec(
             path=".gitignore",
-            role="Python project gitignore",
+            role=(
+                "Python project .gitignore. Include: __pycache__, *.pyc, .venv, venv, .env, "
+                ".pytest_cache, .mypy_cache, .ruff_cache, dist, build, .DS_Store, "
+                "and any other build artifacts for the packages in this project."
+            ),
             language="text",
-            template=_GITIGNORE_PYTHON,
         ),
         FileSpec(
             path="Dockerfile",
-            role="Multi-stage Dockerfile, non-root user, healthcheck",
+            role=(
+                "Multi-stage Dockerfile for the FastAPI backend. "
+                "Stage 1 (builder): python:3.12-slim, install all pyproject.toml dependencies. "
+                "Stage 2 (runtime): python:3.12-slim, non-root user (uid 10001), copy site-packages, "
+                "healthcheck on /health, CMD uvicorn on 0.0.0.0:8000. "
+                "PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1."
+            ),
             language="dockerfile",
-            template=_DOCKERFILE_FASTAPI,
         ),
         FileSpec(
             path="docker-compose.yml",
-            role="Compose: api + postgres with healthchecks",
+            role=(
+                "Docker Compose v3 for local dev: api service + postgres:17-alpine database. "
+                "Postgres with healthcheck (pg_isready). API depends_on db (condition: service_healthy). "
+                "API uses .env file. Named volume for postgres data. "
+                "Add any other services this project requires (Redis, etc.)."
+            ),
             language="yaml",
-            template=_COMPOSE_FASTAPI,
         ),
         FileSpec(
             path=".github/workflows/ci.yml",
-            role="CI: lint + test + build matrix",
+            role=(
+                "GitHub Actions CI workflow. On push/PR to main. "
+                "Test job: ubuntu-latest, postgres:17-alpine service with healthcheck. "
+                "Steps: checkout, setup-python 3.12 with pip cache, pip install -e '.[dev]', "
+                "ruff check, mypy, pytest. Set DATABASE_URL and SECRET_KEY env vars. "
+                "Add any other CI steps this project needs."
+            ),
             language="yaml",
-            template=_CI_PYTHON,
         ),
         FileSpec(
             path="README.md",
@@ -594,9 +625,14 @@ def plan_fastapi_jwt() -> list[FileSpec]:
         ),
         FileSpec(
             path="alembic.ini",
-            role="Alembic config pointing at env.py",
+            role=(
+                "Alembic configuration file. script_location = alembic. "
+                "prepend_sys_path = . so env.py can import app modules. "
+                "sqlalchemy.url placeholder (overridden at runtime by env.py from settings). "
+                "Standard loggers section for root, sqlalchemy, and alembic. "
+                "Console handler with generic formatter."
+            ),
             language="ini",
-            template=_ALEMBIC_INI,
         ),
         FileSpec(
             path="alembic/env.py",
@@ -612,9 +648,8 @@ def plan_fastapi_jwt() -> list[FileSpec]:
         ),
         FileSpec(
             path="tests/__init__.py",
-            role="empty package marker",
+            role="Empty Python package marker file. Output only a blank line.",
             language="python",
-            template="",
         ),
         FileSpec(
             path="tests/conftest.py",
@@ -649,33 +684,60 @@ def plan_react_frontend() -> list[FileSpec]:
     return [
         FileSpec(
             path="frontend/package.json",
-            role="React 19 + TS + Vite + Tailwind, current versions",
+            role=(
+                f"React {nv['react']} + TypeScript + Vite + Tailwind package.json. "
+                f"REQUIRED EXACT VERSIONS: react@^{nv['react']}, react-dom@^{nv['react-dom']}, "
+                f"typescript@^{nv['typescript']}, vite@^{nv['vite']}, "
+                f"@vitejs/plugin-react@^{nv['@vitejs/plugin-react']}, "
+                f"tailwindcss@^{nv['tailwindcss']}, react-router-dom@^{nv['react-router-dom']}, "
+                f"axios@^{nv['axios']}. "
+                "Add ALL additional packages that this project's source files import. "
+                "Scripts: dev=vite, build='tsc -b && vite build', preview=vite preview, test=vitest. "
+                "type: module. postcss and autoprefixer in devDependencies."
+            ),
             language="json",
-            template=_render_package_json_react(nv),
         ),
         FileSpec(
             path="frontend/tsconfig.json",
-            role="TS strict config for Vite + React",
+            role=(
+                "TypeScript compiler config for Vite + React. "
+                "target: ES2022, lib: [ES2022, DOM, DOM.Iterable], module: ESNext, "
+                "moduleResolution: bundler, jsx: react-jsx, strict: true, "
+                "noUnusedLocals: true, noUnusedParameters: true, skipLibCheck: true, "
+                "isolatedModules: true. Add path aliases (@ → src/) if the project uses them. "
+                "include: [src]."
+            ),
             language="json",
-            template=_TSCONFIG_REACT,
         ),
         FileSpec(
             path="frontend/vite.config.ts",
-            role="Vite config with React plugin + proxy to /api",
+            role=(
+                "Vite config for React + TypeScript. Include @vitejs/plugin-react plugin. "
+                "Dev server on port 5173 with proxy: /api → http://localhost:8000. "
+                "Add any other Vite plugins or config options required by this specific project "
+                "(e.g., path aliases, environment variable exposure, build options)."
+            ),
             language="typescript",
-            template=_VITE_CONFIG,
         ),
         FileSpec(
             path="frontend/tailwind.config.js",
-            role="Tailwind v3 config",
+            role=(
+                "Tailwind CSS v3 config. content: ['./index.html', './src/**/*.{ts,tsx,js,jsx}']. "
+                "Include ALL Tailwind plugins this project uses (e.g., daisyui, @tailwindcss/forms, "
+                "@tailwindcss/typography). Configure theme.extend with any custom colors, fonts, "
+                "or spacing values needed by this project's design."
+            ),
             language="javascript",
-            template=_TAILWIND_CONFIG,
         ),
         FileSpec(
             path="frontend/index.html",
-            role="Vite HTML shell",
+            role=(
+                "Vite HTML entry point. DOCTYPE html, lang=en, charset=UTF-8, viewport meta tag. "
+                "Title reflecting this project. Body with id=root div. "
+                "Script tag loading /src/main.tsx as type=module. "
+                "Add any other meta tags, link tags, or scripts this project needs."
+            ),
             language="html",
-            template=_VITE_INDEX_HTML,
         ),
         FileSpec(
             path="frontend/src/main.tsx",
@@ -752,9 +814,13 @@ def plan_react_frontend() -> list[FileSpec]:
         ),
         FileSpec(
             path="frontend/src/index.css",
-            role="Tailwind base + components + utilities",
+            role=(
+                "Global CSS entry point importing Tailwind directives: "
+                "@tailwind base; @tailwind components; @tailwind utilities;. "
+                "Add any global custom CSS rules or CSS variables this project requires "
+                "(e.g., custom color tokens, font-face declarations, base element resets)."
+            ),
             language="css",
-            template=_TAILWIND_INDEX_CSS,
         ),
     ]
 
@@ -844,354 +910,6 @@ def plan_for_task(task: str) -> tuple[str, list[FileSpec]]:
     return stack, primary_files
 
 
-# ---------------------------------------------------------------------------
-# Templates (deterministic, principal-grade)
-# ---------------------------------------------------------------------------
-
-
-def _render_pyproject_fastapi(v: dict[str, str]) -> str:
-    return textwrap.dedent(
-        f"""\
-        [project]
-        name = "fastapi-jwt-auth"
-        version = "0.1.0"
-        description = "Production-grade FastAPI backend with JWT auth"
-        requires-python = ">=3.11"
-        dependencies = [
-            "fastapi=={v['fastapi']}",
-            "uvicorn[standard]=={v['uvicorn']}",
-            "sqlmodel=={v['sqlmodel']}",
-            "sqlalchemy=={v['sqlalchemy']}",
-            "asyncpg=={v['asyncpg']}",
-            "alembic=={v['alembic']}",
-            "pydantic=={v['pydantic']}",
-            "pydantic-settings=={v['pydantic-settings']}",
-            "passlib[bcrypt]=={v['passlib']}",
-            "python-jose[cryptography]=={v['python-jose']}",
-            "python-multipart=={v['python-multipart']}",
-        ]
-
-        [project.optional-dependencies]
-        dev = [
-            "pytest=={v['pytest']}",
-            "pytest-asyncio=={v['pytest-asyncio']}",
-            "httpx=={v['httpx']}",
-            "ruff>=0.8.0",
-            "mypy>=1.13.0",
-        ]
-
-        [tool.pytest.ini_options]
-        asyncio_mode = "auto"
-        testpaths = ["tests"]
-
-        [tool.ruff]
-        line-length = 100
-        target-version = "py311"
-
-        [tool.mypy]
-        python_version = "3.11"
-        strict = true
-        """
-    )
-
-
-_ENV_FASTAPI_TEMPLATE = textwrap.dedent(
-    """\
-    # Copy to .env and fill in real values. NEVER commit .env.
-    DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/app
-    SECRET_KEY=change-me-to-a-real-secret-min-32-chars
-    ACCESS_TOKEN_EXPIRE_MINUTES=30
-    JWT_ALGORITHM=HS256
-    CORS_ORIGINS=http://localhost:5173
-    """
-)
-
-
-_GITIGNORE_PYTHON = textwrap.dedent(
-    """\
-    __pycache__/
-    *.py[cod]
-    *.egg-info/
-    .venv/
-    venv/
-    .env
-    .env.local
-    .pytest_cache/
-    .mypy_cache/
-    .ruff_cache/
-    htmlcov/
-    .coverage
-    dist/
-    build/
-    node_modules/
-    .DS_Store
-    """
-)
-
-
-_DOCKERFILE_FASTAPI = textwrap.dedent(
-    """\
-    # syntax=docker/dockerfile:1.7
-    FROM python:3.12-slim AS builder
-    ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
-    WORKDIR /app
-    RUN apt-get update && apt-get install -y --no-install-recommends \\
-            build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
-    COPY pyproject.toml ./
-    RUN pip install --upgrade pip && pip install .
-
-    FROM python:3.12-slim AS runtime
-    ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-    RUN apt-get update && apt-get install -y --no-install-recommends \\
-            libpq5 curl && rm -rf /var/lib/apt/lists/* && \\
-        adduser --disabled-password --gecos '' --uid 10001 app
-    WORKDIR /app
-    COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-    COPY --from=builder /usr/local/bin /usr/local/bin
-    COPY . .
-    USER app
-    EXPOSE 8000
-    HEALTHCHECK --interval=30s --timeout=3s --retries=3 \\
-        CMD curl -f http://localhost:8000/health || exit 1
-    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    """
-)
-
-
-_COMPOSE_FASTAPI = textwrap.dedent(
-    """\
-    services:
-      db:
-        image: postgres:17-alpine
-        environment:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: app
-        ports: ["5432:5432"]
-        volumes: ["pgdata:/var/lib/postgresql/data"]
-        healthcheck:
-          test: ["CMD-SHELL", "pg_isready -U postgres"]
-          interval: 5s
-          timeout: 3s
-          retries: 10
-
-      api:
-        build: .
-        env_file: .env
-        environment:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/app
-        ports: ["8000:8000"]
-        depends_on:
-          db:
-            condition: service_healthy
-        healthcheck:
-          test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-          interval: 30s
-          timeout: 3s
-          retries: 3
-
-    volumes:
-      pgdata:
-    """
-)
-
-
-_CI_PYTHON = textwrap.dedent(
-    """\
-    name: ci
-    on:
-      push: { branches: [main] }
-      pull_request: { branches: [main] }
-    jobs:
-      test:
-        runs-on: ubuntu-latest
-        services:
-          postgres:
-            image: postgres:17-alpine
-            env:
-              POSTGRES_USER: postgres
-              POSTGRES_PASSWORD: postgres
-              POSTGRES_DB: app
-            ports: ["5432:5432"]
-            options: >-
-              --health-cmd "pg_isready -U postgres"
-              --health-interval 5s
-              --health-timeout 3s
-              --health-retries 10
-        steps:
-          - uses: actions/checkout@v4
-          - uses: actions/setup-python@v5
-            with: { python-version: "3.12", cache: pip }
-          - run: pip install -e ".[dev]"
-          - run: ruff check .
-          - run: mypy app
-          - run: pytest -q
-            env:
-              DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app
-              SECRET_KEY: test-secret-key-min-32-chars-long-abc
-    """
-)
-
-
-_ALEMBIC_INI = textwrap.dedent(
-    """\
-    [alembic]
-    script_location = alembic
-    prepend_sys_path = .
-    sqlalchemy.url = driver://user:pass@localhost/dbname
-
-    [loggers]
-    keys = root,sqlalchemy,alembic
-
-    [handlers]
-    keys = console
-
-    [formatters]
-    keys = generic
-
-    [logger_root]
-    level = WARN
-    handlers = console
-
-    [logger_sqlalchemy]
-    level = WARN
-    handlers =
-    qualname = sqlalchemy.engine
-
-    [logger_alembic]
-    level = INFO
-    handlers =
-    qualname = alembic
-
-    [handler_console]
-    class = StreamHandler
-    args = (sys.stderr,)
-    level = NOTSET
-    formatter = generic
-
-    [formatter_generic]
-    format = %(levelname)-5.5s [%(name)s] %(message)s
-    """
-)
-
-
-def _render_package_json_react(v: dict[str, str]) -> str:
-    return json.dumps(
-        {
-            "name": "frontend",
-            "private": True,
-            "version": "0.1.0",
-            "type": "module",
-            "scripts": {
-                "dev": "vite",
-                "build": "tsc -b && vite build",
-                "preview": "vite preview",
-                "test": "vitest",
-                "lint": "eslint .",
-            },
-            "dependencies": {
-                "react": f"^{v['react']}",
-                "react-dom": f"^{v['react-dom']}",
-                "react-router-dom": f"^{v['react-router-dom']}",
-                "axios": f"^{v['axios']}",
-            },
-            "devDependencies": {
-                "@types/react": f"^{v['@types/react']}",
-                "@types/react-dom": f"^{v['@types/react-dom']}",
-                "@vitejs/plugin-react": f"^{v['@vitejs/plugin-react']}",
-                "typescript": f"^{v['typescript']}",
-                "vite": f"^{v['vite']}",
-                "tailwindcss": f"^{v['tailwindcss']}",
-                "postcss": "^8.4.49",
-                "autoprefixer": "^10.4.20",
-                "vitest": f"^{v['vitest']}",
-                "@testing-library/react": f"^{v['@testing-library/react']}",
-            },
-        },
-        indent=2,
-    ) + "\n"
-
-
-_TSCONFIG_REACT = textwrap.dedent(
-    """\
-    {
-      "compilerOptions": {
-        "target": "ES2022",
-        "lib": ["ES2022", "DOM", "DOM.Iterable"],
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "jsx": "react-jsx",
-        "strict": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noFallthroughCasesInSwitch": true,
-        "isolatedModules": true,
-        "skipLibCheck": true,
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "resolveJsonModule": true,
-        "useDefineForClassFields": true
-      },
-      "include": ["src"]
-    }
-    """
-)
-
-
-_VITE_CONFIG = textwrap.dedent(
-    """\
-    import { defineConfig } from "vite";
-    import react from "@vitejs/plugin-react";
-
-    export default defineConfig({
-      plugins: [react()],
-      server: {
-        port: 5173,
-        proxy: { "/api": { target: "http://localhost:8000", changeOrigin: true } },
-      },
-    });
-    """
-)
-
-
-_TAILWIND_CONFIG = textwrap.dedent(
-    """\
-    /** @type {import('tailwindcss').Config} */
-    export default {
-      content: ["./index.html", "./src/**/*.{ts,tsx}"],
-      theme: { extend: {} },
-      plugins: [],
-    };
-    """
-)
-
-
-_VITE_INDEX_HTML = textwrap.dedent(
-    """\
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>App</title>
-      </head>
-      <body class="bg-slate-50">
-        <div id="root"></div>
-        <script type="module" src="/src/main.tsx"></script>
-      </body>
-    </html>
-    """
-)
-
-
-_TAILWIND_INDEX_CSS = textwrap.dedent(
-    """\
-    @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
-    """
-)
-
 
 # ---------------------------------------------------------------------------
 # Go microservices plan
@@ -1209,27 +927,42 @@ def plan_go_microservices() -> list[FileSpec]:
         ),
         FileSpec(
             path="docker-compose.yml",
-            role="All 5 services + postgres + redis with healthchecks",
+            role=(
+                f"Docker Compose for Go microservices: {', '.join(services)} services + postgres:17-alpine + redis:7-alpine. "
+                "Each service: build from its own directory, DATABASE_URL and REDIS_URL env vars, "
+                "JWT_SECRET from environment, healthcheck on /health, depends_on db (service_healthy). "
+                "Postgres with pg_isready healthcheck and named pgdata volume. "
+                "Ports: each service on a unique host port starting at 8081."
+            ),
             language="yaml",
-            template=_render_go_compose(services),
         ),
         FileSpec(
             path="Makefile",
-            role="build / test / lint / up / down targets",
+            role=(
+                f"Makefile for Go microservices project with services: {', '.join(services)}. "
+                "Targets: build (go build all services), test (go test -race -count=1 all services), "
+                "lint (go vet all services), up (docker compose up --build -d), down (docker compose down -v). "
+                "Use SERVICES variable and shell loop to iterate over services."
+            ),
             language="make",
-            template=_GO_MAKEFILE,
         ),
         FileSpec(
             path=".gitignore",
-            role="Go gitignore",
+            role=(
+                "Go project .gitignore. Include: vendor/, *.exe, *.test, *.out, .env, "
+                "and any other Go build artifacts."
+            ),
             language="text",
-            template="vendor/\n*.exe\n*.test\n*.out\n.env\n",
         ),
         FileSpec(
             path=".github/workflows/ci.yml",
-            role="Go CI: vet, lint, test, build per service",
+            role=(
+                f"GitHub Actions CI for Go microservices. On push/PR to main. "
+                f"Matrix strategy over services: {services}. "
+                "Each job: ubuntu-latest, setup-go 1.23 with cache, "
+                "cd into service directory, run go vet ./... and go test -race -count=1 ./..."
+            ),
             language="yaml",
-            template=_CI_GO,
         ),
     ]
     for svc in services:
@@ -1241,15 +974,29 @@ def _plan_one_go_service(svc: str, v: dict[str, str]) -> list[FileSpec]:
     return [
         FileSpec(
             path=f"{svc}-service/go.mod",
-            role=f"{svc} service go.mod with current deps",
+            role=(
+                f"Go module file for ecommerce/{svc}-service. "
+                f"go {v['go_version']}. "
+                f"REQUIRED EXACT VERSIONS: github.com/gin-gonic/gin {v['gin']}, "
+                f"github.com/jackc/pgx/v5 {v['pgx']}, "
+                f"github.com/redis/go-redis/v9 {v['redis']}, "
+                f"github.com/golang-jwt/jwt/v5 {v['jwt']}, "
+                f"golang.org/x/crypto {v['bcrypt']}, "
+                f"github.com/stretchr/testify {v['testify']}. "
+                "Add any other packages the service imports."
+            ),
             language="go-mod",
-            template=_render_go_mod(svc, v),
         ),
         FileSpec(
             path=f"{svc}-service/Dockerfile",
-            role=f"Multi-stage Go Dockerfile, distroless runtime, non-root",
+            role=(
+                f"Multi-stage Dockerfile for the {svc} Go service. "
+                f"Stage 1 (build): golang:1.23-alpine, CGO_ENABLED=0 GOOS=linux, "
+                f"build -trimpath -ldflags='-s -w' -o /out/{svc}-service ./cmd. "
+                f"Stage 2 (runtime): gcr.io/distroless/static-debian12:nonroot, "
+                f"copy binary, EXPOSE 8080, USER nonroot:nonroot, ENTRYPOINT ['/{svc}-service']."
+            ),
             language="dockerfile",
-            template=_render_go_dockerfile(svc),
         ),
         FileSpec(
             path=f"{svc}-service/cmd/main.go",
@@ -1279,141 +1026,6 @@ def _plan_one_go_service(svc: str, v: dict[str, str]) -> list[FileSpec]:
     ]
 
 
-def _render_go_mod(svc: str, v: dict[str, str]) -> str:
-    return textwrap.dedent(
-        f"""\
-        module ecommerce/{svc}-service
-
-        go {v['go_version']}
-
-        require (
-            github.com/gin-gonic/gin {v['gin']}
-            github.com/jackc/pgx/v5 {v['pgx']}
-            github.com/redis/go-redis/v9 {v['redis']}
-            github.com/golang-jwt/jwt/v5 {v['jwt']}
-            golang.org/x/crypto {v['bcrypt']}
-            github.com/stretchr/testify {v['testify']}
-        )
-        """
-    )
-
-
-def _render_go_dockerfile(svc: str) -> str:
-    return textwrap.dedent(
-        f"""\
-        # syntax=docker/dockerfile:1.7
-        FROM golang:1.23-alpine AS build
-        WORKDIR /src
-        COPY go.mod ./
-        RUN go mod download || true
-        COPY . .
-        RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/{svc}-service ./cmd
-
-        FROM gcr.io/distroless/static-debian12:nonroot
-        COPY --from=build /out/{svc}-service /{svc}-service
-        EXPOSE 8080
-        USER nonroot:nonroot
-        ENTRYPOINT ["/{svc}-service"]
-        """
-    )
-
-
-def _render_go_compose(services: list[str]) -> str:
-    lines = ["services:"]
-    port = 8081
-    for svc in services:
-        lines.append(
-            textwrap.dedent(
-                f"""\
-                  {svc}-service:
-                    build: ./{svc}-service
-                    environment:
-                      DATABASE_URL: postgres://postgres:postgres@db:5432/{svc}?sslmode=disable
-                      REDIS_URL: redis://redis:6379
-                      JWT_SECRET: ${{JWT_SECRET}}
-                    ports: ["{port}:8080"]
-                    depends_on:
-                      db: {{ condition: service_healthy }}
-                      redis: {{ condition: service_started }}
-                    healthcheck:
-                      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-                      interval: 30s
-                      timeout: 3s
-                      retries: 3
-                """
-            )
-        )
-        port += 1
-    lines.append(
-        textwrap.dedent(
-            """\
-              db:
-                image: postgres:17-alpine
-                environment:
-                  POSTGRES_USER: postgres
-                  POSTGRES_PASSWORD: postgres
-                  POSTGRES_DB: postgres
-                volumes: ["pgdata:/var/lib/postgresql/data"]
-                healthcheck:
-                  test: ["CMD-SHELL", "pg_isready -U postgres"]
-                  interval: 5s
-                  timeout: 3s
-                  retries: 10
-              redis:
-                image: redis:7-alpine
-            volumes:
-              pgdata:
-            """
-        )
-    )
-    return "\n".join(lines)
-
-
-_GO_MAKEFILE = textwrap.dedent(
-    """\
-    SERVICES := user product cart order payment
-
-    .PHONY: build test lint up down
-
-    build:
-    \tfor s in $(SERVICES); do (cd $$s-service && go build ./...); done
-
-    test:
-    \tfor s in $(SERVICES); do (cd $$s-service && go test -race -count=1 ./...); done
-
-    lint:
-    \tfor s in $(SERVICES); do (cd $$s-service && go vet ./...); done
-
-    up:
-    \tdocker compose up --build -d
-
-    down:
-    \tdocker compose down -v
-    """
-)
-
-
-_CI_GO = textwrap.dedent(
-    """\
-    name: ci
-    on:
-      push: { branches: [main] }
-      pull_request: { branches: [main] }
-    jobs:
-      test:
-        runs-on: ubuntu-latest
-        strategy:
-          matrix:
-            service: [user, product, cart, order, payment]
-        steps:
-          - uses: actions/checkout@v4
-          - uses: actions/setup-go@v5
-            with: { go-version: "1.23", cache: true }
-          - run: cd ${{ matrix.service }}-service && go vet ./... && go test -race -count=1 ./...
-    """
-)
-
-
 # ---------------------------------------------------------------------------
 # Android Compose plan
 # ---------------------------------------------------------------------------
@@ -1424,33 +1036,57 @@ def plan_android_compose() -> list[FileSpec]:
     return [
         FileSpec(
             path="settings.gradle.kts",
-            role="Project settings: include :app",
+            role=(
+                "Android project settings.gradle.kts. "
+                "pluginManagement block with gradlePluginPortal, google, mavenCentral repositories. "
+                "dependencyResolutionManagement with FAIL_ON_PROJECT_REPOS mode and google + mavenCentral repos. "
+                "rootProject.name = 'myapp'. include(':app')."
+            ),
             language="kotlin",
-            template='pluginManagement {\n    repositories { gradlePluginPortal(); google(); mavenCentral() }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n    repositories { google(); mavenCentral() }\n}\nrootProject.name = "myapp"\ninclude(":app")\n',
         ),
         FileSpec(
             path="build.gradle.kts",
-            role="Top-level Gradle, AGP + Kotlin + Hilt plugin versions",
+            role=(
+                "Top-level build.gradle.kts for Android project. "
+                f"Plugin declarations (apply false): com.android.application version {v['agp']}, "
+                f"org.jetbrains.kotlin.android version {v['kotlin']}, "
+                f"com.google.dagger.hilt.android version {v['hilt']}, "
+                "com.google.devtools.ksp version matching kotlin version."
+            ),
             language="kotlin",
-            template=_render_top_build_gradle(v),
         ),
         FileSpec(
             path="gradle.properties",
-            role="Build flags",
+            role=(
+                "Android Gradle properties. "
+                "org.gradle.jvmargs=-Xmx2048m. android.useAndroidX=true. "
+                "kotlin.code.style=official. Add any other flags needed for this project."
+            ),
             language="text",
-            template="org.gradle.jvmargs=-Xmx2048m\nandroid.useAndroidX=true\nkotlin.code.style=official\n",
         ),
         FileSpec(
             path="app/build.gradle.kts",
-            role="App module: Compose BOM, Hilt, Retrofit, Room, current versions",
+            role=(
+                "App module build.gradle.kts for Android Compose project. "
+                f"Plugins: com.android.application, org.jetbrains.kotlin.android, "
+                f"com.google.dagger.hilt.android, com.google.devtools.ksp. "
+                f"compileSdk={v['compile_sdk']}, minSdk={v['min_sdk']}, targetSdk={v['target_sdk']}. "
+                f"buildFeatures.compose=true, composeOptions.kotlinCompilerExtensionVersion={v['compose_compiler']}. "
+                f"REQUIRED: androidx.compose:compose-bom:{v['compose_bom']}, "
+                f"hilt-android:{v['hilt']}, retrofit:{v['retrofit']}, room-runtime:{v['room']}, "
+                f"kotlinx-coroutines-android:{v['coroutines']}. "
+                "kotlinOptions.jvmTarget='17'. Add all other dependencies this app needs."
+            ),
             language="kotlin",
-            template=_render_app_build_gradle(v),
         ),
         FileSpec(
             path="app/proguard-rules.pro",
-            role="ProGuard rules for Retrofit + Hilt",
+            role=(
+                "ProGuard rules for Android app. "
+                "Keep Retrofit interface signatures and Kotlin coroutine continuation classes. "
+                "Keep Hilt-generated classes. Add any other keep rules for libraries this app uses."
+            ),
             language="text",
-            template="-keepattributes Signature, InnerClasses, EnclosingMethod\n-keep,allowobfuscation,allowshrinking interface retrofit2.Call\n-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation\n",
         ),
         FileSpec(
             path="app/src/main/AndroidManifest.xml",
@@ -1516,90 +1152,6 @@ def plan_android_compose() -> list[FileSpec]:
     ]
 
 
-def _render_top_build_gradle(v: dict[str, str]) -> str:
-    return textwrap.dedent(
-        f"""\
-        plugins {{
-            id("com.android.application") version "{v['agp']}" apply false
-            id("org.jetbrains.kotlin.android") version "{v['kotlin']}" apply false
-            id("com.google.dagger.hilt.android") version "{v['hilt']}" apply false
-            id("com.google.devtools.ksp") version "2.1.0-1.0.29" apply false
-        }}
-        """
-    )
-
-
-def _render_app_build_gradle(v: dict[str, str]) -> str:
-    return textwrap.dedent(
-        f"""\
-        plugins {{
-            id("com.android.application")
-            id("org.jetbrains.kotlin.android")
-            id("com.google.dagger.hilt.android")
-            id("com.google.devtools.ksp")
-        }}
-
-        android {{
-            namespace = "com.example.myapp"
-            compileSdk = {v['compile_sdk']}
-
-            defaultConfig {{
-                applicationId = "com.example.myapp"
-                minSdk = {v['min_sdk']}
-                targetSdk = {v['target_sdk']}
-                versionCode = 1
-                versionName = "1.0"
-                testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-            }}
-
-            buildFeatures {{ compose = true }}
-            composeOptions {{ kotlinCompilerExtensionVersion = "{v['compose_compiler']}" }}
-
-            buildTypes {{
-                release {{
-                    isMinifyEnabled = true
-                    proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-                }}
-            }}
-
-            kotlinOptions {{ jvmTarget = "17" }}
-            compileOptions {{
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
-            }}
-        }}
-
-        dependencies {{
-            implementation(platform("androidx.compose:compose-bom:{v['compose_bom']}"))
-            implementation("androidx.compose.ui:ui")
-            implementation("androidx.compose.material3:material3")
-            implementation("androidx.compose.ui:ui-tooling-preview")
-            implementation("androidx.activity:activity-compose:1.9.3")
-            implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-            implementation("androidx.navigation:navigation-compose:2.8.5")
-
-            implementation("com.google.dagger:hilt-android:{v['hilt']}")
-            ksp("com.google.dagger:hilt-compiler:{v['hilt']}")
-            implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-
-            implementation("com.squareup.retrofit2:retrofit:{v['retrofit']}")
-            implementation("com.squareup.retrofit2:converter-gson:{v['retrofit']}")
-            implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-            implementation("androidx.room:room-runtime:{v['room']}")
-            implementation("androidx.room:room-ktx:{v['room']}")
-            ksp("androidx.room:room-compiler:{v['room']}")
-
-            implementation("androidx.datastore:datastore-preferences:1.1.1")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:{v['coroutines']}")
-
-            testImplementation("junit:junit:4.13.2")
-            testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:{v['coroutines']}")
-        }}
-        """
-    )
-
-
 # ---------------------------------------------------------------------------
 # Rust + Axum plan
 # ---------------------------------------------------------------------------
@@ -1607,102 +1159,59 @@ def _render_app_build_gradle(v: dict[str, str]) -> str:
 
 def plan_rust_axum() -> list[FileSpec]:
     v = CURRENT_VERSIONS["rust"]
-    cargo_toml = textwrap.dedent(
-        f"""\
-        [package]
-        name = "analytics"
-        version = "0.1.0"
-        edition = "{v['rust_edition']}"
-
-        [dependencies]
-        tokio = {{ version = "{v['tokio']}", features = ["full"] }}
-        axum = "{v['axum']}"
-        serde = {{ version = "{v['serde']}", features = ["derive"] }}
-        serde_json = "1.0"
-        sqlx = {{ version = "{v['sqlx']}", features = ["runtime-tokio-rustls", "postgres", "macros", "chrono"] }}
-        tracing = "{v['tracing']}"
-        tracing-subscriber = {{ version = "0.3", features = ["env-filter"] }}
-        anyhow = "1.0"
-        thiserror = "2.0"
-        chrono = {{ version = "0.4", features = ["serde"] }}
-        dotenvy = "0.15"
-
-        [dev-dependencies]
-        tokio = {{ version = "{v['tokio']}", features = ["full", "test-util"] }}
-        reqwest = {{ version = "0.12", features = ["json"] }}
-        """
-    )
-    dockerfile = textwrap.dedent(
-        """\
-        # syntax=docker/dockerfile:1.7
-        FROM rust:1.83-alpine AS build
-        RUN apk add --no-cache musl-dev openssl-dev pkgconfig
-        WORKDIR /src
-        COPY Cargo.toml ./
-        RUN mkdir src && echo "fn main(){}" > src/main.rs && cargo build --release && rm -rf src
-        COPY . .
-        RUN cargo build --release
-
-        FROM gcr.io/distroless/cc-debian12:nonroot
-        COPY --from=build /src/target/release/analytics /analytics
-        EXPOSE 8080
-        USER nonroot:nonroot
-        ENTRYPOINT ["/analytics"]
-        """
-    )
     return [
         FileSpec(
-            path="Cargo.toml", role="Cargo with current versions", language="toml",
-            template=cargo_toml,
+            path="Cargo.toml",
+            role=(
+                f"Rust Cargo.toml for Axum analytics backend. edition={v['rust_edition']}. "
+                f"REQUIRED EXACT VERSIONS: tokio={v['tokio']} (features=[full]), "
+                f"axum={v['axum']}, serde={v['serde']} (features=[derive]), serde_json=1.0, "
+                f"sqlx={v['sqlx']} (features=[runtime-tokio-rustls, postgres, macros, chrono]), "
+                f"tracing={v['tracing']}, tracing-subscriber=0.3 (features=[env-filter]), "
+                "anyhow=1.0, thiserror=2.0, chrono=0.4 (features=[serde]), dotenvy=0.15. "
+                "dev-dependencies: tokio with test-util feature, reqwest=0.12 (features=[json]). "
+                "Add ALL additional packages this project requires."
+            ),
+            language="toml",
         ),
-        FileSpec(path=".gitignore", role="Rust gitignore", language="text",
-                 template="target/\n*.lock\n.env\n"),
-        FileSpec(path="Dockerfile", role="Multi-stage Rust Dockerfile", language="dockerfile",
-                 template=dockerfile),
+        FileSpec(
+            path=".gitignore",
+            role=(
+                "Rust project .gitignore. Include: target/, *.lock, .env, "
+                "and any other Rust/Cargo build artifacts."
+            ),
+            language="text",
+        ),
+        FileSpec(
+            path="Dockerfile",
+            role=(
+                "Multi-stage Dockerfile for the Rust Axum analytics service. "
+                "Stage 1 (build): rust:1.83-alpine, apk add musl-dev openssl-dev pkgconfig, "
+                "dependency pre-build trick (dummy main.rs) for layer caching, "
+                "then full cargo build --release. "
+                "Stage 2 (runtime): gcr.io/distroless/cc-debian12:nonroot, "
+                "copy binary, EXPOSE 8080, USER nonroot:nonroot."
+            ),
+            language="dockerfile",
+        ),
         FileSpec(
             path="docker-compose.yml",
-            role="App + postgres for analytics",
+            role=(
+                "Docker Compose for Rust analytics service: app + postgres:17-alpine. "
+                "Postgres with pg_isready healthcheck. App depends_on db (service_healthy). "
+                "DATABASE_URL env var pointing to postgres container. "
+                "Named volume for postgres data."
+            ),
             language="yaml",
-            template=textwrap.dedent("""\
-                services:
-                  db:
-                    image: postgres:17-alpine
-                    environment:
-                      POSTGRES_USER: postgres
-                      POSTGRES_PASSWORD: postgres
-                      POSTGRES_DB: analytics
-                    ports: ["5432:5432"]
-                    healthcheck:
-                      test: ["CMD-SHELL", "pg_isready -U postgres"]
-                      interval: 5s
-                      retries: 10
-                  app:
-                    build: .
-                    environment:
-                      DATABASE_URL: postgres://postgres:postgres@db:5432/analytics
-                    ports: ["8080:8080"]
-                    depends_on:
-                      db: { condition: service_healthy }
-                """),
         ),
         FileSpec(
             path=".github/workflows/ci.yml",
-            role="Rust CI: fmt, clippy, test",
+            role=(
+                "GitHub Actions CI for Rust project. On push/PR to main. "
+                "ubuntu-latest. Steps: checkout, dtolnay/rust-toolchain@stable with rustfmt and clippy, "
+                "cargo fmt --check, cargo clippy -- -D warnings, cargo test --all."
+            ),
             language="yaml",
-            template=textwrap.dedent("""\
-                name: ci
-                on: { push: { branches: [main] }, pull_request: { branches: [main] } }
-                jobs:
-                  test:
-                    runs-on: ubuntu-latest
-                    steps:
-                      - uses: actions/checkout@v4
-                      - uses: dtolnay/rust-toolchain@stable
-                        with: { components: rustfmt, clippy }
-                      - run: cargo fmt --check
-                      - run: cargo clippy -- -D warnings
-                      - run: cargo test --all
-                """),
         ),
         FileSpec(path="README.md", role="Architecture, run, scaling tradeoffs",
                  language="markdown"),
@@ -1753,144 +1262,61 @@ def plan_rust_axum() -> list[FileSpec]:
 
 def plan_spring_boot() -> list[FileSpec]:
     v = CURRENT_VERSIONS["java"]
-    pom = textwrap.dedent(
-        f"""\
-        <?xml version="1.0" encoding="UTF-8"?>
-        <project xmlns="http://maven.apache.org/POM/4.0.0">
-          <modelVersion>4.0.0</modelVersion>
-          <parent>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-parent</artifactId>
-            <version>{v['spring_boot']}</version>
-            <relativePath/>
-          </parent>
-          <groupId>com.example</groupId>
-          <artifactId>banking</artifactId>
-          <version>0.1.0</version>
-          <properties>
-            <java.version>{v['java_version']}</java.version>
-          </properties>
-          <dependencies>
-            <dependency>
-              <groupId>org.springframework.boot</groupId>
-              <artifactId>spring-boot-starter-web</artifactId>
-            </dependency>
-            <dependency>
-              <groupId>org.springframework.boot</groupId>
-              <artifactId>spring-boot-starter-security</artifactId>
-            </dependency>
-            <dependency>
-              <groupId>org.springframework.boot</groupId>
-              <artifactId>spring-boot-starter-data-jpa</artifactId>
-            </dependency>
-            <dependency>
-              <groupId>org.springframework.boot</groupId>
-              <artifactId>spring-boot-starter-validation</artifactId>
-            </dependency>
-            <dependency>
-              <groupId>org.postgresql</groupId>
-              <artifactId>postgresql</artifactId>
-              <scope>runtime</scope>
-            </dependency>
-            <dependency>
-              <groupId>org.springframework.boot</groupId>
-              <artifactId>spring-boot-starter-test</artifactId>
-              <scope>test</scope>
-            </dependency>
-            <dependency>
-              <groupId>org.springframework.security</groupId>
-              <artifactId>spring-security-test</artifactId>
-              <scope>test</scope>
-            </dependency>
-            <dependency>
-              <groupId>io.jsonwebtoken</groupId>
-              <artifactId>jjwt-api</artifactId>
-              <version>0.12.6</version>
-            </dependency>
-            <dependency>
-              <groupId>io.jsonwebtoken</groupId>
-              <artifactId>jjwt-impl</artifactId>
-              <version>0.12.6</version>
-              <scope>runtime</scope>
-            </dependency>
-            <dependency>
-              <groupId>io.jsonwebtoken</groupId>
-              <artifactId>jjwt-jackson</artifactId>
-              <version>0.12.6</version>
-              <scope>runtime</scope>
-            </dependency>
-          </dependencies>
-          <build>
-            <plugins>
-              <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-              </plugin>
-            </plugins>
-          </build>
-        </project>
-        """
-    )
-    dockerfile = textwrap.dedent(
-        f"""\
-        # syntax=docker/dockerfile:1.7
-        FROM maven:3.9-eclipse-temurin-{v['java_version']} AS build
-        WORKDIR /src
-        COPY pom.xml ./
-        RUN mvn -B -q dependency:go-offline
-        COPY src ./src
-        RUN mvn -B -q -DskipTests package
-
-        FROM eclipse-temurin:{v['java_version']}-jre-alpine
-        RUN adduser -D -u 10001 app
-        WORKDIR /app
-        COPY --from=build /src/target/*.jar /app/app.jar
-        USER app
-        EXPOSE 8080
-        HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD wget -qO- http://localhost:8080/actuator/health || exit 1
-        ENTRYPOINT ["java","-jar","/app/app.jar"]
-        """
-    )
     return [
-        FileSpec(path="pom.xml", role="Maven config with Spring Boot + Security + JPA",
-                 language="xml", template=pom),
-        FileSpec(path=".gitignore", role="Java/Maven gitignore", language="text",
-                 template="target/\n*.class\n.idea/\n*.iml\n.env\n"),
-        FileSpec(path="Dockerfile", role="Multi-stage Spring Boot Dockerfile",
-                 language="dockerfile", template=dockerfile),
+        FileSpec(
+            path="pom.xml",
+            role=(
+                f"Maven pom.xml for Spring Boot backend. "
+                f"spring-boot-starter-parent version {v['spring_boot']}. "
+                f"java.version={v['java_version']}. "
+                "REQUIRED dependencies: spring-boot-starter-web, spring-boot-starter-security, "
+                "spring-boot-starter-data-jpa, spring-boot-starter-validation, postgresql (runtime), "
+                "spring-boot-starter-test (test), spring-security-test (test), "
+                "jjwt-api:0.12.6, jjwt-impl:0.12.6 (runtime), jjwt-jackson:0.12.6 (runtime). "
+                "spring-boot-maven-plugin in build/plugins. "
+                "Add ALL additional dependencies this project requires."
+            ),
+            language="xml",
+        ),
+        FileSpec(
+            path=".gitignore",
+            role=(
+                "Java/Maven .gitignore. Include: target/, *.class, .idea/, *.iml, .env, "
+                "and any other Java/Maven build artifacts."
+            ),
+            language="text",
+        ),
+        FileSpec(
+            path="Dockerfile",
+            role=(
+                f"Multi-stage Dockerfile for Spring Boot application. "
+                f"Stage 1 (build): maven:3.9-eclipse-temurin-{v['java_version']}, "
+                "dependency pre-fetch (go-offline), then mvn -B package -DskipTests. "
+                f"Stage 2 (runtime): eclipse-temurin:{v['java_version']}-jre-alpine, "
+                "non-root user (uid 10001), copy JAR, EXPOSE 8080, "
+                "healthcheck on /actuator/health, ENTRYPOINT java -jar app.jar."
+            ),
+            language="dockerfile",
+        ),
         FileSpec(
             path="docker-compose.yml",
-            role="App + postgres",
+            role=(
+                "Docker Compose for Spring Boot app + postgres:17-alpine. "
+                "Postgres with pg_isready healthcheck. App depends_on db (service_healthy). "
+                "SPRING_DATASOURCE_URL, USERNAME, PASSWORD env vars pointing to postgres container. "
+                "Named volume for postgres data."
+            ),
             language="yaml",
-            template=textwrap.dedent("""\
-                services:
-                  db:
-                    image: postgres:17-alpine
-                    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: banking }
-                    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres"], interval: 5s, retries: 10 }
-                  app:
-                    build: .
-                    environment:
-                      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/banking
-                      SPRING_DATASOURCE_USERNAME: postgres
-                      SPRING_DATASOURCE_PASSWORD: postgres
-                    ports: ["8080:8080"]
-                    depends_on: { db: { condition: service_healthy } }
-                """),
         ),
-        FileSpec(path=".github/workflows/ci.yml", role="Maven CI", language="yaml",
-                 template=textwrap.dedent(f"""\
-                    name: ci
-                    on: {{ push: {{ branches: [main] }}, pull_request: {{ branches: [main] }} }}
-                    jobs:
-                      test:
-                        runs-on: ubuntu-latest
-                        steps:
-                          - uses: actions/checkout@v4
-                          - uses: actions/setup-java@v4
-                            with: {{ distribution: temurin, java-version: "{v['java_version']}", cache: maven }}
-                          - run: mvn -B verify
-                    """)),
+        FileSpec(
+            path=".github/workflows/ci.yml",
+            role=(
+                f"GitHub Actions CI for Maven/Spring Boot project. On push/PR to main. "
+                "ubuntu-latest. Steps: checkout, actions/setup-java@v4 with temurin distribution "
+                f"java-version {v['java_version']} and maven cache, then mvn -B verify."
+            ),
+            language="yaml",
+        ),
         FileSpec(path="README.md", role="Banking domain, CQRS notes, security tradeoffs",
                  language="markdown"),
         FileSpec(
@@ -1954,25 +1380,23 @@ def plan_ios_swift() -> list[FileSpec]:
     return [
         FileSpec(
             path="Package.swift",
-            role=f"SwiftPM manifest, swift-tools-version {v['swift_version']}",
+            role=(
+                f"SwiftPM Package.swift manifest. swift-tools-version:{v['swift_version']}. "
+                f"platforms: [.iOS(.v{v['ios_deployment'].replace('.', '_').split('_')[0]})] (iOS {v['ios_deployment']}). "
+                "name: 'App'. products: library App. targets: App target + AppTests test target depending on App. "
+                "Add any SwiftPM dependencies this project requires (e.g., Alamofire, KeychainAccess)."
+            ),
             language="swift",
-            template=textwrap.dedent(f"""\
-                // swift-tools-version:{v['swift_version']}
-                import PackageDescription
-
-                let package = Package(
-                    name: "App",
-                    platforms: [.iOS(.v17)],
-                    products: [.library(name: "App", targets: ["App"])],
-                    targets: [
-                        .target(name: "App"),
-                        .testTarget(name: "AppTests", dependencies: ["App"]),
-                    ]
-                )
-                """),
         ),
-        FileSpec(path=".gitignore", role="Swift / Xcode gitignore", language="text",
-                 template=".build/\nPackages/\nDerivedData/\nxcuserdata/\n*.xcworkspace\n!default.xcworkspace\n.swiftpm/\n"),
+        FileSpec(
+            path=".gitignore",
+            role=(
+                "Swift/Xcode .gitignore. Include: .build/, Packages/, DerivedData/, "
+                "xcuserdata/, *.xcworkspace (except default.xcworkspace), .swiftpm/, "
+                "and any other Swift/Xcode artifacts."
+            ),
+            language="text",
+        ),
         FileSpec(path="README.md", role="iOS app overview, architecture (MVVM+Combine)",
                  language="markdown"),
         FileSpec(
@@ -2031,190 +1455,113 @@ def plan_react_native_web() -> list[FileSpec]:
     iOS, Android, and Web with SSR via the Metro web bundler. All current
     versions pinned."""
     v = CURRENT_VERSIONS["expo"]
-    package_json = json.dumps(
-        {
-            "name": "app",
-            "version": "0.1.0",
-            "main": "expo-router/entry",
-            "scripts": {
-                "start": "expo start",
-                "android": "expo start --android",
-                "ios": "expo start --ios",
-                "web": "expo start --web",
-                "build:web": "expo export --platform web",
-                "lint": "expo lint",
-                "test": "jest --watchAll=false",
-                "typecheck": "tsc --noEmit",
-            },
-            "dependencies": {
-                "expo": f"^{v['expo']}",
-                "expo-constants": f"^{v['expo_constants']}",
-                "expo-router": f"^{v['expo_router']}",
-                "expo-status-bar": f"^{v['expo_status_bar']}",
-                "expo-secure-store": f"^{v['expo_secure_store']}",
-                "expo-image": f"^{v['expo_image']}",
-                "react": v["react"],
-                "react-dom": v["react_dom"],
-                "react-native": v["react_native"],
-                "react-native-web": f"^{v['react_native_web']}",
-                "react-native-safe-area-context": v["react_native_safe_area_context"],
-                "react-native-screens": v["react_native_screens"],
-                "react-native-gesture-handler": f"~{v['react_native_gesture_handler']}",
-                "react-native-reanimated": f"~{v['react_native_reanimated']}",
-                "axios": f"^{v['axios']}",
-            },
-            "devDependencies": {
-                "@babel/core": "^7.25.0",
-                "@types/react": "~18.3.12",
-                "babel-preset-expo": f"^{v['babel_preset_expo']}",
-                "jest": "^29.7.0",
-                "jest-expo": f"~{v['expo']}",
-                "@testing-library/react-native": "^12.9.0",
-                "@testing-library/jest-native": "^5.4.3",
-                "react-test-renderer": v["react"],  # peer of @testing-library/react-native
-                "typescript": f"^{v['typescript']}",
-            },
-            "private": True,
-        },
-        indent=2,
-    ) + "\n"
-
-    app_json = json.dumps(
-        {
-            "expo": {
-                "name": "AppName",
-                "slug": "appname",
-                "version": "1.0.0",
-                "orientation": "portrait",
-                "icon": "./assets/icon.png",
-                "scheme": "appname",
-                "userInterfaceStyle": "automatic",
-                "splash": {
-                    "image": "./assets/splash.png",
-                    "resizeMode": "contain",
-                    "backgroundColor": "#ffffff",
-                },
-                "ios": {"supportsTablet": True, "bundleIdentifier": "com.example.appname"},
-                "android": {
-                    "adaptiveIcon": {
-                        "foregroundImage": "./assets/adaptive-icon.png",
-                        "backgroundColor": "#ffffff",
-                    },
-                    "package": "com.example.appname",
-                },
-                "web": {
-                    "bundler": "metro",
-                    "output": "static",
-                    "favicon": "./assets/favicon.png",
-                },
-                "plugins": ["expo-router", "expo-secure-store"],
-                "experiments": {"typedRoutes": True},
-            }
-        },
-        indent=2,
-    ) + "\n"
-
-    babel_config = textwrap.dedent(
-        """\
-        module.exports = function (api) {
-          api.cache(true);
-          return {
-            presets: ['babel-preset-expo'],
-            plugins: ['react-native-reanimated/plugin'],
-          };
-        };
-        """
-    )
-
-    metro_config = textwrap.dedent(
-        """\
-        const { getDefaultConfig } = require('expo/metro-config');
-        const config = getDefaultConfig(__dirname);
-        module.exports = config;
-        """
-    )
-
-    tsconfig = json.dumps(
-        {
-            "extends": "expo/tsconfig.base",
-            "compilerOptions": {
-                "strict": True,
-                "noUnusedLocals": True,
-                "noUnusedParameters": True,
-                "noFallthroughCasesInSwitch": True,
-                "paths": {"@/*": ["./*"]},
-            },
-            "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-        },
-        indent=2,
-    ) + "\n"
-
-    expo_env = "/// <reference types=\"expo/types\" />\n// NOTE: This file should not be edited and should be in your git ignore.\n"
-
-    gitignore = textwrap.dedent(
-        """\
-        node_modules/
-        .expo/
-        dist/
-        web-build/
-        npm-debug.*
-        *.jks
-        *.p8
-        *.p12
-        *.key
-        *.mobileprovision
-        *.orig.*
-        .env*.local
-        .env
-        .DS_Store
-        # Expo router auto-generated types
-        expo-env.d.ts
-        """
-    )
-
-    ci = textwrap.dedent(
-        """\
-        name: ci
-        on:
-          push: { branches: [main] }
-          pull_request: { branches: [main] }
-        jobs:
-          test:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-              - uses: actions/setup-node@v4
-                with: { node-version: "20", cache: npm }
-              - run: npm ci
-              - run: npm run typecheck
-              - run: npm test
-              - run: npm run build:web
-        """
-    )
 
     return [
-        FileSpec(path="package.json", role="Expo SDK 52 + react-native-web pinned",
-                 language="json", template=package_json),
+        FileSpec(
+            path="package.json",
+            role=(
+                f"Expo SDK {v['expo']} + react-native-web package.json. "
+                f"REQUIRED EXACT VERSIONS: expo@^{v['expo']}, expo-router@^{v['expo_router']}, "
+                f"expo-constants@^{v['expo_constants']}, expo-status-bar@^{v['expo_status_bar']}, "
+                f"expo-secure-store@^{v['expo_secure_store']}, expo-image@^{v['expo_image']}, "
+                f"react@{v['react']}, react-dom@{v['react_dom']}, react-native@{v['react_native']}, "
+                f"react-native-web@^{v['react_native_web']}, "
+                f"react-native-safe-area-context@{v['react_native_safe_area_context']}, "
+                f"react-native-screens@{v['react_native_screens']}, "
+                f"react-native-gesture-handler@~{v['react_native_gesture_handler']}, "
+                f"react-native-reanimated@~{v['react_native_reanimated']}, "
+                f"axios@^{v['axios']}. "
+                f"devDependencies: @babel/core@^7.25.0, @types/react@~18.3.12, "
+                f"babel-preset-expo@^{v['babel_preset_expo']}, jest@^29.7.0, "
+                f"jest-expo@~{v['expo']}, @testing-library/react-native@^12.9.0, "
+                f"@testing-library/jest-native@^5.4.3, react-test-renderer@{v['react']}, "
+                f"typescript@^{v['typescript']}. "
+                "main: expo-router/entry. private: true. "
+                "scripts: start=expo start, android/ios/web variants, build:web=expo export --platform web, "
+                "lint=expo lint, test=jest --watchAll=false, typecheck=tsc --noEmit. "
+                "Add ALL additional packages this project's source files import."
+            ),
+            language="json",
+        ),
         FileSpec(
             path=".npmrc",
-            role="legacy-peer-deps so Expo SDK 52 + RN 0.76 resolve cleanly",
+            role=(
+                "npm config file for Expo SDK 52 + RN 0.76. "
+                "Set legacy-peer-deps=true so peer dependency conflicts resolve cleanly. "
+                "fund=false, audit=false."
+            ),
             language="text",
-            template="legacy-peer-deps=true\nfund=false\naudit=false\n",
         ),
-        FileSpec(path="app.json", role="Expo app config with web bundler enabled",
-                 language="json", template=app_json),
-        FileSpec(path="babel.config.js", role="Babel preset-expo + reanimated plugin",
-                 language="javascript", template=babel_config),
-        FileSpec(path="metro.config.js", role="Metro bundler defaults",
-                 language="javascript", template=metro_config),
-        FileSpec(path="tsconfig.json", role="TS strict + path alias + expo types",
-                 language="json", template=tsconfig),
-        FileSpec(path="expo-env.d.ts", role="Expo TS type reference",
-                 language="typescript", template=expo_env),
-        FileSpec(path=".gitignore", role="Expo / Node gitignore", language="text",
-                 template=gitignore),
-        FileSpec(path=".github/workflows/ci.yml", role="CI: typecheck + test + web build",
-                 language="yaml", template=ci),
+        FileSpec(
+            path="app.json",
+            role=(
+                "Expo app.json configuration. name and slug reflecting the project. "
+                "version: 1.0.0. orientation: portrait. scheme for deep linking. "
+                "userInterfaceStyle: automatic. splash screen config. "
+                "ios: supportsTablet=true, bundleIdentifier. android: adaptiveIcon, package name. "
+                "web: bundler=metro, output=static. "
+                "plugins: ['expo-router', 'expo-secure-store']. "
+                "experiments: {typedRoutes: true}. "
+                "Add any other Expo config this project needs."
+            ),
+            language="json",
+        ),
+        FileSpec(
+            path="babel.config.js",
+            role=(
+                "Babel config for Expo project. "
+                "presets: ['babel-preset-expo']. "
+                "plugins: ['react-native-reanimated/plugin']. "
+                "api.cache(true). CommonJS module.exports format."
+            ),
+            language="javascript",
+        ),
+        FileSpec(
+            path="metro.config.js",
+            role=(
+                "Metro bundler config for Expo. "
+                "Use getDefaultConfig from 'expo/metro-config'. "
+                "Export the default config. Add any customizations this project needs."
+            ),
+            language="javascript",
+        ),
+        FileSpec(
+            path="tsconfig.json",
+            role=(
+                "TypeScript config for Expo project. extends: 'expo/tsconfig.base'. "
+                "compilerOptions: strict=true, noUnusedLocals=true, noUnusedParameters=true, "
+                "noFallthroughCasesInSwitch=true, paths: {'@/*': ['./*']}. "
+                "include: ['**/*.ts', '**/*.tsx', '.expo/types/**/*.ts', 'expo-env.d.ts']."
+            ),
+            language="json",
+        ),
+        FileSpec(
+            path="expo-env.d.ts",
+            role=(
+                "Expo TypeScript type reference file. "
+                "Contains: /// <reference types=\"expo/types\" /> "
+                "and a comment noting this file should not be edited and should be in .gitignore."
+            ),
+            language="typescript",
+        ),
+        FileSpec(
+            path=".gitignore",
+            role=(
+                "Expo/Node .gitignore. Include: node_modules/, .expo/, dist/, web-build/, "
+                "npm-debug.*, *.jks, *.p8, *.p12, *.key, *.mobileprovision, *.orig.*, "
+                ".env*.local, .env, .DS_Store, expo-env.d.ts (auto-generated Expo Router types)."
+            ),
+            language="text",
+        ),
+        FileSpec(
+            path=".github/workflows/ci.yml",
+            role=(
+                "GitHub Actions CI for Expo project. On push/PR to main. "
+                "ubuntu-latest. Steps: checkout, actions/setup-node@v4 node-version=20 npm cache, "
+                "npm ci, npm run typecheck, npm test, npm run build:web."
+            ),
+            language="yaml",
+        ),
         FileSpec(path="README.md", role="App overview, run on iOS/Android/Web, deploy",
                  language="markdown"),
 
@@ -2420,22 +1767,23 @@ def plan_react_native_web() -> list[FileSpec]:
         ),
         FileSpec(
             path="jest.config.js",
-            role="jest-expo preset",
+            role=(
+                "Jest config for Expo project using jest-expo preset. "
+                "transformIgnorePatterns allowing react-native, @react-native, expo, @expo, "
+                "react-navigation, @react-navigation, and other Expo ecosystem packages to be transformed. "
+                "CommonJS module.exports format."
+            ),
             language="javascript",
-            template=textwrap.dedent("""\
-                module.exports = {
-                  preset: 'jest-expo',
-                  transformIgnorePatterns: [
-                    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg))',
-                  ],
-                };
-                """),
         ),
         FileSpec(
             path=".env.example",
-            role="Example env vars — only EXPO_PUBLIC_* are exposed at runtime",
+            role=(
+                "Example environment variables for Expo project. "
+                "Only EXPO_PUBLIC_* variables are exposed at runtime in Expo. "
+                "Include EXPO_PUBLIC_API_URL and any other EXPO_PUBLIC_* vars this project needs. "
+                "Comment each variable with a brief description."
+            ),
             language="env",
-            template="EXPO_PUBLIC_API_URL=http://localhost:8000\n",
         ),
     ]
 
@@ -2447,48 +1795,41 @@ def plan_react_native_web() -> list[FileSpec]:
 
 def plan_flutter() -> list[FileSpec]:
     v = CURRENT_VERSIONS["dart"]
-    pubspec = textwrap.dedent(
-        f"""\
-        name: app
-        description: Flutter cross-platform app
-        publish_to: 'none'
-        version: 0.1.0
-
-        environment:
-          sdk: '>=3.6.0 <4.0.0'
-          flutter: '>={v['flutter']}'
-
-        dependencies:
-          flutter:
-            sdk: flutter
-          flutter_riverpod: ^{v['riverpod']}
-          go_router: ^{v['go_router']}
-          dio: ^5.7.0
-          freezed_annotation: ^2.4.4
-          json_annotation: ^4.9.0
-          flutter_secure_storage: ^9.2.2
-
-        dev_dependencies:
-          flutter_test:
-            sdk: flutter
-          build_runner: ^2.4.13
-          freezed: ^2.5.7
-          json_serializable: ^6.9.0
-          mocktail: ^1.0.4
-          flutter_lints: ^5.0.0
-
-        flutter:
-          uses-material-design: true
-        """
-    )
     return [
-        FileSpec(path="pubspec.yaml", role="Flutter pubspec, current versions",
-                 language="yaml", template=pubspec),
-        FileSpec(path=".gitignore", role="Flutter gitignore", language="text",
-                 template=".dart_tool/\nbuild/\n.flutter-plugins\n.flutter-plugins-dependencies\n.packages\n.pub-cache/\n.pub/\n*.iml\n.idea/\nios/Pods/\nandroid/.gradle/\n"),
-        FileSpec(path="analysis_options.yaml", role="flutter_lints + extras",
-                 language="yaml",
-                 template="include: package:flutter_lints/flutter.yaml\nlinter:\n  rules:\n    avoid_print: true\n    prefer_single_quotes: true\n"),
+        FileSpec(
+            path="pubspec.yaml",
+            role=(
+                f"Flutter pubspec.yaml. name: app. publish_to: none. version: 0.1.0. "
+                f"environment: sdk '>=3.6.0 <4.0.0', flutter '>={v['flutter']}'. "
+                f"REQUIRED dependencies: flutter (sdk), flutter_riverpod@^{v['riverpod']}, "
+                f"go_router@^{v['go_router']}, dio@^5.7.0, freezed_annotation@^2.4.4, "
+                "json_annotation@^4.9.0, flutter_secure_storage@^9.2.2. "
+                "dev_dependencies: flutter_test (sdk), build_runner@^2.4.13, "
+                "freezed@^2.5.7, json_serializable@^6.9.0, mocktail@^1.0.4, flutter_lints@^5.0.0. "
+                "flutter: uses-material-design: true. "
+                "Add ALL additional packages this project requires."
+            ),
+            language="yaml",
+        ),
+        FileSpec(
+            path=".gitignore",
+            role=(
+                "Flutter .gitignore. Include: .dart_tool/, build/, .flutter-plugins, "
+                ".flutter-plugins-dependencies, .packages, .pub-cache/, .pub/, "
+                "*.iml, .idea/, ios/Pods/, android/.gradle/, "
+                "and any other Flutter/Dart build artifacts."
+            ),
+            language="text",
+        ),
+        FileSpec(
+            path="analysis_options.yaml",
+            role=(
+                "Flutter analysis_options.yaml. include: package:flutter_lints/flutter.yaml. "
+                "linter rules: avoid_print: true, prefer_single_quotes: true. "
+                "Add any other lint rules this project needs."
+            ),
+            language="yaml",
+        ),
         FileSpec(path="README.md", role="Flutter app overview + architecture", language="markdown"),
         FileSpec(
             path="lib/main.dart",

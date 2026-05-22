@@ -139,6 +139,7 @@ from .literals import (
     FlatInvocationsType,
     FlowDefinitionStatusType,
     FrameworkType,
+    HomeEfsFileSystemCreationType,
     HubContentSortByType,
     HubContentStatusType,
     HubContentSupportStatusType,
@@ -14185,6 +14186,7 @@ class DescribeDomainResponseTypeDef(TypedDict):
     VpcId: str
     KmsKeyId: str
     AppSecurityGroupManagement: AppSecurityGroupManagementType
+    HomeEfsFileSystemCreation: HomeEfsFileSystemCreationType
     TagPropagation: TagPropagationType
     DefaultSpaceSettings: DefaultSpaceSettingsOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14903,6 +14905,7 @@ class CreateDomainRequestTypeDef(TypedDict):
     HomeEfsFileSystemKmsKeyId: NotRequired[str]
     KmsKeyId: NotRequired[str]
     AppSecurityGroupManagement: NotRequired[AppSecurityGroupManagementType]
+    HomeEfsFileSystemCreation: NotRequired[HomeEfsFileSystemCreationType]
     TagPropagation: NotRequired[TagPropagationType]
     DefaultSpaceSettings: NotRequired[DefaultSpaceSettingsUnionTypeDef]
 
@@ -14925,6 +14928,7 @@ class UpdateDomainRequestTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     AppNetworkAccessType: NotRequired[AppNetworkAccessTypeType]
     TagPropagation: NotRequired[TagPropagationType]
+    HomeEfsFileSystemCreation: NotRequired[HomeEfsFileSystemCreationType]
     VpcId: NotRequired[str]
 
 

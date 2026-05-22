@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stim
-Version: 1.15.0
+Version: 1.16.0
 Summary: A fast library for analyzing with quantum stabilizer circuits.
 Home-page: https://github.com/quantumlib/stim
 Author: Craig Gidney

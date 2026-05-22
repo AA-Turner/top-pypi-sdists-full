@@ -224,8 +224,8 @@ def _heal_until_green(
     *,
     generate: GenerateFn,
     log: ProgressFn,
-    max_rounds: int = 6,
-    stuck_threshold: int = 3,
+    max_rounds: int = 3,
+    stuck_threshold: int = 2,
 ) -> tuple[bool, bool, list[VerifyReport]]:
     """Loop deterministic-then-LLM repairs until install + tests both pass.
 
@@ -302,6 +302,62 @@ def _heal_until_green(
 # ──────────────────────── public entry ─────────────────────────────────
 
 
+def _snapshot_project(out_dir: Path, log: "ProgressFn") -> Path | None:
+    """Create a .tar.gz snapshot of out_dir before a build starts.
+
+    Stored in out_dir/.sage/pre_build_snapshot.tar.gz.
+    Returns the snapshot path on success, None on failure (non-fatal).
+    This protects existing projects from being destroyed when a build
+    errors mid-generation (e.g. cloud model disconnect).
+    """
+    import tarfile
+    snapshot_dir = out_dir / ".sage"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = snapshot_dir / "pre_build_snapshot.tar.gz"
+
+    # Only snapshot if there are actual project files (not just .sage/)
+    project_files = [
+        p for p in out_dir.rglob("*")
+        if p.is_file() and ".sage" not in p.parts and "__pycache__" not in p.parts
+    ]
+    if not project_files:
+        return None  # Nothing to snapshot — fresh build
+
+    try:
+        with tarfile.open(snapshot_path, "w:gz") as tar:
+            for fpath in project_files:
+                tar.add(fpath, arcname=fpath.relative_to(out_dir))
+        log(f"[snapshot] saved {len(project_files)} files to {snapshot_path.name}")
+        return snapshot_path
+    except Exception as exc:
+        log(f"[snapshot] WARNING: could not create snapshot: {exc}")
+        return None
+
+
+def _restore_snapshot(snapshot_path: Path, out_dir: Path, log: "ProgressFn") -> bool:
+    """Restore a project from a .tar.gz snapshot created by _snapshot_project.
+
+    Called when a build fails and we need to preserve the user's existing work.
+    Returns True on success.
+    """
+    import tarfile
+    if not snapshot_path.exists():
+        return False
+    try:
+        # Remove all non-.sage files that were written by the failed build
+        for p in list(out_dir.rglob("*")):
+            if p.is_file() and ".sage" not in p.parts and "__pycache__" not in p.parts:
+                p.unlink()
+        # Restore from snapshot
+        with tarfile.open(snapshot_path, "r:gz") as tar:
+            tar.extractall(path=out_dir)
+        log(f"[snapshot] restored project from {snapshot_path.name}")
+        return True
+    except Exception as exc:
+        log(f"[snapshot] ERROR: restore failed: {exc}")
+        return False
+
+
 def build_project_principal(
     task: str,
     out_dir: Path,
@@ -313,12 +369,67 @@ def build_project_principal(
     enable_review: bool = True,
     stuck_threshold: int = 3,
     enable_heal: bool = True,
-    heal_rounds: int = 6,
+    heal_rounds: int = 3,
 ) -> PrincipalBuildReport:
-    """End-to-end principal-grade project build."""
+    """End-to-end principal-grade project build.
+
+    SAFETY: If out_dir already contains project files, a snapshot is created
+    before the build starts. If the build fails partway (e.g. cloud model
+    disconnect mid-generation), the snapshot is restored so the user's
+    existing work is NOT destroyed.
+    """
     log = progress or (lambda _m: None)
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── Pre-build snapshot: protect existing files from failed builds ──
+    # The most common failure mode (cloud model disconnect mid-generation)
+    # leaves the project in a half-overwritten state. Snapshotting before
+    # we touch anything means we can always restore the pre-build state.
+    _snapshot = _snapshot_project(out_dir, log)
+
+    try:
+        return _build_project_principal_inner(
+            task=task, out_dir=out_dir, generate=generate, log=log,
+            review_threshold=review_threshold, max_review_rounds=max_review_rounds,
+            enable_review=enable_review, stuck_threshold=stuck_threshold,
+            enable_heal=enable_heal, heal_rounds=heal_rounds,
+        )
+    except Exception as exc:
+        # If we have a snapshot and the build failed with a connectivity/quota
+        # error (not a normal BuildIncomplete), restore the project to its
+        # pre-build state so the user doesn't lose existing files.
+        _connectivity_errors = (
+            "Server disconnected", "RemoteProtocolError", "ReadError",
+            "ConnectError", "All providers failed", "quota", "disconnected",
+            "connection", "timeout", "503", "502", "429",
+        )
+        is_connectivity = any(e.lower() in str(exc).lower() for e in _connectivity_errors)
+        if _snapshot and is_connectivity and not isinstance(exc, BuildIncomplete):
+            log(
+                f"[snapshot] Build failed due to connectivity error ({type(exc).__name__}). "
+                "Restoring your project to its pre-build state..."
+            )
+            _restore_snapshot(_snapshot, out_dir, log)
+            log("[snapshot] Your original files have been restored. "
+                "Please retry the build when connectivity is stable.")
+        raise
+
+
+def _build_project_principal_inner(
+    task: str,
+    out_dir: Path,
+    generate: GenerateFn,
+    log: "ProgressFn",
+    *,
+    review_threshold: float = 7.0,
+    max_review_rounds: int = 2,
+    enable_review: bool = True,
+    stuck_threshold: int = 3,
+    enable_heal: bool = True,
+    heal_rounds: int = 3,
+) -> PrincipalBuildReport:
+    """Inner build function — called by build_project_principal after snapshotting."""
 
     # ── 1. Decompose ──
     log("[1/8] decomposing spec...")
@@ -336,6 +447,7 @@ def build_project_principal(
             BuildNotSupported,
             EngineNotInstalled,
             GameBuildIncomplete,
+            ScaffoldPollution,
         )
         from sage.games.pipeline import build_game
 
@@ -373,6 +485,18 @@ def build_project_principal(
                 stack={"engine": (plan.game_request.engine or "godot")},
                 out_dir=str(out_dir), file_count=0, feature_count=0,
                 install_ok=True, tests_ok=False,
+            )
+        except ScaffoldPollution as exc:
+            # Different-engine scaffold already in this directory. Don't
+            # corrupt the user's existing project — surface a clear error
+            # and let the CLI / user decide whether to clear the dir.
+            log(f"[game] {exc}")
+            return PrincipalBuildReport(
+                title=plan.title,
+                stack={"engine": (plan.game_request.engine or "godot"),
+                        "existing_engine": exc.existing_engine},
+                out_dir=str(out_dir), file_count=0, feature_count=0,
+                install_ok=False, tests_ok=False,
             )
 
     # ── 2. Layout (root files only) ──

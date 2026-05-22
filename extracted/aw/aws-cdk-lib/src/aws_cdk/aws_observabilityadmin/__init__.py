@@ -1215,6 +1215,8 @@ class CfnOrganizationTelemetryRule(
                 telemetry_type="telemetryType",
         
                 # the properties below are optional
+                allow_field_updates=False,
+                all_regions=False,
                 destination_configuration=observabilityadmin.CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty(
                     cloudtrail_parameters=observabilityadmin.CfnOrganizationTelemetryRule.CloudtrailParametersProperty(
                         advanced_event_selectors=[observabilityadmin.CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty(
@@ -1271,6 +1273,7 @@ class CfnOrganizationTelemetryRule(
                         )]
                     )
                 ),
+                regions=["regions"],
                 scope="scope",
                 selection_criteria="selectionCriteria",
                 telemetry_source_types=["telemetrySourceTypes"]
@@ -1353,6 +1356,15 @@ class CfnOrganizationTelemetryRule(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegionStatuses")
+    def attr_region_statuses(self) -> "_IResolvable_da3f097b":
+        '''Per-region replication status of the rule.
+
+        :cloudformationAttribute: RegionStatuses
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRegionStatuses"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleArn")
@@ -2285,6 +2297,91 @@ class CfnOrganizationTelemetryRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.RegionStatusProperty",
+        jsii_struct_bases=[],
+        name_mapping={"region": "region", "rule_arn": "ruleArn", "status": "status"},
+    )
+    class RegionStatusProperty:
+        def __init__(
+            self,
+            *,
+            region: typing.Optional[builtins.str] = None,
+            rule_arn: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Status of a telemetry rule in a specific region.
+
+            :param region: The AWS region code.
+            :param rule_arn: The ARN of the rule in this region.
+            :param status: The replication status of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-regionstatus.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                region_status_property = observabilityadmin.CfnOrganizationTelemetryRule.RegionStatusProperty(
+                    region="region",
+                    rule_arn="ruleArn",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__39474ff06c29a0fa1bd91659fc00baf48b14f80d991ec59b6f0d4ac0ecf907e2)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if region is not None:
+                self._values["region"] = region
+            if rule_arn is not None:
+                self._values["rule_arn"] = rule_arn
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The AWS region code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-regionstatus.html#cfn-observabilityadmin-organizationtelemetryrule-regionstatus-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rule_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-regionstatus.html#cfn-observabilityadmin-organizationtelemetryrule-regionstatus-rulearn
+            '''
+            result = self._values.get("rule_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The replication status of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-regionstatus.html#cfn-observabilityadmin-organizationtelemetryrule-regionstatus-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegionStatusProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.SingleHeaderProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name"},
@@ -2550,7 +2647,10 @@ class CfnOrganizationTelemetryRule(
         name_mapping={
             "resource_type": "resourceType",
             "telemetry_type": "telemetryType",
+            "allow_field_updates": "allowFieldUpdates",
+            "all_regions": "allRegions",
             "destination_configuration": "destinationConfiguration",
+            "regions": "regions",
             "scope": "scope",
             "selection_criteria": "selectionCriteria",
             "telemetry_source_types": "telemetrySourceTypes",
@@ -2562,7 +2662,10 @@ class CfnOrganizationTelemetryRule(
             *,
             resource_type: builtins.str,
             telemetry_type: builtins.str,
+            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            all_regions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             scope: typing.Optional[builtins.str] = None,
             selection_criteria: typing.Optional[builtins.str] = None,
             telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2571,7 +2674,10 @@ class CfnOrganizationTelemetryRule(
 
             :param resource_type: The type of AWS resource to configure telemetry for (e.g., "AWS::EC2::VPC", "AWS::EKS::Cluster", "AWS::WAFv2::WebACL").
             :param telemetry_type: The type of telemetry to collect (Logs, Metrics, or Traces).
+            :param allow_field_updates: When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields. Default: - false
+            :param all_regions: When true, the rule is replicated to all supported regions.
             :param destination_configuration: Configuration specifying where and how the telemetry data should be delivered.
+            :param regions: List of AWS region codes where the rule should be replicated.
             :param scope: The organizational scope to which the rule applies, specified using accounts or organizational units.
             :param selection_criteria: Criteria for selecting which resources the rule applies to, such as resource tags.
             :param telemetry_source_types: The specific telemetry source types to configure for the resource, such as VPC_FLOW_LOGS or EKS_AUDIT_LOGS. TelemetrySourceTypes must be correlated with the specific resource type.
@@ -2590,6 +2696,8 @@ class CfnOrganizationTelemetryRule(
                     telemetry_type="telemetryType",
                 
                     # the properties below are optional
+                    allow_field_updates=False,
+                    all_regions=False,
                     destination_configuration=observabilityadmin.CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty(
                         cloudtrail_parameters=observabilityadmin.CfnOrganizationTelemetryRule.CloudtrailParametersProperty(
                             advanced_event_selectors=[observabilityadmin.CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty(
@@ -2646,6 +2754,7 @@ class CfnOrganizationTelemetryRule(
                             )]
                         )
                     ),
+                    regions=["regions"],
                     scope="scope",
                     selection_criteria="selectionCriteria",
                     telemetry_source_types=["telemetrySourceTypes"]
@@ -2655,7 +2764,10 @@ class CfnOrganizationTelemetryRule(
                 type_hints = typing.get_type_hints(_typecheckingstub__8febf24ebcbc00029972152d874df5e847a9f5cd45e05abb26e69f7a2cabc5bf)
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
                 check_type(argname="argument telemetry_type", value=telemetry_type, expected_type=type_hints["telemetry_type"])
+                check_type(argname="argument allow_field_updates", value=allow_field_updates, expected_type=type_hints["allow_field_updates"])
+                check_type(argname="argument all_regions", value=all_regions, expected_type=type_hints["all_regions"])
                 check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
+                check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
                 check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
                 check_type(argname="argument selection_criteria", value=selection_criteria, expected_type=type_hints["selection_criteria"])
                 check_type(argname="argument telemetry_source_types", value=telemetry_source_types, expected_type=type_hints["telemetry_source_types"])
@@ -2663,8 +2775,14 @@ class CfnOrganizationTelemetryRule(
                 "resource_type": resource_type,
                 "telemetry_type": telemetry_type,
             }
+            if allow_field_updates is not None:
+                self._values["allow_field_updates"] = allow_field_updates
+            if all_regions is not None:
+                self._values["all_regions"] = all_regions
             if destination_configuration is not None:
                 self._values["destination_configuration"] = destination_configuration
+            if regions is not None:
+                self._values["regions"] = regions
             if scope is not None:
                 self._values["scope"] = scope
             if selection_criteria is not None:
@@ -2693,6 +2811,30 @@ class CfnOrganizationTelemetryRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def allow_field_updates(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-allowfieldupdates
+            '''
+            result = self._values.get("allow_field_updates")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def all_regions(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When true, the rule is replicated to all supported regions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-allregions
+            '''
+            result = self._values.get("all_regions")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
         def destination_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
@@ -2702,6 +2844,15 @@ class CfnOrganizationTelemetryRule(
             '''
             result = self._values.get("destination_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
+
+        @builtins.property
+        def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of AWS region codes where the rule should be replicated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetryrule.html#cfn-observabilityadmin-organizationtelemetryrule-telemetryrule-regions
+            '''
+            result = self._values.get("regions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def scope(self) -> typing.Optional[builtins.str]:
@@ -2982,6 +3133,8 @@ class CfnOrganizationTelemetryRuleProps:
                     telemetry_type="telemetryType",
             
                     # the properties below are optional
+                    allow_field_updates=False,
+                    all_regions=False,
                     destination_configuration=observabilityadmin.CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty(
                         cloudtrail_parameters=observabilityadmin.CfnOrganizationTelemetryRule.CloudtrailParametersProperty(
                             advanced_event_selectors=[observabilityadmin.CfnOrganizationTelemetryRule.AdvancedEventSelectorProperty(
@@ -3038,6 +3191,7 @@ class CfnOrganizationTelemetryRuleProps:
                             )]
                         )
                     ),
+                    regions=["regions"],
                     scope="scope",
                     selection_criteria="selectionCriteria",
                     telemetry_source_types=["telemetrySourceTypes"]
@@ -4466,6 +4620,8 @@ class CfnTelemetryRule(
                 telemetry_type="telemetryType",
         
                 # the properties below are optional
+                allow_field_updates=False,
+                all_regions=False,
                 destination_configuration=observabilityadmin.CfnTelemetryRule.TelemetryDestinationConfigurationProperty(
                     cloudtrail_parameters=observabilityadmin.CfnTelemetryRule.CloudtrailParametersProperty(
                         advanced_event_selectors=[observabilityadmin.CfnTelemetryRule.AdvancedEventSelectorProperty(
@@ -4525,6 +4681,7 @@ class CfnTelemetryRule(
                         )]
                     )
                 ),
+                regions=["regions"],
                 selection_criteria="selectionCriteria",
                 telemetry_source_types=["telemetrySourceTypes"]
             ),
@@ -4604,6 +4761,15 @@ class CfnTelemetryRule(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegionStatuses")
+    def attr_region_statuses(self) -> "_IResolvable_da3f097b":
+        '''Per-region replication status of the rule.
+
+        :cloudformationAttribute: RegionStatuses
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrRegionStatuses"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleArn")
@@ -5589,6 +5755,91 @@ class CfnTelemetryRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule.RegionStatusProperty",
+        jsii_struct_bases=[],
+        name_mapping={"region": "region", "rule_arn": "ruleArn", "status": "status"},
+    )
+    class RegionStatusProperty:
+        def __init__(
+            self,
+            *,
+            region: typing.Optional[builtins.str] = None,
+            rule_arn: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Status of a telemetry rule in a specific region.
+
+            :param region: The AWS region code.
+            :param rule_arn: The ARN of the rule in this region.
+            :param status: The replication status of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-regionstatus.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                region_status_property = observabilityadmin.CfnTelemetryRule.RegionStatusProperty(
+                    region="region",
+                    rule_arn="ruleArn",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5537a00308bab09ea31f9d63dfd37373fb989591c800bcebed8f9977dad4f21d)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if region is not None:
+                self._values["region"] = region
+            if rule_arn is not None:
+                self._values["rule_arn"] = rule_arn
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The AWS region code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-regionstatus.html#cfn-observabilityadmin-telemetryrule-regionstatus-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rule_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-regionstatus.html#cfn-observabilityadmin-telemetryrule-regionstatus-rulearn
+            '''
+            result = self._values.get("rule_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The replication status of the rule in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-regionstatus.html#cfn-observabilityadmin-telemetryrule-regionstatus-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegionStatusProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule.SingleHeaderProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name"},
@@ -5874,7 +6125,10 @@ class CfnTelemetryRule(
         name_mapping={
             "resource_type": "resourceType",
             "telemetry_type": "telemetryType",
+            "allow_field_updates": "allowFieldUpdates",
+            "all_regions": "allRegions",
             "destination_configuration": "destinationConfiguration",
+            "regions": "regions",
             "selection_criteria": "selectionCriteria",
             "telemetry_source_types": "telemetrySourceTypes",
         },
@@ -5885,7 +6139,10 @@ class CfnTelemetryRule(
             *,
             resource_type: builtins.str,
             telemetry_type: builtins.str,
+            allow_field_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            all_regions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTelemetryRule.TelemetryDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regions: typing.Optional[typing.Sequence[builtins.str]] = None,
             selection_criteria: typing.Optional[builtins.str] = None,
             telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -5893,7 +6150,10 @@ class CfnTelemetryRule(
 
             :param resource_type: The type of AWS resource to configure telemetry for (e.g., "AWS::EC2::VPC", "AWS::EKS::Cluster", "AWS::WAFv2::WebACL").
             :param telemetry_type: The type of telemetry to collect (Logs, Metrics, or Traces).
+            :param allow_field_updates: When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields. Default: - false
+            :param all_regions: When true, the rule is replicated to all supported regions.
             :param destination_configuration: Configuration specifying where and how the telemetry data should be delivered.
+            :param regions: List of AWS region codes where the rule should be replicated.
             :param selection_criteria: Criteria for selecting which resources the rule applies to, such as resource tags.
             :param telemetry_source_types: The specific telemetry source types to configure for the resource, such as VPC_FLOW_LOGS or EKS_AUDIT_LOGS. TelemetrySourceTypes must be correlated with the specific resource type.
 
@@ -5911,6 +6171,8 @@ class CfnTelemetryRule(
                     telemetry_type="telemetryType",
                 
                     # the properties below are optional
+                    allow_field_updates=False,
+                    all_regions=False,
                     destination_configuration=observabilityadmin.CfnTelemetryRule.TelemetryDestinationConfigurationProperty(
                         cloudtrail_parameters=observabilityadmin.CfnTelemetryRule.CloudtrailParametersProperty(
                             advanced_event_selectors=[observabilityadmin.CfnTelemetryRule.AdvancedEventSelectorProperty(
@@ -5970,6 +6232,7 @@ class CfnTelemetryRule(
                             )]
                         )
                     ),
+                    regions=["regions"],
                     selection_criteria="selectionCriteria",
                     telemetry_source_types=["telemetrySourceTypes"]
                 )
@@ -5978,15 +6241,24 @@ class CfnTelemetryRule(
                 type_hints = typing.get_type_hints(_typecheckingstub__25d1c19a045d927560ccf78552c0595fbd7db1322a4e66f60e4d9cb5393b81c3)
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
                 check_type(argname="argument telemetry_type", value=telemetry_type, expected_type=type_hints["telemetry_type"])
+                check_type(argname="argument allow_field_updates", value=allow_field_updates, expected_type=type_hints["allow_field_updates"])
+                check_type(argname="argument all_regions", value=all_regions, expected_type=type_hints["all_regions"])
                 check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
+                check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
                 check_type(argname="argument selection_criteria", value=selection_criteria, expected_type=type_hints["selection_criteria"])
                 check_type(argname="argument telemetry_source_types", value=telemetry_source_types, expected_type=type_hints["telemetry_source_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_type": resource_type,
                 "telemetry_type": telemetry_type,
             }
+            if allow_field_updates is not None:
+                self._values["allow_field_updates"] = allow_field_updates
+            if all_regions is not None:
+                self._values["all_regions"] = all_regions
             if destination_configuration is not None:
                 self._values["destination_configuration"] = destination_configuration
+            if regions is not None:
+                self._values["regions"] = regions
             if selection_criteria is not None:
                 self._values["selection_criteria"] = selection_criteria
             if telemetry_source_types is not None:
@@ -6013,6 +6285,30 @@ class CfnTelemetryRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def allow_field_updates(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When true, configuration drift in managed telemetry resources will be detected and remediated for resource-level fields.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-allowfieldupdates
+            '''
+            result = self._values.get("allow_field_updates")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def all_regions(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When true, the rule is replicated to all supported regions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-allregions
+            '''
+            result = self._values.get("all_regions")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
         def destination_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]]:
@@ -6022,6 +6318,15 @@ class CfnTelemetryRule(
             '''
             result = self._values.get("destination_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTelemetryRule.TelemetryDestinationConfigurationProperty"]], result)
+
+        @builtins.property
+        def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of AWS region codes where the rule should be replicated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetryrule.html#cfn-observabilityadmin-telemetryrule-telemetryrule-regions
+            '''
+            result = self._values.get("regions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def selection_criteria(self) -> typing.Optional[builtins.str]:
@@ -6293,6 +6598,8 @@ class CfnTelemetryRuleProps:
                     telemetry_type="telemetryType",
             
                     # the properties below are optional
+                    allow_field_updates=False,
+                    all_regions=False,
                     destination_configuration=observabilityadmin.CfnTelemetryRule.TelemetryDestinationConfigurationProperty(
                         cloudtrail_parameters=observabilityadmin.CfnTelemetryRule.CloudtrailParametersProperty(
                             advanced_event_selectors=[observabilityadmin.CfnTelemetryRule.AdvancedEventSelectorProperty(
@@ -6352,6 +6659,7 @@ class CfnTelemetryRuleProps:
                             )]
                         )
                     ),
+                    regions=["regions"],
                     selection_criteria="selectionCriteria",
                     telemetry_source_types=["telemetrySourceTypes"]
                 ),
@@ -6694,6 +7002,15 @@ def _typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__39474ff06c29a0fa1bd91659fc00baf48b14f80d991ec59b6f0d4ac0ecf907e2(
+    *,
+    region: typing.Optional[builtins.str] = None,
+    rule_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__32eaac1f45f8f639979d1f81a515778d4b95e9e651411f27f6a838b958d2ac3d(
     *,
     name: builtins.str,
@@ -6718,7 +7035,10 @@ def _typecheckingstub__8febf24ebcbc00029972152d874df5e847a9f5cd45e05abb26e69f7a2
     *,
     resource_type: builtins.str,
     telemetry_type: builtins.str,
+    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    all_regions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     scope: typing.Optional[builtins.str] = None,
     selection_criteria: typing.Optional[builtins.str] = None,
     telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7109,6 +7429,15 @@ def _typecheckingstub__ec5b265219a09ae971954fc5efb55eeca562e31b03200d5a454f07b91
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5537a00308bab09ea31f9d63dfd37373fb989591c800bcebed8f9977dad4f21d(
+    *,
+    region: typing.Optional[builtins.str] = None,
+    rule_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__52016d9c5461305a90cf833adbbbe8dfceb9080f12605147dcc5869d62c25ad4(
     *,
     name: builtins.str,
@@ -7134,7 +7463,10 @@ def _typecheckingstub__25d1c19a045d927560ccf78552c0595fbd7db1322a4e66f60e4d9cb53
     *,
     resource_type: builtins.str,
     telemetry_type: builtins.str,
+    allow_field_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    all_regions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTelemetryRule.TelemetryDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     selection_criteria: typing.Optional[builtins.str] = None,
     telemetry_source_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:

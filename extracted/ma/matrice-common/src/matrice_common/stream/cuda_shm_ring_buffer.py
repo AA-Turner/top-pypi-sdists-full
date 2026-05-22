@@ -75,6 +75,42 @@ except ImportError:
     cp = None
     cuda_runtime = None
 
+
+def _cvd_remap(physical_gpu_id: int) -> int:
+    """Translate a physical GPU id to the cupy-visible device index.
+
+    When ``CUDA_VISIBLE_DEVICES`` pins a single physical GPU (e.g.
+    ``CVD="3"``) cupy still numbers the only visible device as index 0,
+    so ``cp.cuda.Device(physical_id)`` raises ``cudaErrorInvalidDevice``
+    for any physical id other than 0. This helper returns the visible
+    index that callers should pass to ``cp.cuda.Device`` regardless of
+    pinning mode.
+
+    Behavior:
+    - ``CVD`` unset or empty -> identity passthrough (physical_gpu_id).
+    - ``CVD`` lists a single device -> always returns 0.
+    - ``CVD`` lists multiple devices -> returns the position of
+      ``str(physical_gpu_id)`` within the list, or 0 if not found
+      (preserves the "first visible device" fallback that the
+      previous deploy.py monkey-patch used).
+
+    This was previously injected at container startup by
+    ``ml-codebases/yolo_code_base/deploy.py::_patch_matrice_common_cvd_remap``.
+    Now it lives upstream so all callers (SG, IE, third-party) get the
+    same behavior without runtime source patching.
+    """
+    cvd = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if not cvd:
+        return physical_gpu_id
+    parts = [p.strip() for p in cvd.split(",") if p.strip()]
+    if len(parts) == 1:
+        return 0
+    try:
+        return parts.index(str(physical_gpu_id))
+    except ValueError:
+        return 0
+
+
 CUDA_IPC_HANDLE_SIZE = 64
 
 
@@ -311,7 +347,7 @@ class CudaIpcRingBuffer:
             RuntimeError: If connection fails after retries
         """
         consumer_key = str(consumer_key)
-        with cp.cuda.Device(gpu_id):
+        with cp.cuda.Device(_cvd_remap(gpu_id)):
             _ = cp.zeros(1, dtype=cp.uint8)
 
         meta_shm_path = f"{SHM_BASE_PATH}/cuda_ipc_{camera_id}"
@@ -377,7 +413,7 @@ class CudaIpcRingBuffer:
             raise RuntimeError("Use connect() for consumer")
 
         try:
-            with cp.cuda.Device(self.gpu_id):
+            with cp.cuda.Device(_cvd_remap(self.gpu_id)):
                 total_shape = (self.num_slots,) + self.frame_shape
                 self.gpu_buffer = cp.zeros(total_shape, dtype=cp.uint8)
                 base_ptr = self.gpu_buffer.data.ptr
@@ -423,7 +459,7 @@ class CudaIpcRingBuffer:
             self._meta_mmap.seek(64)
             ipc_handle = self._meta_mmap.read(CUDA_IPC_HANDLE_SIZE)
 
-            with cp.cuda.Device(self.gpu_id):
+            with cp.cuda.Device(_cvd_remap(self.gpu_id)):
                 _ = cp.zeros(1, dtype=cp.uint8)
                 imported_ptr = cuda_runtime.ipcOpenMemHandle(ipc_handle)
                 self._imported_ipc_ptr = imported_ptr
@@ -745,7 +781,7 @@ class CudaIpcRingBuffer:
         frame_idx = self._cached_write_idx
         slot = (frame_idx - 1) % self.num_slots
 
-        with cp.cuda.Device(self.gpu_id):
+        with cp.cuda.Device(_cvd_remap(self.gpu_id)):
             assert self.gpu_buffer is not None
             cp.copyto(self.gpu_buffer[slot], gpu_frame)
             assert self._write_event is not None
@@ -1060,7 +1096,7 @@ class CudaIpcRingBuffer:
         # so this branch is a no-op for producers.
         if self._imported_ipc_ptr is not None and CUPY_AVAILABLE and cuda_runtime is not None:
             try:
-                with cp.cuda.Device(self.gpu_id):
+                with cp.cuda.Device(_cvd_remap(self.gpu_id)):
                     cuda_runtime.ipcCloseMemHandle(self._imported_ipc_ptr)
             except Exception:  # noqa: BLE001 - best effort during teardown
                 logger.debug("ipcCloseMemHandle failed", exc_info=True)

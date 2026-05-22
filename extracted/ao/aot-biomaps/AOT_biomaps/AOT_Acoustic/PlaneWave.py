@@ -1,18 +1,17 @@
 from .StructuredWave import StructuredWave
 from .AcousticEnums import WaveType
 
-
 class PlaneWave(StructuredWave):
-    def __init__(self, angle_deg, **kwargs):
+    def __init__(self, angle, **kwargs):
         """
         Initialize the PlaneWave object.
 
         Args:
-            angle_deg (float): Angle in degrees.
+            angle (float): Angle in degrees.
             **kwargs: Additional keyword arguments.
         """
         try:
-            super().__init__(angle_deg=angle_deg, fileName=None, space_0=0, space_1=192, move_head_0_2tail=0, move_tail_1_2head=0, **kwargs)
+            super().__init__(angle=angle, fileName=None, space_0=0, space_1=192, move_head_0_2tail=0, move_tail_1_2head=0, **kwargs)
             self.waveType = WaveType.PlaneWave
         except Exception as e:
             print(f"Error initializing PlaneWave: {e}")

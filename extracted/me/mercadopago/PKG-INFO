@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mercadopago
-Version: 2.4.0
+Version: 3.1.1
 Summary: Mercadopago SDK module for Payments integration
 Author-email: Mercado Pago <mp_sdk@mercadopago.com>
 License: MIT License
@@ -31,18 +31,14 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests
+Requires-Dist: requests<3,>=2.32.4
 Provides-Extra: testing
 Requires-Dist: unittest; extra == "testing"
 Dynamic: license-file
@@ -57,7 +53,7 @@ This library provides developers with a simple set of bindings to help you integ
 
 ## 💡 Requirements
 
-Python 3 or higher.
+Python 3.9 or higher.
 
 ## 📲 Installation 
 

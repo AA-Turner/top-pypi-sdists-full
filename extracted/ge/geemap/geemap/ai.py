@@ -29,7 +29,7 @@ import requests
 
 import ee
 import typing_extensions
-import ipywidgets as widgets
+import ipywidgets
 from ipyleaflet import LayerException
 from jinja2 import Template
 from IPython.display import HTML, Javascript, display
@@ -70,7 +70,7 @@ if "google.colab" in sys.modules:
     from google.colab import output, data_table, syntax
 
 
-class Genie(widgets.VBox):
+class Genie(ipywidgets.VBox):
     """A widget for interacting with the Genie AI model.
 
     The source code is adapted from the ee_genie.ipynb at <https://bit.ly/3YEm7B6>.
@@ -141,7 +141,7 @@ class Genie(widgets.VBox):
         # We define the widgets early because some functions will write to the debug
         # and/or chat panels.
 
-        command_input = widgets.Text(
+        command_input = ipywidgets.Text(
             value="show a whole continent Australia DEM visualization using a palette that captures the elevation range",
             # value='show NYC',
             # value='show an area with many center pivot irrigation circles',
@@ -151,20 +151,20 @@ class Genie(widgets.VBox):
             # value='flood consequences',
             # value='show an interesting modis composite with the relevant visualization and analyze it over Costa Rica',
             description="❓",
-            layout=widgets.Layout(width="100%", height="50px"),
+            layout=ipywidgets.Layout(width="100%", height="50px"),
         )
 
-        command_output = widgets.Label(
+        command_output = ipywidgets.Label(
             value="Last command will be here",
         )
 
-        status_label = widgets.Textarea(
+        status_label = ipywidgets.Textarea(
             value="LLM response will be here",
-            layout=widgets.Layout(width="50%", height="100px"),
+            layout=ipywidgets.Layout(width="50%", height="100px"),
         )
 
         # widget_height = "600px"
-        debug_output = widgets.Output(
+        debug_output = ipywidgets.Output(
             layout={
                 "border": "1px solid black",
                 "height": widget_height,
@@ -180,9 +180,9 @@ class Genie(widgets.VBox):
             "https://drive.usercontent.google.com/download?id=1zE6G_nxXa3G5N0G_32jEhzdum2kMDfNY&export=view&authuser=0"
         ).content
 
-        image_widget = widgets.Image(value=logo, format="png", width=400, height=600)
+        image_widget = ipywidgets.Image(value=logo, format="png", width=400, height=600)
 
-        chat_output = widgets.Output(
+        chat_output = ipywidgets.Output(
             layout={
                 "border": "1px solid black",
                 "height": "600px",
@@ -555,6 +555,8 @@ class Genie(widgets.VBox):
                 )
 
             def ask(self, question, temperature=0):
+                del temperature  # Unused.
+
                 while True:
                     condition = ""
                     try:
@@ -694,21 +696,22 @@ class Genie(widgets.VBox):
         # UI layout
 
         # Arrange the chat history and input in a vertical box.
-        chat_ui = widgets.VBox(
+        chat_ui = ipywidgets.VBox(
             [image_widget, chat_output],
-            layout=widgets.Layout(width="420px", height=widget_height),
+            layout=ipywidgets.Layout(width="420px", height=widget_height),
         )
 
-        chat_output.layout = widgets.Layout(
+        chat_output.layout = ipywidgets.Layout(
             width="400px"
         )  # Fixed width for the left control.
-        m.layout = widgets.Layout(flex="1 1 auto", height=widget_height)
+        m.layout = ipywidgets.Layout(flex="1 1 auto", height=widget_height)
 
-        table = widgets.HBox(
-            [chat_ui, debug_output, m], layout=widgets.Layout(align_items="flex-start")
+        table = ipywidgets.HBox(
+            [chat_ui, debug_output, m],
+            layout=ipywidgets.Layout(align_items="flex-start"),
         )
 
-        message_widget = widgets.Output()
+        message_widget = ipywidgets.Output()
         with message_widget:
             print("❓ = waiting for user input")
             print("🙏 = waiting for user to hit enter after calling set_center()")
@@ -1488,6 +1491,8 @@ class EarthEngineDatasetIndex:
         Returns:
             A list of collections that match the query.
         """
+        del threshold, bounding_box, temporal_interval  # Unused.
+
         similar_docs = self.index.vectorstore.similarity_search_with_score(
             query, llm=self.llm, k=results
         )
@@ -1525,6 +1530,8 @@ class EarthEngineDatasetIndex:
         Returns:
             A DataFrame containing the dataset IDs and their match scores.
         """
+        del threshold  # Unused.
+
         scores_df = self.ids_to_match_scores_df(
             query, results, bounding_box, temporal_interval
         )
@@ -1554,6 +1561,8 @@ class EarthEngineDatasetIndex:
         Returns:
             A DataFrame containing the dataset IDs and their match scores.
         """
+        del bounding_box, temporal_interval  # Unused.
+
         similar_docs = self.index.vectorstore.similarity_search_with_score(
             query, llm=self.llm, k=results
         )
@@ -1764,15 +1773,15 @@ class DatasetSearchInterface:
 
     collections: CollectionList
     query: str
-    dataset_table: widgets.Widget
-    code_output: widgets.Widget
-    details_output: widgets.Widget
-    map_output: widgets.Widget
+    dataset_table: ipywidgets.Widget
+    code_output: ipywidgets.Widget
+    details_output: ipywidgets.Widget
+    map_output: ipywidgets.Widget
     geemap_instance: Map
 
     # Parent containers for controlling widget visibility.
-    details_code_box: widgets.Widget
-    map_widget: widgets.Widget
+    details_code_box: ipywidgets.Widget
+    map_widget: ipywidgets.Widget
 
     def __init__(self, query: str, collections: CollectionList) -> None:
         """Initializes the DatasetSearchInterface.
@@ -1784,15 +1793,15 @@ class DatasetSearchInterface:
         self.query = query
         self.collections = collections
 
-        # Create the output widgets.
-        self.code_output = widgets.Output(layout=widgets.Layout(width="50%"))
-        self.details_output = widgets.Output(
-            layout=widgets.Layout(height="300px", width="100%")
+        # Create the output ipywidgets.
+        self.code_output = ipywidgets.Output(layout=ipywidgets.Layout(width="50%"))
+        self.details_output = ipywidgets.Output(
+            layout=ipywidgets.Layout(height="300px", width="100%")
         )
 
         # Initialize dataset table.
         table_html = self._build_table_html(collections)
-        self.dataset_table = widgets.HTML(value=table_html)
+        self.dataset_table = ipywidgets.HTML(value=table_html)
 
         _callback_id = "dataset-select" + str(uuid.uuid4())
         output.register_callback(_callback_id, self.update_outputs)
@@ -1800,30 +1809,30 @@ class DatasetSearchInterface:
         # self._dataset_select_js_code(_callback_id)
 
         # Initialize map.
-        self.map_output = widgets.Output(layout=widgets.Layout(width="100%"))
+        self.map_output = ipywidgets.Output(layout=ipywidgets.Layout(width="100%"))
         self.geemap_instance = geemap.Map(height="600px", width="100%")
 
     def display(self):
         """Display the UI in the cell."""
         # Create title and description with Material Design styling
-        # title = widgets.HTML(value='<h2 class="main-title">Earth Engine Dataset Explorer</h2>')
+        # title = ipywidgets.HTML(value='<h2 class="main-title">Earth Engine Dataset Explorer</h2>')
 
         # Wrap outputs in a widget box for border styling
-        details_widget = widgets.Box(
+        details_widget = ipywidgets.Box(
             [self.details_output],
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 border="1px solid #E0E0E0", padding="10px", margin="5px", width="100%"
             ),
         )
-        code_widget = widgets.Box(
+        code_widget = ipywidgets.Box(
             [self.code_output],
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 border="1px solid #E0E0E0", padding="10px", margin="5px", width="100%"
             ),
         )
-        self.map_widget = widgets.Box(
+        self.map_widget = ipywidgets.Box(
             [self.map_output],
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 border="1px solid #E0E0E0",
                 padding="10px",
                 margin="5px",
@@ -1833,40 +1842,39 @@ class DatasetSearchInterface:
         )
 
         # Create the vertical box for code and details.
-        self.details_code_box = widgets.VBox(
+        self.details_code_box = ipywidgets.VBox(
             [details_widget, code_widget],
-            layout=widgets.Layout(width="50%", height="600px"),
+            layout=ipywidgets.Layout(width="50%", height="600px"),
         )
 
         # Create a horizontal box for map and details/code.
-        map_details_code_box = widgets.HBox(
+        map_details_code_box = ipywidgets.HBox(
             [self.map_widget, self.details_code_box],
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 border="1px solid #E0E0E0", padding="10px", margin="5px"
             ),
         )
 
         # Create the main layout with Material Design styling
-        main_content = widgets.VBox(
+        main_content = ipywidgets.VBox(
             [self.dataset_table, map_details_code_box],
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 width="100%", border="1px solid #E0E0E0", padding="10px", margin="5px"
             ),
         )
 
         # Add debug panel to the main layout.
-        main_layout = widgets.VBox(
+        main_layout = ipywidgets.VBox(
             [
                 # title,
                 main_content,
             ],
-            layout=widgets.Layout(height="1500px", width="100%", padding="24px"),
+            layout=ipywidgets.Layout(height="1500px", width="100%", padding="24px"),
         )
 
         # @title CSS
         # Custom CSS for Material Design styling with enhanced table styling, chat panel, and debug panel
-        CSS = syntax.css(
-            """
+        CSS = syntax.css("""
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
 
         body {
@@ -1937,8 +1945,7 @@ class DatasetSearchInterface:
         opacity: 0.5;
         cursor: default;
         }
-        """
-        )
+        """)
 
         # Display the widget
         display(HTML(f"<style>{CSS}</style>"))
@@ -2038,9 +2045,7 @@ class DatasetSearchInterface:
         Returns:
             The JavaScript code as a string.
         """
-        return Template(
-            syntax.javascript(
-                """
+        return Template(syntax.javascript("""
     function initializeTableInteraction() {
         const table = document.querySelector('.custom-table');
         if (!table) {
@@ -2076,9 +2081,7 @@ class DatasetSearchInterface:
 
     // Run the initialization function after a short delay to ensure the DOM is ready
     setTimeout(initializeTableInteraction, 1000);
-    """
-            )
-        ).render(callback_id=callback_id)
+    """)).render(callback_id=callback_id)
 
 
 class DatasetExplorer:
@@ -2159,7 +2162,7 @@ class DatasetExplorer:
 
         self.ee_index = EarthEngineDatasetIndex(catalog, langchain_index, llm)
 
-    def show(self, query: str | None = None, **kwargs) -> widgets.VBox:
+    def show(self, query: str | None = None, **kwargs) -> ipywidgets.VBox:
         """Displays a query interface for searching datasets.
 
         Args:
@@ -2175,7 +2178,7 @@ class DatasetExplorer:
         if "style" not in kwargs:
             kwargs["style"] = {"description_width": "initial"}
         if "layout" not in kwargs:
-            kwargs["layout"] = widgets.Layout(width="98%")
+            kwargs["layout"] = ipywidgets.Layout(width="98%")
 
         def Question(query: str) -> None:
             """Handles the query and displays the dataset search results.
@@ -2196,7 +2199,7 @@ class DatasetExplorer:
         if query is None:
             query = "How have global land surface temperatures changed over time?"
 
-        query_widget = widgets.Text(
+        query_widget = ipywidgets.Text(
             value=query,
             placeholder="Type your query here and press Enter",
             description="Query:",
@@ -2204,11 +2207,11 @@ class DatasetExplorer:
             **kwargs,
         )
 
-        output_widget = widgets.Output()
+        output_widget = ipywidgets.Output()
 
-        display_widget = widgets.VBox([query_widget, output_widget])
+        display_widget = ipywidgets.VBox([query_widget, output_widget])
 
-        def on_query_change(text: widgets.Text) -> None:
+        def on_query_change(text: ipywidgets.Text) -> None:
             """Handles the event when the query text is submitted.
 
             Args:

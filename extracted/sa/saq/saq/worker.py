@@ -341,6 +341,7 @@ class Worker(t.Generic[CtxType]):
     async def process(self) -> bool:
         context: CtxType | None = None
         job: Job | None = None
+        task_ctx: JobTaskContext | None = None
 
         try:
             job = await self.queue.dequeue(
@@ -361,7 +362,8 @@ class Worker(t.Generic[CtxType]):
 
             function = ensure_coroutine_function(self.functions[job.function], self.pool)
             task = asyncio.create_task(function(context, **(job.kwargs or {})))
-            self.job_task_contexts[job] = JobTaskContext(task=task, aborted=None)
+            task_ctx = JobTaskContext(task=task, aborted=None)
+            self.job_task_contexts[job] = task_ctx
             try:
                 result = await asyncio.wait_for(
                     asyncio.shield(task), job.timeout if job.timeout else None
@@ -371,13 +373,11 @@ class Worker(t.Generic[CtxType]):
                 # we need to explicitly cancel it on timeout.
                 task.cancel()
                 raise
-            if self.job_task_contexts[job]["aborted"] is None:
+            if task_ctx["aborted"] is None:
                 await job.finish(Status.COMPLETE, result=result)
         except asyncio.CancelledError:
-            if not job:
+            if not job or task_ctx is None:
                 return False
-            task_ctx = self.job_task_contexts.get(job)
-            assert task_ctx is not None
 
             task = task_ctx["task"]
             aborted = task_ctx["aborted"]
@@ -402,8 +402,8 @@ class Worker(t.Generic[CtxType]):
                 logger.exception("Error processing job %s", job)
 
                 # Ensure that the task is done or cancelled
-                if task_context := self.job_task_contexts.get(job, None):
-                    task = task_context["task"]
+                if task_ctx is not None:
+                    task = task_ctx["task"]
                     if not task.done():
                         cancelled = await cancel_tasks([task], self._cancellation_hard_deadline_s)
                         if not cancelled:
@@ -421,8 +421,15 @@ class Worker(t.Generic[CtxType]):
                     await job.finish(Status.FAILED, error=error)
         finally:
             if context:
-                if job is not None:
-                    self.job_task_contexts.pop(job, None)
+                # Only clear our own slot: a later same-key attempt (e.g. a
+                # sweep re-enqueue) may have replaced it, and we must not
+                # pop its context.
+                if (
+                    job is not None
+                    and task_ctx is not None
+                    and self.job_task_contexts.get(job) is task_ctx
+                ):
+                    del self.job_task_contexts[job]
 
                 try:
                     await self._after_process(context)

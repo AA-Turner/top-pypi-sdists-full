@@ -33,15 +33,16 @@ All scale values must be expressed in the units of ``grid_crs``. For
 geographic CRSs (e.g. ``EPSG:4326``) this is degrees. For projected CRSs (e.g.
 UTM) this is meters.
 """
+
 import math
-from typing import TypedDict, Union
+from typing import TypedDict, Union, cast
 
 import affine
-import ee
 from pyproj import Transformer
 import shapely
 from shapely.ops import transform
 
+import ee
 
 TransformType = tuple[float, float, float, float, float, float]
 ShapeType = tuple[int, int]
@@ -122,8 +123,8 @@ def fit_geometry(
     geometry_crs: CRS of the input geometry (default WGS84).
     buffer: Optional positive distance in CRS units to expand the geometry.
     grid_crs: Target CRS for the output grid.
-    grid_scale: Optional ``(x_scale, y_scale)`` in ``grid_crs`` units. ``y``
-      may be negative for north-up orientation.
+    grid_scale: Optional ``(x_scale, y_scale)`` in ``grid_crs`` units. ``y`` may
+      be negative for north-up orientation.
     grid_scale_digits: If provided with ``grid_shape`` workflow, round inferred
       scales to this number of decimal places.
     grid_shape: Optional ``(width, height)`` pixel count.
@@ -146,7 +147,7 @@ def fit_geometry(
   )
   reprojected_geometry = transform(transformer.transform, geometry)
   if buffer and buffer > 0:
-    buffered_geom = shapely.buffer(reprojected_geometry, buffer)
+    buffered_geom = reprojected_geometry.buffer(buffer)
   else:
     buffered_geom = reprojected_geometry
   x_min, y_min, x_max, y_max = buffered_geom.bounds
@@ -180,7 +181,7 @@ def fit_geometry(
       grid_x_min, grid_y_max
   ) * affine.Affine.scale(x_scale, y_scale)
 
-  crs_transform = affine_transform[:6]
+  crs_transform = cast(TransformType, tuple(affine_transform[:6]))
 
   return dict(
       crs=grid_crs, crs_transform=crs_transform, shape_2d=(x_shape, y_shape)

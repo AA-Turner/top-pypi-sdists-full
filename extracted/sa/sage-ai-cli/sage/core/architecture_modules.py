@@ -77,14 +77,31 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
         FileSlot(
             path="backend/app/core/config.py",
             role=(
-                "pydantic-settings Settings class reading every env var: "
-                "DATABASE_URL, REDIS_URL, JWT_SECRET, JWT_ALGORITHM, "
-                "JWT_ACCESS_MINUTES, JWT_REFRESH_DAYS, CELERY_BROKER_URL, "
-                "CELERY_RESULT_BACKEND, OPENAI_API_KEY, STRIPE_API_KEY, "
-                "CORS_ORIGINS (list), ENVIRONMENT, LOG_LEVEL, SENTRY_DSN. "
-                "Use BaseSettings with env_file='.env'. Cache via lru_cache."
+                "pydantic-settings Settings class. CRITICAL: every field MUST have "
+                "a default value so tests work without a .env file. "
+                "Fields with defaults: "
+                "PROJECT_NAME: str = 'App', "
+                "API_V1_STR: str = '/api/v1', "
+                "DATABASE_URL: str = 'sqlite+aiosqlite:///./dev.db', "
+                "REDIS_URL: str = 'redis://localhost:6379/0', "
+                "JWT_SECRET: str = 'dev-secret-change-in-prod', "
+                "JWT_ALGORITHM: str = 'HS256', "
+                "JWT_ACCESS_MINUTES: int = 30, "
+                "JWT_REFRESH_DAYS: int = 7, "
+                "CELERY_BROKER_URL: str = 'redis://localhost:6379/1', "
+                "CELERY_RESULT_BACKEND: str = 'redis://localhost:6379/2', "
+                "OPENAI_API_KEY: str = 'sk-placeholder', "
+                "STRIPE_API_KEY: Optional[str] = None, "
+                "CORS_ORIGINS: List[str] = Field(default_factory=list), "
+                "ENVIRONMENT: str = 'development', "
+                "LOG_LEVEL: str = 'INFO', "
+                "SENTRY_DSN: Optional[str] = None. "
+                "Use BaseSettings with env_file='.env', extra='ignore', "
+                "case_sensitive=False. Cache via lru_cache. "
+                "Expose get_settings() function."
             ),
             language="python",
+            must_contain=["BaseSettings", "get_settings", "lru_cache", "database_url"],
         ),
         FileSlot(
             path="backend/app/core/logging.py",
@@ -464,23 +481,39 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
         FileSlot(
             path="backend/app/api/routes.py",
             role=(
-                "CRITICAL: This file MUST include REAL router registrations — NOT empty. "
-                "Create `api_router = APIRouter()` and include_router for every "
-                "router in app/api/v1/: health, auth, plus one router for each "
-                "business feature. Pattern: "
-                "`from app.api.v1.campaigns import router as campaigns_router; "
-                "api_router.include_router(campaigns_router, prefix='/campaigns', tags=['campaigns'])`. "
-                "Include ALL feature routers. The list should have 10+ routers. "
-                "Also add: prefix='/api/v1', so the api_router mounted in main.py "
-                "creates paths at /api/v1/<feature>."
+                "CRITICAL: Main API router. Use importlib with try/except to load each "
+                "router module safely — this prevents one broken router from crashing the app. "
+                "Pattern:\n"
+                "```python\n"
+                "from fastapi import APIRouter\n"
+                "import importlib, logging\n"
+                "logger = logging.getLogger(__name__)\n"
+                "api_router = APIRouter()\n"
+                "\n"
+                "_MODULES = [\n"
+                "    ('app.api.v1.health',    '/health',    ['health']),\n"
+                "    # ADD MORE MODULES HERE using the EXACT filenames from app/api/v1/\n"
+                "]\n"
+                "for path, prefix, tags in _MODULES:\n"
+                "    try:\n"
+                "        mod = importlib.import_module(path)\n"
+                "        router = getattr(mod, 'router', None)\n"
+                "        if router: api_router.include_router(router, prefix=prefix, tags=tags)\n"
+                "    except Exception as e:\n"
+                "        logger.warning('Skipping %s: %s', path, e)\n"
+                "```\n"
+                "Use the EXACT filenames from app/api/v1/ — do NOT invent singular names. "
+                "If the file is named campaigns.py use 'campaigns', if it is campaign_cruds.py "
+                "use 'campaign_cruds'. Never add routers that do not exist as files. "
+                "Include all v1 modules you create."
             ),
             language="python",
             must_contain=[
                 "api_router = APIRouter()",
+                "importlib",
                 "include_router",
-                "prefix",
             ],
-            must_not_contain=["# All routes commented out", "pass", "# TODO"],
+            must_not_contain=["# All routes commented out", "# TODO"],
         ),
     ])
 
@@ -833,6 +866,72 @@ def _deployment_files(stack: StackProfile) -> list[FileSlot]:
 # ──────────────────────── public entry ─────────────────────────────────
 
 
+def _bun_infra_files(stack: "StackProfile") -> list["FileSlot"]:
+    """Additional files when js_runtime='bun' is specified.
+
+    Bun.js is a fast JavaScript runtime that replaces Node.js:
+    - `bun install` instead of `npm install`
+    - `bun run` / `bun build` instead of `npm run` / `webpack`
+    - Docker image: `oven/bun:1` (NOT `node:`)
+    - BullMQ workers run under Bun for background job processing
+    - SSR server: `bun --watch src/web/ssr.tsx`
+    """
+    files = [
+        FileSlot(
+            path="frontend/src/web/ssr.tsx",
+            role=(
+                "Bun SSR entry point for server-side rendering of React Native Web components. "
+                "Uses Bun's built-in HTTP server: `Bun.serve({ fetch(req) { ... } })`. "
+                "Renders the React Native Web app to HTML string using `renderToString`. "
+                "Serves static assets and handles hydration. "
+                "Pattern:\n"
+                "```ts\n"
+                "import { renderToString } from 'react-dom/server';\n"
+                "import App from '../App';\n"
+                "Bun.serve({\n"
+                "  port: process.env.PORT || 3000,\n"
+                "  async fetch(req) {\n"
+                "    const html = renderToString(<App />);\n"
+                "    return new Response(`<!DOCTYPE html><html><body>${html}</body></html>`,\n"
+                "      { headers: { 'Content-Type': 'text/html' } });\n"
+                "  }\n"
+                "});\n"
+                "```"
+            ),
+            language="typescript",
+        ),
+    ]
+
+    # BullMQ worker template when queue="bullmq"
+    if stack.queue == "bullmq":
+        files.append(FileSlot(
+            path="workers/queue_worker.ts",
+            role=(
+                "BullMQ worker running under Bun. Processes background jobs from Redis queue. "
+                "BullMQ is a Redis-based job queue for Node.js / Bun (TypeScript). "
+                "Pattern:\n"
+                "```ts\n"
+                "import { Worker, Queue } from 'bullmq';\n"
+                "import IORedis from 'ioredis';\n"
+                "const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');\n"
+                "export const adQueue = new Queue('ad-processing', { connection });\n"
+                "const worker = new Worker('ad-processing', async (job) => {\n"
+                "  const { type, payload } = job.data;\n"
+                "  if (type === 'generate-video') { /* call FFmpeg / RunwayML API */ }\n"
+                "  if (type === 'publish-ad') { /* call social media API */ }\n"
+                "  return { status: 'done' };\n"
+                "}, { connection });\n"
+                "worker.on('completed', (job) => console.log(`Job ${job.id} done`));\n"
+                "worker.on('failed', (job, err) => console.error(err));\n"
+                "```\n"
+                "Add bullmq and ioredis to package.json dependencies."
+            ),
+            language="typescript",
+        ))
+
+    return files
+
+
 def architecture_files(plan: ProjectPlan) -> list[FileSlot]:
     """All cross-cutting infrastructure files for a project plan.
 
@@ -845,6 +944,9 @@ def architecture_files(plan: ProjectPlan) -> list[FileSlot]:
         files.extend(_fastapi_infra_files(plan.stack))
     if plan.stack.frontend == "react-native-web":
         files.extend(_rnw_infra_files())
+    # Bun.js: add SSR entry + BullMQ worker files
+    if getattr(plan.stack, "js_runtime", "node") == "bun":
+        files.extend(_bun_infra_files(plan.stack))
     files.extend(_deployment_files(plan.stack))
     return files
 

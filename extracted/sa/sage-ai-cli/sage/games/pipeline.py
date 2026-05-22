@@ -27,7 +27,53 @@ from .assets import (
 )
 from .engines import get_adapter
 from .engines.base import GamePlan, GameRequest
-from .exceptions import BuildNotSupported, EngineNotInstalled, GameBuildIncomplete
+from .exceptions import (
+    BuildNotSupported,
+    EngineNotInstalled,
+    GameBuildIncomplete,
+    ScaffoldPollution,
+)
+
+
+# Per-engine "this directory was scaffolded by us" signature files. Used
+# by `_detect_existing_engine` to spot a previous run's leftovers before
+# we clobber them with a different engine.
+_ENGINE_SIGNATURE_FILES: dict[str, tuple[str, ...]] = {
+    "godot":   ("project.godot", ".godot"),
+    "unity":   ("Assets/Editor/SageBuilder.cs", "ProjectSettings/ProjectVersion.txt"),
+    "unreal":  ("Source",),    # plus a *.uproject sibling; checked separately
+    "bevy":    ("Cargo.toml", "src/main.rs"),
+    "phaser":  ("package.json", "src/main.ts"),
+    "love2d":  ("conf.lua", "main.lua"),
+    "pygame":  ("requirements.txt", "main.py"),
+    # GUI-only engines scaffold a README + assets/ dir only — too generic
+    # to fingerprint, so we skip them in pollution detection.
+}
+
+
+def _detect_existing_engine(out_dir: Path) -> Optional[str]:
+    """Return the engine name of an existing scaffold in `out_dir`, or
+    None if the directory has no recognizable engine layout.
+
+    Uses signature files unique to each engine. A directory with both
+    Godot AND Unity signatures returns whichever has more matches —
+    indicates that mixing has already happened and the user is one
+    re-run away from total project corruption."""
+    matches: list[tuple[int, str]] = []
+    for engine, sigs in _ENGINE_SIGNATURE_FILES.items():
+        hits = sum(1 for sig in sigs if (out_dir / sig).exists())
+        # Unreal also needs a *.uproject file at the root
+        if engine == "unreal" and not list(out_dir.glob("*.uproject")):
+            hits = 0
+        if hits > 0:
+            matches.append((hits, engine))
+    if not matches:
+        return None
+    # If only one engine matches → that's the existing engine.
+    # If multiple → the one with the most signature hits wins (the dir
+    # is already polluted; we surface whatever has more presence).
+    matches.sort(reverse=True)
+    return matches[0][1]
 
 
 GenerateFn = Callable[[str], str]
@@ -106,49 +152,52 @@ def _decompose(
         genre=request.genre or "(unspecified)",
         perspective=request.perspective or "(unspecified)",
     )
-    try:
-        raw = generate(prompt)
-    except Exception as exc:  # noqa: BLE001
-        log(f"  [decompose] LLM call failed: {exc}; using minimal plan")
-        raw = "{}"
+    raw = generate(prompt)   # exceptions propagate — no silent fallback
 
     data: dict = {}
-    try:
-        start, end = raw.find("{"), raw.rfind("}")
-        if start != -1 and end != -1:
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end != -1:
+        try:
             data = json.loads(raw[start : end + 1])
-    except (json.JSONDecodeError, ValueError):
-        log("  [decompose] couldn't parse plan JSON; using minimal plan")
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise RuntimeError(
+                f"decompose: LLM returned unparseable JSON. "
+                f"Head:\n{raw[:600]!r}"
+            ) from exc
+    if not data:
+        raise RuntimeError(
+            "decompose: LLM response had no JSON object. "
+            f"Head:\n{raw[:600]!r}"
+        )
 
-    title = data.get("title") or "Sage Game"
+    title = data.get("title")
     desc = data.get("description") or request.raw_prompt
     features = data.get("features") or []
+    if not title:
+        # An LLM that can't pick a title for a game is failing its job.
+        raise RuntimeError(
+            f"decompose: LLM omitted required 'title' field. "
+            f"Keys returned: {list(data.keys())}"
+        )
 
+    # Asset roles must come from the LLM — no synthetic 'player' /
+    # 'ambient' fallbacks. If the LLM didn't list any sprites for a 2D
+    # game (or any meshes for a 3D game), surface that as a real error.
     sprites = [
-        (s.get("role", f"sprite_{i}"), s.get("prompt", "generic sprite"))
-        for i, s in enumerate(data.get("sprites") or [])
-        if isinstance(s, dict)
+        (s["role"], s["prompt"])
+        for s in (data.get("sprites") or []) if isinstance(s, dict)
+        and s.get("role") and s.get("prompt")
     ]
     meshes = [
-        (m.get("role", f"mesh_{i}"), m.get("prompt", "generic mesh"))
-        for i, m in enumerate(data.get("meshes") or [])
-        if isinstance(m, dict)
+        (m["role"], m["prompt"])
+        for m in (data.get("meshes") or []) if isinstance(m, dict)
+        and m.get("role") and m.get("prompt")
     ]
     audio = [
-        (a.get("role", f"audio_{i}"), a.get("prompt", "ambient music"),
-         a.get("kind", "music"))
-        for i, a in enumerate(data.get("audio") or [])
-        if isinstance(a, dict)
+        (a["role"], a["prompt"], a.get("kind", "music"))
+        for a in (data.get("audio") or []) if isinstance(a, dict)
+        and a.get("role") and a.get("prompt")
     ]
-
-    # Sanity floor: every game gets at least one sprite + one audio asset so
-    # the manifest is non-empty even when the LLM whiffs on the decomposition.
-    if not sprites and not request.is_3d():
-        sprites = [("player", "main character sprite")]
-    if not meshes and request.is_3d():
-        meshes = [("player", "main character mesh")]
-    if not audio:
-        audio = [("ambient", f"ambient {request.genre or 'game'} music", "music")]
 
     return GamePlan(
         request=request, title=title, description=desc, features=features,
@@ -163,7 +212,14 @@ def _generate_assets(
     *,
     log: ProgressFn,
 ) -> AssetManifest:
-    """Run sprite/mesh/audio generators in parallel, return manifest."""
+    """Run sprite/mesh/audio generators in parallel, return manifest.
+
+    Animated assets are emitted alongside static ones — the manifest
+    keeps them in separate dicts so engine adapters can decide which
+    convention fits (Godot SpriteFrames vs Phaser TextureAtlas vs Unity
+    Animator). Mesh animation tracks ride inside the GLB itself; we just
+    record which roles have which clips in `manifest.mesh_animations`.
+    """
     manifest = AssetManifest()
     asset_root = out_dir / ".sage_assets"
     sprite_gen = SpriteGenerator(asset_root / "sprites",
@@ -175,6 +231,16 @@ def _generate_assets(
     with ThreadPoolExecutor(max_workers=8) as pool:
         for role, prompt in plan.sprite_roles:
             futures[pool.submit(sprite_gen.generate, role, prompt)] = ("sprite", role)
+        # Animated sprites: emit the static base PNG + one strip per state.
+        # Engine adapters that don't know about animations still get the
+        # base sprite; ones that do can read the strips from the manifest.
+        for role, prompt, states in plan.animated_sprite_roles:
+            if (role, "_static_base") not in futures.values():
+                futures[pool.submit(sprite_gen.generate, role, prompt)] = ("sprite", role)
+            for state in (states or ["idle", "walk"]):
+                futures[pool.submit(
+                    sprite_gen.generate_animated, role, prompt, state,
+                )] = ("sprite_anim", (role, state))
         for role, prompt in plan.mesh_roles:
             futures[pool.submit(mesh_gen.generate, role, prompt)] = ("mesh", role)
         for role, prompt, kind in plan.audio_roles:
@@ -182,21 +248,32 @@ def _generate_assets(
             futures[pool.submit(fn, role, prompt)] = ("audio", role)
 
         for future in as_completed(futures):
-            kind, role = futures[future]
+            kind, key = futures[future]
             try:
                 result = future.result()
             except Exception as exc:  # noqa: BLE001 — never fail whole build for one asset
-                log(f"  [assets] {kind}:{role} failed: {exc}")
+                log(f"  [assets] {kind}:{key} failed: {exc}")
                 continue
             if kind == "sprite":
-                manifest.sprites[role] = result.path
+                manifest.sprites[key] = result.path
+            elif kind == "sprite_anim":
+                # key is (role, state); result is SpriteAnimationResult
+                manifest.sprite_animations[key] = result.path
             elif kind == "mesh":
-                manifest.meshes[role] = result.path
+                manifest.meshes[key] = result.path
+                # If this was a character role with animations baked into
+                # the GLB, record the clip names so engine adapters can
+                # wire AnimationPlayer / Animator hookups.
+                if getattr(result, "animations", None):
+                    manifest.mesh_animations[key] = list(result.animations)
             else:
-                manifest.audio[role] = result.path
+                manifest.audio[key] = result.path
 
     log(f"  [assets] {manifest.total_count()} files: "
-        f"{len(manifest.sprites)} sprites, {len(manifest.meshes)} meshes, "
+        f"{len(manifest.sprites)} sprites, "
+        f"{len(manifest.sprite_animations)} sprite-anim strips, "
+        f"{len(manifest.meshes)} meshes "
+        f"({sum(len(a) for a in manifest.mesh_animations.values())} mesh-anim clips), "
         f"{len(manifest.audio)} audio")
     return manifest
 
@@ -252,6 +329,19 @@ def build_game(
 
     adapter = get_adapter(request.engine)
     log(f"[1/5] adapter: {adapter.name}")
+
+    # Pollution guard: if the directory already has a DIFFERENT engine's
+    # scaffold, refuse rather than mix. Real-world: a user re-ran sage
+    # in HoleGame/ once with Godot (the buggy auto-pick) and once with
+    # Unity (the corrected pick) — the result was a hybrid project that
+    # neither editor could open.
+    existing = _detect_existing_engine(out_dir)
+    if existing and existing != adapter.name:
+        raise ScaffoldPollution(
+            requested_engine=adapter.name,
+            existing_engine=existing,
+            out_dir=str(out_dir),
+        )
 
     # Detection runs first so we never burn LLM tokens on a build that
     # can't possibly produce a binary.

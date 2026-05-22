@@ -17,7 +17,6 @@ from . import examples
 from .geemap import basemaps
 from .osm import *
 
-
 try:
     import pydeck as pdk
 
@@ -46,7 +45,7 @@ class Layer(pdk.Layer):
         type: str,
         data: str | None = None,
         id=None,
-        use_binary_transport: bool = None,
+        use_binary_transport: bool | None = None,
         **kwargs,
     ):
         """Initialize a Layer object.
@@ -54,11 +53,10 @@ class Layer(pdk.Layer):
         Args:
             type: Type of layer to render, e.g., HexagonLayer. See deck.gl Layer
                 catalog (https://deck.gl/docs/api-reference/layers)
-            data: Unique name for layer. Defaults to None.
+            data: Unique name for layer.
             id (str | dict | pandas.DataFrame, optional): Either a URL of data to load
-                in or an array of data. Defaults to None.
+                in or an array of data.
             use_binary_transport: Boolean indicating binary data.
-                Defaults to None.
         """
         super().__init__(type, data, id, use_binary_transport, **kwargs)
 
@@ -71,18 +69,18 @@ class Map(pdk.Deck):
         center: tuple[float, float] = (20, 0),
         zoom: float = 1.2,
         height: int = 800,
-        width: int = None,
+        width: int | None = None,
         **kwargs,
     ):
         """Initialize a Map object.
 
         Args:
-            center: Center of the map in the format of (lat, lon). Defaults to (20, 0).
-            zoom: The map zoom level. Defaults to 1.2.
+            center: Center of the map in the format of (lat, lon).
+            zoom: The map zoom level.
             height: The map height. Note that the height has no effect in Jupyter
-                notebook. Only works for streamlit. Defaults to 800.
+                notebook. Only works for streamlit.
             width: The map width. Note that the height has no effect in Jupyter
-                notebook. Only works for streamlit. Defaults to None.
+                notebook. Only works for streamlit.
         """
         # Authenticates Earth Engine and initializes an Earth Engine session.
         if "ee_initialize" not in kwargs.keys():
@@ -117,7 +115,7 @@ class Map(pdk.Deck):
         """
 
         try:
-            if isinstance(layer, str) and layer.startswith("http"):
+            if isinstance(layer, str) and layer.startswith(("http://", "https://")):
                 pdk.settings.custom_libraries = [
                     {
                         "libraryName": "MyTileLayerLibrary",
@@ -168,11 +166,7 @@ class Map(pdk.Deck):
             )
             raise AttributeError(err_str)
 
-        if (
-            isinstance(ee_object, ee.geometry.Geometry)
-            or isinstance(ee_object, ee.feature.Feature)
-            or isinstance(ee_object, ee.featurecollection.FeatureCollection)
-        ):
+        if isinstance(ee_object, (ee.Geometry, ee.Feature, ee.FeatureCollection)):
             features = ee.FeatureCollection(ee_object)
 
             width = 2
@@ -193,9 +187,9 @@ class Map(pdk.Deck):
             )
 
             image = image_fill.blend(image_outline)
-        elif isinstance(ee_object, ee.image.Image):
+        elif isinstance(ee_object, ee.Image):
             image = ee_object
-        elif isinstance(ee_object, ee.imagecollection.ImageCollection):
+        elif isinstance(ee_object, ee.ImageCollection):
             image = ee_object.mosaic()
 
         if "palette" in vis_params:
@@ -224,7 +218,7 @@ class Map(pdk.Deck):
         """Adds a basemap to the map.
 
         Args:
-            basemap: Can be one of string from pydeck_basemaps. Defaults to 'HYBRID'.
+            basemap: Can be one of string from pydeck_basemaps.
         """
         import xyzservices
 
@@ -270,8 +264,8 @@ class Map(pdk.Deck):
 
         Args:
             gdf (GeoPandas.GeoDataFrame): The GeoPandas GeoDataFrame to add to the map.
-            layer_name: The layer name to be used. Defaults to None.
-            random_color_column: Column name to use for random color. Defaults to None.
+            layer_name: The layer name to be used.
+            random_color_column: Column name to use for random color.
 
         Raises:
             TypeError: gdf must be a GeoPandas GeoDataFrame.
@@ -339,8 +333,8 @@ class Map(pdk.Deck):
 
         Args:
             filename: The input file path to the vector dataset.
-            layer_name: The layer name to be used. Defaults to None.
-            random_color_column: Column name to use for random color. Defaults to None.
+            layer_name: The layer name to be used.
+            random_color_column: Column name to use for random color.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -349,7 +343,7 @@ class Map(pdk.Deck):
         try:
             import geopandas as gpd
 
-            if not filename.startswith("http"):
+            if not filename.startswith(("http://", "https://")):
                 filename = os.path.abspath(filename)
                 if filename.endswith(".zip"):
                     filename = "zip://" + filename
@@ -372,8 +366,8 @@ class Map(pdk.Deck):
 
         Args:
             filename: The input file path to the vector dataset.
-            layer_name: The layer name to be used. Defaults to None.
-            random_color_column: Column name to use for random color. Defaults to None.
+            layer_name: The layer name to be used.
+            random_color_column: Column name to use for random color.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -391,8 +385,8 @@ class Map(pdk.Deck):
 
         Args:
             filename: The input file path to the vector dataset.
-            layer_name: The layer name to be used. Defaults to None.
-            random_color_column: Column name to use for random color. Defaults to None.
+            layer_name: The layer name to be used.
+            random_color_column: Column name to use for random color.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.
@@ -410,8 +404,8 @@ class Map(pdk.Deck):
 
         Args:
             filename: The input file path to the vector dataset.
-            layer_name): The layer name to be used. Defaults to None.
-            random_color_column: Column name to use for random color. Defaults to None.
+            layer_name): The layer name to be used.
+            random_color_column: Column name to use for random color.
 
         Raises:
             FileNotFoundError: The provided vector file could not be found.

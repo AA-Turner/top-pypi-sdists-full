@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geemap
-Version: 0.37.2
+Version: 0.37.3
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>
@@ -10,11 +10,9 @@ Keywords: geemap
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Requires-Dist: anywidget
 Requires-Dist: bqplot
 Requires-Dist: earthengine-api>=1.6.12
@@ -33,6 +31,7 @@ Requires-Dist: pyshp>=2.3.1
 Requires-Dist: python-box
 Requires-Dist: requests
 Requires-Dist: scooby
+Requires-Dist: xarray
 Provides-Extra: ai
 Requires-Dist: google-api-core; extra == 'ai'
 Requires-Dist: google-cloud-aiplatform; extra == 'ai'
@@ -97,7 +96,6 @@ Requires-Dist: streamlit-folium; extra == 'all'
 Requires-Dist: voila; extra == 'all'
 Requires-Dist: watchfiles; extra == 'all'
 Requires-Dist: whiteboxgui>=0.6.0; extra == 'all'
-Requires-Dist: xarray; extra == 'all'
 Requires-Dist: xee; extra == 'all'
 Provides-Extra: apps
 Requires-Dist: gradio; extra == 'apps'
@@ -147,7 +145,6 @@ Requires-Dist: mapclassify; extra == 'maplibre'
 Requires-Dist: maplibre; extra == 'maplibre'
 Requires-Dist: pmtiles; extra == 'maplibre'
 Requires-Dist: rioxarray; extra == 'maplibre'
-Requires-Dist: xarray; extra == 'maplibre'
 Provides-Extra: raster
 Requires-Dist: geedim; extra == 'raster'
 Requires-Dist: localtileserver>=0.10.1; extra == 'raster'

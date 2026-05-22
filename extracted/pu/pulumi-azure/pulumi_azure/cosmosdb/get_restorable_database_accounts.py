@@ -100,6 +100,13 @@ def get_restorable_database_accounts(location: Optional[_builtins.str] = None,
     pulumi.export("id", example.id)
     ```
 
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
+
 
     :param _builtins.str location: The location where the Cosmos DB Database Account.
     :param _builtins.str name: The name of this Cosmos DB Database Account.
@@ -115,8 +122,8 @@ def get_restorable_database_accounts(location: Optional[_builtins.str] = None,
         id=pulumi.get(__ret__, 'id'),
         location=pulumi.get(__ret__, 'location'),
         name=pulumi.get(__ret__, 'name'))
-def get_restorable_database_accounts_output(location: Optional[pulumi.Input[_builtins.str]] = None,
-                                            name: Optional[pulumi.Input[_builtins.str]] = None,
+def get_restorable_database_accounts_output(location: pulumi.Input[Optional[_builtins.str]] = None,
+                                            name: pulumi.Input[Optional[_builtins.str]] = None,
                                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetRestorableDatabaseAccountsResult]:
     """
     Use this data source to access information about Cosmos DB Restorable Database Accounts.
@@ -131,6 +138,13 @@ def get_restorable_database_accounts_output(location: Optional[pulumi.Input[_bui
         location="West Europe")
     pulumi.export("id", example.id)
     ```
+
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
 
 
     :param _builtins.str location: The location where the Cosmos DB Database Account.

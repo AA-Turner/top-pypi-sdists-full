@@ -174,11 +174,73 @@ class NullPolicy:
 
 DEFAULT_NULL_POLICY = NullPolicy()
 _NULL_POLICY = contextvars.ContextVar("blosc2_null_policy", default=DEFAULT_NULL_POLICY)
+_CTABLE_PRINT_OPTIONS: dict[str, Any] = {
+    "display_index": True,
+    "display_rows": 60,
+    "display_precision": 6,
+    "fancy": False,
+}
+_SMALL_SORT_MATERIALIZE_LIMIT = 4096
 
 
 def get_null_policy() -> NullPolicy:
     """Return the current default null policy."""
     return _NULL_POLICY.get()
+
+
+def set_printoptions(
+    *,
+    display_index: bool | None = None,
+    display_rows: int | None = None,
+    display_precision: int | None = None,
+    fancy: bool | None = None,
+) -> None:
+    """Set global display options for :class:`CTable` string representations.
+
+    Parameters
+    ----------
+    display_index:
+        Whether ``str(ctable)`` should include a pandas-like logical row index
+        column.  ``None`` leaves the current setting unchanged.
+    display_rows:
+        Maximum number of rows allowed before truncating to a compact head/tail
+        view (five first and five last rows, when possible).  ``None`` leaves
+        the current setting unchanged.
+    display_precision:
+        Number of digits after the decimal point for floating-point values in
+        table displays.  Trailing zeros are trimmed.  ``None`` leaves the
+        current setting unchanged.
+    fancy:
+        Whether to use the more decorated table display, including separator
+        rules and a detailed footer.  ``False`` (default) uses a simpler
+        pandas-like footer such as ``[726017 rows x 5 columns]`` and omits
+        separator rules.  ``None`` leaves the current setting unchanged.
+    """
+    if display_index is not None:
+        if not isinstance(display_index, bool):
+            raise TypeError("display_index must be a bool or None")
+        _CTABLE_PRINT_OPTIONS["display_index"] = display_index
+    if display_rows is not None:
+        if not isinstance(display_rows, int) or isinstance(display_rows, bool) or display_rows < 0:
+            raise TypeError("display_rows must be a non-negative int or None")
+        _CTABLE_PRINT_OPTIONS["display_rows"] = display_rows
+    if display_precision is not None:
+        if (
+            not isinstance(display_precision, int)
+            or isinstance(display_precision, bool)
+            or display_precision < 0
+        ):
+            raise TypeError("display_precision must be a non-negative int or None")
+        _CTABLE_PRINT_OPTIONS["display_precision"] = display_precision
+    if fancy is not None:
+        if not isinstance(fancy, bool):
+            raise TypeError("fancy must be a bool or None")
+        _CTABLE_PRINT_OPTIONS["fancy"] = fancy
+
+
+def get_printoptions() -> dict[str, Any]:
+    """Return a copy of the global :class:`CTable` display options."""
+    return dict(_CTABLE_PRINT_OPTIONS)
 
 
 @contextlib.contextmanager
@@ -2671,6 +2733,28 @@ class CTable(Generic[RowT]):
         """Return cached live-row count without triggering a scan."""
         return getattr(self, "_n_rows_cached", None)
 
+    def _iter_live_positions_chunks(self):
+        """Yield chunks of physical positions for live rows without materialising the full mask."""
+        valid_rows = self._valid_rows
+        n = len(valid_rows)
+        chunks = getattr(valid_rows, "chunks", None)
+        chunk_len = chunks[0] if chunks else n
+
+        for start in range(0, n, chunk_len):
+            stop = min(start + chunk_len, n)
+            local_pos = np.flatnonzero(valid_rows[start:stop])
+            if len(local_pos):
+                yield (local_pos + start).astype(np.intp, copy=False)
+
+    def _live_positions_from_valid_rows_chunks(self) -> np.ndarray:
+        """Return live physical row positions by scanning the validity NDArray chunk-wise."""
+        positions = list(self._iter_live_positions_chunks())
+        if not positions:
+            return np.empty(0, dtype=np.intp)
+        if len(positions) == 1:
+            return positions[0]
+        return np.concatenate(positions).astype(np.intp, copy=False)
+
     def __init__(
         self,
         row_type: type[RowT],
@@ -3236,14 +3320,22 @@ class CTable(Generic[RowT]):
     # Display
     # ------------------------------------------------------------------
 
-    def _display_positions(self, head_tail: int = 10):
+    def _display_positions(self, display_rows: int | None = None):
         nrows = self._n_rows
-        hidden = max(0, nrows - head_tail * 2)
+        display_rows = _CTABLE_PRINT_OPTIONS["display_rows"] if display_rows is None else display_rows
+        if display_rows == 0:
+            return np.empty(0, dtype=np.intp), np.empty(0, dtype=np.intp), nrows
         valid_np = self._valid_rows[:]
         all_pos = np.where(valid_np)[0]
-        if nrows <= head_tail * 2:
+        if nrows <= display_rows:
             return all_pos, np.array([], dtype=all_pos.dtype), 0
-        return all_pos[:head_tail], all_pos[-head_tail:], hidden
+
+        preview_rows = min(10, display_rows)
+        head_rows = (preview_rows + 1) // 2
+        tail_rows = preview_rows // 2
+        hidden = max(0, nrows - head_rows - tail_rows)
+        tail_pos = all_pos[-tail_rows:] if tail_rows else np.array([], dtype=all_pos.dtype)
+        return all_pos[:head_rows], tail_pos, hidden
 
     def _display_widths(self, col_names: list[str] | None = None) -> dict[str, int]:
         widths: dict[str, int] = {}
@@ -3260,12 +3352,16 @@ class CTable(Generic[RowT]):
                 widths[name] = max(widths[name], 80)
         return widths
 
-    def _display_columns(self) -> tuple[list[str], int]:
+    def _display_columns(
+        self, *, display_index: bool = False, index_width: int = 0
+    ) -> tuple[list[str], int]:
         """Return terminal-width-friendly display columns and hidden count."""
         col_names = list(self.col_names)
         widths = self._display_widths(col_names)
         widths["..."] = 3
         total_width = sum(widths[n] + 2 for n in col_names) + 2 * max(0, len(col_names) - 1)
+        if display_index:
+            total_width += index_width + 2 + 2
         term_width = shutil.get_terminal_size((120, 20)).columns
         if total_width <= term_width or len(col_names) <= 2:
             return col_names, 0
@@ -3273,7 +3369,7 @@ class CTable(Generic[RowT]):
         selected: list[str] = []
         left = 0
         right = len(col_names) - 1
-        used = 0
+        used = index_width + 2 + 2 if display_index else 0
 
         def extra_width(name: str, n_existing: int) -> int:
             return widths[name] + 2 + (2 if n_existing else 0)
@@ -3306,24 +3402,74 @@ class CTable(Generic[RowT]):
         return display_cols, hidden
 
     @staticmethod
-    def _format_cell(value, width: int) -> str:
+    def _cell_text(value, float_precision: int | None = None) -> str:
         if isinstance(value, np.datetime64):
             s = str(value).replace("T", " ")
             if s.endswith(".000"):
                 s = s[:-4]
-        elif isinstance(value, np.ndarray):
+            return s
+        if isinstance(value, np.ndarray):
             if value.ndim == 1 and value.size <= 6:
-                s = np.array2string(value, separator=", ", max_line_width=10_000)
-            else:
-                s = f"ndarray(shape={value.shape}, dtype={value.dtype})"
-        else:
-            s = str(value)
+                return np.array2string(value, separator=", ", max_line_width=10_000)
+            return f"ndarray(shape={value.shape}, dtype={value.dtype})"
+        if isinstance(value, (float, np.floating)):
+            precision = (
+                _CTABLE_PRINT_OPTIONS["display_precision"] if float_precision is None else float_precision
+            )
+            if _CTABLE_PRINT_OPTIONS["fancy"]:
+                return np.format_float_positional(float(value), precision=precision, trim="-")
+            return f"{float(value):.{precision}f}"
+        return str(value)
+
+    @staticmethod
+    def _format_cell(value, width: int, float_precision: int | None = None) -> str:
+        s = CTable._cell_text(value, float_precision)
         if len(s) > width:
             s = s[: width - 1] + "…"
-        return f" {s:<{width}} "
+        if _CTABLE_PRINT_OPTIONS["fancy"]:
+            return f" {s:>{width}} "
+        return f"{s:>{width}}"
 
-    def _format_display_row(self, values: dict, widths: dict[str, int], col_names: list[str]) -> str:
-        return "  ".join(self._format_cell(values[n], widths[n]) for n in col_names)
+    @staticmethod
+    def _format_index_cell(value, width: int) -> str:
+        s = "" if value is None else str(value)
+        if len(s) > width:
+            s = s[: width - 1] + "…"
+        if _CTABLE_PRINT_OPTIONS["fancy"]:
+            return f" {s:<{width}} "
+        return f"{s:<{width}}"
+
+    @staticmethod
+    def _display_index_width(nrows: int, hidden: int, index_name: str) -> int:
+        width = max(len(index_name), len(str(max(nrows - 1, 0))))
+        if hidden > 0:
+            width = max(width, 3)
+        return width
+
+    def _format_display_row(
+        self,
+        values: dict,
+        widths: dict[str, int],
+        col_names: list[str],
+        float_precisions: dict[str, int] | None = None,
+    ) -> str:
+        float_precisions = {} if float_precisions is None else float_precisions
+        return "  ".join(self._format_cell(values[n], widths[n], float_precisions.get(n)) for n in col_names)
+
+    def _format_display_row_with_index(
+        self,
+        values: dict,
+        widths: dict[str, int],
+        col_names: list[str],
+        index_value,
+        index_width: int,
+        float_precisions: dict[str, int] | None = None,
+    ) -> str:
+        return (
+            self._format_index_cell(index_value, index_width)
+            + "  "
+            + self._format_display_row(values, widths, col_names, float_precisions)
+        )
 
     def _rows_to_dicts(self, positions, col_names: list[str] | None = None) -> list[dict]:
         if len(positions) == 0:
@@ -3342,15 +3488,22 @@ class CTable(Generic[RowT]):
             rows.append(row)
         return rows
 
-    def __str__(self) -> str:
-        """Pandas-style tabular display with column names, dtypes, and a row count footer."""
-        nrows = self._n_rows
-        ncols = len(self.col_names)
-        head_pos, tail_pos, hidden = self._display_positions()
-        display_cols, hidden_cols = self._display_columns()
-        widths = self._display_widths(display_cols)
-        sep = "  ".join("─" * (widths[n] + 2) for n in display_cols)
+    def _display_separator(
+        self,
+        widths: dict[str, int],
+        display_cols: list[str],
+        display_index: bool,
+        index_width: int,
+        fancy: bool,
+    ) -> str | None:
+        if not fancy:
+            return None
+        sep_parts = ["─" * (widths[n] + 2) for n in display_cols]
+        if display_index:
+            sep_parts.insert(0, "─" * (index_width + 2))
+        return "  ".join(sep_parts)
 
+    def _display_dtype_row(self, display_cols: list[str]) -> dict:
         dtype_row = {}
         for n in display_cols:
             if n == "...":
@@ -3360,23 +3513,56 @@ class CTable(Generic[RowT]):
                     self._col_dtype(n),
                     self._schema.columns_by_name[n].spec if n in self._schema.columns_by_name else None,
                 )
+        return dtype_row
 
-        lines = [
-            self._format_display_row({n: n for n in display_cols}, widths, display_cols),
-            self._format_display_row(dtype_row, widths, display_cols),
-            sep,
-        ]
-        lines.extend(
-            self._format_display_row(row, widths, display_cols)
-            for row in self._rows_to_dicts(head_pos, display_cols)
-        )
+    def _compact_float_precisions(self, display_cols: list[str], head_pos, tail_pos) -> dict[str, int]:
+        default_precision = _CTABLE_PRINT_OPTIONS["display_precision"]
+        precisions: dict[str, int] = {}
+        for n in display_cols:
+            finite_float_seen = False
+            integer_valued = True
+            for positions in (head_pos, tail_pos):
+                for row in self._rows_to_dicts(positions, [n]):
+                    value = row[n]
+                    if not isinstance(value, (float, np.floating)):
+                        continue
+                    value = float(value)
+                    if not np.isfinite(value):
+                        continue
+                    finite_float_seen = True
+                    if not value.is_integer():
+                        integer_valued = False
+                        break
+                if not integer_valued:
+                    break
+            if finite_float_seen and integer_valued:
+                precisions[n] = 1
+            else:
+                precisions[n] = default_precision
+        return precisions
+
+    def _compact_display_widths(
+        self,
+        display_cols: list[str],
+        head_pos,
+        tail_pos,
+        hidden: int,
+        float_precisions: dict[str, int],
+    ) -> dict[str, int]:
+        widths = {n: len(n) for n in display_cols}
         if hidden > 0:
-            lines.append(self._format_display_row(dict.fromkeys(display_cols, "..."), widths, display_cols))
-        lines.extend(
-            self._format_display_row(row, widths, display_cols)
-            for row in self._rows_to_dicts(tail_pos, display_cols)
-        )
-        lines.append(sep)
+            for n in display_cols:
+                widths[n] = max(widths[n], 3)
+        for positions in (head_pos, tail_pos):
+            for row in self._rows_to_dicts(positions, display_cols):
+                for n, value in row.items():
+                    widths[n] = max(widths[n], len(self._cell_text(value, float_precisions.get(n))))
+        return widths
+
+    @staticmethod
+    def _display_footer(nrows: int, ncols: int, hidden: int, hidden_cols: int, fancy: bool) -> list[str]:
+        if not fancy:
+            return ["", f"[{nrows} rows x {ncols} columns]"]
         footer = f"{nrows:,} rows × {ncols} columns"
         notes = []
         if hidden > 0:
@@ -3385,8 +3571,166 @@ class CTable(Generic[RowT]):
             notes.append(f"{hidden_cols:,} columns hidden")
         if notes:
             footer += f"  ({', '.join(notes)})"
-        lines.append(footer)
+        return [footer]
+
+    def _display_lines_with_index(
+        self,
+        *,
+        display_cols: list[str],
+        widths: dict[str, int],
+        index_name: str,
+        index_width: int,
+        head_pos,
+        tail_pos,
+        hidden: int,
+        sep: str | None,
+        fancy: bool,
+        float_precisions: dict[str, int] | None = None,
+    ) -> list[str]:
+        header_row = {n: n for n in display_cols}
+        lines = [
+            self._format_display_row_with_index(
+                header_row, widths, display_cols, index_name, index_width, float_precisions
+            )
+        ]
+        if fancy:
+            dtype_row = self._display_dtype_row(display_cols)
+            lines.append(
+                self._format_display_row_with_index(
+                    dtype_row, widths, display_cols, None, index_width, float_precisions
+                )
+            )
+        if sep is not None:
+            lines.append(sep)
+        lines.extend(
+            self._format_display_row_with_index(row, widths, display_cols, i, index_width, float_precisions)
+            for i, row in enumerate(self._rows_to_dicts(head_pos, display_cols))
+        )
+        if hidden > 0:
+            lines.append(
+                self._format_display_row_with_index(
+                    dict.fromkeys(display_cols, "..."),
+                    widths,
+                    display_cols,
+                    "...",
+                    index_width,
+                    float_precisions,
+                )
+            )
+        tail_start = self._n_rows - len(tail_pos)
+        lines.extend(
+            self._format_display_row_with_index(
+                row, widths, display_cols, tail_start + i, index_width, float_precisions
+            )
+            for i, row in enumerate(self._rows_to_dicts(tail_pos, display_cols))
+        )
+        return lines
+
+    def _display_lines_without_index(
+        self,
+        *,
+        display_cols: list[str],
+        widths: dict[str, int],
+        head_pos,
+        tail_pos,
+        hidden: int,
+        sep: str | None,
+        fancy: bool,
+        float_precisions: dict[str, int] | None = None,
+    ) -> list[str]:
+        header_row = {n: n for n in display_cols}
+        lines = [self._format_display_row(header_row, widths, display_cols, float_precisions)]
+        if fancy:
+            lines.append(
+                self._format_display_row(
+                    self._display_dtype_row(display_cols), widths, display_cols, float_precisions
+                )
+            )
+        if sep is not None:
+            lines.append(sep)
+        lines.extend(
+            self._format_display_row(row, widths, display_cols, float_precisions)
+            for row in self._rows_to_dicts(head_pos, display_cols)
+        )
+        if hidden > 0:
+            lines.append(
+                self._format_display_row(
+                    dict.fromkeys(display_cols, "..."), widths, display_cols, float_precisions
+                )
+            )
+        lines.extend(
+            self._format_display_row(row, widths, display_cols, float_precisions)
+            for row in self._rows_to_dicts(tail_pos, display_cols)
+        )
+        return lines
+
+    def to_string(self, *, display_index: bool | None = None, index_name: str = "") -> str:
+        """Return a tabular string representation of the table.
+
+        Parameters
+        ----------
+        display_index:
+            Whether to include a pandas-like logical row index column.  If
+            ``None`` (default), use the global value configured with
+            :func:`blosc2.set_printoptions`.
+        index_name:
+            Optional label for the displayed index column.
+        """
+        if display_index is None:
+            display_index = _CTABLE_PRINT_OPTIONS["display_index"]
+        if not isinstance(display_index, bool):
+            raise TypeError("display_index must be a bool or None")
+        if not isinstance(index_name, str):
+            raise TypeError("index_name must be a str")
+
+        nrows = self._n_rows
+        ncols = len(self.col_names)
+        head_pos, tail_pos, hidden = self._display_positions()
+        index_width = self._display_index_width(nrows, hidden, index_name) if display_index else 0
+        display_cols, hidden_cols = self._display_columns(
+            display_index=display_index, index_width=index_width
+        )
+        fancy = _CTABLE_PRINT_OPTIONS["fancy"]
+        float_precisions = {} if fancy else self._compact_float_precisions(display_cols, head_pos, tail_pos)
+        widths = (
+            self._display_widths(display_cols)
+            if fancy
+            else self._compact_display_widths(display_cols, head_pos, tail_pos, hidden, float_precisions)
+        )
+        sep = self._display_separator(widths, display_cols, display_index, index_width, fancy)
+
+        if display_index:
+            lines = self._display_lines_with_index(
+                display_cols=display_cols,
+                widths=widths,
+                index_name=index_name,
+                index_width=index_width,
+                head_pos=head_pos,
+                tail_pos=tail_pos,
+                hidden=hidden,
+                sep=sep,
+                fancy=fancy,
+                float_precisions=float_precisions,
+            )
+        else:
+            lines = self._display_lines_without_index(
+                display_cols=display_cols,
+                widths=widths,
+                head_pos=head_pos,
+                tail_pos=tail_pos,
+                hidden=hidden,
+                sep=sep,
+                fancy=fancy,
+                float_precisions=float_precisions,
+            )
+        if sep is not None:
+            lines.append(sep)
+        lines.extend(self._display_footer(nrows, ncols, hidden, hidden_cols, fancy))
         return "\n".join(lines)
+
+    def __str__(self) -> str:
+        """Pandas-style tabular display with column names, dtypes, and a row count footer."""
+        return self.to_string()
 
     def __repr__(self) -> str:
         """Short ``CTable<cols>(N rows, X compressed)`` summary string."""
@@ -4030,7 +4374,9 @@ class CTable(Generic[RowT]):
         obj.auto_compact = parent.auto_compact
         obj.base = parent
         obj._valid_rows = new_valid_rows
-        obj._n_rows = int(blosc2.count_nonzero(new_valid_rows))
+        # Keep row counts lazy for views.  Many pipelines (e.g. where(...).sort_by(...))
+        # immediately scan the mask for positions, so counting here would duplicate work.
+        obj._n_rows = None
         obj._last_pos = None
         return obj
 
@@ -4120,7 +4466,7 @@ class CTable(Generic[RowT]):
             return self.view(self._valid_rows)
 
         rng = np.random.default_rng(seed)
-        all_pos = np.where(self._valid_rows[:])[0]
+        all_pos = self._live_positions_from_valid_rows_chunks()
         chosen = rng.choice(all_pos, size=n, replace=False)
 
         mask = np.zeros(len(self._valid_rows), dtype=np.bool_)
@@ -4170,7 +4516,7 @@ class CTable(Generic[RowT]):
         obj._storage = None
         obj._read_only = self._read_only
         obj._valid_rows = self._valid_rows
-        obj._n_rows = self._n_rows
+        obj._n_rows = self._known_n_rows()
         obj._last_pos = self._last_pos
         obj.auto_compact = self.auto_compact
         obj.base = self
@@ -5045,9 +5391,12 @@ class CTable(Generic[RowT]):
                     col.name, spec=col.spec, cparams=cparams, dparams=dparams
                 )
             elif cls._is_dictionary_column(col):
-                new_cols[col.name] = storage.create_dictionary_column(
+                dict_col = storage.create_dictionary_column(
                     col.name, spec=col.spec, cparams=cparams, dparams=dparams
                 )
+                if len(dict_col.codes) < capacity:
+                    dict_col.resize((capacity,))
+                new_cols[col.name] = dict_col
             else:
                 shape = cls._column_physical_shape(col, capacity)
                 chunks, blocks = default_chunks, default_blocks
@@ -6432,7 +6781,7 @@ class CTable(Generic[RowT]):
 
         spec, default, column_config = self._column_spec_default_and_config(spec)
 
-        live_pos = np.where(self._valid_rows[:])[0]
+        live_pos = self._live_positions_from_valid_rows_chunks()
         if default is MISSING and len(live_pos) > 0:
             raise ValueError(
                 "add_column() requires a default declared as blosc2.field(..., default=...) "
@@ -6637,9 +6986,10 @@ class CTable(Generic[RowT]):
 
         idx = self.col_names.index(old)
         self.col_names[idx] = new
-        self._col_widths[new] = max(len(new), self._col_widths.pop(old))
-
         old_compiled = self._schema.columns_by_name[old]
+        self._col_widths.pop(old)
+        self._col_widths[new] = max(len(new), old_compiled.display_width)
+
         renamed = CompiledColumn(
             name=new,
             py_type=old_compiled.py_type,
@@ -7147,7 +7497,7 @@ class CTable(Generic[RowT]):
         if name not in self._materialized_cols:
             raise KeyError(f"{name!r} is not a generated/materialized column.")
         meta = self._materialized_cols[name]
-        live_pos = np.where(self._valid_rows[:])[0]
+        live_pos = self._live_positions_from_valid_rows_chunks()
         if meta.get("transformer_kind") == "row_transformer":
             transformer = RowTransformer.from_metadata(meta["transformer"])
             values = np.asarray(transformer.evaluate_existing(self), dtype=meta["dtype"])
@@ -7312,7 +7662,7 @@ class CTable(Generic[RowT]):
         if name in self._computed_cols:
             raise ValueError(f"A computed column named {name!r} already exists.")
 
-        live_pos = np.where(self._valid_rows[:])[0]
+        live_pos = self._live_positions_from_valid_rows_chunks()
         if isinstance(values, RowTransformer):
             transformer = values
             for dep in transformer.source_columns:
@@ -8052,9 +8402,9 @@ class CTable(Generic[RowT]):
 
         cols, ascending = self._normalise_sort_keys(cols, ascending)
 
-        # Live physical positions
-        valid_np = self._valid_rows[:]
-        live_pos = np.where(valid_np)[0]
+        # Live physical positions.  Scan the validity NDArray chunk-wise to avoid
+        # materialising the whole mask as a single NumPy array.
+        live_pos = self._live_positions_from_valid_rows_chunks()
         n = len(live_pos)
 
         if n == 0:
@@ -8068,6 +8418,21 @@ class CTable(Generic[RowT]):
             if sorted_pos is not None and len(sorted_pos) != n:
                 sorted_pos = None
 
+        # For small filtered views, materialise selected columns once and sort those
+        # small arrays in memory.  This avoids gathering the sort keys and then
+        # gathering the result columns again from the large backing arrays.
+        if (
+            sorted_pos is None
+            and not inplace
+            and self.base is not None
+            and n <= _SMALL_SORT_MATERIALIZE_LIMIT
+            and not any(
+                self._is_list_column(col) or self._is_varlen_scalar_column(col)
+                for col in self._schema.columns
+            )
+        ):
+            return self._sorted_small_copy_from_live_positions(cols, ascending, live_pos, n)
+
         if sorted_pos is None:
             order = np.lexsort(self._build_lex_keys(cols, ascending, live_pos, n))
             sorted_pos = live_pos[order]
@@ -8077,6 +8442,61 @@ class CTable(Generic[RowT]):
             return self
 
         return self._sorted_copy_from_positions(sorted_pos, n)
+
+    def _sorted_small_copy_from_live_positions(
+        self, cols: list[str], ascending: list[bool], live_pos: np.ndarray, n: int
+    ) -> CTable:
+        """Materialise and sort a small filtered view, avoiding a second gather of sort keys."""
+        gathered = {}
+        for col in self._schema.columns:
+            arr = self._cols[col.name]
+            if self._is_dictionary_column(col):
+                gathered[col.name] = np.asarray(arr.codes[live_pos], dtype=np.int32)
+            else:
+                gathered[col.name] = arr[live_pos]
+
+        lex_keys = []
+        for name, asc in zip(reversed(cols), reversed(ascending), strict=True):
+            col_info = self._schema.columns_by_name.get(name)
+            if col_info is not None and self._is_dictionary_column(col_info):
+                raw = np.array(self._cols[name][live_pos], dtype=object)
+            else:
+                raw = gathered[name]
+
+            if not asc:
+                if raw.dtype.kind in "USO":
+                    rank = np.argsort(np.argsort(raw, kind="stable"), kind="stable")
+                    lex_keys.append((n - 1 - rank).astype(np.intp))
+                elif np.issubdtype(raw.dtype, np.unsignedinteger):
+                    lex_keys.append(-raw.astype(np.int64))
+                else:
+                    lex_keys.append(-raw)
+            else:
+                lex_keys.append(raw)
+
+            nv = getattr(col_info.spec, "null_value", None) if col_info else None
+            if nv is not None:
+                if isinstance(nv, float) and np.isnan(nv):
+                    null_ind = np.isnan(raw).astype(np.intp)
+                else:
+                    null_ind = (raw == nv).astype(np.intp)
+                lex_keys.append(null_ind)
+
+        order = np.lexsort(lex_keys)
+        result = self._empty_copy(capacity=n)
+        for col in self._schema.columns:
+            col_name = col.name
+            if self._is_dictionary_column(col):
+                for v in self._cols[col_name].dictionary:
+                    result._cols[col_name].encode(v)
+                result._cols[col_name].codes[:n] = gathered[col_name][order]
+            else:
+                result._cols[col_name][:n] = gathered[col_name][order]
+        result._valid_rows[:n] = True
+        result._valid_rows[n:] = False
+        result._n_rows = n
+        result._last_pos = n
+        return result
 
     def _sort_by_inplace(self, sorted_pos: np.ndarray, n: int) -> None:
         for col in self._schema.columns:
@@ -8241,12 +8661,15 @@ class CTable(Generic[RowT]):
                     dparams=col_storage.get("dparams"),
                 )
             elif self._is_dictionary_column(col):
-                new_cols[col.name] = mem_storage.create_dictionary_column(
+                dict_col = mem_storage.create_dictionary_column(
                     col.name,
                     spec=col.spec,
                     cparams=col_storage.get("cparams"),
                     dparams=col_storage.get("dparams"),
                 )
+                if len(dict_col.codes) < capacity:
+                    dict_col.codes.resize((capacity,))
+                new_cols[col.name] = dict_col
             else:
                 shape = self._column_physical_shape(col, capacity)
                 chunks = col_storage["chunks"]
@@ -8384,7 +8807,7 @@ class CTable(Generic[RowT]):
         if not isinstance(token, str) or not token:
             raise ValueError(f"Malformed index metadata for column {col_name!r}: missing token.")
         kind = descriptor.get("kind")
-        if kind not in {"summary", "bucket", "partial", "full"}:
+        if kind not in {"summary", "bucket", "partial", "full", "opsi"}:
             raise ValueError(f"Malformed index metadata for column {col_name!r}: invalid kind {kind!r}.")
         if kind == "bucket" and not isinstance(descriptor.get("bucket"), dict):
             raise ValueError(f"Malformed index metadata for column {col_name!r}: missing bucket payload.")
@@ -8758,6 +9181,38 @@ class CTable(Generic[RowT]):
 
             t.create_index("trip.begin.lon")
             t.where("trip.begin.lon > -87.7").nrows   # index is used automatically
+
+        .. rubric:: Choosing an index kind
+
+        ``BUCKET`` (the default) is the cheapest to build and store.
+        It accelerates single‑column ``where`` queries and ``sort_by``
+        reuse with approximate ordering derived from value
+        quantization.  Sufficient for most workloads.
+
+        ``FULL`` builds a globally sorted index that returns exact
+        row positions for any range predicate.  It enables the
+        **cross‑column refinement** planner path: when a multi‑column
+        conjunction such as ``(tips > 100) & (km > 0) & (sec > 0)``
+        indexes only the most selective column, the planner obtains
+        compact exact positions from ``FULL`` and evaluates the
+        remaining predicates on just those rows.  ``FULL`` is also
+        ideal for ``sort_by`` reuse because it carries a complete
+        sort order.
+
+        ``PARTIAL`` builds a chunk‑local sorted payload with segment
+        navigation.  It is cheaper to build than ``FULL`` (roughly
+        half the raw storage) while still providing exact positions
+        for cross‑column refinement.  Its exact positions are most
+        compact for equality or narrow range queries; wide ranges
+        may scan proportionally more candidate segments.
+
+        ``OPSI`` is a specialised tier for approximate ordering;
+        prefer ``FULL`` when a globally sorted ordered index is
+        needed to accelerate ``sort_by``.
+
+        ``SUMMARY`` stores only per‑segment min/max and is the
+        lightest kind; it may still skip chunks for broad range
+        queries but cannot accelerate ``sort_by``.
         """
         if self.base is not None:
             raise ValueError("Cannot create an index on a view.")
@@ -9074,17 +9529,64 @@ class CTable(Generic[RowT]):
         return None
 
     @staticmethod
+    def _evaluate_refine_predicate(col_values, refine_plan) -> np.ndarray:
+        """Evaluate a single comparison predicated on *col_values*.
+
+        ``refine_plan`` is an :class:`~blosc2.indexing.ExactPredicatePlan`
+        that carries ``lower`` / ``upper`` bounds and their inclusiveness.
+        Returns a boolean mask of the same length as *col_values*.
+        """
+        mask = np.ones(len(col_values), dtype=bool)
+        if refine_plan.lower is not None:
+            if refine_plan.lower_inclusive:
+                mask &= col_values >= refine_plan.lower
+            else:
+                mask &= col_values > refine_plan.lower
+        if refine_plan.upper is not None:
+            if refine_plan.upper_inclusive:
+                mask &= col_values <= refine_plan.upper
+            else:
+                mask &= col_values < refine_plan.upper
+        return mask
+
+    @staticmethod
+    def _evaluate_expression_at(expr_result, candidates):
+        """Evaluate *expr_result* on the operand rows at *candidates*.
+
+        Returns a boolean ``numpy.ndarray`` the same length as *candidates*,
+        or ``None`` if evaluation fails.
+        """
+        try:
+            operands = {}
+            for var_name, arr in expr_result.operands.items():
+                sliced = arr[candidates]
+                if hasattr(sliced, "__array__"):
+                    sliced = np.asarray(sliced)
+                operands[var_name] = sliced
+            return blosc2.evaluate(expr_result.expression, operands)
+        except Exception:
+            return None
+
+    @staticmethod
     def _find_indexed_columns(root_cols, catalog, operands):
-        """Return live indexed columns referenced by *operands* in expression order."""
+        """Return live indexed columns referenced by *operands* in expression order.
+
+        Avoid iterating over ``root_cols.items()`` here: for lazy persistent tables
+        that would open every column just to find the indexed operands.
+        """
         indexed = []
         seen = set()
+        indexed_arrays = {}
+        for col_name, descriptor in catalog.items():
+            if col_name in root_cols:
+                indexed_arrays[col_name] = (root_cols[col_name], descriptor)
+
         for operand in operands.values():
             if not isinstance(operand, blosc2.NDArray):
                 continue
-            for col_name, col_arr in root_cols.items():
-                if col_arr is not operand or col_name in seen or col_name not in catalog:
+            for col_name, (col_arr, descriptor) in indexed_arrays.items():
+                if col_name in seen or col_arr is not operand:
                     continue
-                descriptor = catalog[col_name]
                 CTable._validate_index_descriptor(col_name, descriptor)
                 if descriptor.get("stale", False):
                     continue
@@ -9180,13 +9682,43 @@ class CTable(Generic[RowT]):
         if plan.exact_positions is not None:
             return _exclude_null_positions(plan.exact_positions)
 
+        if plan.partial_exact_positions is not None:
+            # Cross-column refinement: the FULL index on one column gave us
+            # exact positions, but the expression has additional predicates on
+            # other columns.  Refinement reads every operand column at those
+            # candidate positions using sparse/fancy indexing.  For compressed
+            # columns this can touch many chunks and be slower than the regular
+            # sequential miniexpr scan, which is very fast for simple predicates.
+            # Keep this intentionally conservative until sparse gathers become
+            # cheaper or the planner has a richer cost model.
+            max_sparse_refine_candidates = 1024
+            candidates = np.asarray(plan.partial_exact_positions, dtype=np.int64)
+            if len(candidates) > max_sparse_refine_candidates:
+                return None
+            candidates = _exclude_null_positions(candidates)
+            restricted = self._evaluate_expression_at(expr_result, candidates)
+            if restricted is not None and restricted.dtype == np.bool_:
+                refined = candidates[np.asarray(restricted, dtype=bool)]
+                return _exclude_null_positions(refined)
+            # Fall through to full scan if refinement fails
+
         if plan.bucket_masks is not None:
+            # When bucket pruning covers all units (100 % of chunks are
+            # candidates), the per‑chunk evaluation overhead outweighs the
+            # benefit over a plain scan.  Fall back to the scan path.
+            if plan.total_units > 0 and plan.selected_units >= plan.total_units:
+                return None
             _, positions = evaluate_bucket_query(
                 expression, merged_operands, {}, where_dict, plan, return_positions=True
             )
             return _exclude_null_positions(positions)
 
         if plan.candidate_units is not None and plan.segment_len is not None:
+            # When segment summaries prune fewer than half the candidate
+            # units, the per‑segment evaluation overhead outweighs a plain
+            # scan.  Fall back to the scan path.
+            if plan.total_units > 0 and plan.selected_units / plan.total_units > 0.5:
+                return None
             _, positions = evaluate_segment_query(
                 expression, merged_operands, {}, where_dict, plan, return_positions=True
             )
@@ -9386,8 +9918,7 @@ class CTable(Generic[RowT]):
             raise ValueError("Table is read-only (opened with mode='r').")
         if self.base is not None:
             raise ValueError("Cannot delete rows from a view.")
-        valid_rows_np = self._valid_rows[:]
-        true_pos = np.where(valid_rows_np)[0]
+        true_pos = self._live_positions_from_valid_rows_chunks()
 
         if isinstance(ind, Iterable) and not isinstance(ind, (str, bytes)):
             ind = list(ind)
@@ -9398,8 +9929,7 @@ class CTable(Generic[RowT]):
         n_deleted = len(np.unique(false_pos))
         n_rows = self.nrows
 
-        valid_rows_np[false_pos] = False
-        self._valid_rows[:] = valid_rows_np  # write back in-place; no new array created
+        self._valid_rows[false_pos] = False
         self._n_rows = n_rows - n_deleted
         if self._last_pos is None or np.any(false_pos == self._last_pos - 1):
             self._last_pos = None  # last live row deleted; recalculate on next write
@@ -9786,42 +10316,51 @@ class CTable(Generic[RowT]):
                 result = self.view(blosc2.asarray(mask))
                 return result if columns is None else result.select(list(columns))
 
+        target_len = len(self._valid_rows)
+        known_n_rows = self._known_n_rows()
+        all_rows_valid = known_n_rows == target_len
+        filter_intersected = False
+
         filter = expr_result.compute() if isinstance(expr_result, blosc2.LazyExpr) else expr_result
+
         if getattr(filter, "ndim", 1) != 1:
             raise ValueError(
                 "CTable.where() requires a 1-D row mask. Reduce ndarray-column predicates to one "
                 "boolean per row before filtering."
             )
 
-        target_len = len(self._valid_rows)
+        filter_len = len(filter)
+        if filter_len != target_len:
+            if filter_len == self.nrows:
+                physical = blosc2.zeros(target_len, dtype=np.bool_)
+                live_pos = self._live_positions_from_valid_rows_chunks()
+                physical[live_pos] = filter[:]
+                filter = physical
+                filter_intersected = True
+            elif filter_len > target_len:
+                filter = filter[:target_len]
+                filter_intersected = False
+            else:
+                padding = blosc2.zeros(target_len, dtype=np.bool_)
+                padding[:filter_len] = filter[:]
+                filter = padding
+                filter_intersected = False
 
-        if len(filter) == self.nrows and len(filter) != target_len:
-            physical = blosc2.zeros(target_len, dtype=np.bool_)
-            live_pos = np.where(self._valid_rows[:])[0]
-            physical[live_pos] = filter[:]
-            filter = physical
-        elif len(filter) > target_len:
-            filter = filter[:target_len]
-        elif len(filter) < target_len:
-            padding = blosc2.zeros(target_len, dtype=np.bool_)
-            padding[: len(filter)] = filter[:]
-            filter = padding
-
-        filter = (filter & self._valid_rows).compute()
+        if not filter_intersected and not all_rows_valid:
+            filter = (filter & self._valid_rows).compute()
 
         result = self.view(filter)
         return result if columns is None else result.select(list(columns))
 
     def _run_row_logic(self, ind: int | slice | str | Iterable) -> CTable:
-        valid_rows_np = self._valid_rows[:]
-        true_pos = np.where(valid_rows_np)[0]
+        true_pos = self._live_positions_from_valid_rows_chunks()
 
         if isinstance(ind, Iterable) and not isinstance(ind, (str, bytes)):
             ind = list(ind)
 
         mant_pos = true_pos[ind]
 
-        new_mask_np = np.zeros_like(valid_rows_np, dtype=bool)
+        new_mask_np = np.zeros(len(self._valid_rows), dtype=bool)
         new_mask_np[mant_pos] = True
 
         new_mask = blosc2.asarray(new_mask_np)

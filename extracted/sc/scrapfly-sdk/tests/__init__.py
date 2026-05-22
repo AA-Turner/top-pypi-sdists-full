@@ -1,3 +1,0 @@
-"""
-Scrapfly Python SDK Tests
-"""

@@ -18,7 +18,11 @@ class Framebuffer:
         self._fbo = pyglet.image.buffer.Framebuffer()
         self._fbo.attach_texture(self._texture, attachment=gl.GL_COLOR_ATTACHMENT0)
 
-    # ======================================== PROPRIÉTÉS ========================================
+    # ======================================== PROPERTIES ========================================
+    @property
+    def size(self) -> tuple[int, int]:
+        """Taille du Framebuffer"""
+        return (self._texture.width, self._texture.height)
 
     @property
     def width(self) -> int:

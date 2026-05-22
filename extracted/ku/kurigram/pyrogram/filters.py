@@ -18,17 +18,17 @@
 
 import inspect
 import re
-from typing import Callable, Union, List, Pattern, Optional
+from typing import Callable, List, Optional, Pattern, Union
 
 import pyrogram
 from pyrogram import enums
 from pyrogram.types import (
-    Message,
     CallbackQuery,
     ChosenInlineResult,
-    InlineQuery,
-    PreCheckoutQuery,
     InlineKeyboardMarkup,
+    InlineQuery,
+    Message,
+    PreCheckoutQuery,
     ReplyKeyboardMarkup,
     Update,
 )

@@ -5,7 +5,7 @@ from __future__ import annotations
 import typing_extensions
 from typing import Dict, List, Union, Iterable, Optional
 from datetime import datetime
-from typing_extensions import Literal, overload
+from typing_extensions import Literal
 
 import httpx
 
@@ -23,7 +23,7 @@ from ..types import (
     subscription_retrieve_usage_history_params,
 )
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import path_template, required_args, maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -86,6 +86,7 @@ class SubscriptionsResource(SyncAPIResource):
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         allowed_payment_method_types: Optional[List[PaymentMethodTypes]] | Omit = omit,
         billing_currency: Optional[Currency] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         discount_codes: Optional[SequenceNotStr[str]] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
@@ -130,6 +131,10 @@ class SubscriptionsResource(SyncAPIResource):
 
           billing_currency: Fix the currency in which the end customer is billed. If Dodo Payments cannot
               support that currency for this transaction, it will not proceed
+
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B purchase, this name is rendered on the
+              invoice instead of the customer's personal name.
 
           discount_code: DEPRECATED: Use discount_codes instead. Cannot be used together with
               discount_codes.
@@ -195,6 +200,7 @@ class SubscriptionsResource(SyncAPIResource):
                     "addons": addons,
                     "allowed_payment_method_types": allowed_payment_method_types,
                     "billing_currency": billing_currency,
+                    "customer_business_name": customer_business_name,
                     "discount_code": discount_code,
                     "discount_codes": discount_codes,
                     "force_3ds": force_3ds,
@@ -264,6 +270,7 @@ class SubscriptionsResource(SyncAPIResource):
         cancellation_comment: Optional[str] | Omit = omit,
         cancellation_feedback: Optional[CancellationFeedback] | Omit = omit,
         credit_entitlement_cart: Optional[Iterable[subscription_update_params.CreditEntitlementCart]] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         customer_name: Optional[str] | Omit = omit,
         disable_on_demand: Optional[subscription_update_params.DisableOnDemand] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
@@ -289,6 +296,11 @@ class SubscriptionsResource(SyncAPIResource):
 
           credit_entitlement_cart: Update credit entitlement cart settings
 
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B subscription, this name is rendered on
+              the invoice instead of the customer's personal name. Send `null` to explicitly
+              clear the business name.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -309,6 +321,7 @@ class SubscriptionsResource(SyncAPIResource):
                     "cancellation_comment": cancellation_comment,
                     "cancellation_feedback": cancellation_feedback,
                     "credit_entitlement_cart": credit_entitlement_cart,
+                    "customer_business_name": customer_business_name,
                     "customer_name": customer_name,
                     "disable_on_demand": disable_on_demand,
                     "metadata": metadata,
@@ -815,13 +828,11 @@ class SubscriptionsResource(SyncAPIResource):
             model=SubscriptionRetrieveUsageHistoryResponse,
         )
 
-    @overload
     def update_payment_method(
         self,
         subscription_id: str,
         *,
-        type: Literal["new"],
-        return_url: Optional[str] | Omit = omit,
+        payment_method: subscription_update_payment_method_params.PaymentMethod,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -839,60 +850,12 @@ class SubscriptionsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        ...
-
-    @overload
-    def update_payment_method(
-        self,
-        subscription_id: str,
-        *,
-        payment_method_id: str,
-        type: Literal["existing"],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SubscriptionUpdatePaymentMethodResponse:
-        """
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @required_args(["type"], ["payment_method_id", "type"])
-    def update_payment_method(
-        self,
-        subscription_id: str,
-        *,
-        type: Literal["new"] | Literal["existing"],
-        return_url: Optional[str] | Omit = omit,
-        payment_method_id: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SubscriptionUpdatePaymentMethodResponse:
         if not subscription_id:
             raise ValueError(f"Expected a non-empty value for `subscription_id` but received {subscription_id!r}")
         return self._post(
             path_template("/subscriptions/{subscription_id}/update-payment-method", subscription_id=subscription_id),
             body=maybe_transform(
-                {
-                    "type": type,
-                    "return_url": return_url,
-                    "payment_method_id": payment_method_id,
-                },
-                subscription_update_payment_method_params.SubscriptionUpdatePaymentMethodParams,
+                payment_method, subscription_update_payment_method_params.SubscriptionUpdatePaymentMethodParams
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -932,6 +895,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         addons: Optional[Iterable[AttachAddonParam]] | Omit = omit,
         allowed_payment_method_types: Optional[List[PaymentMethodTypes]] | Omit = omit,
         billing_currency: Optional[Currency] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         discount_codes: Optional[SequenceNotStr[str]] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
@@ -976,6 +940,10 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
 
           billing_currency: Fix the currency in which the end customer is billed. If Dodo Payments cannot
               support that currency for this transaction, it will not proceed
+
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B purchase, this name is rendered on the
+              invoice instead of the customer's personal name.
 
           discount_code: DEPRECATED: Use discount_codes instead. Cannot be used together with
               discount_codes.
@@ -1041,6 +1009,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "addons": addons,
                     "allowed_payment_method_types": allowed_payment_method_types,
                     "billing_currency": billing_currency,
+                    "customer_business_name": customer_business_name,
                     "discount_code": discount_code,
                     "discount_codes": discount_codes,
                     "force_3ds": force_3ds,
@@ -1110,6 +1079,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         cancellation_comment: Optional[str] | Omit = omit,
         cancellation_feedback: Optional[CancellationFeedback] | Omit = omit,
         credit_entitlement_cart: Optional[Iterable[subscription_update_params.CreditEntitlementCart]] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         customer_name: Optional[str] | Omit = omit,
         disable_on_demand: Optional[subscription_update_params.DisableOnDemand] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
@@ -1135,6 +1105,11 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
 
           credit_entitlement_cart: Update credit entitlement cart settings
 
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B subscription, this name is rendered on
+              the invoice instead of the customer's personal name. Send `null` to explicitly
+              clear the business name.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1155,6 +1130,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
                     "cancellation_comment": cancellation_comment,
                     "cancellation_feedback": cancellation_feedback,
                     "credit_entitlement_cart": credit_entitlement_cart,
+                    "customer_business_name": customer_business_name,
                     "customer_name": customer_name,
                     "disable_on_demand": disable_on_demand,
                     "metadata": metadata,
@@ -1664,13 +1640,11 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
             model=SubscriptionRetrieveUsageHistoryResponse,
         )
 
-    @overload
     async def update_payment_method(
         self,
         subscription_id: str,
         *,
-        type: Literal["new"],
-        return_url: Optional[str] | Omit = omit,
+        payment_method: subscription_update_payment_method_params.PaymentMethod,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1688,60 +1662,12 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        ...
-
-    @overload
-    async def update_payment_method(
-        self,
-        subscription_id: str,
-        *,
-        payment_method_id: str,
-        type: Literal["existing"],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SubscriptionUpdatePaymentMethodResponse:
-        """
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @required_args(["type"], ["payment_method_id", "type"])
-    async def update_payment_method(
-        self,
-        subscription_id: str,
-        *,
-        type: Literal["new"] | Literal["existing"],
-        return_url: Optional[str] | Omit = omit,
-        payment_method_id: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SubscriptionUpdatePaymentMethodResponse:
         if not subscription_id:
             raise ValueError(f"Expected a non-empty value for `subscription_id` but received {subscription_id!r}")
         return await self._post(
             path_template("/subscriptions/{subscription_id}/update-payment-method", subscription_id=subscription_id),
             body=await async_maybe_transform(
-                {
-                    "type": type,
-                    "return_url": return_url,
-                    "payment_method_id": payment_method_id,
-                },
-                subscription_update_payment_method_params.SubscriptionUpdatePaymentMethodParams,
+                payment_method, subscription_update_payment_method_params.SubscriptionUpdatePaymentMethodParams
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

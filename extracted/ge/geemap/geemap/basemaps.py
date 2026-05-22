@@ -17,6 +17,8 @@ More WMS basemaps can be found at the following websites:
 # The core features include classes and functions below until the line # ******* #
 # *******************************************************************************#
 
+# pylint: disable=line-too-long
+
 import collections
 import os
 from typing import Any
@@ -278,15 +280,14 @@ class GoogleMapsTileProvider(xyzservices.TileProvider):
 
         Args:
             map_type: The type of map to generate. Options are 'roadmap', 'satellite',
-                'terrain', 'hybrid', 'traffic', 'streetview'.  Defaults to 'roadmap'.
+                'terrain', 'hybrid', 'traffic', 'streetview'.
             language: An IETF language tag that specifies the language used to display
-                information on the tiles, such as 'zh-Cn'.  Defaults to 'en-Us'.
+                information on the tiles, such as 'zh-Cn'.
             region: A Common Locale Data Repository region identifier (two uppercase
-                letters) that represents the physical location of the user. Defaults to
-                'US'.
+                letters) that represents the physical location of the user.
             api_key: The API key to use for the Google Maps API.  If not provided, it
                 will try to get it from the environment or Colab user data with the key
-                'GOOGLE_MAPS_API_KEY'. Defaults to None.
+                'GOOGLE_MAPS_API_KEY'.
             **kwargs: Additional parameters to pass to the map generation. For more
                 info, visit https://bit.ly/3UhbZKU
 
@@ -355,13 +356,12 @@ def get_google_map_tile_providers(
 
     Args:
         language: An IETF language tag that specifies the language used to display
-            information on the tiles, such as 'zh-Cn'.  Defaults to 'en-Us'.
+            information on the tiles, such as 'zh-Cn'.
         region: A Common Locale Data Repository region identifier (two uppercase
-            letters) that represents the physical location of the user. Defaults to
-            'US'.
-        api_key: The API key to use for the Google Maps API.  If not provided, it will
+            letters) that represents the physical location of the user.
+        api_key: The API key to use for the Google Maps API. If not provided, it will
             try to get it from the environment or Colab user data with the key
-            'GOOGLE_MAPS_API_KEY'. Defaults to None.
+            'GOOGLE_MAPS_API_KEY'.
         **kwargs: Additional parameters to pass to the map generation. For more info,
             visit https://bit.ly/3UhbZKU
 
@@ -385,8 +385,8 @@ def get_xyz_dict(free_only: bool = True, france: bool = False) -> dict[str, Any]
 
     Args:
         free_only: Whether to return only free xyz tile services that do not require an
-            access token. Defaults to True.
-        france: Whether to include Geoportail France basemaps.  Defaults to False.
+            access token.
+        france: Whether to include Geoportail France basemaps.
 
     Returns:
         dict: A dictionary of xyz services.
@@ -425,12 +425,14 @@ def xyz_to_leaflet() -> dict[str, Any]:
     # Add custom tiles.
     for tile_type, tile_dict in custom_tiles.items():
         for tile_provider, tile_info in tile_dict.items():
+            del tile_provider  # Unused.
             tile_info["type"] = tile_type
             tile_info["max_zoom"] = 30
             leaflet_dict[tile_info["name"]] = tile_info
 
     # Add xyzservices.provider tiles.
     for tile_provider, tile_info in get_xyz_dict().items():
+        del tile_provider  # Unused.
         if tile_info["name"] in ignore_list:
             continue
         tile_info["url"] = tile_info.build_url()
@@ -585,23 +587,24 @@ def search_qms(keywords: str, limit: int = 10) -> list[Any] | None:
         keywords: Keywords to search for.
         limit: Number of results to return.
     """
-    QMS_API = "https://qms.nextgis.com/api/v1/geoservices"
+    qms_api = "https://qms.nextgis.com/api/v1/geoservices"
 
     services = requests.get(
-        f"{QMS_API}/?search={keywords}&type=tms&epsg=3857&limit={str(limit)}"
+        f"{qms_api}/?search={keywords}&type=tms&epsg=3857&limit={limit}"
     )
     services = services.json()
     if services["count"] == 0:
         return None
-    elif services["count"] <= limit:
+
+    if services["count"] <= limit:
         return services["results"]
-    else:
-        return services["results"][:limit]
+
+    return services["results"][:limit]
 
 
 def get_qms(service_id: str):
-    QMS_API = "https://qms.nextgis.com/api/v1/geoservices"
-    service_details = requests.get(f"{QMS_API}/{service_id}")
+    qms_api = "https://qms.nextgis.com/api/v1/geoservices"
+    service_details = requests.get(f"{qms_api}/{service_id}")
     return service_details.json()
 
 

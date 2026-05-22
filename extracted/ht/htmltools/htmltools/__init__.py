@@ -1,8 +1,6 @@
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 
 from . import svg, tags
-from ._core import TagAttrArg  # pyright: ignore[reportUnusedImport] # noqa: F401
-from ._core import TagChildArg  # pyright: ignore[reportUnusedImport] # noqa: F401
 from ._core import (
     HTML,
     HTMLDependency,
@@ -12,17 +10,23 @@ from ._core import (
     RenderedHTML,
     ReprHtml,
     Tag,
+    TagAttrArg,  # pyright: ignore[reportUnusedImport] # noqa: F401
     TagAttrs,
     TagAttrValue,
     TagChild,
+    TagChildArg,  # pyright: ignore[reportUnusedImport] # noqa: F401
     TagFunction,
     Tagifiable,
+    Tagified,
+    TagifiedTag,
+    TagifiedTagList,
     TagList,
     TagNode,
     consolidate_attrs,
     head_content,
     is_tag_child,
     is_tag_node,
+    is_tagified,
     wrap_displayhook_handler,
 )
 from ._util import css, html_escape
@@ -61,6 +65,9 @@ __all__ = (
     "TagChild",
     "TagFunction",
     "Tagifiable",
+    "Tagified",
+    "TagifiedTag",
+    "TagifiedTagList",
     "TagList",
     "TagNode",
     "ReprHtml",
@@ -68,6 +75,7 @@ __all__ = (
     "head_content",
     "is_tag_child",
     "is_tag_node",
+    "is_tagified",
     "wrap_displayhook_handler",
     "css",
     "html_escape",

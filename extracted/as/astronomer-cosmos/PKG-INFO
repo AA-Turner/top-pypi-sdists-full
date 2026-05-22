@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-cosmos
-Version: 1.14.1
+Version: 1.14.2
 Summary: Orchestrate your dbt projects in Airflow
 Project-URL: Homepage, https://github.com/astronomer/astronomer-cosmos
 Project-URL: Documentation, https://astronomer.github.io/astronomer-cosmos

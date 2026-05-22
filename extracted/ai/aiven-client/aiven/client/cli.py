@@ -4328,210 +4328,6 @@ ssl.truststore.type=JKS
             fp.write(result["certificate"])
 
     @arg.project
-    @arg.service_name
-    @arg("--target-filepath", help="Filepath for storing CA certificate", required=True)
-    @arg("ca")
-    def service__ca__get(self) -> None:
-        """Get service CA certificate"""
-        project_name = self.get_project()
-        result = self.client.get_service_ca(project=project_name, service=self.args.service_name, ca=self.args.ca)
-
-        with open(self.args.target_filepath, "w", encoding="utf-8") as fp:
-            fp.write(result["certificate"])
-
-    @arg.project
-    @arg.service_name
-    @arg("--key-filepath", help="Filepath for storing private key", required=True)
-    @arg("--cert-filepath", help="Filepath for storing certificate", required=True)
-    @arg("keypair")
-    def service__keypair__get(self) -> None:
-        """Get service keypair"""
-        project_name = self.get_project()
-        result = self.client.get_service_keypair(
-            project=project_name, service=self.args.service_name, keypair=self.args.keypair
-        )
-
-        with open(self.args.key_filepath, "w", encoding="utf-8") as fp:
-            fp.write(result["key"])
-        with open(self.args.cert_filepath, "w", encoding="utf-8") as fp:
-            fp.write(result["certificate"])
-
-    def _validate_service_cassandra_sstableloader(self) -> Mapping[str, Any]:
-        """
-        Raises an exception if the service type is not Cassandra, or if its user config doesn't have it set to sstableloader
-        migration mode
-        """
-        service = self.client.get_service(project=self.get_project(), service=self.args.service_name)
-        if service["service_type"] != "cassandra":
-            raise argx.UserError("Service type is not 'cassandra' but {}".format(service["service_type"]))
-        if not service["user_config"].get("migrate_sstableloader", False):
-            raise argx.UserError("Service does not have migrate_sstableloader on")
-        return service
-
-    @arg.project
-    @arg.service_name
-    @arg(
-        "-d",
-        "--target-directory",
-        help="Directory to write credentials to",
-        required=False,
-        default=os.getcwd(),
-    )
-    @arg("-p", "--password", help="Keystore and truststore password", default="changeit")
-    @arg(
-        "--preserve-pem",
-        action="store_true",
-        help=(
-            "Keep PEM encoded unencrypted service CA and keypair files in addition to the Java keystore and truststore "
-            "files created from them"
-        ),
-    )
-    def service__sstableloader__get_credentials(self) -> None:
-        """Download credentials and generate cassandra.yaml suitable for running Cassandra sstableloader"""
-        self._validate_service_cassandra_sstableloader()
-
-        project_name = self.get_project()
-        client_keypair = self.client.get_service_keypair(
-            project=project_name,
-            service=self.args.service_name,
-            keypair="cassandra_migrate_sstableloader_user",
-        )
-        internode_ca = self.client.get_service_ca(
-            project=project_name,
-            service=self.args.service_name,
-            ca="cassandra_internode_service_nodes_ca",
-        )
-        project_ca = self.client.get_project_ca(project=project_name)
-
-        if not os.path.exists(self.args.target_directory):
-            os.makedirs(self.args.target_directory)
-
-        client_key_path = os.path.join(self.args.target_directory, "sstableloader.key")
-        client_cert_path = os.path.join(self.args.target_directory, "sstableloader.cert")
-        internode_ca_path = os.path.join(self.args.target_directory, "internode-ca.cert")
-        project_ca_path = os.path.join(self.args.target_directory, "project-ca.cert")
-
-        try:
-            with open(client_key_path, "w", encoding="utf-8") as fp:
-                fp.write(client_keypair["key"])
-            with open(client_cert_path, "w", encoding="utf-8") as fp:
-                fp.write(client_keypair["certificate"])
-            with open(internode_ca_path, "w", encoding="utf-8") as fp:
-                fp.write(internode_ca["certificate"])
-            with open(project_ca_path, "w", encoding="utf-8") as fp:
-                fp.write(project_ca["certificate"])
-
-            # Sstableloader accepts a regular cassandra.yaml and reads encryption settings for connecting to the native
-            # transport port (client_encryption_options) and the SSL storage port (server_encryption_options).
-            # Some options are boilerplate just used to avoid Cassandra/Java libraries to attempt to look up
-            # keystore/truststore files from default locations, and failing when they do not exist, even if the actual
-            # certificates/keys in them would not be used
-            with open(os.path.join(self.args.target_directory, "cassandra.yaml"), "w", encoding="utf-8") as fp:
-                fp.write("""\
-client_encryption_options:
-    enabled: true
-    optional: false
-    keystore: sstableloader.keystore.p12
-    keystore_password: {password}
-    truststore: ./sstableloader.truststore.jks
-    truststore_password: {password}
-server_encryption_options:
-    internode_encryption: all
-    keystore: sstableloader.keystore.p12
-    keystore_password: {password}
-    truststore: ./sstableloader.truststore.jks
-    truststore_password: {password}
-""".format(password=self.args.password))
-
-            # The Project CA signs the certificate used by the Cassandra native transport, aka the regular client port
-            # The internode CA signs the certificate used by SSL storage port, aka the internode port used to stream data
-            for path, alias in [
-                (project_ca_path, "Project"),
-                (internode_ca_path, "Cassandra internode service nodes"),
-            ]:
-                subprocess.check_call(
-                    [
-                        "keytool",
-                        "-importcert",
-                        "-alias",
-                        "{} CA".format(alias),
-                        "-keystore",
-                        os.path.join(self.args.target_directory, "sstableloader.truststore.jks"),
-                        "-storepass",
-                        self.args.password,
-                        "-file",
-                        path,
-                        "-noprompt",
-                    ]
-                )
-            # Connecting to the native transport port happens via username and password credentials, while connecting to
-            # the SSL storage port requires this client certificate
-            subprocess.check_call(
-                [
-                    "openssl",
-                    "pkcs12",
-                    "-export",
-                    "-out",
-                    os.path.join(self.args.target_directory, "sstableloader.keystore.p12"),
-                    "-inkey",
-                    client_key_path,
-                    "-in",
-                    client_cert_path,
-                    "-passout",
-                    "pass:{}".format(self.args.password),
-                ]
-            )
-        finally:
-            # These are not used when connecting with the Java based sstableloader utility
-            if not self.args.preserve_pem:
-                for path in (
-                    client_key_path,
-                    client_cert_path,
-                    internode_ca_path,
-                    project_ca_path,
-                ):
-                    if os.path.isfile(path):
-                        os.unlink(path)
-
-    @arg.project
-    @arg.service_name
-    @arg(
-        "--cassandra-yaml",
-        default="cassandra.yaml",
-        help="Path to cassandra.yaml configuration file",
-    )
-    def service__sstableloader__command(self) -> None:
-        """Outputs a string that can be used to run the sstableloader utility to upload Cassandra data
-        files directly to the internode port of a Cassandra cluster."""
-        service = self._validate_service_cassandra_sstableloader()
-
-        cassandra_component = None
-        internode_component = None
-        for component in service["components"]:
-            if component["component"] == "cassandra" and component["route"] == "dynamic" and component["usage"] == "primary":
-                cassandra_component = component
-            elif (
-                component["component"] == "cassandra_internode"
-                and component["route"] == "dynamic"
-                and component["usage"] == "primary"
-            ):
-                internode_component = component
-
-        if cassandra_component is None or internode_component is None:
-            raise ValueError("Cassandra service component information missing")
-
-        print(
-            "sstableloader -f {yaml} -d {hostname} -ssp {internode_port} -p {client_port} -u {user} -pw {password}".format(
-                yaml=self.args.cassandra_yaml,
-                hostname=cassandra_component["host"],
-                internode_port=internode_component["port"],
-                client_port=cassandra_component["port"],
-                user=service["service_uri_params"]["user"],
-                password=service["service_uri_params"]["password"],
-            )
-        )
-
-    @arg.project
     @arg.email
     @arg(
         "--role",
@@ -5062,16 +4858,6 @@ server_encryption_options:
         project_credits = self.client.list_project_credits(project=project_name)
         layout = [["code", "remaining_value"]]
         self.print_response(project_credits, json=self.args.json, table_layout=layout)
-
-    @arg.json
-    @arg.project
-    @arg("code", help="Credit code")
-    def credits__claim(self) -> None:
-        """Claim a credit code"""
-        project_name = self.get_project()
-        result = self.client.claim_project_credit(project=project_name, credit_code=self.args.code)
-        if self.args.json:
-            self.print_response(result, json=True)
 
     def _print_billing_groups(self, billing_groups: Sequence[dict[str, Any]]) -> None:
         for billing_group in billing_groups:
@@ -7000,7 +6786,7 @@ server_encryption_options:
         self.print_response(rates, json=self.args.json, table_layout=layout)
 
     @arg.project
-    @arg("--provider", help="CMK cloud provider", choices=["aws", "gcp", "oci"], required=True)
+    @arg("--provider", help="CMK cloud provider", choices=["aws", "azure", "gcp", "oci"], required=True)
     @arg("--resource", help="Cloud provider key resource name (full resource path)", required=True)
     @arg("--default-cmk", action="store_true", default=False, help="Set as default CMK for all newly created services")
     @arg.json
@@ -7078,6 +6864,109 @@ server_encryption_options:
         project = self.get_project()
         accessors = self.client.list_cmk_accessors(project=project)
         self.print_response(accessors, json=True)
+
+    @arg.json
+    @arg.organization_id
+    @arg("--source-project", help="Project of the source service, if other than the default")
+    @arg("source_service")
+    @arg("--destination-project", help="Project of the destination service, if ofher than the default")
+    @arg("destination_service")
+    @arg("--auto-validation-delay-days", type=int, help="Validate upgrade automatically after this many days")
+    def upgrade_pipeline__step__create(self) -> None:
+        """Create an upgrade pipeline step"""
+        default_project = self.get_project()
+        response = self.client.upgrade_pipeline_step_create(
+            organization_id=self.args.organization_id,
+            source_project_name=self.args.source_project or default_project,
+            source_service_name=self.args.source_service,
+            destination_project_name=self.args.destination_project or default_project,
+            destination_service_name=self.args.destination_service,
+            auto_validation_delay_days=self.args.auto_validation_delay_days,
+        )
+        layout = [
+            "step_id",
+            "source_project_name",
+            "source_service_name",
+            "destination_project_name",
+            "destination_service_name",
+            "auto_validation_delay_days",
+        ]
+        self.print_response([response], json=self.args.json, table_layout=layout)
+
+    @arg.json
+    @arg.organization_id
+    @arg("step_id", help="Upgrade step ID")
+    @arg("--auto-validation-delay-days", type=int, help="Validate upgrade automatically after this many days")
+    def upgrade_pipeline__step__update(self) -> None:
+        """Update an upgrade pipeline step"""
+        response = self.client.upgrade_pipeline_step_update(
+            organization_id=self.args.organization_id,
+            step_id=self.args.step_id,
+            auto_validation_delay_days=self.args.auto_validation_delay_days,
+        )
+        layout = [
+            "step_id",
+            "source_project_name",
+            "source_service_name",
+            "destination_project_name",
+            "destination_service_name",
+            "auto_validation_delay_days",
+        ]
+        self.print_response([response], json=self.args.json, table_layout=layout)
+
+    @arg.json
+    @arg.organization_id
+    @arg("step_id", help="Upgrade step ID")
+    def upgrade_pipeline__step__delete(self) -> None:
+        """Delete an upgrade pipeline step"""
+        response = self.client.upgrade_pipeline_step_delete(
+            organization_id=self.args.organization_id, step_id=self.args.step_id
+        )
+        self.print_response(response, json=self.args.json, table_layout=[])
+
+    @arg.json
+    @arg.organization_id
+    @arg("step_id", help="Upgrade step ID")
+    def upgrade_pipeline__step__get(self) -> None:
+        """Get an upgrade pipeline step"""
+        response = self.client.upgrade_pipeline_step_get(
+            organization_id=self.args.organization_id, step_id=self.args.step_id
+        )
+        layout = [
+            "step_id",
+            "source_project_name",
+            "source_service_name",
+            "destination_project_name",
+            "destination_service_name",
+            "auto_validation_delay_days",
+        ]
+        self.print_response([response], json=self.args.json, table_layout=layout)
+
+    @arg.json
+    @arg.organization_id
+    def upgrade_pipeline__step__list(self) -> None:
+        """List upgrade pipeline steps"""
+        response = self.client.upgrade_pipeline_step_list(organization_id=self.args.organization_id)
+        layout = [
+            "step_id",
+            "source_project_name",
+            "source_service_name",
+            "destination_project_name",
+            "destination_service_name",
+            "auto_validation_delay_days",
+        ]
+        self.print_response(response["steps"], json=self.args.json, table_layout=layout)
+
+    @arg.json
+    @arg.project
+    @arg.service_name
+    @arg("--comment", help="Validate upgrade step with this comment")
+    def upgrade_pipeline__step__validate_for_service(self) -> None:
+        """Validate currently running service version for upgrade pipeline"""
+        project_name = self.get_project()
+        self.client.upgrade_pipeline_step_validate(
+            project_name=project_name, service_name=self.args.service_name, comment=self.args.comment
+        )
 
 
 if __name__ == "__main__":

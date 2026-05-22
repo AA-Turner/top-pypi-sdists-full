@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak-retry-connector
-Version: 4.6.0
+Version: 4.6.1
 Summary: A connector for Bleak Clients that handles transient connection failures
 License-Expression: MIT
 License-File: LICENSE
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
 Requires-Dist: bleak (>=2)
 Requires-Dist: bluetooth-adapters (>=0.15.2) ; platform_system == "Linux"
-Requires-Dist: dbus-fast (>=1.14.0) ; platform_system == "Linux"
+Requires-Dist: dbus-fast (>=4.3.0) ; platform_system == "Linux"
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/bleak-retry-connector/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/bleak-retry-connector/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://bleak-retry-connector.readthedocs.io
@@ -32,7 +32,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/bluetooth-devices/bleak-retry-connector/actions?query=workflow%3ACI">
-    <img src="https://img.shields.io/github/workflow/status/bluetooth-devices/bleak-retry-connector/CI/main?label=CI&logo=github&style=flat-square" alt="CI Status" >
+    <img src="https://img.shields.io/github/actions/workflow/status/bluetooth-devices/bleak-retry-connector/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
   </a>
   <a href="https://bleak-retry-connector.readthedocs.io">
     <img src="https://img.shields.io/readthedocs/bleak-retry-connector.svg?logo=read-the-docs&logoColor=fff&style=flat-square" alt="Documentation Status">
@@ -45,8 +45,8 @@ Description-Content-Type: text/markdown
   <a href="https://python-poetry.org/">
     <img src="https://img.shields.io/badge/packaging-poetry-299bd7?style=flat-square&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAASCAYAAABrXO8xAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJJSURBVHgBfZLPa1NBEMe/s7tNXoxW1KJQKaUHkXhQvHgW6UHQQ09CBS/6V3hKc/AP8CqCrUcpmop3Cx48eDB4yEECjVQrlZb80CRN8t6OM/teagVxYZi38+Yz853dJbzoMV3MM8cJUcLMSUKIE8AzQ2PieZzFxEJOHMOgMQQ+dUgSAckNXhapU/NMhDSWLs1B24A8sO1xrN4NECkcAC9ASkiIJc6k5TRiUDPhnyMMdhKc+Zx19l6SgyeW76BEONY9exVQMzKExGKwwPsCzza7KGSSWRWEQhyEaDXp6ZHEr416ygbiKYOd7TEWvvcQIeusHYMJGhTwF9y7sGnSwaWyFAiyoxzqW0PM/RjghPxF2pWReAowTEXnDh0xgcLs8l2YQmOrj3N7ByiqEoH0cARs4u78WgAVkoEDIDoOi3AkcLOHU60RIg5wC4ZuTC7FaHKQm8Hq1fQuSOBvX/sodmNJSB5geaF5CPIkUeecdMxieoRO5jz9bheL6/tXjrwCyX/UYBUcjCaWHljx1xiX6z9xEjkYAzbGVnB8pvLmyXm9ep+W8CmsSHQQY77Zx1zboxAV0w7ybMhQmfqdmmw3nEp1I0Z+FGO6M8LZdoyZnuzzBdjISicKRnpxzI9fPb+0oYXsNdyi+d3h9bm9MWYHFtPeIZfLwzmFDKy1ai3p+PDls1Llz4yyFpferxjnyjJDSEy9CaCx5m2cJPerq6Xm34eTrZt3PqxYO1XOwDYZrFlH1fWnpU38Y9HRze3lj0vOujZcXKuuXm3jP+s3KbZVra7y2EAAAAAASUVORK5CYII=" alt="Poetry">
   </a>
-  <a href="https://github.com/ambv/black">
-    <img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="black">
+  <a href="https://github.com/astral-sh/ruff">
+    <img src="https://img.shields.io/badge/code%20style-ruff-000000.svg?style=flat-square" alt="ruff">
   </a>
   <a href="https://github.com/pre-commit/pre-commit">
     <img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=flat-square" alt="pre-commit">
@@ -97,8 +97,8 @@ async def connect_to_device():
 
     try:
         # Use the connected client normally
-        services = await client.get_services()
-        print(f"Connected! Found {len(services)} services")
+        services = client.services
+        print(f"Connected! Found {len(list(services))} services")
 
         # Read a characteristic
         value = await client.read_gatt_char("00002a00-0000-1000-8000-00805f9b34fb")

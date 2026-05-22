@@ -21,14 +21,13 @@ use crate::settings::{FrozenSource, LockCheck, ResolverSettings};
 use anyhow::Result;
 use rustc_hash::FxHashSet;
 use tracing::trace;
-use uv_audit::service::project_status::ProjectStatusAudit;
-use uv_audit::service::{VulnerabilityServiceFormat, osv};
-use uv_audit::types::{
-    AdverseStatus, Dependency, Finding, ProjectStatus, Vulnerability, VulnerabilityID,
+use uv_audit::{
+    AdverseStatus, Dependency, Finding, ProjectStatus, ProjectStatusAudit, Vulnerability,
+    VulnerabilityID, VulnerabilityServiceFormat, osv,
 };
 use uv_cache::Cache;
 use uv_cli::AuditOutputFormat;
-use uv_client::{BaseClientBuilder, RegistryClientBuilder};
+use uv_client::{BaseClientBuilder, CachedClient, RegistryClientBuilder};
 use uv_configuration::{Concurrency, DependencyGroups, ExtrasSpecification, TargetTriple};
 use uv_distribution_types::{IndexCapabilities, IndexUrl};
 use uv_normalize::{DefaultExtras, DefaultGroups};
@@ -215,7 +214,7 @@ pub(crate) async fn audit(
     // respecting the user's extras and dependency-group filters. Workspace members are excluded
     // (they are local and have no external package identity), as are packages without a version.
     // The `Auditable` view offers per-version and per-project projections from a single walk.
-    let auditable = lock.auditable(&extras, &groups);
+    let auditable = lock.auditable(&extras, &groups, |_| true);
     let mut projects = auditable.projects(target.install_path())?;
 
     // Drop projects whose index is configured as flat, since we know we won't
@@ -248,11 +247,10 @@ pub(crate) async fn audit(
             VulnerabilityServiceFormat::Osv => {
                 let osv_url = service_url
                     .as_deref()
-                    .unwrap_or(osv::API_BASE)
-                    .parse()
-                    .expect("invalid OSV service URL");
-                let client = base_client.for_host(&osv_url).raw_client().clone();
-                let service = osv::Osv::new(client, Some(osv_url), concurrency);
+                    .map(|url| url.parse().expect("invalid OSV service URL"))
+                    .unwrap_or_else(|| osv::API_BASE.clone());
+                let client = CachedClient::new(base_client);
+                let service = osv::Osv::new(client, Some(osv_url), concurrency, cache.clone());
                 trace!("Auditing {n} dependencies against OSV", n = auditable.len());
                 service.query_batch(&dependencies, osv::Filter::All).await
             }

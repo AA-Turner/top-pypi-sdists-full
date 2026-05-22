@@ -94,6 +94,15 @@ def get_organization_billing_group_list(billing_groups: Optional[Sequence[Union[
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
 
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_billing_group_list(organization_id="org1a23f456789")
+    ```
+
 
     :param Sequence[Union['GetOrganizationBillingGroupListBillingGroupArgs', 'GetOrganizationBillingGroupListBillingGroupArgsDict']] billing_groups: A list of all billing groups belonging to the organization.
     :param _builtins.str organization_id: ID of an organization.
@@ -110,15 +119,24 @@ def get_organization_billing_group_list(billing_groups: Optional[Sequence[Union[
         id=pulumi.get(__ret__, 'id'),
         organization_id=pulumi.get(__ret__, 'organization_id'),
         timeouts=pulumi.get(__ret__, 'timeouts'))
-def get_organization_billing_group_list_output(billing_groups: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationBillingGroupListBillingGroupArgs', 'GetOrganizationBillingGroupListBillingGroupArgsDict']]]]] = None,
-                                               organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                               timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationBillingGroupListTimeoutsArgs', 'GetOrganizationBillingGroupListTimeoutsArgsDict']]]] = None,
+def get_organization_billing_group_list_output(billing_groups: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationBillingGroupListBillingGroupArgs', 'GetOrganizationBillingGroupListBillingGroupArgsDict']]]]] = None,
+                                               organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                               timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationBillingGroupListTimeoutsArgs', 'GetOrganizationBillingGroupListTimeoutsArgsDict']]]] = None,
                                                opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationBillingGroupListResult]:
     """
     Lists billing groups for an organization.
 
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
+
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_billing_group_list(organization_id="org1a23f456789")
+    ```
 
 
     :param Sequence[Union['GetOrganizationBillingGroupListBillingGroupArgs', 'GetOrganizationBillingGroupListBillingGroupArgsDict']] billing_groups: A list of all billing groups belonging to the organization.

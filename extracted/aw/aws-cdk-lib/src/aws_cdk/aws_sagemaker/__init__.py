@@ -14497,6 +14497,13 @@ class CfnEndpointConfig(
                 inference_ami_version="inferenceAmiVersion",
                 initial_instance_count=123,
                 initial_variant_weight=123,
+                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_type="instanceType",
+                    priority=123,
+        
+                    # the properties below are optional
+                    model_name_override="modelNameOverride"
+                )],
                 instance_type="instanceType",
                 managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                     max_instance_count=123,
@@ -14515,6 +14522,7 @@ class CfnEndpointConfig(
                     # the properties below are optional
                     provisioned_concurrency=123
                 ),
+                variant_instance_provision_timeout_in_seconds=123,
                 volume_size_in_gb=123
             )],
         
@@ -14605,6 +14613,13 @@ class CfnEndpointConfig(
                 inference_ami_version="inferenceAmiVersion",
                 initial_instance_count=123,
                 initial_variant_weight=123,
+                instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_type="instanceType",
+                    priority=123,
+        
+                    # the properties below are optional
+                    model_name_override="modelNameOverride"
+                )],
                 instance_type="instanceType",
                 managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                     max_instance_count=123,
@@ -14623,6 +14638,7 @@ class CfnEndpointConfig(
                     # the properties below are optional
                     provisioned_concurrency=123
                 ),
+                variant_instance_provision_timeout_in_seconds=123,
                 volume_size_in_gb=123
             )],
             tags=[CfnTag(
@@ -16456,6 +16472,94 @@ class CfnEndpointConfig(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.InstancePoolsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_type": "instanceType",
+            "priority": "priority",
+            "model_name_override": "modelNameOverride",
+        },
+    )
+    class InstancePoolsProperty:
+        def __init__(
+            self,
+            *,
+            instance_type: builtins.str,
+            priority: jsii.Number,
+            model_name_override: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param instance_type: 
+            :param priority: 
+            :param model_name_override: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                instance_pools_property = sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                    instance_type="instanceType",
+                    priority=123,
+                
+                    # the properties below are optional
+                    model_name_override="modelNameOverride"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__45e19fe76343914e43c1a490a6036a8da6b791d3d6a862e72ecf819ed65ba1df)
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+                check_type(argname="argument model_name_override", value=model_name_override, expected_type=type_hints["model_name_override"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_type": instance_type,
+                "priority": priority,
+            }
+            if model_name_override is not None:
+                self._values["model_name_override"] = model_name_override
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def priority(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-priority
+            '''
+            result = self._values.get("priority")
+            assert result is not None, "Required property 'priority' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def model_name_override(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-instancepools.html#cfn-sagemaker-endpointconfig-instancepools-modelnameoverride
+            '''
+            result = self._values.get("model_name_override")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstancePoolsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -16552,12 +16656,14 @@ class CfnEndpointConfig(
             "inference_ami_version": "inferenceAmiVersion",
             "initial_instance_count": "initialInstanceCount",
             "initial_variant_weight": "initialVariantWeight",
+            "instance_pools": "instancePools",
             "instance_type": "instanceType",
             "managed_instance_scaling": "managedInstanceScaling",
             "model_data_download_timeout_in_seconds": "modelDataDownloadTimeoutInSeconds",
             "model_name": "modelName",
             "routing_config": "routingConfig",
             "serverless_config": "serverlessConfig",
+            "variant_instance_provision_timeout_in_seconds": "variantInstanceProvisionTimeoutInSeconds",
             "volume_size_in_gb": "volumeSizeInGb",
         },
     )
@@ -16573,12 +16679,14 @@ class CfnEndpointConfig(
             inference_ami_version: typing.Optional[builtins.str] = None,
             initial_instance_count: typing.Optional[jsii.Number] = None,
             initial_variant_weight: typing.Optional[jsii.Number] = None,
+            instance_pools: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointConfig.InstancePoolsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             instance_type: typing.Optional[builtins.str] = None,
             managed_instance_scaling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointConfig.ManagedInstanceScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
             model_name: typing.Optional[builtins.str] = None,
             routing_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointConfig.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             serverless_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpointConfig.ServerlessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            variant_instance_provision_timeout_in_seconds: typing.Optional[jsii.Number] = None,
             volume_size_in_gb: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Specifies a model that you want to host and the resources to deploy for hosting it.
@@ -16593,12 +16701,14 @@ class CfnEndpointConfig(
             :param inference_ami_version: 
             :param initial_instance_count: Number of instances to launch initially.
             :param initial_variant_weight: Determines initial traffic distribution among all of the models that you specify in the endpoint configuration. The traffic to a production variant is determined by the ratio of the ``VariantWeight`` to the sum of all ``VariantWeight`` values across all ProductionVariants. If unspecified, it defaults to 1.0.
+            :param instance_pools: 
             :param instance_type: The ML compute instance type.
             :param managed_instance_scaling: 
             :param model_data_download_timeout_in_seconds: The timeout value, in seconds, to download and extract the model that you want to host from Amazon S3 to the individual inference instance associated with this production variant.
             :param model_name: The name of the model that you want to host. This is the name that you specified when creating the model.
             :param routing_config: 
             :param serverless_config: The serverless configuration for an endpoint. Specifies a serverless endpoint configuration instead of an instance-based endpoint configuration.
+            :param variant_instance_provision_timeout_in_seconds: 
             :param volume_size_in_gb: The size, in GB, of the ML storage volume attached to individual inference instance associated with the production variant. Currently only Amazon EBS gp2 storage volumes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html
@@ -16624,6 +16734,13 @@ class CfnEndpointConfig(
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                        instance_type="instanceType",
+                        priority=123,
+                
+                        # the properties below are optional
+                        model_name_override="modelNameOverride"
+                    )],
                     instance_type="instanceType",
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
@@ -16642,6 +16759,7 @@ class CfnEndpointConfig(
                         # the properties below are optional
                         provisioned_concurrency=123
                     ),
+                    variant_instance_provision_timeout_in_seconds=123,
                     volume_size_in_gb=123
                 )
             '''
@@ -16655,12 +16773,14 @@ class CfnEndpointConfig(
                 check_type(argname="argument inference_ami_version", value=inference_ami_version, expected_type=type_hints["inference_ami_version"])
                 check_type(argname="argument initial_instance_count", value=initial_instance_count, expected_type=type_hints["initial_instance_count"])
                 check_type(argname="argument initial_variant_weight", value=initial_variant_weight, expected_type=type_hints["initial_variant_weight"])
+                check_type(argname="argument instance_pools", value=instance_pools, expected_type=type_hints["instance_pools"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument managed_instance_scaling", value=managed_instance_scaling, expected_type=type_hints["managed_instance_scaling"])
                 check_type(argname="argument model_data_download_timeout_in_seconds", value=model_data_download_timeout_in_seconds, expected_type=type_hints["model_data_download_timeout_in_seconds"])
                 check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
                 check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
                 check_type(argname="argument serverless_config", value=serverless_config, expected_type=type_hints["serverless_config"])
+                check_type(argname="argument variant_instance_provision_timeout_in_seconds", value=variant_instance_provision_timeout_in_seconds, expected_type=type_hints["variant_instance_provision_timeout_in_seconds"])
                 check_type(argname="argument volume_size_in_gb", value=volume_size_in_gb, expected_type=type_hints["volume_size_in_gb"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "variant_name": variant_name,
@@ -16679,6 +16799,8 @@ class CfnEndpointConfig(
                 self._values["initial_instance_count"] = initial_instance_count
             if initial_variant_weight is not None:
                 self._values["initial_variant_weight"] = initial_variant_weight
+            if instance_pools is not None:
+                self._values["instance_pools"] = instance_pools
             if instance_type is not None:
                 self._values["instance_type"] = instance_type
             if managed_instance_scaling is not None:
@@ -16691,6 +16813,8 @@ class CfnEndpointConfig(
                 self._values["routing_config"] = routing_config
             if serverless_config is not None:
                 self._values["serverless_config"] = serverless_config
+            if variant_instance_provision_timeout_in_seconds is not None:
+                self._values["variant_instance_provision_timeout_in_seconds"] = variant_instance_provision_timeout_in_seconds
             if volume_size_in_gb is not None:
                 self._values["volume_size_in_gb"] = volume_size_in_gb
 
@@ -16780,6 +16904,16 @@ class CfnEndpointConfig(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def instance_pools(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointConfig.InstancePoolsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-instancepools
+            '''
+            result = self._values.get("instance_pools")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEndpointConfig.InstancePoolsProperty"]]]], result)
+
+        @builtins.property
         def instance_type(self) -> typing.Optional[builtins.str]:
             '''The ML compute instance type.
 
@@ -16842,6 +16976,16 @@ class CfnEndpointConfig(
             '''
             result = self._values.get("serverless_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpointConfig.ServerlessConfigProperty"]], result)
+
+        @builtins.property
+        def variant_instance_provision_timeout_in_seconds(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-endpointconfig-productionvariant.html#cfn-sagemaker-endpointconfig-productionvariant-variantinstanceprovisiontimeoutinseconds
+            '''
+            result = self._values.get("variant_instance_provision_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def volume_size_in_gb(self) -> typing.Optional[jsii.Number]:
@@ -17158,6 +17302,13 @@ class CfnEndpointConfigProps:
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                        instance_type="instanceType",
+                        priority=123,
+            
+                        # the properties below are optional
+                        model_name_override="modelNameOverride"
+                    )],
                     instance_type="instanceType",
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
@@ -17176,6 +17327,7 @@ class CfnEndpointConfigProps:
                         # the properties below are optional
                         provisioned_concurrency=123
                     ),
+                    variant_instance_provision_timeout_in_seconds=123,
                     volume_size_in_gb=123
                 )],
             
@@ -17266,6 +17418,13 @@ class CfnEndpointConfigProps:
                     inference_ami_version="inferenceAmiVersion",
                     initial_instance_count=123,
                     initial_variant_weight=123,
+                    instance_pools=[sagemaker.CfnEndpointConfig.InstancePoolsProperty(
+                        instance_type="instanceType",
+                        priority=123,
+            
+                        # the properties below are optional
+                        model_name_override="modelNameOverride"
+                    )],
                     instance_type="instanceType",
                     managed_instance_scaling=sagemaker.CfnEndpointConfig.ManagedInstanceScalingProperty(
                         max_instance_count=123,
@@ -17284,6 +17443,7 @@ class CfnEndpointConfigProps:
                         # the properties below are optional
                         provisioned_concurrency=123
                     ),
+                    variant_instance_provision_timeout_in_seconds=123,
                     volume_size_in_gb=123
                 )],
                 tags=[CfnTag(
@@ -59885,6 +60045,15 @@ def _typecheckingstub__bca400d67b7e0b7493acf5a52ff4165f4d522d876c087e0e3b8c804a1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__45e19fe76343914e43c1a490a6036a8da6b791d3d6a862e72ecf819ed65ba1df(
+    *,
+    instance_type: builtins.str,
+    priority: jsii.Number,
+    model_name_override: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__46cb311c857cc447bc44e0db8728dd4118d07da4d442a846a68ff8c75a4c5e62(
     *,
     max_instance_count: typing.Optional[jsii.Number] = None,
@@ -59904,12 +60073,14 @@ def _typecheckingstub__685c22aefe4bd12e237f4e6f239c6de7809e228c81d2604127d6824fa
     inference_ami_version: typing.Optional[builtins.str] = None,
     initial_instance_count: typing.Optional[jsii.Number] = None,
     initial_variant_weight: typing.Optional[jsii.Number] = None,
+    instance_pools: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointConfig.InstancePoolsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     instance_type: typing.Optional[builtins.str] = None,
     managed_instance_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointConfig.ManagedInstanceScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     model_name: typing.Optional[builtins.str] = None,
     routing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointConfig.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     serverless_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpointConfig.ServerlessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    variant_instance_provision_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     volume_size_in_gb: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

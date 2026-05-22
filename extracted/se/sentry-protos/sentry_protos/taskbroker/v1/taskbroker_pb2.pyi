@@ -285,6 +285,7 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
     STATUS_FIELD_NUMBER: builtins.int
     FETCH_NEXT_TASK_FIELD_NUMBER: builtins.int
     MAX_ATTEMPTS_FIELD_NUMBER: builtins.int
+    DELAY_ON_RETRY_FIELD_NUMBER: builtins.int
     id: builtins.str
     status: global___TaskActivationStatus.ValueType
     max_attempts: builtins.int
@@ -293,6 +294,11 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
     the activation's retry_state with this value. This allows workers
     to communicate the retry policy for tasks from raw topics that
     don't have retry_state embedded in the message.
+    """
+    delay_on_retry: builtins.int
+    """Duration in seconds to wait before retrying the task.
+    When status is RETRY and this field is set, the broker will update
+    the activation's retry_state.delay_on_retry with this value.
     """
     @property
     def fetch_next_task(self) -> global___FetchNextTask:
@@ -305,9 +311,12 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
         status: global___TaskActivationStatus.ValueType = ...,
         fetch_next_task: global___FetchNextTask | None = ...,
         max_attempts: builtins.int | None = ...,
+        delay_on_retry: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "fetch_next_task", b"fetch_next_task", "max_attempts", b"max_attempts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "fetch_next_task", b"fetch_next_task", "id", b"id", "max_attempts", b"max_attempts", "status", b"status"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_delay_on_retry", b"_delay_on_retry", "_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "delay_on_retry", b"delay_on_retry", "fetch_next_task", b"fetch_next_task", "max_attempts", b"max_attempts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_delay_on_retry", b"_delay_on_retry", "_fetch_next_task", b"_fetch_next_task", "_max_attempts", b"_max_attempts", "delay_on_retry", b"delay_on_retry", "fetch_next_task", b"fetch_next_task", "id", b"id", "max_attempts", b"max_attempts", "status", b"status"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_delay_on_retry", b"_delay_on_retry"]) -> typing.Literal["delay_on_retry"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_fetch_next_task", b"_fetch_next_task"]) -> typing.Literal["fetch_next_task"] | None: ...
     @typing.overload

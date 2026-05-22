@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTenable
-Version: 1.9.1
+Version: 26.5.1
 Summary: Python library to interface into Tenable's products and applications
 Author: Tenable, Inc.
 Author-email: Steve McGrath <smcgrath@tenable.com>
@@ -9,7 +9,7 @@ Project-URL: Homepage, https://pytenable.readthedocs.io
 Project-URL: Repository, https://github.com/tenable/pytenable
 Project-URL: Issues, https://github.com/tenable/pytenable/issues
 Project-URL: Changelog, https://github.com/tenable/pytenable/blob/master/CHANGELOG.md
-Keywords: tenable,tenable vulnerability management,tenable security center,tenable securitycenter,tenable.io,tenable.sc,tenable.cs,tenable cloud security,tenable container security,tenable.ot,tenable ot security
+Keywords: tenable,tenable vulnerability management,tenable security center,tenable securitycenter,tenable.io,tenable.sc,tenable.cs,tenable cloud security,tenable container security,tenable.ot,tenable ot security,tenable one,tenable cloud
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
@@ -20,23 +20,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: requests>=2.26
+Requires-Dist: requests>=2.33
 Requires-Dist: python-dateutil>=2.6
 Requires-Dist: semver>=2.10.0
-Requires-Dist: restfly>=1.5.1
-Requires-Dist: marshmallow<4,>=3.8
+Requires-Dist: marshmallow>=3.8
 Requires-Dist: python-box>=4.0
 Requires-Dist: defusedxml>=0.5.0
-Requires-Dist: urllib3>=1.26.18
+Requires-Dist: urllib3>=1.26.20
 Requires-Dist: typing-extensions>=4.0.1
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: gql>=4.0.0
 Requires-Dist: graphql-core>=3.2.6
 Requires-Dist: pydantic>=2.5.3
 Requires-Dist: pydantic-extra-types>=2.3.0
+Requires-Dist: arrow>=1.4.0
 Provides-Extra: pkcs12
 Requires-Dist: cryptography>=43.0.1; extra == "pkcs12"
 Provides-Extra: all

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from plato.v2.sync.artifact import ArtifactManager
 from plato.v2.sync.datagen_session import DatagenSession
 from plato.v2.sync.session import Session
+from plato.v2.sync.simulators import SimulatorsManager
 from plato.v2.sync.testcase import TestcaseManager
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 
@@ -247,6 +248,7 @@ class Plato:
         self.datagen_sessions = DatagenSessionManager(self._http, self.api_key)
         self.artifacts = ArtifactManager(self._http, self.api_key)
         self.testcases = TestcaseManager(self._http, self.api_key)
+        self.simulators = SimulatorsManager(self._http, self.api_key)
 
     def close(self) -> None:
         """Close the underlying HTTP client (if we own it)."""

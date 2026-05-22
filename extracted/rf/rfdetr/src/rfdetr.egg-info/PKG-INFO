@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.6.5.post2
+Version: 1.7.0
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -29,15 +29,17 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: torch>=2.2.0
-Requires-Dist: torchvision>=0.14.0
+Requires-Dist: torchvision>=0.17.0
 Requires-Dist: tqdm
 Requires-Dist: transformers<6.0.0,>=5.1.0
-Requires-Dist: peft
-Requires-Dist: pydantic
+Requires-Dist: pydantic<3,>=2.0
 Requires-Dist: supervision
-Requires-Dist: pyDeprecate<0.6,>=0.3
+Requires-Dist: pyDeprecate<0.8,>=0.6
+Provides-Extra: lora
+Requires-Dist: peft; extra == "lora"
 Provides-Extra: train
-Requires-Dist: pytorch_lightning<=2.6.1,>=2.6; extra == "train"
+Requires-Dist: peft; extra == "train"
+Requires-Dist: pytorch_lightning!=2.6.2,!=2.6.3,<3,>=2.6; extra == "train"
 Requires-Dist: torchmetrics[detection]>=1.2; extra == "train"
 Requires-Dist: faster-coco-eval>=1.7.2; extra == "train"
 Requires-Dist: pycocotools; extra == "train"
@@ -46,7 +48,7 @@ Requires-Dist: albumentations<3.0.0,>=1.4.24; extra == "train"
 Requires-Dist: roboflow; extra == "train"
 Requires-Dist: rf100vl; extra == "train"
 Provides-Extra: onnx
-Requires-Dist: onnx<1.20,>=1.16.0; extra == "onnx"
+Requires-Dist: onnx<2.0,>=1.16.0; extra == "onnx"
 Requires-Dist: onnxsim<0.6.0; extra == "onnx"
 Requires-Dist: onnx_graphsurgeon; extra == "onnx"
 Requires-Dist: onnxruntime; extra == "onnx"
@@ -56,9 +58,17 @@ Requires-Dist: pycuda; extra == "trt"
 Requires-Dist: onnxruntime-gpu; extra == "trt"
 Requires-Dist: tensorrt>=8.6.1; extra == "trt"
 Requires-Dist: polygraphy; extra == "trt"
+Provides-Extra: tflite
+Requires-Dist: onnx2tf<3.0.0,>=2.4.0; extra == "tflite"
+Requires-Dist: flatbuffers>=23.5.26; extra == "tflite"
+Requires-Dist: onnx<2.0,>=1.20.0; extra == "tflite"
+Requires-Dist: tf-keras>=2.16.0; extra == "tflite"
+Requires-Dist: tensorflow>=2.16.0; extra == "tflite"
+Provides-Extra: kornia
+Requires-Dist: kornia<1,>=0.7; extra == "kornia"
 Provides-Extra: loggers
 Requires-Dist: tensorboard>=2.13.0; extra == "loggers"
-Requires-Dist: protobuf<4.0.0,>=3.20.0; extra == "loggers"
+Requires-Dist: protobuf>=3.20.0; extra == "loggers"
 Requires-Dist: wandb; extra == "loggers"
 Requires-Dist: mlflow; extra == "loggers"
 Requires-Dist: clearml; extra == "loggers"

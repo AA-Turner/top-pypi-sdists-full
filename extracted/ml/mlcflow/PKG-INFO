@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlcflow
-Version: 1.2.2
+Version: 1.2.3
 Summary: An automation interface tailored for CPU/GPU benchmarking
 Author-email: MLCommons <systems@mlcommons.org>
 License: 

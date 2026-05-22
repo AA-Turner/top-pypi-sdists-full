@@ -19,13 +19,17 @@ from marimo._config.config import (
 from marimo._config.settings import GLOBAL_SETTINGS
 from marimo._config.utils import deep_copy
 from marimo._convert.common.dom_traversal import (
+    replace_public_files_with_data_uris,
     replace_virtual_files_with_data_uris,
 )
 from marimo._convert.common.filename import (
     get_download_filename,
     get_filename,
 )
-from marimo._convert.ipynb.from_ir import convert_from_ir_to_ipynb
+from marimo._convert.ipynb.from_ir import (
+    NBCONVERT_REMOVE_INPUT_TAG,
+    convert_from_ir_to_ipynb,
+)
 from marimo._dependencies.dependencies import DependencyManager
 from marimo._messaging.mimetypes import KnownMimeType
 from marimo._runtime.virtual_file import read_virtual_file
@@ -52,7 +56,9 @@ from marimo._utils.paths import marimo_package_path, notebook_output_dir
 from marimo._version import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
+
+    from traitlets.config import Config
 
     from marimo._server.export._status import PDFExportStatusCallback
 
@@ -67,6 +73,20 @@ VIRTUAL_FILE_ALLOWED_TAGS = {"img", "audio", "video"}
 # Files exceeding this limit are replaced with a text/plain placeholder
 # so users see a clear message instead of a broken link.
 MAX_VIRTUAL_FILE_INLINE_BYTES = 10 * 1024 * 1024
+
+
+def _nbconvert_tag_remove_config() -> Config:
+    """Build a traitlets config that strips inputs from cells tagged with
+    `NBCONVERT_REMOVE_INPUT_TAG`. Used to honor `hide_code=True` in nbconvert
+    exports."""
+    from traitlets.config import Config
+
+    config = Config()
+    config.TagRemovePreprocessor.enabled = True
+    config.TagRemovePreprocessor.remove_input_tags = (
+        NBCONVERT_REMOVE_INPUT_TAG,
+    )
+    return config
 
 
 class Exporter:
@@ -101,6 +121,13 @@ class Exporter:
         session_snapshot, replaced_files = self._inline_virtual_files(
             session_snapshot
         )
+
+        # Inline references to files in the notebook's `public/` folder so
+        # the exported HTML is self-contained. Without this, `mo.md` images
+        # like `![alt](public/image.png)` break when the HTML is opened
+        # outside the notebook's directory.
+        public_dir = Path(filename).resolve().parent / "public"
+        self._inline_public_files(session_snapshot, public_dir)
 
         app_code = app.to_py()
 
@@ -149,6 +176,27 @@ class Exporter:
         config["display"] = display_config
         return cast(MarimoConfig, config)
 
+    @staticmethod
+    def _iter_html_data_strings(
+        session_snapshot: NotebookSessionV1,
+    ) -> Iterator[tuple[dict[str, Any], str, str]]:
+        """Yield (output_data_dict, mime_type, data) for each `text/html`
+        string output.
+
+        Only `text/html` outputs are returned: non-HTML mime entries (e.g.
+        `text/plain`, `application/json`) must not be HTML-parsed, since
+        their content is opaque to the attribute-replacement logic.
+        """
+        for cell in session_snapshot["cells"]:
+            for output in cell["outputs"]:
+                if output["type"] != "data":
+                    continue
+                for mime_type, data in output["data"].items():
+                    if mime_type != "text/html":
+                        continue
+                    if isinstance(data, str):
+                        yield output["data"], mime_type, data
+
     def _inline_virtual_files(
         self, session_snapshot: NotebookSessionV1
     ) -> tuple[NotebookSessionV1, set[str]]:
@@ -159,27 +207,45 @@ class Exporter:
         """
         replaced_files: set[str] = set()
 
-        for cell in session_snapshot["cells"]:
-            for output in cell["outputs"]:
-                if output["type"] != "data":
-                    continue
-
-                for mime_type, data in output["data"].items():
-                    if not isinstance(data, str):
-                        continue
-                    if self._VIRTUAL_FILE_PATTERN not in data:
-                        continue
-
-                    processed, files = replace_virtual_files_with_data_uris(
-                        data,
-                        allowed_tags=VIRTUAL_FILE_ALLOWED_TAGS,
-                        allowed_attributes=VIRTUAL_FILE_ALLOWED_ATTRIBUTES,
-                        max_inline_bytes=MAX_VIRTUAL_FILE_INLINE_BYTES,
-                    )
-                    replaced_files.update(files)
-                    output["data"][mime_type] = processed
+        for data_dict, mime_type, data in self._iter_html_data_strings(
+            session_snapshot
+        ):
+            if self._VIRTUAL_FILE_PATTERN not in data:
+                continue
+            processed, files = replace_virtual_files_with_data_uris(
+                data,
+                allowed_tags=VIRTUAL_FILE_ALLOWED_TAGS,
+                allowed_attributes=VIRTUAL_FILE_ALLOWED_ATTRIBUTES,
+                max_inline_bytes=MAX_VIRTUAL_FILE_INLINE_BYTES,
+            )
+            replaced_files.update(files)
+            data_dict[mime_type] = processed
 
         return session_snapshot, replaced_files
+
+    def _inline_public_files(
+        self,
+        session_snapshot: NotebookSessionV1,
+        public_dir: Path,
+    ) -> None:
+        """Replace `public/`-prefixed file paths in HTML outputs with data URIs.
+
+        Mutates `session_snapshot` in-place.
+        """
+        if not public_dir.exists():
+            return
+
+        for data_dict, mime_type, data in self._iter_html_data_strings(
+            session_snapshot
+        ):
+            if "public/" not in data:
+                continue
+            processed, _ = replace_public_files_with_data_uris(
+                data,
+                public_dir=public_dir,
+                max_inline_bytes=MAX_VIRTUAL_FILE_INLINE_BYTES,
+            )
+            data_dict[mime_type] = processed
 
     def _prepare_code(
         self,
@@ -445,7 +511,9 @@ class Exporter:
                     phase="render",
                     message="rendering PDF via standard exporter...",
                 )
-                exporter = PDFExporter()  # type: ignore[no-untyped-call]
+                exporter = PDFExporter(  # type: ignore[no-untyped-call]
+                    config=_nbconvert_tag_remove_config(),
+                )
                 exporter.exclude_input = not include_inputs
                 pdf_data, _resources = exporter.from_notebook_node(notebook)  # type: ignore[no-untyped-call]
                 if isinstance(pdf_data, bytes):
@@ -479,7 +547,9 @@ class Exporter:
             phase="render",
             message="rendering PDF via WebPDF...",
         )
-        web_exporter = WebPDFExporter()  # type: ignore[no-untyped-call]
+        web_exporter = WebPDFExporter(  # type: ignore[no-untyped-call]
+            config=_nbconvert_tag_remove_config(),
+        )
         web_exporter.exclude_input = not include_inputs
         web_exporter.allow_chromium_download = True
         pdf_data, _resources = web_exporter.from_notebook_node(notebook)  # type: ignore[no-untyped-call]
@@ -590,7 +660,9 @@ class Exporter:
             )
 
         # Convert to reveal.js HTML
-        slides_exporter = SlidesExporter()  # type: ignore[no-untyped-call]
+        slides_exporter = SlidesExporter(  # type: ignore[no-untyped-call]
+            config=_nbconvert_tag_remove_config(),
+        )
         slides_exporter.exclude_input = not include_inputs
         html_data, _resources = slides_exporter.from_notebook_node(notebook)
 
@@ -721,7 +793,7 @@ class AutoExporter:
         filepath = export_dir / download_name
 
         # Run blocking file I/O in thread pool
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             self._executor, self._write_file_sync, filepath, content
         )

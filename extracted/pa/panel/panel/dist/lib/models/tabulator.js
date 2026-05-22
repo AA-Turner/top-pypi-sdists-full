@@ -1,5 +1,6 @@
 import { display, undisplay } from "@bokehjs/core/dom";
 import { sum } from "@bokehjs/core/util/arrayable";
+import { defer } from "@bokehjs/core/util/defer";
 import { isArray, isBoolean, isFunction, isString, isNumber } from "@bokehjs/core/util/types";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
@@ -343,6 +344,8 @@ function clone_column(group) {
     }
     return { ...group, columns: group_columns };
 }
+/** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
+const EL_CLIENT_RESIZE_EPSILON_PX = 3;
 export class DataTabulatorView extends HTMLBoxView {
     static __name__ = "DataTabulatorView";
     tabulator;
@@ -354,6 +357,7 @@ export class DataTabulatorView extends HTMLBoxView {
     _updating_sort = false;
     _updating_page_size = false;
     _selection_updating = false;
+    _selection_pending = true;
     _last_selected_row = null;
     _initializing;
     _lastVerticalScrollbarTopPosition = 0;
@@ -361,14 +365,17 @@ export class DataTabulatorView extends HTMLBoxView {
     _applied_styles = false;
     _building = false;
     _redrawing = false;
-    _debounced_redraw = null;
+    /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
+    _resize_pending = false;
+    _resize_flush = null;
     _restore_scroll = false;
     _updating_scroll = false;
     _is_scrolling = false;
     _automatic_page_size = false;
+    _last_after_resize_el_width = null;
+    _last_after_resize_el_height = null;
     connect_signals() {
         super.connect_signals();
-        this._debounced_redraw = debounce(() => this._resize_redraw(), 20, false);
         const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, sorters, theme_classes, } = this.model.properties;
         this.on_change([configuration, layout, groupby], debounce(() => {
             this.invalidate_render();
@@ -412,8 +419,11 @@ export class DataTabulatorView extends HTMLBoxView {
         });
         this.on_change(cell_styles, () => {
             if (this._applied_styles) {
+                this._updating_scroll = true;
                 this.tabulator.redraw(true);
+                this._updating_scroll = false;
             }
+            this.restore_scroll();
             this.setStyles();
         });
         this.on_change(hidden_columns, () => {
@@ -438,10 +448,11 @@ export class DataTabulatorView extends HTMLBoxView {
             this._restore_scroll = "horizontal";
             this._selection_updating = true;
             this._updating_scroll = true;
-            this.setData();
-            this._updating_scroll = false;
-            this._selection_updating = false;
-            this.postUpdate();
+            void this.setData().then(() => {
+                this._selection_updating = false;
+                this.postUpdate();
+                this.restore_scroll();
+            });
         });
         this.connect(this.model.source.streaming, () => this.addData());
         this.connect(this.model.source.patching, () => {
@@ -507,27 +518,99 @@ export class DataTabulatorView extends HTMLBoxView {
         super.after_layout();
         if (this.tabulator != null && this._initializing && !this.is_drawing) {
             this._initializing = false;
-            this._resize_redraw();
+            if (this._selection_pending) {
+                this.setSelection();
+            }
+            this._request_resize_redraw();
         }
     }
     after_resize() {
         super.after_resize();
-        if (!this._is_scrolling && !this._initializing && !this.is_drawing) {
-            this._debounced_redraw();
+        if (this._is_scrolling || this._initializing || this.is_drawing) {
+            return;
+        }
+        const w = this.el.clientWidth;
+        const h = this.el.clientHeight;
+        if (this._last_after_resize_el_width !== null &&
+            this._last_after_resize_el_height !== null &&
+            Math.abs(w - this._last_after_resize_el_width) <= EL_CLIENT_RESIZE_EPSILON_PX &&
+            Math.abs(h - this._last_after_resize_el_height) <= EL_CLIENT_RESIZE_EPSILON_PX) {
+            return;
+        }
+        this._last_after_resize_el_width = w;
+        this._last_after_resize_el_height = h;
+        this._request_resize_redraw();
+    }
+    /**
+     * Defer Tabulator redraw until the Bokeh root view’s `ready` promise settles — it chains async
+     * work from connected signals (similar in spirit to waiting out `has_finished` / layout churn)
+     * without polling `root.is_idle`.
+     */
+    _request_resize_redraw() {
+        this._resize_pending = true;
+        if (this._resize_flush !== null) {
+            return;
+        }
+        this._resize_flush = this._flush_resize_when_root_ready();
+        void this._resize_flush.finally(() => {
+            this._resize_flush = null;
+            if (this._resize_pending) {
+                this._request_resize_redraw();
+            }
+        });
+    }
+    async _flush_resize_when_root_ready() {
+        while (true) {
+            if (!this._resize_pending) {
+                return;
+            }
+            await this.root.ready;
+            // `remove()` can clear `_resize_pending` while awaiting `root.ready`.
+            /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleared asynchronously in `remove()` */
+            if (!this._resize_pending) {
+                continue;
+            }
+            if (this._is_scrolling ||
+                this._initializing ||
+                this.container === null ||
+                this.is_drawing ||
+                this._has_active_editor() ||
+                ![...this._initialized_stylesheets.values()].every(v => v)) {
+                await defer();
+                continue;
+            }
+            this._resize_pending = false;
+            this._resize_redraw();
+            return;
         }
     }
     _resize_redraw() {
-        if (this._initializing || !this.container || this._building) {
+        if (this._initializing || this.container === null || this._building || this._has_active_editor()) {
             return;
         }
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
-        if (!width || !height) {
+        if (!(width > 0 && height > 0)) {
             return;
         }
+        this.record_scroll();
+        this._updating_scroll = true;
         this.redraw(true, true);
-        this.restore_scroll();
-        requestAnimationFrame(() => this.recompute_page_size());
+        requestAnimationFrame(() => {
+            this._initializing = false;
+            if (this._selection_pending) {
+                this.setSelection();
+            }
+            this.restore_scroll();
+            this.recompute_page_size();
+        });
+    }
+    _has_active_editor() {
+        if (this.container === null) {
+            return false;
+        }
+        // Tabulator marks the edited cell with `tabulator-editing` while an editor is active.
+        return this.container.querySelector(".tabulator-editing") !== null;
     }
     stylesheets() {
         return [...super.stylesheets(), tabulator_css];
@@ -539,12 +622,17 @@ export class DataTabulatorView extends HTMLBoxView {
         }
     }
     remove() {
+        this._resize_pending = false;
+        this._last_after_resize_el_width = null;
+        this._last_after_resize_el_height = null;
         this.tabulator?.destroy();
         super.remove();
     }
     render() {
         this.tabulator?.destroy();
         super.render();
+        this._last_after_resize_el_width = null;
+        this._last_after_resize_el_height = null;
         this._initializing = true;
         this._building = true;
         const container = div({ style: { display: "contents" } });
@@ -659,14 +747,8 @@ export class DataTabulatorView extends HTMLBoxView {
             this.setMaxPage();
             this.tabulator.setPage(this.model.page);
         }
-        this._building = false;
-        schedule_when(() => {
-            const initializing = this._initializing;
-            this._initializing = false;
-            if (initializing) {
-                this._resize_redraw();
-            }
-        }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
+        this._initializing = this._building = false;
+        this._request_resize_redraw();
     }
     recompute_page_size() {
         if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
@@ -1163,21 +1245,17 @@ export class DataTabulatorView extends HTMLBoxView {
         const last_row = rows[rows.length - 1];
         const start = ((last_row?.data._index) || 0);
         this._updating_page = true;
-        const promise = this.setData();
-        if (this.model.follow) {
-            promise.then(() => {
+        void this.setData().then(() => {
+            if (this.model.follow) {
                 if (this.model.pagination) {
                     this.tabulator.setPage(Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20)));
                 }
                 if (last_row) {
                     this.tabulator.scrollToRow(start, "top", false);
                 }
-                this._updating_page = false;
-            });
-        }
-        else {
-            this._updating_page = true;
-        }
+            }
+            this._updating_page = false;
+        });
     }
     postUpdate() {
         this.setSelection();
@@ -1302,9 +1380,14 @@ export class DataTabulatorView extends HTMLBoxView {
         }
     }
     setSelection() {
-        if (this.tabulator == null || this._initializing || this._selection_updating || !this.tabulator.initialized) {
+        if (this._selection_updating) {
             return;
         }
+        if (this.tabulator == null || this._initializing || !this.tabulator.initialized) {
+            this._selection_pending = true;
+            return;
+        }
+        this._selection_pending = false;
         const indices = this.model.source.selected.indices;
         const current_indices = this.tabulator.getSelectedData().map((row) => row._index);
         if (JSON.stringify(indices) == JSON.stringify(current_indices)) {
@@ -1332,11 +1415,11 @@ export class DataTabulatorView extends HTMLBoxView {
         if (horizontal) {
             opts.left = this._lastHorizontalScrollbarLeftPosition;
         }
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             this._updating_scroll = true;
             this.tabulator.rowManager.element.scrollTo(opts);
             this._updating_scroll = false;
-        }, 0);
+        });
     }
     // Update model
     record_scroll() {

@@ -14,7 +14,7 @@ from typing import Any
 import urllib.request
 
 import box
-import ipywidgets as widgets
+import ipywidgets
 from IPython.display import display
 
 from . import common
@@ -38,7 +38,7 @@ def update_data_list(out_dir: str = ".") -> None:
     """Updates the Earth Engine Data Catalog dataset list.
 
     Args:
-        out_dir: The output directory to save the GitHub repository. Defaults to ".".
+        out_dir: The output directory to save the GitHub repository.
 
     Raises:
         Exception: If the CSV file fails to save.
@@ -157,7 +157,7 @@ def get_metadata(asset_id: str, source: str = "ee") -> None:
     """
     ee_assets = common.search_ee_data(asset_id, source=source)
     html = common.ee_data_html(ee_assets[0])
-    html_widget = widgets.HTML()
+    html_widget = ipywidgets.HTML()
     html_widget.value = html
     display(html_widget)
 

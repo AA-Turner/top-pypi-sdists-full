@@ -73,21 +73,24 @@ class StreamingError(_message.Message):
     ) -> None: ...
 
 class StreamingLoggerConfig(_message.Message):
-    __slots__ = ("sample_pct", "sample_pct_failure", "sample_pct_skipped", "aggregate_sample_pct")
+    __slots__ = ("sample_pct", "sample_pct_failure", "sample_pct_skipped", "aggregate_sample_pct", "sample_pct_success")
     SAMPLE_PCT_FIELD_NUMBER: _ClassVar[int]
     SAMPLE_PCT_FAILURE_FIELD_NUMBER: _ClassVar[int]
     SAMPLE_PCT_SKIPPED_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_SAMPLE_PCT_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_PCT_SUCCESS_FIELD_NUMBER: _ClassVar[int]
     sample_pct: float
     sample_pct_failure: float
     sample_pct_skipped: float
     aggregate_sample_pct: float
+    sample_pct_success: float
     def __init__(
         self,
         sample_pct: _Optional[float] = ...,
         sample_pct_failure: _Optional[float] = ...,
         sample_pct_skipped: _Optional[float] = ...,
         aggregate_sample_pct: _Optional[float] = ...,
+        sample_pct_success: _Optional[float] = ...,
     ) -> None: ...
 
 class SimpleStreamingUnaryInvokeRequest(_message.Message):

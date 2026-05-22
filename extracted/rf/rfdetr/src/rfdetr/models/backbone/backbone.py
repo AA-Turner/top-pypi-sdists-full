@@ -12,14 +12,10 @@
 # Copied from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
-
-"""
-Backbone modules.
-"""
+"""Backbone modules."""
 
 import torch
-import torch.nn.functional as F
-from peft import PeftModel
+import torch.nn.functional as F  # noqa: N812
 
 from rfdetr.models.backbone.base import BackboneBase
 from rfdetr.models.backbone.dinov2 import DinoV2
@@ -118,12 +114,24 @@ class Backbone(BackboneBase):
         self._forward_origin = self.forward
         self.forward = self.forward_export
 
+        if not hasattr(self.encoder, "merge_and_unload"):
+            return
+
+        try:
+            from peft import PeftModel
+        except ModuleNotFoundError:
+            logger.warning("peft is not installed; skipping LoRA weight merging during export.")
+            return
+        except ImportError as exc:
+            logger.warning("Failed to import PeftModel from peft during export: %s", exc)
+            raise
+
         if isinstance(self.encoder, PeftModel):
             logger.info("Merging and unloading LoRA weights")
-            self.encoder.merge_and_unload()
+            self.encoder = self.encoder.merge_and_unload()
 
     def forward(self, tensor_list: NestedTensor):
-        """ """
+        """"""
         # (H, W, B, C)
         feats = self.encoder(tensor_list.tensors)
         feats = self.projector(feats)
@@ -174,8 +182,7 @@ class Backbone(BackboneBase):
 
 
 def get_dinov2_lr_decay_rate(name: str, lr_decay_rate: float = 1.0, num_layers: int = 12) -> float:
-    """
-    Calculate lr decay rate for different ViT blocks.
+    """Calculate lr decay rate for different ViT blocks.
 
     Args:
         name: Parameter name.

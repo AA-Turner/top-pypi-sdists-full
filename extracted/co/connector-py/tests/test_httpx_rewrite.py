@@ -14,9 +14,11 @@ from connector.httpx_rewrite import AsyncClient, HTTPXAsyncTransport, log_respon
 from connector.response_logging import (
     HTTP_ERROR_CONTENT_PREVIEW_MAX_LENGTH,
     HTTP_SUCCESS_CONTENT_PREVIEW_MAX_LENGTH,
+    REDACTION_VALUE,
     TRUNCATION_SEPARATOR,
     ResponseLogFormatter,
     ResponseLogRecord,
+    redact_sensitive_data,
     summarize_response_content,
 )
 from flask import Flask, request
@@ -282,3 +284,29 @@ class TestResponseLogging:
         assert "partial" in formatted
         assert "content_length_original" in formatted
         assert "'content_length_original': None" in formatted
+
+    def test_redact_sensitive_data_redacts_external_id_in_json_string(self) -> None:
+        payload = '{"ExternalId":"a","external_id":"b","external-id":"c"}'
+
+        redacted = redact_sensitive_data(payload)
+
+        assert '"ExternalId": "[REDACTED]"' in redacted
+        assert '"external_id": "[REDACTED]"' in redacted
+        assert '"external-id": "[REDACTED]"' in redacted
+
+    def test_redact_sensitive_data_redacts_external_id_variants_in_dict(self) -> None:
+        payload = {
+            "ExternalId": "one",
+            "external_id": "two",
+            "external-id": "three",
+            "nested": {
+                "externalId": "four",
+            },
+        }
+
+        redacted = redact_sensitive_data(payload)
+
+        assert redacted["ExternalId"] == REDACTION_VALUE
+        assert redacted["external_id"] == REDACTION_VALUE
+        assert redacted["external-id"] == REDACTION_VALUE
+        assert redacted["nested"]["externalId"] == REDACTION_VALUE

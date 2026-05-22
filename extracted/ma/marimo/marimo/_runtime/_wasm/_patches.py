@@ -19,13 +19,14 @@ LOGGER = _loggers.marimo_logger()
 
 Unpatch = Callable[[], None]
 Fallback = Callable[..., Any]
+WrapperFactory = Callable[[Callable[..., Any]], Callable[..., Any]]
 
 
 class WasmPatchSet:
     """Collects WASM-only monkey-patches with a single unpatch handle.
 
-    `patch` replaces ``owner.attr`` with a wrapper: calls original; on
-    ``catch`` exception, runs ``fallback(original, *args, **kwargs)``. If the
+    `patch` replaces `owner.attr` with a wrapper: calls original; on
+    `catch` exception, runs `fallback(original, *args, **kwargs)`. If the
     fallback also raises, re-raises the original with the fallback chained so
     users see the real underlying error.
     """
@@ -42,10 +43,46 @@ class WasmPatchSet:
         *,
         catch: tuple[type[BaseException], ...] = (NameError, Exception),
     ) -> None:
-        """Register a patch on ``owner.attr``.
+        """Register a patch on `owner.attr`.
 
-        No-op outside pyodide or if ``attr`` is missing (e.g. renamed across
+        No-op outside pyodide or if `attr` is missing (e.g. renamed across
         polars versions).
+        """
+
+        def wrapper_factory(
+            original: Callable[..., Any],
+        ) -> Callable[..., Any]:
+            @functools.wraps(original)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    return original(*args, **kwargs)
+                except catch as original_exc:
+                    original_tb = original_exc.__traceback__
+                    try:
+                        return fallback(original, *args, **kwargs)
+                    except ModuleNotFoundError:
+                        # Let missing-dependency errors bubble up so marimo can
+                        # prompt the user to install the package.
+                        raise
+                    except Exception as fallback_exc:
+                        raise original_exc.with_traceback(
+                            original_tb
+                        ) from fallback_exc
+
+            return wrapper
+
+        self.replace(owner, attr, wrapper_factory)
+
+    def replace(
+        self,
+        owner: Any,
+        attr: str,
+        wrapper_factory: WrapperFactory,
+    ) -> None:
+        """Replace `owner.attr` with a WASM-only wrapper.
+
+        Unlike `patch`, this does not call the original first. Use this for
+        APIs where an original call can have side effects before failing.
         """
         if not self._active:
             return
@@ -54,23 +91,7 @@ class WasmPatchSet:
         if original is None:
             return
 
-        @functools.wraps(original)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            try:
-                return original(*args, **kwargs)
-            except catch as original_exc:
-                original_tb = original_exc.__traceback__
-                try:
-                    return fallback(original, *args, **kwargs)
-                except ModuleNotFoundError:
-                    # Let missing-dependency errors bubble up so marimo can
-                    # prompt the user to install the package.
-                    raise
-                except Exception as fallback_exc:
-                    raise original_exc.with_traceback(
-                        original_tb
-                    ) from fallback_exc
-
+        wrapper = wrapper_factory(original)
         setattr(owner, attr, wrapper)
 
         def _unpatch() -> None:

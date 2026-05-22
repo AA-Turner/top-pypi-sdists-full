@@ -61,8 +61,9 @@ from domdf_python_tools.doctools import prettify_docstrings
 from sphinx.addnodes import desc_content
 from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
-from sphinx.ext.autodoc import Documenter, logger
+from sphinx.ext.autodoc import Documenter
 from sphinx.locale import __
+from sphinx.util import logging
 from typing_extensions import TypedDict
 
 __all__ = (
@@ -91,6 +92,8 @@ __all__ = (
 		"untyped_param_regex",
 		"add_fallback_css_class",
 		)
+
+logger = logging.getLogger("sphinx.ext.autodoc")
 
 #: Instance of :class:`apeye.requests_url.RequestsURL` that points to the GitHub website.
 GITHUB_COM: RequestsURL = RequestsURL("https://github.com")
@@ -381,7 +384,8 @@ Type annotation for Sphinx extensions' ``setup`` functions.
 """
 
 
-def unknown_module_warning(documenter: Documenter) -> None:
+# TODO: not used here; deprecate, fix callers and remove
+def unknown_module_warning(documenter: Documenter) -> None:  # pragma: no cover
 	"""
 	Log a warning that the module to import the object from is unknown.
 
@@ -548,6 +552,11 @@ def allow_subclass_add(app: Sphinx, *documenters: Type[Documenter]) -> None:
 
 	.. versionadded:: 0.8.0
 
+	.. note::
+
+		With Sphinx 9.0 and later you may need to call this function in a handler for the ``config-inited`` event
+		rather than in ``setup()`` directly, to ensure the class is actualy registered as a documenter.
+
 	:param app: The Sphinx application.
 	:param \*documenters:
 	"""
@@ -556,6 +565,7 @@ def allow_subclass_add(app: Sphinx, *documenters: Type[Documenter]) -> None:
 		existing_documenter = app.registry.documenters.get(cls.objtype)
 		if existing_documenter is None or not issubclass(existing_documenter, cls):
 			app.add_autodocumenter(cls, override=True)
+			assert app.registry.documenters[cls.objtype] is cls
 
 
 def baseclass_is_private(obj: Type) -> bool:
@@ -664,6 +674,15 @@ def add_fallback_css_class(
 		classes.insert(idx, fallback)
 
 	return func
+
+
+def _set_classes(options: Dict[str, Any]) -> None:
+	# Our version of the old docutils function
+
+	if options and "class" in options:
+		assert "classes" not in options
+		options["classes"] = options["class"]
+		del options["class"]
 
 
 if TYPE_CHECKING:

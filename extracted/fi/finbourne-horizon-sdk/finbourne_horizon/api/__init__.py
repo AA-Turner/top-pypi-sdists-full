@@ -6,6 +6,7 @@ from finbourne_horizon.api.integrations_api import IntegrationsApi
 from finbourne_horizon.api.logs_api import LogsApi
 from finbourne_horizon.api.process_history_api import ProcessHistoryApi
 from finbourne_horizon.api.runs_api import RunsApi
+from finbourne_horizon.api.trade_publication_framework_api import TradePublicationFrameworkApi
 from finbourne_horizon.api.vendor_api import VendorApi
 from finbourne_horizon.api.versioned_configurations_api import VersionedConfigurationsApi
 
@@ -16,6 +17,7 @@ __all__ = [
     "LogsApi",
     "ProcessHistoryApi",
     "RunsApi",
+    "TradePublicationFrameworkApi",
     "VendorApi",
     "VersionedConfigurationsApi"
 ]

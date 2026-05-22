@@ -3,13 +3,11 @@
 # Copyright (c) 2025 Roboflow. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 # ------------------------------------------------------------------------
-
 """File download and MD5 validation helpers."""
 
 import hashlib
 import os
 import tempfile
-from typing import Optional
 
 import requests
 from tqdm.auto import tqdm
@@ -56,7 +54,7 @@ def _validate_file_md5(filepath: str, expected_md5: str) -> bool:
 def _download_file(
     url: str,
     filename: str,
-    expected_md5: Optional[str] = None,
+    expected_md5: str | None = None,
     timeout: float = DEFAULT_DOWNLOAD_TIMEOUT_SECONDS,
 ) -> None:
     """Download a file from a URL with optional MD5 validation.
@@ -95,10 +93,9 @@ def _download_file(
         suffix=".tmp",
         dir=target_dir,
     )
-    os.close(fd)
     try:
         with (
-            open(temp_filename, "wb") as f,
+            os.fdopen(fd, "wb") as f,
             tqdm(
                 desc=filename,
                 total=total_size,
@@ -126,4 +123,9 @@ def _download_file(
             logger.info(f"MD5 validation successful for {filename}")
 
     # Atomic replace in target directory.
-    os.replace(temp_filename, filename)
+    try:
+        os.replace(temp_filename, filename)
+    except Exception:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+        raise

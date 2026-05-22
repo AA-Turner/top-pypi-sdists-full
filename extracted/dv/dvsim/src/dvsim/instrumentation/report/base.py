@@ -5,16 +5,16 @@
 """DVSim scheduler instrumentation reporting & visualizations."""
 
 from collections.abc import Iterable, Mapping, Sequence
-from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
+import plotly.colors as pc
 import plotly.graph_objects as go
 import plotly.offline
 from typing_extensions import Self
 
-from dvsim.instrumentation import InstrumentationResults
-from dvsim.instrumentation.records import JobInstrumentationMetadata
+from dvsim.instrumentation.records import InstrumentationResults, JobInstrumentationMetadata
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, render_static_content
 from dvsim.templates.render import render_template
@@ -24,6 +24,7 @@ __all__ = (
     "PLOTLY_TIMING_AXIS_CONFIG",
     "InstrumentationVisualizer",
     "RenderProfile",
+    "get_default_color_map",
     "make_job_metadata_hover",
     "make_repeating_color_map",
     "render_html_report",
@@ -42,14 +43,6 @@ PLOTLY_TIMING_AXIS_CONFIG: dict[str, Any] = {
     "ticklen": 4,
     "tickcolor": "black",
 }
-
-
-class RenderProfile(Enum):
-    """Levels of visualization rendering detail, which impact report size & responsiveness."""
-
-    NORMAL = "normal"
-    HIGH = "high"
-    FULL = "full"
 
 
 class InstrumentationVisualizer(Protocol):
@@ -237,3 +230,22 @@ def make_repeating_color_map(data: Iterable[str], colors: Iterable[T]) -> dict[s
     while len(colors) < len(data):
         colors += colors.copy()
     return dict(zip(data, colors, strict=False))
+
+
+def get_default_color_map(categories: Sequence[str]) -> dict[str, Any]:
+    """Build a color map for a chart, using large palettes for more variety as is needed."""
+    palette = pc.qualitative.Plotly
+    if len(categories) > len(palette):
+        extra_colors = [
+            pc.qualitative.Bold,
+            pc.qualitative.Safe,
+            pc.qualitative.Vivid,
+            pc.qualitative.D3,
+            pc.qualitative.Set1,
+            pc.qualitative.Set2,
+        ]
+        extra_index = 0
+        while len(categories) > len(palette) and extra_index < len(extra_colors):
+            palette += extra_colors[extra_index]
+            extra_index += 1
+    return make_repeating_color_map(categories, palette)

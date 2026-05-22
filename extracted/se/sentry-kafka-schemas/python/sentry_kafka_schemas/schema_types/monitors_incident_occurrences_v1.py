@@ -1,4 +1,4 @@
-from typing import Required, Union, List, TypedDict
+from typing import Required, TypedDict, Union, List
 
 
 class IncidentOccurrence(TypedDict, total=False):

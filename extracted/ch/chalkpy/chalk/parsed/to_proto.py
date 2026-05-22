@@ -1466,6 +1466,7 @@ class ToProtoConverter:
                 if r.deduplication is not None
                 else None
             ),
+            customer_metrics_tags=list(r.customer_metrics_tags),
         )
 
     @staticmethod

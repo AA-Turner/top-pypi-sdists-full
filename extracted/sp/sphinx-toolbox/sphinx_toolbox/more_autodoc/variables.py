@@ -119,13 +119,12 @@ from sphinx.ext.autodoc import (
 		ModuleLevelDocumenter,
 		Options,
 		annotation_option,
-		import_object,
-		logger,
-		mock
+		import_object
 		)
 from sphinx.ext.autodoc.directive import DocumenterBridge
+from sphinx.ext.autodoc.mock import mock
 from sphinx.pycode import ModuleAnalyzer
-from sphinx.util import inspect
+from sphinx.util import inspect, logging
 from sphinx.util.inspect import ForwardRef, getdoc, object_description, safe_getattr
 
 # this package
@@ -140,6 +139,8 @@ from sphinx_toolbox.utils import (
 		metadata_add_version,
 		prepare_docstring
 		)
+
+logger = logging.getLogger("sphinx.ext.autodoc")
 
 __all__ = (
 		"VariableDocumenter",
@@ -256,7 +257,7 @@ class VariableDocumenter(DataDocumenter):  # noqa: PRM002
 	def __init__(self, directive: DocumenterBridge, name: str, indent: str = '') -> None:
 		super().__init__(directive=directive, name=name, indent=indent)
 		self.options = Options(self.options.copy())
-		add_nbsp_substitution(self.env.app.config)
+		add_nbsp_substitution(self.env.config)
 
 	def add_directive_header(self, sig: str) -> None:
 		"""
@@ -791,6 +792,14 @@ class PropertyDocumenter(TypedAttributeDocumenter):
 			self.add_line('', sourcename)
 
 
+def _after_config_inited(app: Sphinx, config: Any) -> None:
+	app.add_autodocumenter(VariableDocumenter)
+	app.add_autodocumenter(TypedAttributeDocumenter, override=True)
+	app.add_autodocumenter(InstanceAttributeDocumenter, override=True)
+	app.add_autodocumenter(SlotsAttributeDocumenter, override=True)
+	app.add_autodocumenter(PropertyDocumenter, override=True)
+
+
 @metadata_add_version
 def setup(app: Sphinx) -> SphinxExtMetadata:
 	"""
@@ -802,11 +811,8 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	app.setup_extension("sphinx.ext.autodoc")
 	app.setup_extension("sphinx_toolbox.more_autosummary")
 
-	app.add_autodocumenter(VariableDocumenter)
-	app.add_autodocumenter(TypedAttributeDocumenter, override=True)
-	app.add_autodocumenter(InstanceAttributeDocumenter, override=True)
-	app.add_autodocumenter(SlotsAttributeDocumenter, override=True)
-	app.add_autodocumenter(PropertyDocumenter, override=True)
+	# Run after autodocsumm's and more_autosummary's.
+	app.connect("config-inited", _after_config_inited, priority=620)  # more_autosummary is 600
 
 	app.connect("config-inited", lambda _, config: add_nbsp_substitution(config))
 

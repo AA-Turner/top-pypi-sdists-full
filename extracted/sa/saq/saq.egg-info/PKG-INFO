@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: saq
-Version: 0.26.3
+Version: 0.26.4
 Summary: Distributed Python job queue with asyncio and redis
 Home-page: https://github.com/tobymao/saq
 Author: Toby Mao
@@ -39,7 +39,7 @@ Requires-Dist: aiohttp; extra == "http"
 Provides-Extra: postgres
 Requires-Dist: psycopg[pool]>=3.2.0; extra == "postgres"
 Provides-Extra: redis
-Requires-Dist: redis<7.0,>=4.2; extra == "redis"
+Requires-Dist: redis<8.0,>=4.2; extra == "redis"
 Provides-Extra: web
 Requires-Dist: aiohttp; extra == "web"
 Requires-Dist: aiohttp_basicauth; extra == "web"
@@ -51,7 +51,7 @@ Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: psycopg[pool]>=3.2.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: redis<7.0,>=4.2; extra == "dev"
+Requires-Dist: redis<8.0,>=4.2; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: time-machine; extra == "dev"
 Requires-Dist: types-croniter; extra == "dev"

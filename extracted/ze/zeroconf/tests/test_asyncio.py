@@ -44,7 +44,6 @@ from zeroconf.const import _LISTENER_TIME
 
 from . import (
     LOOPBACK_FIND_TIMEOUT,
-    QUICK_REQUEST_TIMEOUT_MS,
     QuestionHistoryWithoutSuppression,
     _clear_cache,
     has_working_ipv6,
@@ -608,7 +607,7 @@ async def test_async_wait_unblocks_on_update(quick_timing: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_service_info_async_request(quick_timing: None) -> None:
+async def test_service_info_async_request(quick_timing: None, quick_request_timing: None) -> None:
     """Test registering services broadcasts and query with AsyncServceInfo.async_request."""
     if not has_working_ipv6() or os.environ.get("SKIP_IPV6"):
         pytest.skip("Requires IPv6")
@@ -710,13 +709,13 @@ async def test_service_info_async_request(quick_timing: None) -> None:
     aiozc.zeroconf.out_delay_queue.queue.clear()
     aiosinfo = AsyncServiceInfo(type_, registration_name)
     _clear_cache(aiozc.zeroconf)
-    # Generating the race condition is almost impossible
-    # without patching since its a TOCTOU race. 1500ms covers
-    # the initial _LISTENER_TIME + random delay (200-320ms) and
-    # leaves plenty of margin for the loopback response to land
+    # Generating the race condition is almost impossible without
+    # patching since it's a TOCTOU race. Under `quick_request_timing`
+    # the first QU query fires at ~10ms and the QM follow-up at ~15ms;
+    # 300ms leaves plenty of margin for the loopback response to land
     # before the loop times out.
     with patch("zeroconf.asyncio.AsyncServiceInfo._is_complete", False):
-        await aiosinfo.async_request(aiozc.zeroconf, 1500)
+        await aiosinfo.async_request(aiozc.zeroconf, 300)
     assert aiosinfo is not None
     assert aiosinfo.addresses == [socket.inet_aton("10.0.1.3")]
 
@@ -1191,10 +1190,12 @@ async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu(qui
     with patch.object(zeroconf_info, "async_send", send):
         aiosinfo = AsyncServiceInfo(type_, registration_name)
         # Patch _is_complete so we send multiple times. Under
-        # `quick_request_timing` both the QU query at 0ms and the QM
-        # query at ~15ms land well inside QUICK_REQUEST_TIMEOUT_MS.
+        # `quick_request_timing` the QU query fires at 0ms and the QM
+        # follow-up at ~11-15ms (10ms _LISTENER_TIME + 1-5ms jitter);
+        # 300ms absorbs macOS short-sleep quantization so the QM wake
+        # lands before the loop times out.
         with patch("zeroconf.asyncio.AsyncServiceInfo._is_complete", False):
-            await aiosinfo.async_request(aiozc.zeroconf, QUICK_REQUEST_TIMEOUT_MS)
+            await aiosinfo.async_request(aiozc.zeroconf, 300)
         try:
             assert first_outgoing.questions[0].unicast is True  # type: ignore[union-attr]
             assert second_outgoing.questions[0].unicast is False  # type: ignore[attr-defined]

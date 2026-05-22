@@ -107,6 +107,13 @@ def get_mongo_database(account_name: Optional[_builtins.str] = None,
     pulumi.export("id", example.id)
     ```
 
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
+
 
     :param _builtins.str account_name: The name of the Cosmos DB Account where the Mongo Database exists.
     :param _builtins.str name: The name of this Cosmos DB Mongo Database.
@@ -125,9 +132,9 @@ def get_mongo_database(account_name: Optional[_builtins.str] = None,
         name=pulumi.get(__ret__, 'name'),
         resource_group_name=pulumi.get(__ret__, 'resource_group_name'),
         tags=pulumi.get(__ret__, 'tags'))
-def get_mongo_database_output(account_name: Optional[pulumi.Input[_builtins.str]] = None,
-                              name: Optional[pulumi.Input[_builtins.str]] = None,
-                              resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
+def get_mongo_database_output(account_name: pulumi.Input[Optional[_builtins.str]] = None,
+                              name: pulumi.Input[Optional[_builtins.str]] = None,
+                              resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
                               opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetMongoDatabaseResult]:
     """
     Use this data source to access information about an existing Cosmos DB Mongo Database.
@@ -143,6 +150,13 @@ def get_mongo_database_output(account_name: Optional[pulumi.Input[_builtins.str]
         account_name="test-cosmosdb-account")
     pulumi.export("id", example.id)
     ```
+
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
 
 
     :param _builtins.str account_name: The name of the Cosmos DB Account where the Mongo Database exists.

@@ -7273,7 +7273,7 @@ class CfnAssistant(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistant",
 ):
-    '''Specifies an Amazon Connect Wisdom assistant.
+    '''Specifies an Connect Customer Wisdom assistant.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html
     :cloudformationResource: AWS::Wisdom::Assistant
@@ -7320,7 +7320,7 @@ class CfnAssistant(
         :param name: The name of the assistant.
         :param type: The type of assistant.
         :param description: The description of the assistant.
-        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
+        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
@@ -7551,7 +7551,7 @@ class CfnAssistant(
         def __init__(self, *, kms_key_id: typing.Optional[builtins.str] = None) -> None:
             '''The configuration information for the customer managed key used for encryption.
 
-            :param kms_key_id: The customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+            :param kms_key_id: The customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-assistant-serversideencryptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -7577,7 +7577,7 @@ class CfnAssistant(
         def kms_key_id(self) -> typing.Optional[builtins.str]:
             '''The customer managed key used for encryption.
 
-            The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+            The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-assistant-serversideencryptionconfiguration.html#cfn-wisdom-assistant-serversideencryptionconfiguration-kmskeyid
             '''
@@ -7602,7 +7602,7 @@ class CfnAssistantAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistantAssociation",
 ):
-    '''Specifies an association between an Amazon Connect Wisdom assistant and another resource.
+    '''Specifies an association between an Connect Customer Wisdom assistant and another resource.
 
     Currently, the only supported association is with a knowledge base. An assistant can have only a single association.
 
@@ -8129,7 +8129,7 @@ class CfnAssistantProps:
         :param name: The name of the assistant.
         :param type: The type of assistant.
         :param description: The description of the assistant.
-        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
+        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
         :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html
@@ -8210,7 +8210,7 @@ class CfnAssistantProps:
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssistant.ServerSideEncryptionConfigurationProperty"]]:
         '''The configuration information for the customer managed key used for encryption.
 
-        The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
+        The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-serversideencryptionconfiguration
         '''
@@ -8358,7 +8358,7 @@ class CfnKnowledgeBase(
         :param name: The name of the knowledge base.
         :param description: The description.
         :param rendering_configuration: Information about how to render the content.
-        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
         :param source_configuration: The source of the knowledge base content. Only set this argument for EXTERNAL or Managed knowledge bases.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param vector_ingestion_configuration: Contains details about how to ingest the documents in a data source.
@@ -9634,7 +9634,7 @@ class CfnKnowledgeBase(
         def __init__(self, *, kms_key_id: typing.Optional[builtins.str] = None) -> None:
             '''The configuration information for the customer managed key used for encryption.
 
-            :param kms_key_id: The customer managed key used for encryption. This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ .
+            :param kms_key_id: The customer managed key used for encryption. This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-knowledgebase-serversideencryptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -9662,7 +9662,7 @@ class CfnKnowledgeBase(
 
             This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom.
 
-            For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ .
+            For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-knowledgebase-serversideencryptionconfiguration.html#cfn-wisdom-knowledgebase-serversideencryptionconfiguration-kmskeyid
             '''
@@ -10125,7 +10125,7 @@ class CfnKnowledgeBaseProps:
         :param name: The name of the knowledge base.
         :param description: The description.
         :param rendering_configuration: Information about how to render the content.
-        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
         :param source_configuration: The source of the knowledge base content. Only set this argument for EXTERNAL or Managed knowledge bases.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param vector_ingestion_configuration: Contains details about how to ingest the documents in a data source.
@@ -10293,7 +10293,7 @@ class CfnKnowledgeBaseProps:
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty"]]:
         '''This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom.
 
-        For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+        For more information about setting up a customer managed key for Wisdom, see `Enable Connect Customer Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-serversideencryptionconfiguration
         '''

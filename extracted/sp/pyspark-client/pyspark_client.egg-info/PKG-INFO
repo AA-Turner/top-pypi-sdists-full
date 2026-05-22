@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspark-client
-Version: 4.1.1
+Version: 4.1.2
 Summary: Python Spark Connect client for Apache Spark
 Home-page: https://github.com/apache/spark/tree/master/python
 Author: Spark Developers

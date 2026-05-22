@@ -10,6 +10,7 @@ from ._shape_renderer import ShapeRenderer
 from ._sprite_renderer import SpriteRenderer
 from ._text_renderer import TextRenderer
 from ._animator import Animator
+from ._trail_renderer import TrailRenderer
 
 from ._sound_emitter import SoundEmitter
 from ._video_player import VideoPlayer
@@ -27,6 +28,7 @@ __all__ = [
     "SpriteRenderer",
     "TextRenderer",
     "Animator",
+    "TrailRenderer",
 
     "SoundEmitter",
     "VideoPlayer",

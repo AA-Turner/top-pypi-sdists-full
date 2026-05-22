@@ -233,6 +233,7 @@ __all__ = (
     "ModelInferenceDataSourceTypeDef",
     "ModelTrainingDataChannelTypeDef",
     "PaginatorConfigTypeDef",
+    "PayerConfigurationTypeDef",
     "PrivacyBudgetsTypeDef",
     "PrivacyConfigurationOutputTypeDef",
     "PrivacyConfigurationPoliciesOutputTypeDef",
@@ -369,17 +370,9 @@ class CollaborationConfiguredModelAlgorithmAssociationSummaryTypeDef(TypedDict):
     creatorAccountId: str
     description: NotRequired[str]
 
-class CollaborationMLInputChannelSummaryTypeDef(TypedDict):
-    createTime: datetime
-    updateTime: datetime
-    membershipIdentifier: str
-    collaborationIdentifier: str
-    name: str
-    configuredModelAlgorithmAssociations: list[str]
-    mlInputChannelArn: str
-    status: MLInputChannelStatusType
-    creatorAccountId: str
-    description: NotRequired[str]
+class PayerConfigurationTypeDef(TypedDict):
+    computePayerAccountId: NotRequired[str]
+    syntheticDataPayerAccountId: NotRequired[str]
 
 class IncrementalTrainingDataChannelOutputTypeDef(TypedDict):
     channelName: str
@@ -630,18 +623,6 @@ class ListMLInputChannelsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
-class MLInputChannelSummaryTypeDef(TypedDict):
-    createTime: datetime
-    updateTime: datetime
-    membershipIdentifier: str
-    collaborationIdentifier: str
-    name: str
-    configuredModelAlgorithmAssociations: list[str]
-    mlInputChannelArn: str
-    status: MLInputChannelStatusType
-    protectedQueryIdentifier: NotRequired[str]
-    description: NotRequired[str]
-
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -748,6 +729,32 @@ class AudienceExportJobSummaryTypeDef(TypedDict):
 
 AudienceSizeConfigUnionTypeDef = Union[AudienceSizeConfigTypeDef, AudienceSizeConfigOutputTypeDef]
 
+class CollaborationMLInputChannelSummaryTypeDef(TypedDict):
+    createTime: datetime
+    updateTime: datetime
+    membershipIdentifier: str
+    collaborationIdentifier: str
+    name: str
+    configuredModelAlgorithmAssociations: list[str]
+    mlInputChannelArn: str
+    status: MLInputChannelStatusType
+    creatorAccountId: str
+    description: NotRequired[str]
+    payerConfiguration: NotRequired[PayerConfigurationTypeDef]
+
+class MLInputChannelSummaryTypeDef(TypedDict):
+    createTime: datetime
+    updateTime: datetime
+    membershipIdentifier: str
+    collaborationIdentifier: str
+    name: str
+    configuredModelAlgorithmAssociations: list[str]
+    mlInputChannelArn: str
+    status: MLInputChannelStatusType
+    protectedQueryIdentifier: NotRequired[str]
+    description: NotRequired[str]
+    payerConfiguration: NotRequired[PayerConfigurationTypeDef]
+
 class CollaborationTrainedModelSummaryTypeDef(TypedDict):
     createTime: datetime
     updateTime: datetime
@@ -761,6 +768,7 @@ class CollaborationTrainedModelSummaryTypeDef(TypedDict):
     versionIdentifier: NotRequired[str]
     incrementalTrainingDataChannels: NotRequired[list[IncrementalTrainingDataChannelOutputTypeDef]]
     description: NotRequired[str]
+    mlModelTrainingPayerAccountId: NotRequired[str]
 
 class TrainedModelSummaryTypeDef(TypedDict):
     createTime: datetime
@@ -774,6 +782,7 @@ class TrainedModelSummaryTypeDef(TypedDict):
     versionIdentifier: NotRequired[str]
     incrementalTrainingDataChannels: NotRequired[list[IncrementalTrainingDataChannelOutputTypeDef]]
     description: NotRequired[str]
+    mlModelTrainingPayerAccountId: NotRequired[str]
 
 class ColumnClassificationDetailsTypeDef(TypedDict):
     columnMapping: list[SyntheticDataColumnPropertiesTypeDef]
@@ -871,11 +880,6 @@ class ListCollaborationConfiguredModelAlgorithmAssociationsResponseTypeDef(Typed
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class ListCollaborationMLInputChannelsResponseTypeDef(TypedDict):
-    collaborationMLInputChannelsList: list[CollaborationMLInputChannelSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListConfiguredModelAlgorithmAssociationsResponseTypeDef(TypedDict):
     configuredModelAlgorithmAssociations: list[ConfiguredModelAlgorithmAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -921,6 +925,7 @@ class CreateTrainedModelRequestTypeDef(TypedDict):
     description: NotRequired[str]
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    mlModelTrainingPayerAccountId: NotRequired[str]
 
 class GetCollaborationTrainedModelResponseTypeDef(TypedDict):
     membershipIdentifier: str
@@ -941,6 +946,7 @@ class GetCollaborationTrainedModelResponseTypeDef(TypedDict):
     logsStatus: LogsStatusType
     logsStatusDetails: str
     trainingContainerImageDigest: str
+    mlModelTrainingPayerAccountId: str
     createTime: datetime
     updateTime: datetime
     creatorAccountId: str
@@ -965,6 +971,7 @@ class GetTrainedModelResponseTypeDef(TypedDict):
     logsStatus: LogsStatusType
     logsStatusDetails: str
     trainingContainerImageDigest: str
+    mlModelTrainingPayerAccountId: str
     createTime: datetime
     updateTime: datetime
     hyperparameters: dict[str, str]
@@ -1065,11 +1072,6 @@ class ListTrainedModelsRequestPaginateTypeDef(TypedDict):
 class ListTrainingDatasetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class ListMLInputChannelsResponseTypeDef(TypedDict):
-    mlInputChannelsList: list[MLInputChannelSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListTrainingDatasetsResponseTypeDef(TypedDict):
     trainingDatasets: list[TrainingDatasetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1123,6 +1125,16 @@ class AudienceQualityMetricsTypeDef(TypedDict):
 
 class ListAudienceExportJobsResponseTypeDef(TypedDict):
     audienceExportJobs: list[AudienceExportJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListCollaborationMLInputChannelsResponseTypeDef(TypedDict):
+    collaborationMLInputChannelsList: list[CollaborationMLInputChannelSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListMLInputChannelsResponseTypeDef(TypedDict):
+    mlInputChannelsList: list[MLInputChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1202,6 +1214,7 @@ class CollaborationTrainedModelInferenceJobSummaryTypeDef(TypedDict):
     metricsStatusDetails: NotRequired[str]
     logsStatus: NotRequired[LogsStatusType]
     logsStatusDetails: NotRequired[str]
+    mlModelInferencePayerAccountId: NotRequired[str]
 
 class GetTrainedModelInferenceJobResponseTypeDef(TypedDict):
     createTime: datetime
@@ -1227,6 +1240,7 @@ class GetTrainedModelInferenceJobResponseTypeDef(TypedDict):
     logsStatus: LogsStatusType
     logsStatusDetails: str
     tags: dict[str, str]
+    mlModelInferencePayerAccountId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TrainedModelInferenceJobSummaryTypeDef(TypedDict):
@@ -1246,6 +1260,7 @@ class TrainedModelInferenceJobSummaryTypeDef(TypedDict):
     metricsStatusDetails: NotRequired[str]
     logsStatus: NotRequired[LogsStatusType]
     logsStatusDetails: NotRequired[str]
+    mlModelInferencePayerAccountId: NotRequired[str]
 
 InferenceOutputConfigurationUnionTypeDef = Union[
     InferenceOutputConfigurationTypeDef, InferenceOutputConfigurationOutputTypeDef
@@ -1398,6 +1413,7 @@ class StartTrainedModelInferenceJobRequestTypeDef(TypedDict):
     environment: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    mlModelInferencePayerAccountId: NotRequired[str]
 
 class ListCollaborationTrainedModelExportJobsResponseTypeDef(TypedDict):
     collaborationTrainedModelExportJobs: list[CollaborationTrainedModelExportJobSummaryTypeDef]
@@ -1464,6 +1480,7 @@ class GetCollaborationMLInputChannelResponseTypeDef(TypedDict):
     privacyBudgets: PrivacyBudgetsTypeDef
     description: str
     syntheticDataConfiguration: SyntheticDataConfigurationTypeDef
+    payerConfiguration: PayerConfigurationTypeDef
     createTime: datetime
     updateTime: datetime
     creatorAccountId: str
@@ -1592,6 +1609,7 @@ class GetMLInputChannelResponseTypeDef(TypedDict):
     privacyBudgets: PrivacyBudgetsTypeDef
     description: str
     syntheticDataConfiguration: SyntheticDataConfigurationTypeDef
+    payerConfiguration: PayerConfigurationTypeDef
     createTime: datetime
     updateTime: datetime
     inputChannel: InputChannelOutputTypeDef
@@ -1621,3 +1639,4 @@ class CreateMLInputChannelRequestTypeDef(TypedDict):
     description: NotRequired[str]
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    payerConfiguration: NotRequired[PayerConfigurationTypeDef]

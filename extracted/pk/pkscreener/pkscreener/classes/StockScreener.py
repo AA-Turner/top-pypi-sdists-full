@@ -819,12 +819,12 @@ class StockScreener:
                 #     hostRef.default_logger.debug(f"LTPNotInConfiguredRange:{stock}: {e}", exc_info=True)
             pass
         except KeyError as e: # pragma: no cover
-                # if userArgsLog:
-                #     hostRef.default_logger.debug(f"KeyError:{stock}: {e}", exc_info=True)
+            if userArgsLog:
+                hostRef.default_logger.debug(f"KeyError:{stock}: {e}", exc_info=True)
             pass
         except OSError as e: # pragma: no cover
-            # if userArgsLog:
-            #     hostRef.default_logger.debug(f"OSError:{stock}: {e}", exc_info=True)
+            if userArgsLog:
+                hostRef.default_logger.debug(f"OSError:{stock}: {e}", exc_info=True)
             pass
         except Exception as e:  # pragma: no cover
             if hostRef.default_logger:
@@ -943,7 +943,7 @@ class StockScreener:
         elif executeOption == 48:
             isValid = screener.find10DaysHighBreakout(fullData, screeningDictionary, saveDictionary)
         elif executeOption == 49:
-            isValid = screener.find52WeekHighApproachingBreakout(fullData, screeningDictionary, saveDictionary)
+            isValid = screener.findApproaching52WeekHigh(fullData, screeningDictionary, saveDictionary)
         return isValid        
                     
     def performBasicVolumeChecks(self, executeOption, volumeRatio, screeningDictionary, saveDictionary, processedData, configManager, screener):

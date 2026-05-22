@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 1.8.0
+Version: 1.9.0
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT

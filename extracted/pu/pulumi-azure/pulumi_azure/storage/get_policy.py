@@ -92,7 +92,7 @@ def get_policy(storage_account_id: Optional[_builtins.str] = None,
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param _builtins.str storage_account_id: Specifies the id of the storage account to retrieve the management policy for.
@@ -106,7 +106,7 @@ def get_policy(storage_account_id: Optional[_builtins.str] = None,
         id=pulumi.get(__ret__, 'id'),
         rules=pulumi.get(__ret__, 'rules'),
         storage_account_id=pulumi.get(__ret__, 'storage_account_id'))
-def get_policy_output(storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_policy_output(storage_account_id: pulumi.Input[Optional[_builtins.str]] = None,
                       opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetPolicyResult]:
     """
     Use this data source to access information about an existing Storage Management Policy.
@@ -127,7 +127,7 @@ def get_policy_output(storage_account_id: Optional[pulumi.Input[_builtins.str]] 
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param _builtins.str storage_account_id: Specifies the id of the storage account to retrieve the management policy for.

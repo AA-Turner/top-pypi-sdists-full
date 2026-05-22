@@ -319,6 +319,18 @@ class RefsContainerTests:
             errors.RefFormatError, self._refs._check_refname, b"notrefs/foo"
         )
 
+    def test_check_refname_empty_component_warns(self) -> None:
+        # Names whose only defect is empty path components (e.g. introduced
+        # by older Poetry releases) warn rather than raise, for now.
+        for name in (b"refs/tags//v1.0", b"refs//heads/foo", b"refs/heads//foo"):
+            with self.assertWarns(DeprecationWarning):
+                self._refs._check_refname(name)
+
+    def test_check_refname_other_defects_still_raise(self) -> None:
+        # Names with defects other than empty components still raise.
+        for name in (b"refs/heads//foo.lock", b"refs/heads//foo..bar"):
+            self.assertRaises(errors.RefFormatError, self._refs._check_refname, name)
+
     def test_contains(self) -> None:
         self.assertIn(b"refs/heads/master", self._refs)
         self.assertNotIn(b"refs/heads/bar", self._refs)
@@ -361,6 +373,19 @@ class RefsContainerTests:
             b"48d01bd4b77fed026b154d16493e5deab78f02ec",
             self._refs[b"refs/remotes/origin/other"],
         )
+
+    def test_import_refs_base_trailing_slash(self) -> None:
+        # A trailing slash on the base must not produce a malformed ref
+        # with an empty path component (e.g. b'refs/tags//v1.0').
+        self._refs.import_refs(
+            b"refs/tags/",
+            {b"v1.0": b"42d06bd4b77fed026b154d16493e5deab78f02ec"},
+        )
+        self.assertEqual(
+            b"42d06bd4b77fed026b154d16493e5deab78f02ec",
+            self._refs[b"refs/tags/v1.0"],
+        )
+        self.assertNotIn(b"refs/tags//v1.0", self._refs.allkeys())
 
     def test_import_refs_name_prune(self) -> None:
         self._refs[b"refs/remotes/origin/other"] = (
@@ -1225,6 +1250,13 @@ class RefUtilityFunctionsTests(TestCase):
         # Test idempotency - already has prefix
         self.assertEqual(b"refs/heads/master", local_branch_name(b"refs/heads/master"))
 
+    def test_local_branch_name_leading_slash(self) -> None:
+        """Test local_branch_name warns about and strips a leading slash."""
+        from dulwich.refs import local_branch_name
+
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(b"refs/heads/master", local_branch_name(b"/master"))
+
     def test_local_tag_name(self) -> None:
         """Test local_tag_name function."""
         from dulwich.refs import local_tag_name
@@ -1235,6 +1267,20 @@ class RefUtilityFunctionsTests(TestCase):
 
         # Test idempotency - already has prefix
         self.assertEqual(b"refs/tags/v1.0", local_tag_name(b"refs/tags/v1.0"))
+
+    def test_local_tag_name_leading_slash(self) -> None:
+        """Test local_tag_name warns about and strips a leading slash."""
+        from dulwich.refs import local_tag_name
+
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(b"refs/tags/v1.0", local_tag_name(b"/v1.0"))
+
+    def test_local_replace_name_leading_slash(self) -> None:
+        """Test local_replace_name warns about and strips a leading slash."""
+        from dulwich.refs import local_replace_name
+
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(b"refs/replace/abc123", local_replace_name(b"/abc123"))
 
     def test_extract_branch_name(self) -> None:
         """Test extract_branch_name function."""

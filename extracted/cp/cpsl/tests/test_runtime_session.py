@@ -368,6 +368,22 @@ class RuntimeSessionPersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.data["probe"], "boring")
         self.assertEqual(session.data["__cpsl_session_rev"], 1)
 
+    async def test_stream_reply_context_submits_done_before_handler_returns(self):
+        runner = self.StubRunner()
+        snapshots = []
+
+        async def handle_message(session, _msg):
+            async with session.stream_reply() as reply:
+                reply.write("hello")
+            snapshots.append(list(runner.submitted))
+
+        runner._hooks["_cpsl_message"] = handle_message
+
+        await runner._handle(self.inbound(action_name=""))
+
+        self.assertEqual(snapshots, [[("hello", False), ("", True)]])
+        self.assertEqual(runner.submitted, [("hello", False), ("", True)])
+
     async def test_first_save_uses_empty_server_base_despite_handler_metadata(self):
         runner = self.StubRunner()
 
@@ -536,6 +552,51 @@ class RuntimeSessionPersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(runner._session_stub.saved), 1)
         self.assertEqual(runner.widget_updates, 0)
         self.assertEqual(runner.session_data_snapshots[-1]["selected_id"], "row-1")
+
+    async def test_trigger_action_invokes_app_action_inline_with_same_session(self):
+        runner = self.StubRunner()
+
+        async def outer(session, _event):
+            result = await session.trigger_action("inner", {"value": "nested"})
+            await session.data.set("result", result)
+
+        async def inner(session, event):
+            await session.data.set("value", event.payload["value"])
+            return "ok"
+
+        runner._action_handlers["set_value"] = outer
+        runner._action_handlers["inner"] = inner
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "nested")
+        self.assertEqual(runner._session_stub.saved[-1]["result"], "ok")
+        self.assertEqual(len(runner._session_stub.saved), 1)
+
+    async def test_inbound_action_resolves_current_workflow_before_app_action(self):
+        runner = self.StubRunner()
+        runner._session_stub.data_json = json.dumps({"__workflow__": "Flow"})
+        workflow = cpsl.Workflow("Flow")
+        calls: list[str] = []
+
+        @workflow.action("set_value")
+        async def workflow_action(session, input):
+            calls.append("workflow")
+            await session.data.set("source", "workflow")
+            await session.data.set("payload", input["value"])
+
+        async def app_action(session, event):
+            calls.append("app")
+            await session.data.set("source", event.payload["value"])
+
+        runner._workflows["Flow"] = workflow
+        runner._action_handlers["set_value"] = app_action
+
+        await runner._handle(self.inbound(payload={"value": "handled"}))
+
+        self.assertEqual(calls, ["workflow"])
+        self.assertEqual(runner._session_stub.saved[-1]["source"], "workflow")
+        self.assertEqual(runner._session_stub.saved[-1]["payload"], "handled")
 
 
 class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
@@ -911,47 +972,166 @@ class ShowStepTests(unittest.IsolatedAsyncioTestCase):
             data={},
         )
 
-    async def test_show_step_emits_block_with_stable_id(self):
-        import json as _json
-
+    async def test_show_step_appends_without_explicit_step_id(self):
         session = self.new_session()
         blocks: list[dict] = []
 
         async def block_cb(block_json: str):
-            blocks.append(_json.loads(block_json))
+            blocks.append(json.loads(block_json))
+
+        session._block_callback = block_cb
+
+        sid = await session.show_step("Research ICP")
+        sid2 = await session.show_step("Research ICP", status="completed")
+
+        self.assertNotEqual(sid, sid2)
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(blocks[0]["type"], "step_status")
+        self.assertTrue(blocks[0]["id"].startswith("step_research_icp_"))
+        self.assertEqual(blocks[0]["payload"]["status"], "running")
+        self.assertTrue(blocks[1]["id"].startswith("step_research_icp_"))
+        self.assertEqual(blocks[1]["payload"]["status"], "completed")
+
+    async def test_show_step_reuses_returned_step_id_for_updates(self):
+        session = self.new_session()
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
 
         session._block_callback = block_cb
 
         sid = await session.show_step("Research ICP")
         sid2 = await session.show_step(
-            "Research ICP", status="completed", detail="Found 18 accounts"
+            "Research ICP",
+            status="completed",
+            detail="Found 18 accounts",
+            step_id=sid,
         )
 
-        self.assertEqual(sid, "research_icp")
         self.assertEqual(sid, sid2)
-        self.assertEqual(len(blocks), 2)
-        self.assertEqual(blocks[0]["type"], "step_status")
-        self.assertEqual(blocks[0]["id"], "step_research_icp")
-        self.assertEqual(blocks[0]["payload"]["status"], "running")
-        self.assertEqual(blocks[1]["id"], "step_research_icp")
+        self.assertEqual(blocks[1]["id"], blocks[0]["id"])
         self.assertEqual(blocks[1]["payload"]["status"], "completed")
         self.assertEqual(blocks[1]["payload"]["detail"], "Found 18 accounts")
 
-    async def test_show_step_respects_explicit_step_id(self):
-        import json as _json
-
+    async def test_show_step_serializes_rich_details(self):
         session = self.new_session()
         blocks: list[dict] = []
 
         async def block_cb(block_json: str):
-            blocks.append(_json.loads(block_json))
+            blocks.append(json.loads(block_json))
 
         session._block_callback = block_cb
 
-        sid = await session.show_step("Anything", step_id="custom-id")
+        sid = await session.show_step(
+            "Store graph",
+            detail="Stored graph for Paper 12.",
+            step_id="custom-id",
+            links=[{"label": "Open paper", "url": "https://example.com/paper"}],
+            fields={"nodes": 25, "ready": True},
+            expanded=True,
+        )
+
         self.assertEqual(sid, "custom-id")
         self.assertEqual(blocks[0]["id"], "step_custom-id")
         self.assertEqual(blocks[0]["payload"]["step_id"], "custom-id")
+        self.assertEqual(
+            blocks[0]["payload"]["links"],
+            [{"label": "Open paper", "url": "https://example.com/paper"}],
+        )
+        self.assertEqual(blocks[0]["payload"]["fields"], {"nodes": 25, "ready": True})
+        self.assertTrue(blocks[0]["payload"]["expanded"])
+
+    async def test_show_activity_appends_and_respects_explicit_activity_id(self):
+        session = self.new_session()
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        session._block_callback = block_cb
+
+        aid = await session.show_activity(
+            "Opened source",
+            detail="Read architecture notes.",
+            links=[{"label": "Source", "url": "https://example.com/source"}],
+            fields={"chars": 1200},
+            icon="book-open",
+            expanded=True,
+        )
+        aid2 = await session.show_activity("Opened source")
+        aid3 = await session.show_activity("Opened source", activity_id="source-1")
+
+        self.assertNotEqual(aid, aid2)
+        self.assertEqual(aid3, "source-1")
+        self.assertEqual(blocks[0]["type"], "activity")
+        self.assertTrue(blocks[0]["id"].startswith("activity_opened_source_"))
+        self.assertEqual(blocks[0]["payload"]["activity_id"], aid)
+        self.assertEqual(
+            blocks[0]["payload"]["links"],
+            [{"label": "Source", "url": "https://example.com/source"}],
+        )
+        self.assertEqual(blocks[0]["payload"]["fields"], {"chars": 1200})
+        self.assertEqual(blocks[0]["payload"]["icon"], "book-open")
+        self.assertTrue(blocks[0]["payload"]["expanded"])
+        self.assertTrue(blocks[1]["id"].startswith("activity_opened_source_"))
+        self.assertEqual(blocks[2]["id"], "activity_source-1")
+
+
+class ShowSuggestionsTests(unittest.IsolatedAsyncioTestCase):
+    def new_session(self) -> Session:
+        return Session(
+            id="sess-suggest",
+            user=UserInfo(id="u-1"),
+            channel=SessionChannel(type="chat"),
+            history=[],
+            data={},
+        )
+
+    async def test_show_suggestions_emits_prompt_and_action_buttons(self):
+        session = self.new_session()
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        session._block_callback = block_cb
+
+        await session.show_suggestions(
+            [
+                "Research Acme",
+                cpsl.Suggestion(
+                    "Approve",
+                    action="approve",
+                    payload={"id": "acme"},
+                    primary=True,
+                ),
+                {
+                    "label": "Search more",
+                    "target": "prompt",
+                    "value": "Find more companies",
+                    "icon": "search",
+                },
+            ],
+            title="Suggested next steps",
+        )
+
+        self.assertEqual(blocks[0]["type"], "suggestions")
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["title"], "Suggested next steps")
+        self.assertEqual(payload["suggestions"][0]["target"], "prompt")
+        self.assertEqual(payload["suggestions"][0]["value"], "Research Acme")
+        self.assertEqual(payload["suggestions"][1]["target"], "action")
+        self.assertEqual(payload["suggestions"][1]["value"], "approve")
+        self.assertEqual(payload["suggestions"][1]["payload"], {"id": "acme"})
+        self.assertTrue(payload["suggestions"][1]["primary"])
+        self.assertEqual(payload["suggestions"][2]["icon"], "search")
+
+    async def test_show_suggestions_rejects_navigation_targets(self):
+        session = self.new_session()
+
+        with self.assertRaisesRegex(ValueError, "target='prompt' or target='action'"):
+            await session.show_suggestions([cpsl.Suggestion("Open", page="Dashboard")])
 
 
 class ShowTableTests(unittest.IsolatedAsyncioTestCase):

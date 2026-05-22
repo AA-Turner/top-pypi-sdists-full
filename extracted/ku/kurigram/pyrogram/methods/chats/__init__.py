@@ -28,11 +28,13 @@ from .close_forum_topic import CloseForumTopic
 from .delete_channel import DeleteChannel
 from .delete_folder_invite_link import DeleteFolderInviteLink
 from .delete_chat_photo import DeleteChatPhoto
+from .delete_all_message_reactions import DeleteAllMessageReactions
 from .delete_folder import DeleteFolder
 from .delete_forum_topic import DeleteForumTopic
 from .delete_supergroup import DeleteSupergroup
 from .delete_user_history import DeleteUserHistory
 from .edit_forum_topic import EditForumTopic
+from .delete_message_reaction import DeleteMessageReaction
 from .create_folder_invite_link import CreateFolderInviteLink
 from .get_chat import GetChat
 from .get_chats_for_folder_invite_link import GetChatsForFolderInviteLink
@@ -45,6 +47,7 @@ from .get_chat_online_count import GetChatOnlineCount
 from .get_chat_settings import GetChatSettings
 from .get_similar_channels import GetSimilarChannels
 from .get_suitable_discussion_chats import GetSuitableDiscussionChats
+from .get_top_chats import GetTopChats
 from .get_dialogs import GetDialogs
 from .get_direct_messages_topics_by_id import GetDirectMessagesTopicsByID
 from .get_direct_messages_topics import GetDirectMessagesTopics
@@ -109,6 +112,7 @@ class Chats(
     GetChatMember,
     SetChatPhoto,
     DeleteChatPhoto,
+    DeleteAllMessageReactions,
     DeleteFolder,
     SetChatTitle,
     SetChatTTL,
@@ -150,6 +154,7 @@ class Chats(
     DeleteForumTopic,
     DeleteSupergroup,
     EditForumTopic,
+    DeleteMessageReaction,
     CreateFolderInviteLink,
     GetPersonalChannels,
     SetAdministratorTitle,
@@ -168,6 +173,7 @@ class Chats(
     GetChatSettings,
     GetSimilarChannels,
     GetSuitableDiscussionChats,
+    GetTopChats,
     GetSendAsChats,
     SetSendAsChat,
     SetChatProtectedContent

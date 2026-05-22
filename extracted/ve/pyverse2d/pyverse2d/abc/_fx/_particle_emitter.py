@@ -13,7 +13,7 @@ from numbers import Real
 from typing import TYPE_CHECKING, ClassVar, Type
 
 if TYPE_CHECKING:
-    from ...fx import Particle
+    from ...fx.particle import Particle
 
 # ======================================== ABSTRACT CLASS ========================================
 class ParticleEmitter(ABC, Positionable):
@@ -44,7 +44,7 @@ class ParticleEmitter(ABC, Positionable):
     def _get_particle_cls(cls) -> Type[Particle]:
         """Renvoie le type ``Particle``"""
         if cls._PARTICLE_CLS is None:
-            from ...fx import Particle
+            from ...fx.particle import Particle
             cls._PARTICLE_CLS = Particle
         return cls._PARTICLE_CLS
     

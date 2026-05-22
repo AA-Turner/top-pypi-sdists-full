@@ -38,6 +38,11 @@ def cli_env():
     """Set up environment for CLI tests."""
     env = os.environ.copy()
     # Add any environment variables needed for testing
+    bindir = os.path.dirname(sys.executable)
+    if "PATH" in env:
+        env["PATH"] = f"{bindir}{os.pathsep}{env['PATH']}"
+    else:
+        env["PATH"] = bindir
     return env
 
 

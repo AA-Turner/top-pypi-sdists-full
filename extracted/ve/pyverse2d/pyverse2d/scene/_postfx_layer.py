@@ -6,7 +6,8 @@ from .._rendering import Pipeline, Camera
 from .._flag import Activity
 from ..abc import Layer
 from ..fx.postfx import PostFxZone, PostFxRenderer
-from ..fx.postfx._wave import WavePostFxRenderer
+
+from ._frame_context import FrameContext
 
 from typing import ClassVar
 
@@ -23,6 +24,7 @@ class PostFxLayer(Layer):
     )
 
     _IS_FX: ClassVar[bool] = True
+    _REQUIRES_CONTEXT: ClassVar[bool] = True
 
     def __init__(self, camera: Camera = None):
         # Initialisation du layer
@@ -80,13 +82,15 @@ class PostFxLayer(Layer):
         pass
 
     @profile_section("scene.postfx_layer.update")
-    def _update(self, dt: float) -> None:
+    def _update(self, dt: float, context: FrameContext) -> None:
         """Actualisation
 
         Args:
             dt: delta-time
         """
-        WavePostFxRenderer.tick(dt)
+        if "postfx_tick_done" not in context:
+            self._renderer.tick(dt)
+            context.set("postfx_tick_done", True)
         for zone in self._zones:
             state: Activity = zone.update(dt)
             if state is Activity.DEFAULT:

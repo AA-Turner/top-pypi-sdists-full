@@ -9,12 +9,19 @@ from .AOT_SparseSMatrix import SparseSMatrix_CSR, SparseSMatrix_SELL
 import os
 import subprocess
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from IPython.display import HTML
 from datetime import datetime
 from tempfile import gettempdir
 import math
+
+# Check for matplotlib availability
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    plt = None
+    animation = None
+    MATPLOTLIB_AVAILABLE = False
 
 class AlgebraicRecon(Recon):
     """
@@ -59,7 +66,6 @@ class AlgebraicRecon(Recon):
             else:
                 raise ValueError("No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
             self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
-
 
         if self.smatrixType == SMatrixType.DENSE:
             self.SMatrix = self._fillDenseSMatrix()
@@ -133,7 +139,6 @@ class AlgebraicRecon(Recon):
     def show_MSE_bestRecon(self, isSaving=True, show_logs=True, figSize=(15, 5)):
         if not self.MSE:
             raise ValueError("MSE is empty. Please calculate MSE first.")
-
 
         best_idx = np.argmin(self.MSE)
         best_recon = self.reconPhantom[best_idx]

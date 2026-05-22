@@ -27,7 +27,28 @@ from langchain.agents.middleware import (
 )
 from langgraph.runtime import Runtime
 
+from .header_propagation import install_httpx_hook
 from .langgraph import CopilotKitProperties
+
+# Track which httpx clients already have the header-propagation hook installed
+# (by object id) so we never double-install on repeated model calls.
+_hooked_clients: set[int] = set()
+
+
+def _ensure_httpx_hook(model: Any) -> None:
+    """Install the header-propagation httpx hook on a LangChain chat model's
+    underlying HTTP client(s), if present.  No-op for models that don't expose
+    an httpx transport (e.g. non-OpenAI/Anthropic providers).
+    """
+    for attr in ("client", "async_client"):
+        client = getattr(model, attr, None)
+        if client is None:
+            continue
+        cid = id(client)
+        if cid not in _hooked_clients:
+            install_httpx_hook(client)
+            _hooked_clients.add(cid)
+
 
 class StateSchema(AgentState):
     copilotkit: CopilotKitProperties
@@ -36,15 +57,17 @@ class StateSchema(AgentState):
 # Internal/framework keys that should never be surfaced to the LLM as
 # user-facing state. These are either reducer-managed message buckets,
 # CopilotKit/AG-UI plumbing, or graph-internal scaffolding.
-_RESERVED_STATE_KEYS = frozenset({
-    "messages",
-    "copilotkit",
-    "ag-ui",
-    "tools",
-    "structured_response",
-    "thread_id",
-    "remaining_steps",
-})
+_RESERVED_STATE_KEYS = frozenset(
+    {
+        "messages",
+        "copilotkit",
+        "ag-ui",
+        "tools",
+        "structured_response",
+        "thread_id",
+        "remaining_steps",
+    }
+)
 
 
 class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
@@ -105,7 +128,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             keys: list[str] = [k for k in self._expose_state if k in state]
         else:
             keys = [
-                k for k in state
+                k
+                for k in state
                 if k not in _RESERVED_STATE_KEYS and not str(k).startswith("_")
             ]
 
@@ -133,17 +157,22 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         existing = request.system_message
         if existing is None:
             return request.override(system_message=SystemMessage(content=note))
-        base = existing.content if isinstance(existing.content, str) else str(existing.content)
+        base = (
+            existing.content
+            if isinstance(existing.content, str)
+            else str(existing.content)
+        )
         return request.override(
             system_message=SystemMessage(content=f"{base}\n\n{note}")
         )
 
     # Inject frontend tools and surface user state before model call
     def wrap_model_call(
-            self,
-            request: ModelRequest,
-            handler: Callable[[ModelRequest], ModelResponse],
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
+        _ensure_httpx_hook(request.model)
         request = self._apply_state_note(request)
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
 
@@ -185,7 +214,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         tc_groups: dict[str, list] = {}
         for i, msg in enumerate(messages):
             if isinstance(msg, ToolMessage):
-                tc_id = getattr(msg, 'tool_call_id', None)
+                tc_id = getattr(msg, "tool_call_id", None)
                 if tc_id:
                     tc_groups.setdefault(tc_id, []).append(i)
 
@@ -195,9 +224,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 continue
             # Separate interrupted placeholders from real results
             real_indices = [
-                i for i in indices
-                if not (isinstance(messages[i].content, str)
-                        and _INTERRUPTED_PAT.match(messages[i].content))
+                i
+                for i in indices
+                if not (
+                    isinstance(messages[i].content, str)
+                    and _INTERRUPTED_PAT.match(messages[i].content)
+                )
             ]
             interrupted_indices = [i for i in indices if i not in real_indices]
             if real_indices and interrupted_indices:
@@ -215,31 +247,36 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 drop_indices.update(interrupted_indices[:-1])
 
         if drop_indices:
-            messages[:] = [msg for i, msg in enumerate(messages) if i not in drop_indices]
+            messages[:] = [
+                msg for i, msg in enumerate(messages) if i not in drop_indices
+            ]
 
         for idx, msg in enumerate(messages):
             if not isinstance(msg, AIMessage):
                 continue
 
-            tool_calls = getattr(msg, 'tool_calls', None) or []
+            tool_calls = getattr(msg, "tool_calls", None) or []
 
             # 1. Sync content with tool_calls: remove tool_use content blocks
             #    that aren't in msg.tool_calls (e.g. stripped by after_model
             #    but content blocks left behind in checkpoint).
             if tool_calls and isinstance(msg.content, list):
-                tc_ids = {tc.get('id') for tc in tool_calls}
+                tc_ids = {tc.get("id") for tc in tool_calls}
                 msg.content = [
-                    block for block in msg.content
-                    if not (isinstance(block, dict)
-                            and block.get('type') == 'tool_use'
-                            and block.get('id') not in tc_ids)
+                    block
+                    for block in msg.content
+                    if not (
+                        isinstance(block, dict)
+                        and block.get("type") == "tool_use"
+                        and block.get("id") not in tc_ids
+                    )
                 ]
             elif not tool_calls and isinstance(msg.content, list):
                 # No tool_calls at all — strip ALL tool_use content blocks
                 msg.content = [
-                    block for block in msg.content
-                    if not (isinstance(block, dict)
-                            and block.get('type') == 'tool_use')
+                    block
+                    for block in msg.content
+                    if not (isinstance(block, dict) and block.get("type") == "tool_use")
                 ]
 
             if not tool_calls:
@@ -253,45 +290,52 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             adjacent_tc_ids: set = set()
             j = idx + 1
             while j < len(messages) and isinstance(messages[j], ToolMessage):
-                tc_id = getattr(messages[j], 'tool_call_id', None)
+                tc_id = getattr(messages[j], "tool_call_id", None)
                 if tc_id:
                     adjacent_tc_ids.add(tc_id)
                 j += 1
 
-            unanswered = [tc for tc in tool_calls if tc.get('id') not in adjacent_tc_ids]
+            unanswered = [
+                tc for tc in tool_calls if tc.get("id") not in adjacent_tc_ids
+            ]
             if unanswered:
-                unanswered_ids = {tc['id'] for tc in unanswered}
-                msg.tool_calls = [tc for tc in tool_calls if tc.get('id') in adjacent_tc_ids]
+                unanswered_ids = {tc["id"] for tc in unanswered}
+                msg.tool_calls = [
+                    tc for tc in tool_calls if tc.get("id") in adjacent_tc_ids
+                ]
 
                 # Also strip matching content blocks
                 if isinstance(msg.content, list):
                     msg.content = [
-                        block for block in msg.content
-                        if not (isinstance(block, dict)
-                                and block.get('type') == 'tool_use'
-                                and block.get('id') in unanswered_ids)
+                        block
+                        for block in msg.content
+                        if not (
+                            isinstance(block, dict)
+                            and block.get("type") == "tool_use"
+                            and block.get("id") in unanswered_ids
+                        )
                     ]
 
             # 3. Fix string args in tool_calls
-            for tc in (msg.tool_calls or []):
-                if isinstance(tc.get('args'), str):
+            for tc in msg.tool_calls or []:
+                if isinstance(tc.get("args"), str):
                     try:
-                        tc['args'] = json.loads(tc['args'])
+                        tc["args"] = json.loads(tc["args"])
                     except (json.JSONDecodeError, TypeError):
-                        tc['args'] = {}
+                        tc["args"] = {}
 
             # 4. Fix string input in content blocks
             if isinstance(msg.content, list):
                 for block in msg.content:
-                    if isinstance(block, dict) and block.get('type') == 'tool_use':
-                        inp = block.get('input')
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        inp = block.get("input")
                         if isinstance(inp, str):
                             try:
-                                block['input'] = json.loads(inp) if inp else {}
+                                block["input"] = json.loads(inp) if inp else {}
                             except (json.JSONDecodeError, TypeError):
-                                block['input'] = {}
+                                block["input"] = {}
                         elif inp is None:
-                            block['input'] = {}
+                            block["input"] = {}
 
         # 5. Remove orphan ToolMessages whose tool_call_id no longer matches
         #    any remaining tool_call in any AIMessage. These can be left over
@@ -299,23 +343,25 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         remaining_tc_ids: set = set()
         for msg in messages:
             if isinstance(msg, AIMessage):
-                for tc in (getattr(msg, 'tool_calls', None) or []):
-                    tc_id = tc.get('id')
+                for tc in getattr(msg, "tool_calls", None) or []:
+                    tc_id = tc.get("id")
                     if tc_id:
                         remaining_tc_ids.add(tc_id)
         messages[:] = [
-            msg for msg in messages
+            msg
+            for msg in messages
             if not isinstance(msg, ToolMessage)
-               or getattr(msg, 'tool_call_id', None) in remaining_tc_ids
+            or getattr(msg, "tool_call_id", None) in remaining_tc_ids
         ]
 
         return messages
 
     async def awrap_model_call(
-            self,
-            request: ModelRequest,
-            handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
+        _ensure_httpx_hook(request.model)
         self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
 
@@ -331,9 +377,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
     # Inject app context before agent runs
     def before_agent(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         messages = state.get("messages", [])
 
@@ -342,7 +388,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         # Get app context from state or runtime
         copilotkit_state = state.get("copilotkit", {})
-        app_context = copilotkit_state.get("context") or getattr(runtime, "context", None)
+        app_context = copilotkit_state.get("context") or getattr(
+            runtime, "context", None
+        )
 
         # Check if app_context is missing or empty
         if not app_context:
@@ -408,7 +456,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # duplicate at the end of the message list.
         if existing_context_index != -1:
             existing_id = getattr(messages[existing_context_index], "id", None)
-            context_message = SystemMessage(content=context_message_content, id=existing_id)
+            context_message = SystemMessage(
+                content=context_message_content, id=existing_id
+            )
         else:
             context_message = SystemMessage(content=context_message_content)
 
@@ -431,26 +481,25 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         }
 
     async def abefore_agent(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
         return self.before_agent(state, runtime)
 
     # Intercept frontend tool calls after model returns, before ToolNode executes
     def after_model(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         frontend_tools = state.get("copilotkit", {}).get("actions", [])
         if not frontend_tools:
             return None
 
         frontend_tool_names = {
-            t.get("function", {}).get("name") or t.get("name")
-            for t in frontend_tools
+            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
         }
 
         # Find last AI message with tool calls
@@ -494,18 +543,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         }
 
     async def aafter_model(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
         return self.after_model(state, runtime)
 
     # Restore frontend tool calls to AIMessage before agent exits
     def after_agent(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         copilotkit_state = state.get("copilotkit", {})
         intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
@@ -520,11 +569,13 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         for msg in messages:
             if isinstance(msg, AIMessage) and msg.id == original_message_id:
                 existing_tool_calls = getattr(msg, "tool_calls", None) or []
-                updated_messages.append(AIMessage(
-                    content=msg.content,
-                    tool_calls=[*existing_tool_calls, *intercepted_tool_calls],
-                    id=msg.id,
-                ))
+                updated_messages.append(
+                    AIMessage(
+                        content=msg.content,
+                        tool_calls=[*existing_tool_calls, *intercepted_tool_calls],
+                        id=msg.id,
+                    )
+                )
             else:
                 updated_messages.append(msg)
 
@@ -537,9 +588,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         }
 
     async def aafter_agent(
-            self,
-            state: StateSchema,
-            runtime: Runtime[Any],
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
         # Delegate to sync implementation
         return self.after_agent(state, runtime)

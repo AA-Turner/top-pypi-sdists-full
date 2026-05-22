@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 15.11.1
+Version: 16.0.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -77,8 +77,11 @@ Requires-Dist: aioboto3; extra == 'container'
 Requires-Dist: aiohttp; extra == 'container'
 Requires-Dist: anthropic>=0.78.0; extra == 'container'
 Requires-Dist: azure-identity>=1.18.0; extra == 'container'
+Requires-Dist: daytona-sdk>=0.140.0; extra == 'container'
+Requires-Dist: e2b-code-interpreter>=0.0.12; extra == 'container'
 Requires-Dist: google-genai; (python_version < '3.10') and extra == 'container'
 Requires-Dist: google-genai>=1.50.0; (python_version >= '3.10') and extra == 'container'
+Requires-Dist: modal>=1.2.0; extra == 'container'
 Requires-Dist: openai>=2.14.0; extra == 'container'
 Requires-Dist: opentelemetry-exporter-otlp==1.41.1; extra == 'container'
 Requires-Dist: opentelemetry-instrumentation-fastapi==0.62b1; extra == 'container'
@@ -92,10 +95,24 @@ Requires-Dist: py-grpc-prometheus; extra == 'container'
 Requires-Dist: strawberry-graphql[opentelemetry]==0.314.3; extra == 'container'
 Requires-Dist: types-aiobotocore-bedrock-runtime>=3.6.0; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
+Requires-Dist: vercel>=0.5.8; extra == 'container'
+Requires-Dist: wasmtime>=15.0; extra == 'container'
+Requires-Dist: websockets>=14.0; extra == 'container'
+Provides-Extra: daytona
+Requires-Dist: daytona-sdk>=0.140.0; extra == 'daytona'
+Provides-Extra: e2b
+Requires-Dist: e2b-code-interpreter>=0.0.12; extra == 'e2b'
 Provides-Extra: evals
 Provides-Extra: experimental
+Provides-Extra: modal
+Requires-Dist: modal>=1.2.0; extra == 'modal'
 Provides-Extra: pg
 Requires-Dist: asyncpg; extra == 'pg'
+Provides-Extra: vercel
+Requires-Dist: vercel>=0.5.8; extra == 'vercel'
+Requires-Dist: websockets>=14.0; extra == 'vercel'
+Provides-Extra: wasm
+Requires-Dist: wasmtime>=15.0; extra == 'wasm'
 Description-Content-Type: text/markdown
 
 <p align="center">

@@ -28,7 +28,8 @@ class TestDotlan(TestCase):
 
     def test_region_url(self):
         self.assertEqual(
-            dotlan.region_url("Black Rise"), "https://evemaps.dotlan.net/map/Black_Rise"
+            dotlan.region_url("Black Rise"),
+            "https://evemaps.dotlan.net/region/Black_Rise",
         )
 
     def test_solar_system_url(self):

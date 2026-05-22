@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-# Keep in lockstep with tts/src/serving/deployments/errors.py::ErrorCode.
+# Keep in lockstep with engine/src/serving/deployments/errors.py::ErrorCode.
 ERROR_CODE_UNAUTHORIZED = "UNAUTHORIZED"
 ERROR_CODE_RATE_LIMITED = "RATE_LIMITED"
 ERROR_CODE_INSUFFICIENT_CREDITS = "INSUFFICIENT_CREDITS"
@@ -125,6 +125,21 @@ class ConnectionError(KugelAudioError):  # noqa: A001 - intentional shadow
         super().__init__(message, **kw)
 
 
+class NotFoundError(KugelAudioError):
+    """A referenced resource doesn't exist or isn't visible to the caller.
+
+    Surfaced when the server returns HTTP 404 with ``error_code = NOT_FOUND`` —
+    e.g. an unknown ``voice_id``, a voice that belongs to another org, or a
+    deleted resource. Distinct from :class:`ValidationError` (malformed
+    request) so callers can show "not found" UX without parsing messages.
+    """
+
+    def __init__(self, message: Optional[str] = None, **kw: Any) -> None:
+        kw.setdefault("status_code", 404)
+        kw.setdefault("error_code", ERROR_CODE_NOT_FOUND)
+        super().__init__(message or "Not found.", **kw)
+
+
 # ---------------------------------------------------------------------------
 # Classifiers
 # ---------------------------------------------------------------------------
@@ -172,7 +187,7 @@ def _build(
             **kw,
         )
     if error_code == ERROR_CODE_NOT_FOUND or status == 404:
-        return KugelAudioError(message or "Not found.", **kw)
+        return NotFoundError(message or None, **kw)
     return KugelAudioError(message or f"HTTP {status}", **kw)
 
 

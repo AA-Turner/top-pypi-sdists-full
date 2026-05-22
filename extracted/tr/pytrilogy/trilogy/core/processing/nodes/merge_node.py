@@ -3,13 +3,11 @@ from typing import List, Optional, Tuple
 from trilogy.constants import logger
 from trilogy.core.enums import Derivation, JoinType, SourceType
 from trilogy.core.models.build import (
-    BuildComparison,
+    BoolExpr,
     BuildConcept,
-    BuildConditional,
     BuildDatasource,
     BuildGrain,
     BuildOrderBy,
-    BuildParenthetical,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.models.execute import BaseJoin, QueryDatasource, UnnestJoin
@@ -34,6 +32,14 @@ from trilogy.core.processing.utility import find_nullable_concepts
 from trilogy.utility import unique
 
 LOGGER_PREFIX = "[CONCEPT DETAIL - MERGE NODE]"
+
+
+def _has_applied_condition(source: QueryDatasource | BuildDatasource) -> bool:
+    if isinstance(source, QueryDatasource):
+        return bool(source.condition) or any(
+            _has_applied_condition(parent) for parent in source.datasources
+        )
+    return bool(source.where)
 
 
 def deduplicate_nodes(
@@ -67,8 +73,8 @@ def deduplicate_nodes(
                 and merged[k1].grain.issubset(merged[k2].grain)
                 and not merged[k2].partial_concepts
                 and not merged[k1].partial_concepts
-                and not merged[k2].condition
-                and not merged[k1].condition
+                and not _has_applied_condition(merged[k2])
+                and not _has_applied_condition(merged[k1])
             ):
                 og = merged[k1]
                 subset_to = merged[k2]
@@ -129,12 +135,8 @@ class MergeNode(StrategyNode):
         force_group: bool | None = None,
         depth: int = 0,
         grain: BuildGrain | None = None,
-        conditions: (
-            BuildConditional | BuildComparison | BuildParenthetical | None
-        ) = None,
-        preexisting_conditions: (
-            BuildConditional | BuildComparison | BuildParenthetical | None
-        ) = None,
+        conditions: BoolExpr | None = None,
+        preexisting_conditions: BoolExpr | None = None,
         hidden_concepts: set[str] | None = None,
         virtual_output_concepts: List[BuildConcept] | None = None,
         existence_concepts: List[BuildConcept] | None = None,
@@ -302,6 +304,11 @@ class MergeNode(StrategyNode):
 
         # if we have multiple candidates, see if one is good enough
         for dataset in final_datasets:
+            if any(
+                other.identifier != dataset.identifier and _has_applied_condition(other)
+                for other in final_datasets
+            ):
+                continue
             output_set = set(
                 [
                     c.address

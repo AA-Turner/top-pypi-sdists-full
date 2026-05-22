@@ -1,20 +1,124 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <fcntl.h>
 #include <cstring>
+#ifdef _MSC_VER
+#include <io.h>
+#include <malloc.h>
+#include <share.h>
+#include <stdio.h>
+#include <cstdint>
+#include <mutex>
+#include <unordered_set>
+// Windows-compatible posix_memalign
+static inline int posix_memalign(void **memptr, size_t alignment, size_t size) {
+    *memptr = _aligned_malloc(size, alignment);
+    return (*memptr) ? 0 : errno;
+}
+// Windows-compatible pread
+static inline int64_t pread(int fd, void *buf, size_t count, int64_t offset) {
+    int64_t cur = _lseeki64(fd, 0, 1 /*SEEK_CUR*/);
+    if (cur < 0) return -1;
+    if (_lseeki64(fd, offset, 0 /*SEEK_SET*/) < 0) return -1;
+    int rd = _read(fd, buf, (unsigned int)count);
+    _lseeki64(fd, cur, 0 /*SEEK_SET*/);
+    return rd;
+}
+// --- Windows equivalents for dlfcn.h ---
+#include <windows.h>
+#define RTLD_LAZY    0
+#define RTLD_GLOBAL  0
+#ifndef RTLD_NODELETE
+#define RTLD_NODELETE 0x1000
+#endif
+
+static std::mutex g_nodelete_handles_mutex;
+static std::unordered_set<void*> g_nodelete_handles;
+
+static inline bool is_windows_path_like(const char* filename) {
+    if (!filename || !filename[0]) return false;
+    return std::strchr(filename, '\\') != nullptr ||
+           std::strchr(filename, '/') != nullptr ||
+           (std::strlen(filename) > 1 && filename[1] == ':');
+}
+
+static inline void* dlopen(const char* filename, int mode) {
+    if (!filename) return nullptr;
+    DWORD flags = LOAD_LIBRARY_SEARCH_DEFAULT_DIRS;
+    if (is_windows_path_like(filename)) {
+        flags |= LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR;
+    }
+    void* handle = reinterpret_cast<void*>(LoadLibraryExA(filename, nullptr, flags));
+    if (handle && (mode & RTLD_NODELETE)) {
+        std::lock_guard<std::mutex> lock(g_nodelete_handles_mutex);
+        g_nodelete_handles.insert(handle);
+    }
+    return handle;
+}
+static inline void* dlsym(void* handle, const char* symbol) {
+    return reinterpret_cast<void*>(GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol));
+}
+static inline int dlclose(void* handle) {
+    {
+        std::lock_guard<std::mutex> lock(g_nodelete_handles_mutex);
+        if (g_nodelete_handles.find(handle) != g_nodelete_handles.end()) {
+            return 0;
+        }
+    }
+    return FreeLibrary(reinterpret_cast<HMODULE>(handle)) ? 0 : -1;
+}
+
+// --- Windows equivalents for mmap/munmap ---
+#define PROT_READ   1
+#define MAP_PRIVATE 2
+#define MAP_FAILED  ((void*)-1)
+
+static inline void* mmap(void* /*addr*/, size_t length, int /*prot*/, int /*flags*/, int fd, int64_t offset) {
+    HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+    if (hFile == INVALID_HANDLE_VALUE) return MAP_FAILED;
+    DWORD offsetHigh = static_cast<DWORD>(offset >> 32);
+    DWORD offsetLow  = static_cast<DWORD>(offset & 0xFFFFFFFF);
+    HANDLE hMapping = CreateFileMappingA(hFile, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    if (!hMapping) return MAP_FAILED;
+    void* ptr = MapViewOfFile(hMapping, FILE_MAP_READ, offsetHigh, offsetLow, length);
+    CloseHandle(hMapping);  // view keeps the mapping alive
+    return ptr ? ptr : MAP_FAILED;
+}
+static inline int munmap(void* addr, size_t /*length*/) {
+    return UnmapViewOfFile(addr) ? 0 : -1;
+}
+
+// Map POSIX names to MSVC equivalents
+#define open  _open
+#define close _close
+#define O_RDONLY _O_RDONLY
+#ifndef O_DIRECT
+#define O_DIRECT 0
+#endif
+#else
 #include <unistd.h>
 #include <sys/mman.h>
 #include <chrono>
 #include <dlfcn.h>
+#endif
+#include <chrono>
 #include <cstdlib>
 #include <algorithm>
 
-#include "cuda_compat.h"
+#include "gpu_compat.h"
 #include "ext.hpp"
 
 #define ALIGN 4096
 
-static bool debug_log = false;
+#ifdef _MSC_VER
+void init_dstorage_bindings(pybind11::module_&);
+#endif
+
+bool debug_log = false;  // non-static: fix Windows build
 static bool enable_gil_release = false;
 
 static cpp_metrics_t mc = {.bounce_buffer_bytes = 0};
@@ -53,7 +157,11 @@ static cudaError_t cpu_cudaHostAlloc(void ** p, size_t length, unsigned int) {
     return cudaSuccess;
 }
 static cudaError_t cpu_cudaFreeHost(void * p) {
+#ifdef _MSC_VER
+    _aligned_free(p);
+#else
     free(p);
+#endif
     return cudaSuccess;
 }
 static cudaError_t cpu_cudaDeviceGetPCIBusId(char * in, int s, int) {
@@ -82,10 +190,14 @@ ext_funcs_t cpu_fns = ext_funcs_t {
     .cudaDeviceGetPCIBusId = cpu_cudaDeviceGetPCIBusId,
     .numa_run_on_node = cpu_numa_run_on_node,
     .cudaSetDevice = cpu_cudaSetDevice,
+    .cudaImportExternalMemory = nullptr,
+    .cudaExternalMemoryGetMappedBuffer = nullptr,
+    .cudaDestroyExternalMemory = nullptr,
 };
 ext_funcs_t cuda_fns;
 
-static bool cuda_found = false;
+static bool gpu_found = false;
+static bool is_hip_runtime = false;
 static bool cufile_found = false;
 
 static int cufile_ver = 0;
@@ -94,92 +206,132 @@ template <typename T> void mydlsym(T** h, void* lib, std::string const& name) {
     *h = reinterpret_cast<T*>(dlsym(lib, name.c_str()));
 }
 
-static void load_library_functions() {
-    cudaError_t (*cudaGetDeviceCount)(int*);
+// Try to load one GPU runtime library (CUDA or HIP). Returns true and sets
+// gpu_found/is_hip_runtime on success; leaves them unchanged on failure.
+static bool load_gpu_lib(const std::string& lib_name, bool is_hip, bool init_log, int mode) {
+    cudaError_t (*get_device_count)(int*) = nullptr;
+    const char* sym_count = is_hip ? HIP_SYM_GET_DEVICE_COUNT : CUDA_SYM_GET_DEVICE_COUNT;
+
+    void* handle = dlopen(lib_name.c_str(), mode);
+    if (!handle) {
+        if (init_log) fprintf(stderr, "[DEBUG] %s is not installed. fallback\n", lib_name.c_str());
+        return false;
+    }
+
+    mydlsym(&get_device_count, handle, sym_count);
+    if (!get_device_count) {
+        if (init_log) fprintf(stderr, "[DEBUG] No %s in %s, fallback!\n", sym_count, lib_name.c_str());
+        dlclose(handle);
+        return false;
+    }
+
+    int count = 0;
+    if (get_device_count(&count) != cudaSuccess) count = 0;
+    if (init_log) fprintf(stderr, "[DEBUG] %s: device count=%d\n", lib_name.c_str(), count);
+    if (count == 0) {
+        dlclose(handle);
+        return false;
+    }
+
+    mydlsym(&cuda_fns.cudaMemcpy,             handle, is_hip ? HIP_SYM_MEMCPY                : CUDA_SYM_MEMCPY);
+    mydlsym(&cuda_fns.cudaMemcpyAsync,        handle, is_hip ? HIP_SYM_MEMCPY_ASYNC          : CUDA_SYM_MEMCPY_ASYNC);
+    mydlsym(&cuda_fns.cudaDeviceSynchronize,  handle, is_hip ? HIP_SYM_DEVICE_SYNCHRONIZE    : CUDA_SYM_DEVICE_SYNCHRONIZE);
+    mydlsym(&cuda_fns.cudaHostAlloc,          handle, is_hip ? HIP_SYM_HOST_ALLOC            : CUDA_SYM_HOST_ALLOC);
+    mydlsym(&cuda_fns.cudaFreeHost,           handle, is_hip ? HIP_SYM_FREE_HOST             : CUDA_SYM_FREE_HOST);
+    mydlsym(&cuda_fns.cudaDeviceGetPCIBusId,  handle, is_hip ? HIP_SYM_DEVICE_GET_PCI_BUS_ID : CUDA_SYM_DEVICE_GET_PCI_BUS_ID);
+    mydlsym(&cuda_fns.cudaDeviceMalloc,       handle, is_hip ? HIP_SYM_DEVICE_MALLOC         : CUDA_SYM_DEVICE_MALLOC);
+    mydlsym(&cuda_fns.cudaDeviceFree,         handle, is_hip ? HIP_SYM_DEVICE_FREE           : CUDA_SYM_DEVICE_FREE);
+    mydlsym(&cuda_fns.cudaDriverGetVersion,   handle, is_hip ? HIP_SYM_DRIVER_GET_VERSION    : CUDA_SYM_DRIVER_GET_VERSION);
+    mydlsym(&cuda_fns.cudaDeviceGetAttribute, handle, is_hip ? HIP_SYM_DEVICE_GET_ATTRIBUTE  : CUDA_SYM_DEVICE_GET_ATTRIBUTE);
+    mydlsym(&cuda_fns.cudaSetDevice,          handle, is_hip ? HIP_SYM_SET_DEVICE            : CUDA_SYM_SET_DEVICE);
+
+    // External memory interop is CUDA-only (used by Windows DirectStorage path)
+    if (!is_hip) {
+        mydlsym(&cuda_fns.cudaImportExternalMemory, handle, "cudaImportExternalMemory");
+        mydlsym(&cuda_fns.cudaExternalMemoryGetMappedBuffer, handle, "cudaExternalMemoryGetMappedBuffer");
+        mydlsym(&cuda_fns.cudaDestroyExternalMemory, handle, "cudaDestroyExternalMemory");
+    } else {
+        cuda_fns.cudaImportExternalMemory = nullptr;
+        cuda_fns.cudaExternalMemoryGetMappedBuffer = nullptr;
+        cuda_fns.cudaDestroyExternalMemory = nullptr;
+    }
+
+    bool success = cuda_fns.cudaMemcpy && cuda_fns.cudaDeviceSynchronize;
+    success = success && cuda_fns.cudaHostAlloc && cuda_fns.cudaFreeHost;
+    success = success && cuda_fns.cudaDeviceGetPCIBusId && cuda_fns.cudaDeviceMalloc;
+    success = success && cuda_fns.cudaDeviceFree && cuda_fns.cudaDriverGetVersion;
+    success = success && cuda_fns.cudaDeviceGetAttribute && cuda_fns.cudaSetDevice;
+
+    dlclose(handle);
+
+    if (!success) {
+        if (init_log) fprintf(stderr, "[DEBUG] %s missing required GPU functions. fallback\n", lib_name.c_str());
+        return false;
+    }
+
+    if (init_log) fprintf(stderr, "[DEBUG] loaded: %s (hip=%d)\n", lib_name.c_str(), (int)is_hip);
+    gpu_found = true;
+    is_hip_runtime = is_hip;
+    return true;
+}
+
+static void load_library_functions(const std::string& cudart_override = "") {
+#ifdef _MSC_VER
+    const char* cufileLib = nullptr; // cuFile not available on Windows
+    const char* numaLib = nullptr;  // NUMA not available on Windows
+#else
     const char* cufileLib = "libcufile.so.0";
-    const char* cudartLib = GPU_RUNTIME_LIB;
     const char* numaLib = "libnuma.so.1";
+#endif
     bool init_log = getenv(ENV_ENABLE_INIT_LOG);
     int mode = RTLD_LAZY | RTLD_GLOBAL | RTLD_NODELETE;
 
-    void* handle_numa = dlopen(numaLib, mode);
-    if (handle_numa) {
-        mydlsym(&cpu_fns.numa_run_on_node, handle_numa, "numa_run_on_node");
-        if (cpu_fns.numa_run_on_node) {
-            cuda_fns.numa_run_on_node = cpu_fns.numa_run_on_node;
-            if (init_log) {
-                fprintf(stderr, "[DEBUG] loaded: %s\n", numaLib);
+    if (numaLib) {
+        void* handle_numa = dlopen(numaLib, mode);
+        if (handle_numa) {
+            mydlsym(&cpu_fns.numa_run_on_node, handle_numa, "numa_run_on_node");
+            if (cpu_fns.numa_run_on_node) {
+                cuda_fns.numa_run_on_node = cpu_fns.numa_run_on_node;
+                if (init_log) {
+                    fprintf(stderr, "[DEBUG] loaded: %s\n", numaLib);
+                }
             }
+            dlclose(handle_numa);
         }
-        dlclose(handle_numa);
     }
     if (!cpu_fns.numa_run_on_node) {
-        if (init_log) {
+        if (init_log && numaLib) {
             fprintf(stderr, "[DEBUG] %s is not installed. fallback\n", numaLib);
         }
         cpu_fns.numa_run_on_node = cpu_numa_run_on_node;
         cuda_fns.numa_run_on_node = cpu_numa_run_on_node;
     }
 
-    void* handle_cudart = dlopen(cudartLib, mode);
-    if (handle_cudart) {
-        mydlsym(&cudaGetDeviceCount, handle_cudart, GPU_SYM_GET_DEVICE_COUNT);
-        if (cudaGetDeviceCount) {
-            int count;
-            if (cudaGetDeviceCount(&count) != cudaSuccess) {
-                count = 0; // why cudaGetDeviceCount returns non-zero for errors?
-            }
-            cuda_found = count > 0;
-            if (init_log) {
-                fprintf(stderr, "[DEBUG] device count=%d, cuda_found=%d\n", count, cuda_found);
-            }
-        } else {
-            cuda_found = false;
-            if (init_log) {
-                fprintf(stderr, "[DEBUG] No %s, fallback!\n", GPU_SYM_GET_DEVICE_COUNT);
-            }
+    if (!cudart_override.empty()) {
+        // Caller specified exact library — detect platform from name
+        bool is_hip = cudart_override.find("hip") != std::string::npos;
+        load_gpu_lib(cudart_override, is_hip, init_log, mode);
+    } else {
+        // Universal detection: try CUDA first, then ROCm
+        if (!load_gpu_lib(CUDA_RUNTIME_LIB, false, init_log, mode)) {
+            load_gpu_lib(HIP_RUNTIME_LIB, true, init_log, mode);
         }
-        if (cuda_found) {
-            mydlsym(&cuda_fns.cudaMemcpy, handle_cudart, GPU_SYM_MEMCPY);
-            mydlsym(&cuda_fns.cudaMemcpyAsync, handle_cudart, GPU_SYM_MEMCPY_ASYNC);
-            mydlsym(&cuda_fns.cudaDeviceSynchronize, handle_cudart, GPU_SYM_DEVICE_SYNCHRONIZE);
-            mydlsym(&cuda_fns.cudaHostAlloc, handle_cudart, GPU_SYM_HOST_ALLOC);
-            mydlsym(&cuda_fns.cudaFreeHost, handle_cudart, GPU_SYM_FREE_HOST);
-            mydlsym(&cuda_fns.cudaDeviceGetPCIBusId, handle_cudart, GPU_SYM_DEVICE_GET_PCI_BUS_ID);
-            mydlsym(&cuda_fns.cudaDeviceMalloc, handle_cudart, GPU_SYM_DEVICE_MALLOC);
-            mydlsym(&cuda_fns.cudaDeviceFree, handle_cudart, GPU_SYM_DEVICE_FREE);
-            mydlsym(&cuda_fns.cudaDriverGetVersion, handle_cudart, GPU_SYM_DRIVER_GET_VERSION);
-            mydlsym(&cuda_fns.cudaDeviceGetAttribute, handle_cudart, GPU_SYM_DEVICE_GET_ATTRIBUTE);
-            mydlsym(&cuda_fns.cudaSetDevice, handle_cudart, GPU_SYM_SET_DEVICE);
-            bool success = cuda_fns.cudaMemcpy && cuda_fns.cudaDeviceSynchronize;
-            success = success && cuda_fns.cudaHostAlloc && cuda_fns.cudaFreeHost;
-            success = success && cuda_fns.cudaDeviceGetPCIBusId && cuda_fns.cudaDeviceMalloc;
-            success = success && cuda_fns.cudaDeviceFree && cuda_fns.cudaDriverGetVersion;
-            success = success && cuda_fns.cudaDeviceGetAttribute && cuda_fns.cudaSetDevice;
-            if (!success) {
-                cuda_found = false;
-                if (init_log) {
-                    fprintf(stderr, "[DEBUG] %s does not contain required CUDA functions. fallback\n", cudartLib);
-                }
-            } else if (init_log) {
-                fprintf(stderr, "[DEBUG] loaded: %s\n", cudartLib);
-            }
-        }
-        dlclose(handle_cudart);
-    } else if (init_log) {
-        fprintf(stderr, "[DEBUG] %s is not installed. fallback\n", cudartLib);
     }
-    if (!cuda_found) {
+
+    if (!gpu_found) {
         cuda_fns.cudaMemcpy = cpu_cudaMemcpy;
         cuda_fns.cudaDeviceSynchronize = cpu_cudaDeviceSynchronize;
         cuda_fns.cudaHostAlloc = cpu_cudaHostAlloc;
         cuda_fns.cudaFreeHost = cpu_cudaFreeHost;
         cuda_fns.cudaDeviceGetPCIBusId = cpu_cudaDeviceGetPCIBusId;
         cuda_fns.cudaSetDevice = cpu_cudaSetDevice;
+        cuda_fns.cudaImportExternalMemory = nullptr;
+        cuda_fns.cudaExternalMemoryGetMappedBuffer = nullptr;
+        cuda_fns.cudaDestroyExternalMemory = nullptr;
     }
 
     cufile_found = false;
-    if (cuda_found) {
+    if (gpu_found && cufileLib) {
         void* handle_cufile = dlopen(cufileLib, mode);
         if (handle_cufile) {
             CUfileError_t (*cuFileGetVersion)(int *);
@@ -236,18 +388,14 @@ static void load_library_functions() {
     }
 }
 
-// Note: is_cuda_found gets auto-hipified to is_hip_found on ROCm builds
-// So this function will be is_hip_found() after hipification on ROCm
 bool is_cuda_found()
 {
-    return cuda_found;
+    return gpu_found && !is_hip_runtime;
 }
 
-// Separate function that always returns false on ROCm (CUDA not available on ROCm)
-// This will be used for the "is_cuda_found" Python export on ROCm builds
-bool cuda_not_available()
+bool is_hip_found()
 {
-    return false;  // On ROCm, CUDA is never available
+    return gpu_found && is_hip_runtime;
 }
 
 bool is_cufile_found()
@@ -295,7 +443,8 @@ void init_gil_release_from_env() {
 
 int is_gds_supported(int deviceId)
 {
-#ifndef USE_ROCM
+    if (is_hip_runtime) return 0;  // ROCm does not have GDS
+
     int gdr_support = 1;
     int driverVersion = 0;
     cudaError_t err;
@@ -314,9 +463,6 @@ int is_gds_supported(int deviceId)
         }
     }
     return gdr_support;
-#endif
-    // ROCm does not have GDS
-    return 0;
 }
 
 int init_gds()
@@ -403,7 +549,11 @@ uintptr_t cpu_malloc(uint64_t length) {
 
 void cpu_free(uintptr_t addr) {
     void *p = reinterpret_cast<void *>(addr);
+#ifdef _MSC_VER
+    _aligned_free(p);
+#else
     free(p);
+#endif
 }
 
 uintptr_t gpu_malloc(uint64_t length) {
@@ -822,16 +972,13 @@ static int memcpy_h2d_async(uintptr_t dst, uintptr_t src, size_t size) {
 
 PYBIND11_MODULE(__MOD_NAME__, m)
 {
+#ifdef _MSC_VER
+    init_dstorage_bindings(m);
+#endif
     // Initialize GIL release setting from environment variable on module load
     init_gil_release_from_env();
-    // Export both is_cuda_found and is_hip_found on all platforms.
-#ifdef USE_ROCM
-    m.def("is_cuda_found", &cuda_not_available);
-    m.def("is_hip_found", &is_cuda_found);
-#else
     m.def("is_cuda_found", &is_cuda_found);
-    m.def("is_hip_found", &cuda_not_available);
-#endif
+    m.def("is_hip_found", &is_hip_found);
     m.def("is_cufile_found", &is_cufile_found);
     m.def("cufile_version", &cufile_version);
     m.def("set_debug_log", &set_debug_log);
@@ -846,7 +993,8 @@ PYBIND11_MODULE(__MOD_NAME__, m)
     m.def("cpu_free", &cpu_free);
     m.def("gpu_malloc", &gpu_malloc);
     m.def("gpu_free", &gpu_free);
-    m.def("load_library_functions", &load_library_functions);
+    m.def("load_library_functions", &load_library_functions,
+          pybind11::arg("cudart_lib_name") = "");
     m.def("memcpy_h2d_async", &memcpy_h2d_async);
     m.def("get_cpp_metrics", &get_cpp_metrics);
     m.def("set_gil_release", &set_gil_release);

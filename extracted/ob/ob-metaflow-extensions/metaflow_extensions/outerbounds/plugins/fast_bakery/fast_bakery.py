@@ -136,6 +136,27 @@ class FastBakery:
         }
         return self
 
+    def platform(self, os, arch):
+        # platforms: [{"os": "linux", "architecture": "arm64"}]
+        if os is None and arch is None:
+            return self
+
+        platform = {}
+        if os is not None:
+            platform["os"] = os
+        if arch is not None:
+            platform["architecture"] = arch
+
+        if "platforms" not in self._payload:
+            self._payload["platforms"] = []
+
+        self._payload["platforms"].append(platform)
+
+    def index_strategy(self, strategy: str):
+        self._payload["pip_index_strategy"] = strategy
+
+        return self
+
     @staticmethod
     def _format_packages(packages: Dict[str, str]) -> list:
         if not packages:

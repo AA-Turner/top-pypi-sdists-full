@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspark
-Version: 4.1.1
+Version: 4.1.2
 Summary: Apache Spark Python API
 Home-page: https://github.com/apache/spark/tree/master/python
 Author: Spark Developers

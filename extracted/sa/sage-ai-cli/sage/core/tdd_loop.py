@@ -15,6 +15,7 @@ unreachable network, etc.) would lock the whole build forever.
 
 from __future__ import annotations
 
+import os
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -77,21 +78,54 @@ class StuckTracker:
 # ──────────────────────── prompt builders ──────────────────────────────
 
 
-_TEST_PROMPT = """Write a failing test that captures these acceptance criteria.
+_TEST_PROMPT = """Write a failing test for this feature.
 
 Feature: {name}
 Description: {description}
+
 Acceptance criteria:
 {acceptance}
 
-Constraints:
-- The test MUST be a single complete file (with imports).
-- Use {test_framework} idioms.
-- Each acceptance criterion becomes one test case where reasonable.
-- The test MUST fail when no implementation exists — i.e. it actually
-  imports / calls the production module under test.
-- Output ONLY the test code. No prose, no markdown fences.
+## CRITICAL: Import the implementation using EXACTLY this path
+
+The implementation file is at: {impl_path}
+The test file will be at: {test_path}
+
+For Python tests, use this import (copy exactly):
+  {python_import_line}
+
+For TypeScript/JS tests, use this import (copy exactly):
+  {js_import_line}
+
+Framework: {test_framework}
+
+Rules:
+- Use EXACTLY the import shown above — do NOT guess or invent paths.
+- Each acceptance criterion becomes one test case.
+- The test must fail when no implementation exists (imports/calls the real module).
+- Output ONLY the test code, no prose, no markdown fences.
 """
+
+
+def _python_import_line(impl_path: Path, test_path: Path) -> str:
+    """Convert impl file path to a Python import statement."""
+    # Convert path to module: services/backend/main.py → services.backend.main
+    parts = impl_path.with_suffix("").parts
+    module = ".".join(parts)
+    return f"from {module} import app  # adjust symbol as needed"
+
+
+def _js_import_line(impl_path: Path, test_path: Path) -> str:
+    """Compute a relative JS import path from test to impl."""
+    try:
+        rel = os.path.relpath(impl_path.with_suffix(""), test_path.parent)
+        # Normalize to forward slashes
+        rel = rel.replace(os.sep, "/")
+        if not rel.startswith("."):
+            rel = "./" + rel
+        return f"import ... from '{rel}'  // adjust import as needed"
+    except Exception:
+        return f"import ... from '{impl_path}'  // adjust import as needed"
 
 
 _IMPL_PROMPT = """Write the implementation that makes the provided test pass.
@@ -181,11 +215,17 @@ def run_feature_tdd(
     tracker = StuckTracker(threshold=stuck_threshold)
 
     # ── Step 1: generate the test FIRST ──
+    python_import_line = _python_import_line(impl_path, test_path)
+    js_import_line = _js_import_line(impl_path, test_path)
     test_prompt = _TEST_PROMPT.format(
         name=feature.name,
         description=feature.description,
         acceptance="\n".join(f"  - {a}" for a in feature.acceptance) or "  - (none)",
         test_framework=_detect_test_framework(impl_path),
+        impl_path=impl_path,
+        test_path=test_path,
+        python_import_line=python_import_line,
+        js_import_line=js_import_line,
     )
     test_code = _strip_fences(generate(test_prompt))
     test_path.parent.mkdir(parents=True, exist_ok=True)
@@ -240,6 +280,32 @@ def run_feature_tdd(
                 failures=failures,
                 history=history,
             )
+
+        # Detect import errors — the test has a wrong import path.
+        # Regenerating the impl cannot fix this; regenerate the test instead.
+        import_error_patterns = [
+            "ImportError", "ModuleNotFoundError", "Cannot find module",
+            "Module not found", "Cannot resolve", "Failed to resolve",
+        ]
+        is_import_error = any(p in run_log for p in import_error_patterns)
+
+        if is_import_error and round_num <= 2:
+            # Regenerate the test with an explicit import hint
+            corrected_test_prompt = _TEST_PROMPT.format(
+                name=feature.name,
+                description=feature.description,
+                acceptance="\n".join(f"  - {a}" for a in feature.acceptance) or "  - (none)",
+                test_framework=_detect_test_framework(impl_path),
+                impl_path=impl_path,
+                test_path=test_path,
+                python_import_line=_python_import_line(impl_path, test_path),
+                js_import_line=_js_import_line(impl_path, test_path),
+            ) + f"\n\nPrevious attempt failed with:\n{run_log[-1000:]}\nFix the import path."
+            test_code = _strip_fences(generate(corrected_test_prompt))
+            test_path.write_text(test_code, encoding="utf-8")
+            log_fn(f"  [{feature.name}] regenerated test (import error detected)")
+            previous_error = "(test regenerated — first impl attempt)"
+            continue
 
         # Feed the failure log into the next prompt
         previous_error = run_log[-2000:]  # cap to avoid huge prompts

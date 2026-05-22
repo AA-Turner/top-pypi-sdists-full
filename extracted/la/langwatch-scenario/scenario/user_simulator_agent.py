@@ -8,7 +8,8 @@ conversation history.
 """
 
 import logging
-from typing import Optional, cast
+from contextlib import contextmanager
+from typing import Callable, Iterator, List, Optional, cast
 
 import litellm
 from litellm import Choices
@@ -24,6 +25,34 @@ from .types import AgentInput, AgentReturnTypes, AgentRole
 
 
 logger = logging.getLogger("scenario")
+
+
+def _strip_audio_content(messages: list) -> list:
+    """
+    Remove audio content blocks from messages before sending to a text-only LLM.
+
+    Voice turns use ``input_audio`` content parts (multimodal) which text-only
+    models like ``gpt-4.1-mini`` reject with an "expected text or image_url"
+    error.  This helper keeps ``text`` parts as-is and replaces audio-only
+    messages with an ``[audio message]`` placeholder so the LLM still has a
+    structural turn in the right position.
+    """
+    result = []
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            text_parts = [
+                p["text"]
+                for p in content
+                if isinstance(p, dict) and p.get("type") == "text"
+            ]
+            if text_parts:
+                result.append({**msg, "content": " ".join(text_parts)})
+            else:
+                result.append({**msg, "content": "[audio message]"})
+        else:
+            result.append(msg)
+    return result
 
 
 class UserSimulatorAgent(AgentAdapter):
@@ -89,17 +118,19 @@ class UserSimulatorAgent(AgentAdapter):
     system_prompt: Optional[str]
     _extra_params: dict
 
-    _TEMPERATURE_UNSET = object()
-
     def __init__(
         self,
         *,
         model: Optional[str] = None,
         api_base: Optional[str] = None,
         api_key: Optional[str] = None,
-        temperature: float = _TEMPERATURE_UNSET,  # type: ignore[assignment]
+        temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         system_prompt: Optional[str] = None,
+        voice: Optional[str] = None,
+        persona: Optional[str] = None,
+        audio_effects: Optional[List[Callable[[bytes], bytes]]] = None,
+        interrupt_probability: float = 0.0,
         **extra_params,
     ):
         """
@@ -143,13 +174,22 @@ class UserSimulatorAgent(AgentAdapter):
             (e.g., headers, timeout, client) for specialized configurations. These are
             experimental and may not be supported in future versions.
         """
-        _temp_was_set = temperature is not self._TEMPERATURE_UNSET
+        _temp_was_set = temperature is not None
 
         self.api_base = api_base
         self.api_key = api_key
         self.temperature = temperature if _temp_was_set else 0.0
         self.max_tokens = max_tokens
         self.system_prompt = system_prompt
+        # Voice support (§4.2): when voice is set, generated text is run through
+        # TTS (cache key = (text, voice) per locked decision) and audio_effects
+        # are applied AFTER the cache hit — effects never enter the cache.
+        self.voice = voice
+        self.persona = persona
+        self.audio_effects: List[Callable[[bytes], bytes]] = audio_effects or []
+        if not 0.0 <= interrupt_probability <= 1.0:
+            raise ValueError("interrupt_probability must be in [0, 1]")
+        self.interrupt_probability = interrupt_probability
 
         if model:
             self.model = model
@@ -193,8 +233,85 @@ class UserSimulatorAgent(AgentAdapter):
         if not hasattr(self, "model"):
             raise Exception(agent_not_configured_error_message("UserSimulatorAgent"))
 
-    @scenario_cache()
     async def call(
+        self,
+        input: AgentInput,
+    ) -> AgentReturnTypes:
+        text_message = await self._generate_text(input)
+        if not self.voice:
+            return text_message
+        return await self._voiceify(text_message)  # type: ignore[arg-type]
+
+    async def _voiceify(self, text_message: dict) -> AgentReturnTypes:
+        """Convert a text user message into an audio message via TTS + effects."""
+        from .voice import AudioChunk, create_audio_message, synthesize
+
+        content = text_message.get("content", "")
+        if not isinstance(content, str) or not content:
+            return text_message  # type: ignore[return-value]
+        if self._voice_style_override is not None:
+            self._warn_voice_style_not_wired_once()
+        chunk = await synthesize(content, self.voice)  # type: ignore[arg-type]
+        audio_bytes = chunk.data
+        effects = self._effective_audio_effects()
+        for effect in effects:
+            audio_bytes = effect(audio_bytes)
+        final = AudioChunk(data=audio_bytes, transcript=content)
+        return create_audio_message(final, role="user")
+
+    # ---------------------------------------------- per-step overrides (§4.2)
+    # Per-step voice_style / audio_effects overrides. The executor uses
+    # ``_one_shot_override`` to install a single-turn override that is cleared
+    # on exit so subsequent turns revert to the simulator's defaults.
+
+    _voice_style_override: Optional[str] = None
+    _audio_effects_override: Optional[List[Callable[[bytes], bytes]]] = None
+    _voice_style_warning_emitted: bool = False
+
+    @classmethod
+    def _warn_voice_style_not_wired_once(cls) -> None:
+        # Emit exactly one UserWarning per process the first time a user passes
+        # voice_style. The flag is intentionally stored on the class so every
+        # simulator instance shares the one-shot, matching the VAD fallback
+        # pattern used elsewhere in the voice package.
+        if cls._voice_style_warning_emitted:
+            return
+        import warnings
+
+        cls._voice_style_warning_emitted = True
+        warnings.warn(
+            "voice_style=... is accepted for forward compatibility but no "
+            "TTS provider currently honours it. The simulator will synthesise "
+            "without style modification. This will land as a per-provider "
+            "instructions channel in a follow-up.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    def _effective_audio_effects(self) -> List[Callable[[bytes], bytes]]:
+        if self._audio_effects_override is not None:
+            return list(self._audio_effects_override)
+        return list(self.audio_effects)
+
+    @contextmanager
+    def _one_shot_override(
+        self,
+        *,
+        voice_style: Optional[str] = None,
+        audio_effects: Optional[List[Callable[[bytes], bytes]]] = None,
+    ) -> Iterator[None]:
+        prev_style = self._voice_style_override
+        prev_effects = self._audio_effects_override
+        self._voice_style_override = voice_style
+        self._audio_effects_override = audio_effects
+        try:
+            yield
+        finally:
+            self._voice_style_override = prev_style
+            self._audio_effects_override = prev_effects
+
+    @scenario_cache()
+    async def _generate_text(
         self,
         input: AgentInput,
     ) -> AgentReturnTypes:
@@ -220,11 +337,16 @@ class UserSimulatorAgent(AgentAdapter):
 
         scenario = input.scenario_state
 
+        persona_block = (
+            f"\n\n<persona>\n{self.persona}\n</persona>\n"
+            if self.persona
+            else ""
+        )
         messages = [
             {
                 "role": "system",
-                "content": self.system_prompt
-                or f"""
+                "content": (self.system_prompt + persona_block) if self.system_prompt
+                else f"""
 <role>
 You are pretending to be a user, you are testing an AI Agent (shown as the user role) based on a scenario.
 Approach this naturally, as a human user would, with very short inputs, few words, all lowercase, imperative, not periods, like when they google or talk to chatgpt.
@@ -241,10 +363,10 @@ Your goal (assistant) is to interact with the Agent Under Test (user) as if you 
 <rules>
 - DO NOT carry over any requests yourself, YOU ARE NOT the assistant today, you are the user, send the user message and just STOP.
 </rules>
-""",
+{persona_block}""",
             },
             {"role": "assistant", "content": "Hello, how can I help you today?"},
-            *input.messages,
+            *_strip_audio_content(input.messages),
         ]
 
         # User to assistant role reversal

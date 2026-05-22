@@ -399,7 +399,7 @@ class NormalMessage(AbstractMessage):
 
     __default_fields__ = ("log_norm", "id_")
 
-    def value_for(self, unit: float) -> float:
+    def value_for(self, unit, xp=np):
         """
         Map a unit value in [0, 1] to a physical value drawn from this Gaussian prior.
 
@@ -407,6 +407,8 @@ class NormalMessage(AbstractMessage):
         ----------
         unit
             A unit value between 0 and 1 representing a uniform draw.
+        xp
+            Array-module to dispatch on (``numpy`` or ``jax.numpy``). Default ``numpy``.
 
         Returns
         -------
@@ -417,32 +419,41 @@ class NormalMessage(AbstractMessage):
         >>> prior = af.GaussianPrior(mean=1.0, sigma=2.0)
         >>> physical_value = prior.value_for(unit=0.5)
         """
-        if isinstance(unit, (np.ndarray, np.float64, float, int, list)):
-            from scipy.special import erfinv as scipy_erfinv
-            inv = scipy_erfinv(1 - 2.0 * (1.0 - unit))
+        if xp is np:
+            from scipy.special import erfinv
         else:
-            import jax.numpy as jnp
-            from jax._src.scipy.special import erfinv
-            inv = erfinv(1 - 2.0 * (1.0 - unit))
+            from jax.scipy.special import erfinv
 
-        return self.mean + (self.sigma * np.sqrt(2) * inv)
+        inv = erfinv(2.0 * unit - 1.0)
+        return self.mean + self.sigma * xp.sqrt(2.0) * inv
 
-    def log_prior_from_value(self, value: float, xp=np) -> float:
+    def log_prior_from_value(self, value, xp=np):
         """
-        Compute the log prior probability of a given physical value under this Gaussian prior.
+        Compute the log prior density of a given physical value under this Gaussian prior.
 
-        Used to convert a likelihood to a posterior in non-linear searches (e.g., Emcee).
+        Returns ``log p(value)`` in density form: negative for values far from
+        the mean, zero at the mode. ``Fitness._call`` adds this directly to the
+        log-likelihood to form ``log_posterior = log_likelihood + sum(log_priors)``,
+        which Emcee / Zeus / MLE-Drawer / LBFGS then maximise (LBFGS via
+        ``-2 * figure_of_merit`` minimisation).
+
+        The constant ``-log(sigma * sqrt(2*pi))`` is dropped (it is a true
+        constant in the prior, irrelevant to posterior shape), matching the
+        convention used by ``UniformPrior.log_prior_from_value`` which drops
+        ``-log(b - a)`` to return ``0.0``.
 
         Parameters
         ----------
         value
             A physical parameter value for which the log prior is evaluated.
+        xp
+            Array-module to dispatch on (``numpy`` or ``jax.numpy``). Default ``numpy``.
 
         Returns
         -------
-        The log prior probability of the given value.
+        The log prior density at the given value, up to an additive constant.
         """
-        return (value - self.mean) ** 2.0 / (2 * self.sigma**2.0)
+        return -((value - self.mean) ** 2.0) / (2 * self.sigma**2.0)
 
     def __str__(self):
         """

@@ -204,6 +204,55 @@ class BrowserProfileReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.BrowserReference",
+    jsii_struct_bases=[],
+    name_mapping={"browser_arn": "browserArn"},
+)
+class BrowserReference:
+    def __init__(self, *, browser_arn: builtins.str) -> None:
+        '''A reference to a Browser resource.
+
+        :param browser_arn: The BrowserArn of the Browser resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            browser_reference = interfaces_bedrockagentcore.BrowserReference(
+                browser_arn="browserArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__034848268532baf668c0361e8e3e56d301d54aaf674e8707e4efd6baf5ca6a75)
+            check_type(argname="argument browser_arn", value=browser_arn, expected_type=type_hints["browser_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "browser_arn": browser_arn,
+        }
+
+    @builtins.property
+    def browser_arn(self) -> builtins.str:
+        '''The BrowserArn of the Browser resource.'''
+        result = self._values.get("browser_arn")
+        assert result is not None, "Required property 'browser_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BrowserReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.CodeInterpreterCustomReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -594,6 +643,51 @@ class _IBrowserProfileRefProxy(
 typing.cast(typing.Any, IBrowserProfileRef).__jsii_proxy_class__ = lambda : _IBrowserProfileRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserRef")
+class IBrowserRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Browser.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="browserRef")
+    def browser_ref(self) -> "BrowserReference":
+        '''(experimental) A reference to a Browser resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBrowserRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Browser.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="browserRef")
+    def browser_ref(self) -> "BrowserReference":
+        '''(experimental) A reference to a Browser resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BrowserReference", jsii.get(self, "browserRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBrowserRef).__jsii_proxy_class__ = lambda : _IBrowserRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterCustomRef"
 )
@@ -915,6 +1009,53 @@ class _IOnlineEvaluationConfigRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IOnlineEvaluationConfigRef).__jsii_proxy_class__ = lambda : _IOnlineEvaluationConfigRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentCredentialProviderRef"
+)
+class IPaymentCredentialProviderRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentCredentialProvider.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentCredentialProviderRef")
+    def payment_credential_provider_ref(self) -> "PaymentCredentialProviderReference":
+        '''(experimental) A reference to a PaymentCredentialProvider resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPaymentCredentialProviderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentCredentialProvider.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentCredentialProviderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentCredentialProviderRef")
+    def payment_credential_provider_ref(self) -> "PaymentCredentialProviderReference":
+        '''(experimental) A reference to a PaymentCredentialProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PaymentCredentialProviderReference", jsii.get(self, "paymentCredentialProviderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPaymentCredentialProviderRef).__jsii_proxy_class__ = lambda : _IPaymentCredentialProviderRefProxy
 
 
 @jsii.interface(
@@ -1296,6 +1437,55 @@ class OnlineEvaluationConfigReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PaymentCredentialProviderReference",
+    jsii_struct_bases=[],
+    name_mapping={"credential_provider_arn": "credentialProviderArn"},
+)
+class PaymentCredentialProviderReference:
+    def __init__(self, *, credential_provider_arn: builtins.str) -> None:
+        '''A reference to a PaymentCredentialProvider resource.
+
+        :param credential_provider_arn: The CredentialProviderArn of the PaymentCredentialProvider resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            payment_credential_provider_reference = interfaces_bedrockagentcore.PaymentCredentialProviderReference(
+                credential_provider_arn="credentialProviderArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__222c796570baaba1677a4d42f8179ce210962bf8ea47a1af39ac0e9b76777c5d)
+            check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_arn": credential_provider_arn,
+        }
+
+    @builtins.property
+    def credential_provider_arn(self) -> builtins.str:
+        '''The CredentialProviderArn of the PaymentCredentialProvider resource.'''
+        result = self._values.get("credential_provider_arn")
+        assert result is not None, "Required property 'credential_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PaymentCredentialProviderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PolicyEngineReference",
     jsii_struct_bases=[],
     name_mapping={"policy_engine_arn": "policyEngineArn"},
@@ -1582,6 +1772,7 @@ __all__ = [
     "ApiKeyCredentialProviderReference",
     "BrowserCustomReference",
     "BrowserProfileReference",
+    "BrowserReference",
     "CodeInterpreterCustomReference",
     "EvaluatorReference",
     "GatewayReference",
@@ -1589,6 +1780,7 @@ __all__ = [
     "IApiKeyCredentialProviderRef",
     "IBrowserCustomRef",
     "IBrowserProfileRef",
+    "IBrowserRef",
     "ICodeInterpreterCustomRef",
     "IEvaluatorRef",
     "IGatewayRef",
@@ -1596,6 +1788,7 @@ __all__ = [
     "IMemoryRef",
     "IOAuth2CredentialProviderRef",
     "IOnlineEvaluationConfigRef",
+    "IPaymentCredentialProviderRef",
     "IPolicyEngineRef",
     "IPolicyRef",
     "IRuntimeEndpointRef",
@@ -1604,6 +1797,7 @@ __all__ = [
     "MemoryReference",
     "OAuth2CredentialProviderReference",
     "OnlineEvaluationConfigReference",
+    "PaymentCredentialProviderReference",
     "PolicyEngineReference",
     "PolicyReference",
     "RuntimeEndpointReference",
@@ -1632,6 +1826,13 @@ def _typecheckingstub__a7892c81335b99bdd3f64213133e62d6d9197507de560d727bce23127
     *,
     profile_arn: builtins.str,
     profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__034848268532baf668c0361e8e3e56d301d54aaf674e8707e4efd6baf5ca6a75(
+    *,
+    browser_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1688,6 +1889,13 @@ def _typecheckingstub__41b12f526905c57ce10965672acf38889fef11dffed975afd9fe0777c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__222c796570baaba1677a4d42f8179ce210962bf8ea47a1af39ac0e9b76777c5d(
+    *,
+    credential_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2fa924f63bb2382a1f90bd31f51c74f59ed9157e097951038e7aa14c70bbe994(
     *,
     policy_engine_arn: builtins.str,
@@ -1725,5 +1933,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, ICodeInterpreterCustomRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentCredentialProviderRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

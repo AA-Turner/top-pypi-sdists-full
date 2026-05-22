@@ -237,6 +237,24 @@ class CfnPlan(
                                 ungraceful="ungraceful"
                             )
                         ),
+                        lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                            action="action",
+                            region_event_source_mappings={
+                                "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                    arn="arn",
+        
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )
+                            },
+        
+                            # the properties below are optional
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                                behavior="behavior"
+                            )
+                        ),
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                             steps=[step_property_]
                         ),
@@ -2146,6 +2164,94 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.EventSourceMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "arn": "arn",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+        },
+    )
+    class EventSourceMappingProperty:
+        def __init__(
+            self,
+            *,
+            arn: builtins.str,
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param arn: 
+            :param cross_account_role: 
+            :param external_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eventsourcemapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                event_source_mapping_property = arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                    arn="arn",
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2403a6ccfc4b7a18067c4451a1cae22c34977d3c05e4ccfb3d3a59820c2eb7fb)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "arn": arn,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+
+        @builtins.property
+        def arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eventsourcemapping.html#cfn-arcregionswitch-plan-eventsourcemapping-arn
+            '''
+            result = self._values.get("arn")
+            assert result is not None, "Required property 'arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eventsourcemapping.html#cfn-arcregionswitch-plan-eventsourcemapping-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-eventsourcemapping.html#cfn-arcregionswitch-plan-eventsourcemapping-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventSourceMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ExecutionApprovalConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2237,6 +2343,7 @@ class CfnPlan(
             "eks_resource_scaling_config": "eksResourceScalingConfig",
             "execution_approval_config": "executionApprovalConfig",
             "global_aurora_config": "globalAuroraConfig",
+            "lambda_event_source_mapping_config": "lambdaEventSourceMappingConfig",
             "parallel_config": "parallelConfig",
             "rds_create_cross_region_read_replica_config": "rdsCreateCrossRegionReadReplicaConfig",
             "rds_promote_read_replica_config": "rdsPromoteReadReplicaConfig",
@@ -2256,6 +2363,7 @@ class CfnPlan(
             eks_resource_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EksResourceScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             execution_approval_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ExecutionApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             global_aurora_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.GlobalAuroraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_event_source_mapping_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.LambdaEventSourceMappingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parallel_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ParallelExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rds_create_cross_region_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rds_promote_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsPromoteReadReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2274,6 +2382,7 @@ class CfnPlan(
             :param eks_resource_scaling_config: An AWS EKS resource scaling execution block.
             :param execution_approval_config: A manual approval execution block.
             :param global_aurora_config: An Aurora Global Database execution block.
+            :param lambda_event_source_mapping_config: 
             :param parallel_config: A parallel configuration execution block.
             :param rds_create_cross_region_read_replica_config: 
             :param rds_promote_read_replica_config: 
@@ -2415,6 +2524,24 @@ class CfnPlan(
                             ungraceful="ungraceful"
                         )
                     ),
+                    lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                        action="action",
+                        region_event_source_mappings={
+                            "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                arn="arn",
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId"
+                            )
+                        },
+                
+                        # the properties below are optional
+                        timeout_minutes=123,
+                        ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                            behavior="behavior"
+                        )
+                    ),
                     parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                         steps=[arcregionswitch.CfnPlan.StepProperty(
                             execution_block_configuration=execution_block_configuration_property_,
@@ -2477,6 +2604,7 @@ class CfnPlan(
                 check_type(argname="argument eks_resource_scaling_config", value=eks_resource_scaling_config, expected_type=type_hints["eks_resource_scaling_config"])
                 check_type(argname="argument execution_approval_config", value=execution_approval_config, expected_type=type_hints["execution_approval_config"])
                 check_type(argname="argument global_aurora_config", value=global_aurora_config, expected_type=type_hints["global_aurora_config"])
+                check_type(argname="argument lambda_event_source_mapping_config", value=lambda_event_source_mapping_config, expected_type=type_hints["lambda_event_source_mapping_config"])
                 check_type(argname="argument parallel_config", value=parallel_config, expected_type=type_hints["parallel_config"])
                 check_type(argname="argument rds_create_cross_region_read_replica_config", value=rds_create_cross_region_read_replica_config, expected_type=type_hints["rds_create_cross_region_read_replica_config"])
                 check_type(argname="argument rds_promote_read_replica_config", value=rds_promote_read_replica_config, expected_type=type_hints["rds_promote_read_replica_config"])
@@ -2499,6 +2627,8 @@ class CfnPlan(
                 self._values["execution_approval_config"] = execution_approval_config
             if global_aurora_config is not None:
                 self._values["global_aurora_config"] = global_aurora_config
+            if lambda_event_source_mapping_config is not None:
+                self._values["lambda_event_source_mapping_config"] = lambda_event_source_mapping_config
             if parallel_config is not None:
                 self._values["parallel_config"] = parallel_config
             if rds_create_cross_region_read_replica_config is not None:
@@ -2596,6 +2726,16 @@ class CfnPlan(
             '''
             result = self._values.get("global_aurora_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.GlobalAuroraConfigurationProperty"]], result)
+
+        @builtins.property
+        def lambda_event_source_mapping_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaEventSourceMappingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-lambdaeventsourcemappingconfig
+            '''
+            result = self._values.get("lambda_event_source_mapping_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaEventSourceMappingConfigurationProperty"]], result)
 
         @builtins.property
         def parallel_config(
@@ -3096,6 +3236,176 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action": "action",
+            "region_event_source_mappings": "regionEventSourceMappings",
+            "timeout_minutes": "timeoutMinutes",
+            "ungraceful": "ungraceful",
+        },
+    )
+    class LambdaEventSourceMappingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            action: builtins.str,
+            region_event_source_mappings: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.EventSourceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.LambdaEventSourceMappingUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param action: 
+            :param region_event_source_mappings: 
+            :param timeout_minutes: Default: - 60
+            :param ungraceful: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                lambda_event_source_mapping_configuration_property = arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                    action="action",
+                    region_event_source_mappings={
+                        "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                            arn="arn",
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId"
+                        )
+                    },
+                
+                    # the properties below are optional
+                    timeout_minutes=123,
+                    ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                        behavior="behavior"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__477afaf5ad1176ba8722dc1c5b7a553f5216576b61efa772b29ec2c79d295e97)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument region_event_source_mappings", value=region_event_source_mappings, expected_type=type_hints["region_event_source_mappings"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action": action,
+                "region_event_source_mappings": region_event_source_mappings,
+            }
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def action(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingconfiguration.html#cfn-arcregionswitch-plan-lambdaeventsourcemappingconfiguration-action
+            '''
+            result = self._values.get("action")
+            assert result is not None, "Required property 'action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region_event_source_mappings(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.EventSourceMappingProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingconfiguration.html#cfn-arcregionswitch-plan-lambdaeventsourcemappingconfiguration-regioneventsourcemappings
+            '''
+            result = self._values.get("region_event_source_mappings")
+            assert result is not None, "Required property 'region_event_source_mappings' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnPlan.EventSourceMappingProperty"]]], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingconfiguration.html#cfn-arcregionswitch-plan-lambdaeventsourcemappingconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ungraceful(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaEventSourceMappingUngracefulProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingconfiguration.html#cfn-arcregionswitch-plan-lambdaeventsourcemappingconfiguration-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaEventSourceMappingUngracefulProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaEventSourceMappingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty",
+        jsii_struct_bases=[],
+        name_mapping={"behavior": "behavior"},
+    )
+    class LambdaEventSourceMappingUngracefulProperty:
+        def __init__(self, *, behavior: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param behavior: Default: - "skip"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingungraceful.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                lambda_event_source_mapping_ungraceful_property = arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                    behavior="behavior"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c6607fde54d73754d67cad198c16c4a4cb159f388546df7128eedf8685c2830c)
+                check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if behavior is not None:
+                self._values["behavior"] = behavior
+
+        @builtins.property
+        def behavior(self) -> typing.Optional[builtins.str]:
+            '''
+            :default: - "skip"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdaeventsourcemappingungraceful.html#cfn-arcregionswitch-plan-lambdaeventsourcemappingungraceful-behavior
+            '''
+            result = self._values.get("behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaEventSourceMappingUngracefulProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.LambdaUngracefulProperty",
         jsii_struct_bases=[],
         name_mapping={"behavior": "behavior"},
@@ -3385,6 +3695,24 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
                                     ungraceful="ungraceful"
+                                )
+                            ),
+                            lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                                action="action",
+                                region_event_source_mappings={
+                                    "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                        arn="arn",
+                
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        external_id="externalId"
+                                    )
+                                },
+                
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                                    behavior="behavior"
                                 )
                             ),
                             parallel_config=parallel_execution_block_configuration_property_,
@@ -4567,6 +4895,24 @@ class CfnPlan(
                                 ungraceful="ungraceful"
                             )
                         ),
+                        lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                            action="action",
+                            region_event_source_mappings={
+                                "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                    arn="arn",
+                
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )
+                            },
+                
+                            # the properties below are optional
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                                behavior="behavior"
+                            )
+                        ),
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                             steps=[step_property_]
                         ),
@@ -5059,6 +5405,24 @@ class CfnPlan(
                                     ungraceful="ungraceful"
                                 )
                             ),
+                            lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                                action="action",
+                                region_event_source_mappings={
+                                    "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                        arn="arn",
+                
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        external_id="externalId"
+                                    )
+                                },
+                
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                                    behavior="behavior"
+                                )
+                            ),
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                                 steps=[step_property_]
                             ),
@@ -5375,6 +5739,24 @@ class CfnPlanProps:
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
                                     ungraceful="ungraceful"
+                                )
+                            ),
+                            lambda_event_source_mapping_config=arcregionswitch.CfnPlan.LambdaEventSourceMappingConfigurationProperty(
+                                action="action",
+                                region_event_source_mappings={
+                                    "region_event_source_mappings_key": arcregionswitch.CfnPlan.EventSourceMappingProperty(
+                                        arn="arn",
+            
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        external_id="externalId"
+                                    )
+                                },
+            
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
+                                    behavior="behavior"
                                 )
                             ),
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
@@ -5894,6 +6276,15 @@ def _typecheckingstub__5f9e5d7d28df64aed085e7fff7c951fac8c798f2930bd6f677766f09b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2403a6ccfc4b7a18067c4451a1cae22c34977d3c05e4ccfb3d3a59820c2eb7fb(
+    *,
+    arn: builtins.str,
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__332cd445173cd90befd93793d12cf56d6b9d0cf5f0f950d8f1c8da40b41112d7(
     *,
     approval_role: builtins.str,
@@ -5912,6 +6303,7 @@ def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c9
     eks_resource_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.EksResourceScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     execution_approval_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ExecutionApprovalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     global_aurora_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.GlobalAuroraConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_event_source_mapping_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.LambdaEventSourceMappingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parallel_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ParallelExecutionBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rds_create_cross_region_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rds_promote_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsPromoteReadReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5962,6 +6354,23 @@ def _typecheckingstub__57d18eef9bff8e63ac0c26d15b57916fe933491b47893043399d20a15
     name: builtins.str,
     namespace: builtins.str,
     hpa_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__477afaf5ad1176ba8722dc1c5b7a553f5216576b61efa772b29ec2c79d295e97(
+    *,
+    action: builtins.str,
+    region_event_source_mappings: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.EventSourceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.LambdaEventSourceMappingUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6607fde54d73754d67cad198c16c4a4cb159f388546df7128eedf8685c2830c(
+    *,
+    behavior: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

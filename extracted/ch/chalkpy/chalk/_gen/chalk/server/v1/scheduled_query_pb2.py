@@ -19,7 +19,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n%chalk/server/v1/scheduled_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/server/v1/scheduled_query_run.proto\x1a google/protobuf/field_mask.proto""\n GetActiveScheduledQueriesRequest"\x9f\x02\n\x15ScheduledQueryRunInfo\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12-\n\x10offline_query_id\x18\x02 \x01(\tH\x00R\x0eofflineQueryId\x88\x01\x01\x12\x37\n\x15workflow_execution_id\x18\x03 \x01(\tH\x01R\x13workflowExecutionId\x88\x01\x01\x12@\n\x06status\x18\x04 \x01(\x0e\x32(.chalk.server.v1.ScheduledQueryRunStatusR\x06status\x12\x1d\n\nhas_errors\x18\x05 \x01(\x08R\thasErrorsB\x13\n\x11_offline_query_idB\x18\n\x16_workflow_execution_id"\xf6\x01\n\x12ScheduledQueryInfo\x12\x43\n\x08schedule\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.ScheduledQueryScheduleR\x08schedule\x12@\n\x07\x63ontrol\x18\x02 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol\x12J\n\nlatest_run\x18\x03 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryRunInfoH\x00R\tlatestRun\x88\x01\x01\x42\r\n\x0b_latest_run"u\n!GetActiveScheduledQueriesResponse\x12P\n\x11scheduled_queries\x18\x01 \x03(\x0b\x32#.chalk.server.v1.ScheduledQueryInfoR\x10scheduledQueries"\x7f\n\x1fGetScheduledQueryControlRequest\x12$\n\rcron_query_id\x18\x01 \x01(\x05H\x00R\x0b\x63ronQueryId\x12(\n\x0f\x63ron_query_name\x18\x02 \x01(\tH\x00R\rcronQueryNameB\x0c\n\nidentifier"d\n GetScheduledQueryControlResponse\x12@\n\x07\x63ontrol\x18\x01 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol"\xa5\x01\n$UpdateScheduledQueryControlOperation\x12?\n\x06status\x18\x01 \x01(\x0e\x32".chalk.server.v1.CronControlStatusH\x00R\x06status\x88\x01\x01\x12"\n\njob_config\x18\x02 \x01(\tH\x01R\tjobConfig\x88\x01\x01\x42\t\n\x07_statusB\r\n\x0b_job_config"\xd4\x01\n"UpdateScheduledQueryControlRequest\x12"\n\rcron_query_id\x18\x01 \x01(\x05R\x0b\x63ronQueryId\x12M\n\x06update\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.UpdateScheduledQueryControlOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"g\n#UpdateScheduledQueryControlResponse\x12@\n\x07\x63ontrol\x18\x01 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol"y\n GetScheduledQueryScheduleRequest\x12!\n\x0bschedule_id\x18\x01 \x01(\x05H\x00R\nscheduleId\x12$\n\rcron_query_id\x18\x02 \x01(\x05H\x00R\x0b\x63ronQueryIdB\x0c\n\nidentifier"h\n!GetScheduledQueryScheduleResponse\x12\x43\n\x08schedule\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.ScheduledQueryScheduleR\x08schedule2\xb9\x06\n\x15ScheduledQueryService\x12x\n\x14GetScheduledQueryRun\x12,.chalk.server.v1.GetScheduledQueryRunRequest\x1a-.chalk.server.v1.GetScheduledQueryRunResponse"\x03\x80}\x06\x12{\n\x15GetScheduledQueryRuns\x12-.chalk.server.v1.GetScheduledQueryRunsRequest\x1a..chalk.server.v1.GetScheduledQueryRunsResponse"\x03\x80}\x10\x12\x87\x01\n\x19GetActiveScheduledQueries\x12\x31.chalk.server.v1.GetActiveScheduledQueriesRequest\x1a\x32.chalk.server.v1.GetActiveScheduledQueriesResponse"\x03\x80}\x10\x12\x84\x01\n\x18GetScheduledQueryControl\x12\x30.chalk.server.v1.GetScheduledQueryControlRequest\x1a\x31.chalk.server.v1.GetScheduledQueryControlResponse"\x03\x80}\x10\x12\x8d\x01\n\x1bUpdateScheduledQueryControl\x12\x33.chalk.server.v1.UpdateScheduledQueryControlRequest\x1a\x34.chalk.server.v1.UpdateScheduledQueryControlResponse"\x03\x80}\x11\x12\x87\x01\n\x19GetScheduledQuerySchedule\x12\x31.chalk.server.v1.GetScheduledQueryScheduleRequest\x1a\x32.chalk.server.v1.GetScheduledQueryScheduleResponse"\x03\x80}\x10\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13ScheduledQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n%chalk/server/v1/scheduled_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/server/v1/scheduled_query_run.proto\x1a google/protobuf/field_mask.proto"^\n GetActiveScheduledQueriesRequest\x12(\n\rdeployment_id\x18\x01 \x01(\tH\x00R\x0c\x64\x65ploymentId\x88\x01\x01\x42\x10\n\x0e_deployment_id"\x9f\x02\n\x15ScheduledQueryRunInfo\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12-\n\x10offline_query_id\x18\x02 \x01(\tH\x00R\x0eofflineQueryId\x88\x01\x01\x12\x37\n\x15workflow_execution_id\x18\x03 \x01(\tH\x01R\x13workflowExecutionId\x88\x01\x01\x12@\n\x06status\x18\x04 \x01(\x0e\x32(.chalk.server.v1.ScheduledQueryRunStatusR\x06status\x12\x1d\n\nhas_errors\x18\x05 \x01(\x08R\thasErrorsB\x13\n\x11_offline_query_idB\x18\n\x16_workflow_execution_id"\xf6\x01\n\x12ScheduledQueryInfo\x12\x43\n\x08schedule\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.ScheduledQueryScheduleR\x08schedule\x12@\n\x07\x63ontrol\x18\x02 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol\x12J\n\nlatest_run\x18\x03 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryRunInfoH\x00R\tlatestRun\x88\x01\x01\x42\r\n\x0b_latest_run"u\n!GetActiveScheduledQueriesResponse\x12P\n\x11scheduled_queries\x18\x01 \x03(\x0b\x32#.chalk.server.v1.ScheduledQueryInfoR\x10scheduledQueries"\x7f\n\x1fGetScheduledQueryControlRequest\x12$\n\rcron_query_id\x18\x01 \x01(\x05H\x00R\x0b\x63ronQueryId\x12(\n\x0f\x63ron_query_name\x18\x02 \x01(\tH\x00R\rcronQueryNameB\x0c\n\nidentifier"d\n GetScheduledQueryControlResponse\x12@\n\x07\x63ontrol\x18\x01 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol"\xa5\x01\n$UpdateScheduledQueryControlOperation\x12?\n\x06status\x18\x01 \x01(\x0e\x32".chalk.server.v1.CronControlStatusH\x00R\x06status\x88\x01\x01\x12"\n\njob_config\x18\x02 \x01(\tH\x01R\tjobConfig\x88\x01\x01\x42\t\n\x07_statusB\r\n\x0b_job_config"\xd4\x01\n"UpdateScheduledQueryControlRequest\x12"\n\rcron_query_id\x18\x01 \x01(\x05R\x0b\x63ronQueryId\x12M\n\x06update\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.UpdateScheduledQueryControlOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"g\n#UpdateScheduledQueryControlResponse\x12@\n\x07\x63ontrol\x18\x01 \x01(\x0b\x32&.chalk.server.v1.ScheduledQueryControlR\x07\x63ontrol"y\n GetScheduledQueryScheduleRequest\x12!\n\x0bschedule_id\x18\x01 \x01(\x05H\x00R\nscheduleId\x12$\n\rcron_query_id\x18\x02 \x01(\x05H\x00R\x0b\x63ronQueryIdB\x0c\n\nidentifier"h\n!GetScheduledQueryScheduleResponse\x12\x43\n\x08schedule\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.ScheduledQueryScheduleR\x08schedule2\xb9\x06\n\x15ScheduledQueryService\x12x\n\x14GetScheduledQueryRun\x12,.chalk.server.v1.GetScheduledQueryRunRequest\x1a-.chalk.server.v1.GetScheduledQueryRunResponse"\x03\x80}\x06\x12{\n\x15GetScheduledQueryRuns\x12-.chalk.server.v1.GetScheduledQueryRunsRequest\x1a..chalk.server.v1.GetScheduledQueryRunsResponse"\x03\x80}\x10\x12\x87\x01\n\x19GetActiveScheduledQueries\x12\x31.chalk.server.v1.GetActiveScheduledQueriesRequest\x1a\x32.chalk.server.v1.GetActiveScheduledQueriesResponse"\x03\x80}\x10\x12\x84\x01\n\x18GetScheduledQueryControl\x12\x30.chalk.server.v1.GetScheduledQueryControlRequest\x1a\x31.chalk.server.v1.GetScheduledQueryControlResponse"\x03\x80}\x10\x12\x8d\x01\n\x1bUpdateScheduledQueryControl\x12\x33.chalk.server.v1.UpdateScheduledQueryControlRequest\x1a\x34.chalk.server.v1.UpdateScheduledQueryControlResponse"\x03\x80}\x11\x12\x87\x01\n\x19GetScheduledQuerySchedule\x12\x31.chalk.server.v1.GetScheduledQueryScheduleRequest\x1a\x32.chalk.server.v1.GetScheduledQueryScheduleResponse"\x03\x80}\x10\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13ScheduledQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -43,27 +43,27 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQuerySchedule"]._options = None
     _globals["_SCHEDULEDQUERYSERVICE"].methods_by_name["GetScheduledQuerySchedule"]._serialized_options = b"\200}\020"
     _globals["_GETACTIVESCHEDULEDQUERIESREQUEST"]._serialized_start = 168
-    _globals["_GETACTIVESCHEDULEDQUERIESREQUEST"]._serialized_end = 202
-    _globals["_SCHEDULEDQUERYRUNINFO"]._serialized_start = 205
-    _globals["_SCHEDULEDQUERYRUNINFO"]._serialized_end = 492
-    _globals["_SCHEDULEDQUERYINFO"]._serialized_start = 495
-    _globals["_SCHEDULEDQUERYINFO"]._serialized_end = 741
-    _globals["_GETACTIVESCHEDULEDQUERIESRESPONSE"]._serialized_start = 743
-    _globals["_GETACTIVESCHEDULEDQUERIESRESPONSE"]._serialized_end = 860
-    _globals["_GETSCHEDULEDQUERYCONTROLREQUEST"]._serialized_start = 862
-    _globals["_GETSCHEDULEDQUERYCONTROLREQUEST"]._serialized_end = 989
-    _globals["_GETSCHEDULEDQUERYCONTROLRESPONSE"]._serialized_start = 991
-    _globals["_GETSCHEDULEDQUERYCONTROLRESPONSE"]._serialized_end = 1091
-    _globals["_UPDATESCHEDULEDQUERYCONTROLOPERATION"]._serialized_start = 1094
-    _globals["_UPDATESCHEDULEDQUERYCONTROLOPERATION"]._serialized_end = 1259
-    _globals["_UPDATESCHEDULEDQUERYCONTROLREQUEST"]._serialized_start = 1262
-    _globals["_UPDATESCHEDULEDQUERYCONTROLREQUEST"]._serialized_end = 1474
-    _globals["_UPDATESCHEDULEDQUERYCONTROLRESPONSE"]._serialized_start = 1476
-    _globals["_UPDATESCHEDULEDQUERYCONTROLRESPONSE"]._serialized_end = 1579
-    _globals["_GETSCHEDULEDQUERYSCHEDULEREQUEST"]._serialized_start = 1581
-    _globals["_GETSCHEDULEDQUERYSCHEDULEREQUEST"]._serialized_end = 1702
-    _globals["_GETSCHEDULEDQUERYSCHEDULERESPONSE"]._serialized_start = 1704
-    _globals["_GETSCHEDULEDQUERYSCHEDULERESPONSE"]._serialized_end = 1808
-    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_start = 1811
-    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_end = 2636
+    _globals["_GETACTIVESCHEDULEDQUERIESREQUEST"]._serialized_end = 262
+    _globals["_SCHEDULEDQUERYRUNINFO"]._serialized_start = 265
+    _globals["_SCHEDULEDQUERYRUNINFO"]._serialized_end = 552
+    _globals["_SCHEDULEDQUERYINFO"]._serialized_start = 555
+    _globals["_SCHEDULEDQUERYINFO"]._serialized_end = 801
+    _globals["_GETACTIVESCHEDULEDQUERIESRESPONSE"]._serialized_start = 803
+    _globals["_GETACTIVESCHEDULEDQUERIESRESPONSE"]._serialized_end = 920
+    _globals["_GETSCHEDULEDQUERYCONTROLREQUEST"]._serialized_start = 922
+    _globals["_GETSCHEDULEDQUERYCONTROLREQUEST"]._serialized_end = 1049
+    _globals["_GETSCHEDULEDQUERYCONTROLRESPONSE"]._serialized_start = 1051
+    _globals["_GETSCHEDULEDQUERYCONTROLRESPONSE"]._serialized_end = 1151
+    _globals["_UPDATESCHEDULEDQUERYCONTROLOPERATION"]._serialized_start = 1154
+    _globals["_UPDATESCHEDULEDQUERYCONTROLOPERATION"]._serialized_end = 1319
+    _globals["_UPDATESCHEDULEDQUERYCONTROLREQUEST"]._serialized_start = 1322
+    _globals["_UPDATESCHEDULEDQUERYCONTROLREQUEST"]._serialized_end = 1534
+    _globals["_UPDATESCHEDULEDQUERYCONTROLRESPONSE"]._serialized_start = 1536
+    _globals["_UPDATESCHEDULEDQUERYCONTROLRESPONSE"]._serialized_end = 1639
+    _globals["_GETSCHEDULEDQUERYSCHEDULEREQUEST"]._serialized_start = 1641
+    _globals["_GETSCHEDULEDQUERYSCHEDULEREQUEST"]._serialized_end = 1762
+    _globals["_GETSCHEDULEDQUERYSCHEDULERESPONSE"]._serialized_start = 1764
+    _globals["_GETSCHEDULEDQUERYSCHEDULERESPONSE"]._serialized_end = 1868
+    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_start = 1871
+    _globals["_SCHEDULEDQUERYSERVICE"]._serialized_end = 2696
 # @@protoc_insertion_point(module_scope)

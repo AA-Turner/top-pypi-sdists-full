@@ -1207,6 +1207,7 @@ class StreamResolver(_message.Message):
         "header_filters",
         "resource_group",
         "deduplication_strategy",
+        "customer_metrics_tags",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1244,6 +1245,7 @@ class StreamResolver(_message.Message):
     HEADER_FILTERS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     DEDUPLICATION_STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METRICS_TAGS_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1270,6 +1272,7 @@ class StreamResolver(_message.Message):
     header_filters: _containers.RepeatedCompositeFieldContainer[StreamHeaderFilter]
     resource_group: str
     deduplication_strategy: DeduplicationStrategy
+    customer_metrics_tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1298,6 +1301,7 @@ class StreamResolver(_message.Message):
         header_filters: _Optional[_Iterable[_Union[StreamHeaderFilter, _Mapping]]] = ...,
         resource_group: _Optional[str] = ...,
         deduplication_strategy: _Optional[_Union[DeduplicationStrategy, _Mapping]] = ...,
+        customer_metrics_tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):

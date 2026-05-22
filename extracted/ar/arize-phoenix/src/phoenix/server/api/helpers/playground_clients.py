@@ -1880,26 +1880,13 @@ class BedrockStreamingClient(PlaygroundStreamingClient["BedrockRuntimeClient"]):
         "gpt-4.1",
         "gpt-4.1-mini",
         "gpt-4.1-nano",
-        "gpt-4.1-2025-04-14",
-        "gpt-4.1-mini-2025-04-14",
-        "gpt-4.1-nano-2025-04-14",
         "gpt-4o",
-        "gpt-4o-2024-11-20",
-        "gpt-4o-2024-08-06",
-        "gpt-4o-2024-05-13",
         "chatgpt-4o-latest",
         "gpt-4o-mini",
-        "gpt-4o-mini-2024-07-18",
         "gpt-4-turbo",
-        "gpt-4-turbo-2024-04-09",
         "gpt-4-turbo-preview",
-        "gpt-4-0125-preview",
-        "gpt-4-1106-preview",
         "gpt-4",
-        "gpt-4-0613",
-        "gpt-3.5-turbo-0125",
         "gpt-3.5-turbo",
-        "gpt-3.5-turbo-1106",
     ],
 )
 class OpenAIStreamingClient(OpenAIBaseStreamingClient):
@@ -1912,42 +1899,27 @@ class OpenAIStreamingClient(OpenAIBaseStreamingClient):
 OPENAI_REASONING_MODELS = [
     "gpt-5.5",
     "gpt-5.4",
-    "gpt-5.4-2026-03-05",
     "gpt-5.4-mini",
     "gpt-5.4-nano",
     "gpt-5.4-pro",
-    "gpt-5.4-pro-2026-03-05",
     "gpt-5.3-chat-latest",
     "gpt-5.2",
-    "gpt-5.2-2025-12-11",
     "gpt-5.2-chat-latest",
     "gpt-5.2-pro",
-    "gpt-5.2-pro-2025-12-11",
     "gpt-5.1",
-    "gpt-5.1-2025-11-13",
     "gpt-5.1-chat-latest",
     "gpt-5",
-    "gpt-5-2025-08-07",
     "gpt-5-mini",
-    "gpt-5-mini-2025-08-07",
     "gpt-5-nano",
-    "gpt-5-nano-2025-08-07",
     "gpt-5-pro",
-    "gpt-5-pro-2025-10-06",
     "gpt-5-chat",
     "gpt-5-chat-latest",
     "o1",
     "o1-pro",
-    "o1-2024-12-17",
-    "o1-pro-2025-03-19",
     "o3",
     "o3-pro",
-    "o3-pro-2025-06-10",
-    "o3-2025-04-16",
     "o3-mini",
-    "o3-mini-2025-01-31",
     "o4-mini",
-    "o4-mini-2025-04-16",
 ]
 
 
@@ -2622,18 +2594,12 @@ ANTHROPIC_REASONING_MODELS = [
     "claude-opus-4-6",
     "claude-sonnet-4-6",
     "claude-opus-4-5",
-    "claude-opus-4-5-20251101",
     "claude-sonnet-4-5",
-    "claude-sonnet-4-5-20250929",
     "claude-haiku-4-5",
-    "claude-haiku-4-5-20251001",
     "claude-opus-4-1",
-    "claude-opus-4-1-20250805",
     "claude-sonnet-4-0",
-    "claude-sonnet-4-20250514",
     "claude-opus-4-0",
-    "claude-opus-4-20250514",
-    "claude-3-7-sonnet-20250219",
+    "claude-3-7-sonnet-latest",
 ]
 
 
@@ -2645,16 +2611,11 @@ class AnthropicReasoningStreamingClient(AnthropicStreamingClient):
     pass
 
 
-GEMINI_2_0_MODELS = [
-    PROVIDER_DEFAULT,
-    "gemini-2.0-flash-lite",  # Will be deprecated and will be shut down on June 1, 2026.
-    "gemini-2.0-flash-001",  # Will be deprecated and will be shut down on June 1, 2026.
-]
-
-
 @register_llm_client(
     provider_key=GenerativeProviderKey.GOOGLE,
-    model_names=GEMINI_2_0_MODELS,
+    model_names=[
+        PROVIDER_DEFAULT,
+    ],
 )
 class GoogleStreamingClient(PlaygroundStreamingClient["GoogleAsyncClient"]):
     @property
@@ -3031,6 +2992,7 @@ class Gemini25GoogleStreamingClient(GoogleStreamingClient):
 
 
 GEMINI_3_MODELS = [
+    "gemini-3.5-flash",
     "gemini-3.1-pro-preview",
     "gemini-3-pro-preview",
     "gemini-3-flash-preview",
@@ -3211,9 +3173,44 @@ def _get_credential_from_input(
     if not credentials:
         return None
     return next(
-        (str(c.value) for c in credentials if c.env_var_name == env_var_name),
+        (c.value.get_secret_value() for c in credentials if c.env_var_name == env_var_name),
         None,
     )
+
+
+async def _resolve_provider_api_key(
+    *,
+    credentials: Sequence[GenerativeCredentialInput] | None,
+    session: AsyncSession,
+    decrypt: Callable[[bytes], bytes],
+    env_var_name: str,
+    client_base_url: str | None,
+    provider_label: str,
+) -> str | None:
+    """Resolve a provider API key and enforce the custom-base-URL guard.
+
+    Resolution priority: client-supplied credential -> DB-encrypted secret ->
+    process environment variable.
+
+    Security: a server-configured (environment variable) API key must never be
+    sent to a client-supplied base URL — doing so would leak that credential to
+    the client-controlled host (SSRF / credential exfiltration). When the key
+    would fall through to an environment variable and the caller also supplied a
+    custom ``base_url``, the request is rejected. A key from the request itself or
+    from a DB secret is allowed with a custom base URL.
+    """
+    if from_input := _get_credential_from_input(credentials, env_var_name):
+        return from_input
+    if from_secret := (await _resolve_secrets(session, decrypt, env_var_name)).get(env_var_name):
+        return from_secret
+    from_env = getenv(env_var_name)
+    if from_env and client_base_url:
+        raise BadRequest(
+            f"A custom base URL cannot be used with the server-configured "
+            f"{provider_label} API key. Provide an API key with the request, "
+            f"or store one as a Phoenix secret, to use a custom base URL."
+        )
+    return from_env
 
 
 def get_openai_client_class(
@@ -3323,6 +3320,9 @@ async def _get_builtin_provider_client(
 
     sdk = _builtin_sdk_fields_from_connection(model_provider, connection)
     base_url = sdk.base_url
+    # The client-supplied base URL, captured before any environment-variable fallback.
+    # Used to reject pairing a server-owned env-var API key with a client-controlled URL.
+    client_base_url = sdk.base_url or None
     endpoint = sdk.endpoint
     region = sdk.region
     openai_api_type = sdk.openai_api_type
@@ -3333,10 +3333,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "OPENAI_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "OPENAI_API_KEY")).get("OPENAI_API_KEY")
-            or getenv("OPENAI_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="OPENAI_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="OpenAI",
         )
         base_url = base_url or getenv("OPENAI_BASE_URL")
 
@@ -3517,12 +3520,6 @@ async def _get_builtin_provider_client(
             "LLMClientFactory[GoogleAsyncClient]",
             LLMClientFactory(create_google_client, google_rate_limit_key(api_key, None)),
         )
-        if model_name in GEMINI_2_0_MODELS:
-            return GoogleStreamingClient(
-                client_factory=google_client_factory,
-                model_name=model_name,
-                provider=provider,
-            )
         if model_name in GEMINI_2_5_MODELS:
             return Gemini25GoogleStreamingClient(
                 client_factory=google_client_factory,
@@ -3589,12 +3586,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "DEEPSEEK_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "DEEPSEEK_API_KEY")).get(
-                "DEEPSEEK_API_KEY"
-            )
-            or getenv("DEEPSEEK_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="DEEPSEEK_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="DeepSeek",
         )
         base_url = base_url or getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
 
@@ -3629,10 +3627,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "XAI_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "XAI_API_KEY")).get("XAI_API_KEY")
-            or getenv("XAI_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="XAI_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="xAI",
         )
         base_url = base_url or getenv("XAI_BASE_URL") or "https://api.x.ai/v1"
 
@@ -3698,12 +3699,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "CEREBRAS_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "CEREBRAS_API_KEY")).get(
-                "CEREBRAS_API_KEY"
-            )
-            or getenv("CEREBRAS_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="CEREBRAS_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Cerebras",
         )
         base_url = base_url or getenv("CEREBRAS_BASE_URL") or "https://api.cerebras.ai/v1"
 
@@ -3737,12 +3739,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "FIREWORKS_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "FIREWORKS_API_KEY")).get(
-                "FIREWORKS_API_KEY"
-            )
-            or getenv("FIREWORKS_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="FIREWORKS_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Fireworks",
         )
         base_url = (
             base_url or getenv("FIREWORKS_BASE_URL") or "https://api.fireworks.ai/inference/v1"
@@ -3778,10 +3781,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "GROQ_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "GROQ_API_KEY")).get("GROQ_API_KEY")
-            or getenv("GROQ_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="GROQ_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Groq",
         )
         base_url = base_url or getenv("GROQ_BASE_URL") or "https://api.groq.com/openai/v1"
 
@@ -3815,12 +3821,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "MOONSHOT_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "MOONSHOT_API_KEY")).get(
-                "MOONSHOT_API_KEY"
-            )
-            or getenv("MOONSHOT_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="MOONSHOT_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Moonshot",
         )
         base_url = base_url or getenv("MOONSHOT_BASE_URL") or "https://api.moonshot.ai/v1"
 
@@ -3854,12 +3861,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "PERPLEXITY_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "PERPLEXITY_API_KEY")).get(
-                "PERPLEXITY_API_KEY"
-            )
-            or getenv("PERPLEXITY_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="PERPLEXITY_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Perplexity",
         )
         base_url = base_url or getenv("PERPLEXITY_BASE_URL") or "https://api.perplexity.ai"
 
@@ -3893,12 +3901,13 @@ async def _get_builtin_provider_client(
         except ImportError:
             raise BadRequest("OpenAI package not installed. Run: pip install openai")
 
-        api_key = (
-            _get_credential_from_input(credentials, "TOGETHER_API_KEY")
-            or (await _resolve_secrets(session, decrypt, "TOGETHER_API_KEY")).get(
-                "TOGETHER_API_KEY"
-            )
-            or getenv("TOGETHER_API_KEY")
+        api_key = await _resolve_provider_api_key(
+            credentials=credentials,
+            session=session,
+            decrypt=decrypt,
+            env_var_name="TOGETHER_API_KEY",
+            client_base_url=client_base_url,
+            provider_label="Together",
         )
         base_url = base_url or getenv("TOGETHER_BASE_URL") or "https://api.together.xyz/v1"
 
@@ -4031,12 +4040,6 @@ async def _get_custom_provider_client(
             google_genai_client_factory = cfg.get_client_factory(extra_headers=headers)
         except Exception as e:
             raise BadRequest(f"Failed to create {cfg.type} client factory: {e}")
-        if model_name in GEMINI_2_0_MODELS:
-            return GoogleStreamingClient(
-                client_factory=google_genai_client_factory,
-                model_name=model_name,
-                provider=provider,
-            )
         if model_name in GEMINI_2_5_MODELS:
             return Gemini25GoogleStreamingClient(
                 client_factory=google_genai_client_factory,

@@ -1,6 +1,6 @@
 [project]
 name = "click"
-version = "8.4.0"
+version = "8.4.1"
 description = "Composable command line interface toolkit"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -140,7 +140,12 @@ select = [
     "I",  # isort
     "UP",  # pyupgrade
     "W",  # pycodestyle warning
+    "ICN", #flake8-import-conventions (ICN)
 ]
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+# Declare the default aliases.
+typing = "t"
 
 [tool.ruff.lint.isort]
 force-single-line = true

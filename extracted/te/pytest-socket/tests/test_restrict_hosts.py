@@ -1,6 +1,10 @@
+import collections
 import inspect
+import socket
 
 import pytest
+
+from pytest_socket import normalize_allowed_hosts
 
 localhost = "127.0.0.1"
 
@@ -49,13 +53,13 @@ def assert_host_blocked(result, host):
 
 
 @pytest.fixture
-def assert_connect(httpbin, testdir):
+def assert_connect(httpserver, pytester):
     def assert_socket_connect(should_pass, **kwargs):
         # get the name of the calling function
         test_name = inspect.stack()[1][3]
 
         mark = ""
-        host = kwargs.get("host", httpbin.host)
+        host = kwargs.get("host", httpserver.host)
         cli_arg = kwargs.get("cli_arg", None)
         code_template = kwargs.get("code_template", connect_code_template)
         mark_arg = kwargs.get("mark_arg", None)
@@ -66,18 +70,18 @@ def assert_connect(httpbin, testdir):
             elif isinstance(mark_arg, list):
                 hosts = '","'.join(mark_arg)
                 mark = f'@pytest.mark.allow_hosts(["{hosts}"])'
-        code = code_template.format(host, httpbin.port, test_name, mark)
-        testdir.makepyfile(code)
+        code = code_template.format(host, httpserver.port, test_name, mark)
+        pytester.makepyfile(code)
 
         if cli_arg:
-            result = testdir.runpytest(f"--allow-hosts={cli_arg}")
+            result = pytester.runpytest(f"--allow-hosts={cli_arg}")
         else:
-            result = testdir.runpytest()
+            result = pytester.runpytest()
 
         if should_pass:
-            result.assert_outcomes(1, 0, 0)
+            result.assert_outcomes(passed=1)
         else:
-            result.assert_outcomes(0, 0, 1)
+            result.assert_outcomes(failed=1)
             assert_host_blocked(result, host)
 
         return result
@@ -85,8 +89,27 @@ def assert_connect(httpbin, testdir):
     return assert_socket_connect
 
 
-def test_help_message(testdir):
-    result = testdir.runpytest(
+@pytest.fixture
+def getaddrinfo_hosts(monkeypatch):
+    hosts = []
+
+    def _getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        hosts.append(host)
+        v4 = (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "",
+            ("127.0.0.127", 0),
+        )
+        return [v4]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)
+    return hosts
+
+
+def test_help_message(pytester):
+    result = pytester.runpytest(
         "--help",
     )
     result.stdout.fnmatch_lines(
@@ -99,8 +122,8 @@ def test_help_message(testdir):
     )
 
 
-def test_marker_help_message(testdir):
-    result = testdir.runpytest(
+def test_marker_help_message(pytester):
+    result = pytester.runpytest(
         "--markers",
     )
     result.stdout.fnmatch_lines(
@@ -214,87 +237,278 @@ def test_single_mark_arg_urlopen_enabled(assert_connect):
     )
 
 
-def test_global_restrict_via_config_fail(testdir):
-    testdir.makepyfile(
-        """
+def test_global_restrict_via_config_fail(pytester):
+    pytester.makepyfile("""
         import socket
 
         def test_global_restrict_via_config_fail():
             socket.socket().connect(('127.0.0.1', 80))
-        """
-    )
-    testdir.makeini(
-        """
+        """)
+    pytester.makeini("""
         [pytest]
         addopts = --allow-hosts=2.2.2.2
-        """
-    )
-    result = testdir.runpytest()
-    result.assert_outcomes(0, 0, 1)
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(failed=1)
     assert_host_blocked(result, "127.0.0.1")
 
 
-def test_global_restrict_via_config_pass(testdir, httpbin):
-    testdir.makepyfile(
-        f"""
+def test_global_restrict_via_config_pass(pytester, httpserver):
+    pytester.makepyfile(f"""
         import socket
 
         def test_global_restrict_via_config_pass():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
-        """
-    )
-    testdir.makeini(
-        f"""
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
+        """)
+    pytester.makeini(f"""
         [pytest]
-        addopts = --allow-hosts={httpbin.host}
-        """
-    )
-    result = testdir.runpytest()
-    result.assert_outcomes(1, 0, 0)
+        addopts = --allow-hosts={httpserver.host}
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1)
 
 
-def test_test_isolation(testdir, httpbin):
-    testdir.makepyfile(
-        f"""
+def test_test_isolation(pytester, httpserver):
+    pytester.makepyfile(f"""
         import pytest
         import socket
 
-        @pytest.mark.allow_hosts('{httpbin.host}')
+        @pytest.mark.allow_hosts('{httpserver.host}')
         def test_pass():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
 
         @pytest.mark.allow_hosts('2.2.2.2')
         def test_fail():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
 
         def test_pass_2():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
-        """
-    )
-    result = testdir.runpytest()
-    result.assert_outcomes(2, 0, 1)
-    assert_host_blocked(result, httpbin.host)
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=2, failed=1)
+    assert_host_blocked(result, httpserver.host)
 
 
-def test_conflicting_cli_vs_marks(testdir, httpbin):
-    testdir.makepyfile(
-        f"""
+def test_conflicting_cli_vs_marks(pytester, httpserver):
+    pytester.makepyfile(f"""
         import pytest
         import socket
 
-        @pytest.mark.allow_hosts('{httpbin.host}')
+        @pytest.mark.allow_hosts('{httpserver.host}')
         def test_pass():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
 
         @pytest.mark.allow_hosts('2.2.2.2')
         def test_fail():
-            socket.socket().connect(('{httpbin.host}', {httpbin.port}))
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
 
         def test_fail_2():
-            socket.socket().connect(('2.2.2.2', {httpbin.port}))
-        """
-    )
-    result = testdir.runpytest("--allow-hosts=1.2.3.4")
-    result.assert_outcomes(1, 0, 2)
+            socket.socket().connect(('2.2.2.2', {httpserver.port}))
+        """)
+    result = pytester.runpytest("--allow-hosts=1.2.3.4")
+    result.assert_outcomes(passed=1, failed=2)
     assert_host_blocked(result, "2.2.2.2")
-    assert_host_blocked(result, httpbin.host)
+    assert_host_blocked(result, httpserver.host)
+
+
+def test_normalize_allowed_hosts(getaddrinfo_hosts):
+    """normalize_allowed_hosts() produces a map of hosts to IP addresses."""
+    assert normalize_allowed_hosts(["127.0.0.1", "localhost", "localhost", "::1"]) == {
+        "::1": {"::1"},
+        "127.0.0.1": {"127.0.0.1"},
+        "localhost": {"127.0.0.127"},
+    }
+
+    assert getaddrinfo_hosts == ["localhost"]
+
+
+def test_normalize_allowed_hosts_cache(getaddrinfo_hosts):
+    """normalize_allowed_hosts() caches name resolutions when passed a cache"""
+    cache = {}
+
+    assert normalize_allowed_hosts(["localhost"], cache) == {
+        "localhost": {"127.0.0.127"}
+    }
+    assert cache == {"localhost": {"127.0.0.127"}}
+    assert getaddrinfo_hosts == ["localhost"]
+
+    del getaddrinfo_hosts[:]
+
+    assert normalize_allowed_hosts(["localhost", "localhost"], cache) == {
+        "localhost": {"127.0.0.127"}
+    }
+    assert cache == {"localhost": {"127.0.0.127"}}
+    assert getaddrinfo_hosts == []
+
+
+def test_cidr_marker_permits_in_block_ip(pytester, httpserver):
+    """A test marked with a CIDR can connect to any IP inside that block."""
+    pytester.makepyfile(f"""
+        import pytest
+        import socket
+
+        @pytest.mark.allow_hosts('127.0.0.0/8')
+        def test_in_block():
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_cidr_marker_blocks_out_of_block_ip(pytester, httpserver):
+    """A CIDR marker still blocks IPs outside the block."""
+    pytester.makepyfile(f"""
+        import pytest
+        import socket
+
+        @pytest.mark.allow_hosts('127.0.0.0/8')
+        def test_out_of_block():
+            socket.socket().connect(('2.2.2.2', {httpserver.port}))
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(failed=1)
+    assert_host_blocked(result, "2.2.2.2")
+
+
+def test_cidr_via_cli_flag(pytester, httpserver):
+    """CIDR works the same when passed via --allow-hosts CSV."""
+    pytester.makepyfile(f"""
+        import socket
+
+        def test_in_block():
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
+
+        def test_out_of_block():
+            socket.socket().connect(('2.2.2.2', {httpserver.port}))
+        """)
+    result = pytester.runpytest("--allow-hosts=127.0.0.0/8")
+    result.assert_outcomes(passed=1, failed=1)
+    assert_host_blocked(result, "2.2.2.2")
+
+
+def test_mixed_cidr_ip_and_hostname_allowlist(pytester, httpserver):
+    """CIDR and literal-IP entries coexist in one allowlist.
+
+    Hostname coexistence is exercised by ``test_normalize_allowed_hosts`` and
+    ``test_name_resolution_cached``; this test focuses on the new CIDR path
+    sharing the allowlist with a literal IP (the live ``httpserver``) and
+    confirms that an unrelated host is still blocked.
+    """
+    pytester.makepyfile(f"""
+        import pytest
+        import socket
+
+        @pytest.mark.allow_hosts(['10.0.0.0/8', '{httpserver.host}'])
+        def test_literal_ip_path():
+            socket.socket().connect(('{httpserver.host}', {httpserver.port}))
+
+        @pytest.mark.allow_hosts(['10.0.0.0/8', '{httpserver.host}'])
+        def test_cidr_path_blocks_outsider():
+            socket.socket().connect(('2.2.2.2', {httpserver.port}))
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1, failed=1)
+    assert_host_blocked(result, "2.2.2.2")
+
+
+def test_ipv6_cidr(pytester):
+    """IPv6 CIDR allow-list permits in-block addresses and blocks others."""
+    pytester.makepyfile("""
+        import pytest
+        import socket
+
+        @pytest.mark.allow_hosts('::1/128')
+        def test_in_block():
+            # ::1 is in the /128 block — guard should permit; real connect
+            # may still error at the OS level, but not as SocketConnectBlockedError.
+            try:
+                socket.socket(socket.AF_INET6).connect(('::1', 1))
+            except OSError as exc:
+                # Anything except SocketConnectBlockedError is fine here.
+                import pytest_socket
+                assert not isinstance(exc, pytest_socket.SocketConnectBlockedError)
+
+        @pytest.mark.allow_hosts('::1/128')
+        def test_out_of_block():
+            socket.socket(socket.AF_INET6).connect(('2001:db8::1', 1))
+        """)
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=1, failed=1)
+    assert_host_blocked(result, "2001:db8::1")
+
+
+def test_hostname_arg_with_cidr_only_allowlist(pytester):
+    """A connect call using a hostname (not an IP) under a CIDR-only allowlist
+    raises SocketConnectBlockedError — not a ValueError from ipaddress.
+
+    This is the failure mode that prevented merging the original CIDR PR (#185).
+    """
+    pytester.makepyfile("""
+        import socket
+
+        def test_hostname_connect():
+            # 'example.invalid' will never resolve to an IP; the guard must
+            # block it cleanly rather than crashing when it tries to parse
+            # the hostname as an IP for CIDR membership.
+            socket.socket().connect(('example.invalid', 80))
+        """)
+    result = pytester.runpytest("--allow-hosts=10.0.0.0/8")
+    result.assert_outcomes(failed=1)
+    assert_host_blocked(result, "example.invalid")
+
+
+def test_cidr_appears_in_blocked_error_message(pytester):
+    """The 'allowed:' hint in the blocked-connect message includes CIDR strings."""
+    pytester.makepyfile("""
+        import socket
+
+        def test_blocked():
+            socket.socket().connect(('2.2.2.2', 80))
+        """)
+    result = pytester.runpytest("--allow-hosts=10.0.0.0/8,192.168.0.0/16")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines('*allowed: "10.0.0.0/8,192.168.0.0/16"*')
+
+
+def test_malformed_cidr_does_not_crash(pytester):
+    """A malformed CIDR entry is treated as a (non-resolving) host, not a crash."""
+    pytester.makepyfile("""
+        import socket
+
+        def test_blocked():
+            socket.socket().connect(('2.2.2.2', 80))
+        """)
+    result = pytester.runpytest("--allow-hosts=10.0.0.0/notanumber")
+    result.assert_outcomes(failed=1)
+    assert_host_blocked(result, "2.2.2.2")
+
+
+def test_name_resolution_cached(pytester, getaddrinfo_hosts):
+    """pytest-socket only resolves each allowed name once."""
+
+    pytester.makepyfile("""
+        import pytest
+        import socket
+
+        @pytest.mark.allow_hosts('name.internal')
+        def test_1():
+            ...
+
+        @pytest.mark.allow_hosts(['name.internal', 'name.another'])
+        def test_2():
+            ...
+
+        @pytest.mark.allow_hosts('name.internal')
+        @pytest.mark.parametrize("i", ["3", "4", "5"])
+        def test_456(i):
+            ...
+        """)
+
+    hooks = pytester.inline_run("--allow-hosts=name.internal,name.internal")
+    [result] = hooks.getcalls("pytest_sessionfinish")
+    assert result.session.testsfailed == 0
+
+    assert collections.Counter(getaddrinfo_hosts) == {
+        "name.internal": 1,
+        "name.another": 1,
+    }

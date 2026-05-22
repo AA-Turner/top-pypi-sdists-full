@@ -147,9 +147,9 @@ def get_pg_database(database_name: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_aiven as aiven
 
-    main = aiven.get_pg_database(project=example_project["project"],
-        service_name=example_postgres["serviceName"],
-        database_name="example-database")
+    example = aiven.get_pg_database(project="my-project",
+        service_name="my-pg",
+        database_name="testdb")
     ```
 
 
@@ -174,10 +174,10 @@ def get_pg_database(database_name: Optional[_builtins.str] = None,
         service_name=pulumi.get(__ret__, 'service_name'),
         termination_protection=pulumi.get(__ret__, 'termination_protection'),
         timeouts=pulumi.get(__ret__, 'timeouts'))
-def get_pg_database_output(database_name: Optional[pulumi.Input[_builtins.str]] = None,
-                           project: Optional[pulumi.Input[_builtins.str]] = None,
-                           service_name: Optional[pulumi.Input[_builtins.str]] = None,
-                           timeouts: Optional[pulumi.Input[Optional[Union['GetPgDatabaseTimeoutsArgs', 'GetPgDatabaseTimeoutsArgsDict']]]] = None,
+def get_pg_database_output(database_name: pulumi.Input[Optional[_builtins.str]] = None,
+                           project: pulumi.Input[Optional[_builtins.str]] = None,
+                           service_name: pulumi.Input[Optional[_builtins.str]] = None,
+                           timeouts: pulumi.Input[Optional[Optional[Union['GetPgDatabaseTimeoutsArgs', 'GetPgDatabaseTimeoutsArgsDict']]]] = None,
                            opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetPgDatabaseResult]:
     """
     Gets information about an Aiven for PostgreSQL® database.
@@ -188,9 +188,9 @@ def get_pg_database_output(database_name: Optional[pulumi.Input[_builtins.str]] 
     import pulumi
     import pulumi_aiven as aiven
 
-    main = aiven.get_pg_database(project=example_project["project"],
-        service_name=example_postgres["serviceName"],
-        database_name="example-database")
+    example = aiven.get_pg_database(project="my-project",
+        service_name="my-pg",
+        database_name="testdb")
     ```
 
 

@@ -25,7 +25,7 @@ class LinkupSearchTextResult(_LinkupBaseModel):
     name: str
     url: str
     content: str
-    favicon: str = ""
+    favicon: str
 
 
 class LinkupSearchImageResult(_LinkupBaseModel):
@@ -58,14 +58,14 @@ class LinkupSource(_LinkupBaseModel):
     Attributes:
         name: The name of the source.
         url: The URL of the source.
-        snippet: The text excerpt supporting the Linkup answer. Can be empty for image sources.
+        snippet: The text excerpt supporting the Linkup answer.
         favicon: The favicon URL of the source, if available.
     """
 
     name: str
     url: str
-    snippet: str = ""
-    favicon: str = ""
+    snippet: str
+    favicon: str
 
 
 class LinkupSourcedAnswer(_LinkupBaseModel):
@@ -123,7 +123,7 @@ class LinkupSearchTaskInput(_LinkupBaseModel):
 
     Attributes:
         query: The search query.
-        depth: The search depth.
+        depth: The search depth. "fast" depth is in beta and only works with keyword-based queries.
         output_type: The expected search output type.
         include_images: Whether image results should be included.
         from_date: The start date used to filter search sources, if any.
@@ -137,7 +137,7 @@ class LinkupSearchTaskInput(_LinkupBaseModel):
     """
 
     query: str = Field(validation_alias="q")
-    depth: Literal["standard", "deep"]
+    depth: Literal["fast", "standard", "deep"]
     output_type: Literal["searchResults", "sourcedAnswer", "structured"] = Field(
         validation_alias="outputType"
     )

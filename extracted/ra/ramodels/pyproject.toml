@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 [tool.poetry]
 name = "ramodels"
-version = "54.0.3"
+version = "54.0.4"
 description = "Pydantic data models for OS2mo"
 authors = ["Magenta <info@magenta.dk>"]
 license = "MPL-2.0"

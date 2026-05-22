@@ -17,10 +17,13 @@ class PostFxRenderer:
     __slots__ = tuple()
 
     _registry: ClassVar[dict[Type[PostFxEffect], SpecializedPostFxRenderer]] = {}
+    _with_clock: ClassVar[set[SpecializedPostFxRenderer]] = set()
+
+    _time: float = 0.0
 
     # ======================================== REGISTRY ========================================
     @classmethod
-    def _register(cls, renderer_cls: Type[SpecializedPostFxRenderer]) -> None:
+    def _register(cls, renderer_cls: Type[SpecializedPostFxRenderer], requires_time: bool = False) -> None:
         """Enregistre un renderer spécialisé pour les effets qu'il déclare gérer.
 
         Args:
@@ -29,6 +32,8 @@ class PostFxRenderer:
         instance = renderer_cls()
         for effect_type in renderer_cls._HANDLES:
             cls._registry[effect_type] = instance
+            if requires_time:
+                cls._with_clock.add(instance)
 
     @classmethod
     def clear_shader_cache(cls) -> None:
@@ -39,6 +44,18 @@ class PostFxRenderer:
             if rid not in seen:
                 seen.add(rid)
                 renderer.clear_shader_cache()
+
+    # ======================================== LIFE CYCLE ========================================
+    @classmethod
+    def tick(self, dt: float) -> None:
+        """Avance l'horloge interne
+
+        Args:
+            dt: delta-time en secondes
+        """
+        PostFxRenderer._time += dt
+        for renderer in self._with_clock:
+            type(renderer)._time = PostFxRenderer._time
 
     # ======================================== RENDER ========================================
     def render(self, pipeline: Pipeline, zones: list[PostFxZone]) -> None:

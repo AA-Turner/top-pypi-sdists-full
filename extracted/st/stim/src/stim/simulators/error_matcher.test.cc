@@ -549,3 +549,397 @@ ExplainedError {
 }
 )RESULT");
 }
+
+TEST(ErrorMatcher, heralded_error) {
+    Circuit circuit(R"CIRCUIT(
+        HERALDED_ERASE(0.01) 0
+        DETECTOR rec[-1]
+        HERALDED_ERASE(0.01) 1 2
+    )CIRCUIT");
+    DetectorErrorModel filter(R"MODEL(
+        error(1) D0
+    )MODEL");
+
+    auto actual = ErrorMatcher::explain_errors_from_circuit(circuit, &filter, false);
+    std::stringstream ss;
+    for (const auto &match : actual) {
+        ss << "\n" << match << "\n";
+    }
+    ASSERT_EQ(ss.str(), R"RESULT(
+ExplainedError {
+    dem_error_terms: D0
+    CircuitErrorLocation {
+        flipped_measurement.measurement_record_index: 0
+        Circuit location stack trace:
+            (after 0 TICKs)
+            at instruction #1 (HERALDED_ERASE) in the circuit
+            at target #1 of the instruction
+            resolving to HERALDED_ERASE(0.01) 0
+    }
+    CircuitErrorLocation {
+        flipped_pauli_product: X0
+        flipped_measurement.measurement_record_index: 0
+        Circuit location stack trace:
+            (after 0 TICKs)
+            at instruction #1 (HERALDED_ERASE) in the circuit
+            at target #1 of the instruction
+            resolving to HERALDED_ERASE(0.01) 0
+    }
+    CircuitErrorLocation {
+        flipped_pauli_product: Y0
+        flipped_measurement.measurement_record_index: 0
+        Circuit location stack trace:
+            (after 0 TICKs)
+            at instruction #1 (HERALDED_ERASE) in the circuit
+            at target #1 of the instruction
+            resolving to HERALDED_ERASE(0.01) 0
+    }
+    CircuitErrorLocation {
+        flipped_pauli_product: Z0
+        flipped_measurement.measurement_record_index: 0
+        Circuit location stack trace:
+            (after 0 TICKs)
+            at instruction #1 (HERALDED_ERASE) in the circuit
+            at target #1 of the instruction
+            resolving to HERALDED_ERASE(0.01) 0
+    }
+}
+)RESULT");
+}
+
+TEST(ErrorMatcher, PAULI_CHANNEL_2) {
+    std::vector<ExplainedError> actual;
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{GateTargetWithCoords{GateTarget::x(1)}}));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{GateTargetWithCoords{GateTarget::y(1)}}));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{GateTargetWithCoords{GateTarget::z(1)}}));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::x(0)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::x(0)},
+            GateTargetWithCoords{GateTarget::x(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::x(0)},
+            GateTargetWithCoords{GateTarget::y(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::x(0)},
+            GateTargetWithCoords{GateTarget::z(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::y(0)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::y(0)},
+            GateTargetWithCoords{GateTarget::x(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::y(0)},
+            GateTargetWithCoords{GateTarget::y(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::y(0)},
+            GateTargetWithCoords{GateTarget::z(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::z(0)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::z(0)},
+            GateTargetWithCoords{GateTarget::x(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::z(0)},
+            GateTargetWithCoords{GateTarget::y(1)},
+        }));
+
+    actual = ErrorMatcher::explain_errors_from_circuit(
+        Circuit(R"CIRCUIT(
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            PAULI_CHANNEL_2(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1) 0 1
+            MXX 0 2 1 3
+            MZZ 0 2 1 3
+            DETECTOR rec[-1] rec[-5]
+            DETECTOR rec[-2] rec[-6]
+            DETECTOR rec[-3] rec[-7]
+            DETECTOR rec[-4] rec[-8]
+        )CIRCUIT"),
+        nullptr,
+        false);
+    ASSERT_EQ(actual.size(), 1);
+    ASSERT_EQ(actual[0].circuit_error_locations.size(), 1);
+    ASSERT_EQ(
+        actual[0].circuit_error_locations[0].flipped_pauli_product,
+        (std::vector<GateTargetWithCoords>{
+            GateTargetWithCoords{GateTarget::z(0)},
+            GateTargetWithCoords{GateTarget::z(1)},
+        }));
+}

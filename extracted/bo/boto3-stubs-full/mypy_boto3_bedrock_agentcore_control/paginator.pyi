@@ -21,6 +21,9 @@ Usage::
         ListCodeInterpretersPaginator,
         ListConfigurationBundleVersionsPaginator,
         ListConfigurationBundlesPaginator,
+        ListDatasetExamplesPaginator,
+        ListDatasetVersionsPaginator,
+        ListDatasetsPaginator,
         ListEvaluatorsPaginator,
         ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
@@ -56,6 +59,9 @@ Usage::
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
     list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
+    list_dataset_examples_paginator: ListDatasetExamplesPaginator = client.get_paginator("list_dataset_examples")
+    list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_paginator("list_dataset_versions")
+    list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
     list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
@@ -106,6 +112,12 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestPaginateTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListDatasetExamplesRequestPaginateTypeDef,
+    ListDatasetExamplesResponseTypeDef,
+    ListDatasetsRequestPaginateTypeDef,
+    ListDatasetsResponseTypeDef,
+    ListDatasetVersionsRequestPaginateTypeDef,
+    ListDatasetVersionsResponseTypeDef,
     ListEvaluatorsRequestPaginateTypeDef,
     ListEvaluatorsResponseTypeDef,
     ListGatewayRulesRequestPaginateTypeDef,
@@ -165,6 +177,9 @@ __all__ = (
     "ListCodeInterpretersPaginator",
     "ListConfigurationBundleVersionsPaginator",
     "ListConfigurationBundlesPaginator",
+    "ListDatasetExamplesPaginator",
+    "ListDatasetVersionsPaginator",
+    "ListDatasetsPaginator",
     "ListEvaluatorsPaginator",
     "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
@@ -352,6 +367,60 @@ class ListConfigurationBundlesPaginator(_ListConfigurationBundlesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundles.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundles.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listconfigurationbundlespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDatasetExamplesPaginatorBase = Paginator[ListDatasetExamplesResponseTypeDef]
+else:
+    _ListDatasetExamplesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetExamplesPaginator(_ListDatasetExamplesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasetExamples.html#BedrockAgentCoreControl.Paginator.ListDatasetExamples)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetexamplespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetExamplesRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetExamplesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasetExamples.html#BedrockAgentCoreControl.Paginator.ListDatasetExamples.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetexamplespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDatasetVersionsPaginatorBase = Paginator[ListDatasetVersionsResponseTypeDef]
+else:
+    _ListDatasetVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetVersionsPaginator(_ListDatasetVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasetVersions.html#BedrockAgentCoreControl.Paginator.ListDatasetVersions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasetVersions.html#BedrockAgentCoreControl.Paginator.ListDatasetVersions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDatasetsPaginatorBase = Paginator[ListDatasetsResponseTypeDef]
+else:
+    _ListDatasetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetsPaginator(_ListDatasetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasets.html#BedrockAgentCoreControl.Paginator.ListDatasets)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListDatasets.html#BedrockAgentCoreControl.Paginator.ListDatasets.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listdatasetspaginator)
         """
 
 if TYPE_CHECKING:

@@ -738,7 +738,7 @@ class PKScanRunner:
         import time
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        start_time = time.time()
+        # start_time = time.time()
         total_workers = len(consumers)
         
         # OPTIMIZATION: Pre-configure all workers before starting
@@ -756,7 +756,7 @@ class PKScanRunner:
         
         OutputControls().printOutput(
             colorText.FAIL
-            + f"\n  [+] Using Period:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.period}{colorText.END}{colorText.FAIL} and Duration:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.duration}{colorText.END}{colorText.FAIL} with {total_workers} consumers and {max_workers} workers for scan! You can change this in user config."
+            + f"\n  [+] Using Period:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.period}{colorText.END}{colorText.FAIL} and Duration:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.duration}{colorText.END}{colorText.FAIL} with {colorText.GREEN}{total_workers}{colorText.END} consumers and {colorText.GREEN}{max_workers}{colorText.END} workers for scan! You can change this in user config."
             + colorText.END
         )
 
@@ -775,11 +775,11 @@ class PKScanRunner:
                 except Exception as e:
                     default_logger().debug(f"Error starting worker: {e}", exc_info=True)
         
-        elapsed = time.time() - start_time
-        OutputControls().printOutput(f"Started all {total_workers} workers in {elapsed:.2f}s")
+        # elapsed = time.time() - start_time
+        # OutputControls().printOutput(f"Started all {total_workers} workers in {elapsed:.2f}s")
         
-        if OutputControls().enableMultipleLineOutput:
-            OutputControls().moveCursorUpLines(1)
+        # if OutputControls().enableMultipleLineOutput:
+        #     OutputControls().moveCursorUpLines(1)
 
     @staticmethod
     def startWorkersSequential(consumers):

@@ -110,8 +110,8 @@ def get_organization_user_group_member_list(members: Optional[Sequence[Union['Ge
     import pulumi
     import pulumi_aiven as aiven
 
-    foo = aiven.get_organization_user_group_member_list(organization_id=organization_id,
-        user_group_id=user_group_id)
+    example = aiven.get_organization_user_group_member_list(organization_id="org1a23f456789",
+        user_group_id="foo")
     ```
 
 
@@ -133,10 +133,10 @@ def get_organization_user_group_member_list(members: Optional[Sequence[Union['Ge
         organization_id=pulumi.get(__ret__, 'organization_id'),
         timeouts=pulumi.get(__ret__, 'timeouts'),
         user_group_id=pulumi.get(__ret__, 'user_group_id'))
-def get_organization_user_group_member_list_output(members: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationUserGroupMemberListMemberArgs', 'GetOrganizationUserGroupMemberListMemberArgsDict']]]]] = None,
-                                                   organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                                   timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationUserGroupMemberListTimeoutsArgs', 'GetOrganizationUserGroupMemberListTimeoutsArgsDict']]]] = None,
-                                                   user_group_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_organization_user_group_member_list_output(members: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationUserGroupMemberListMemberArgs', 'GetOrganizationUserGroupMemberListMemberArgsDict']]]]] = None,
+                                                   organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                                   timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationUserGroupMemberListTimeoutsArgs', 'GetOrganizationUserGroupMemberListTimeoutsArgsDict']]]] = None,
+                                                   user_group_id: pulumi.Input[Optional[_builtins.str]] = None,
                                                    opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationUserGroupMemberListResult]:
     """
     List members of a user group.
@@ -147,8 +147,8 @@ def get_organization_user_group_member_list_output(members: Optional[pulumi.Inpu
     import pulumi
     import pulumi_aiven as aiven
 
-    foo = aiven.get_organization_user_group_member_list(organization_id=organization_id,
-        user_group_id=user_group_id)
+    example = aiven.get_organization_user_group_member_list(organization_id="org1a23f456789",
+        user_group_id="foo")
     ```
 
 

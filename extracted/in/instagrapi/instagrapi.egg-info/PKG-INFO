@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.7.8
+Version: 2.7.10
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT

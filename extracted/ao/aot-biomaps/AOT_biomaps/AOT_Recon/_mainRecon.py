@@ -2,14 +2,19 @@ from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.Tomography import Tomography
 from .ReconEnums import ReconType
 from .ReconTools import mse
-from skimage.metrics import structural_similarity as ssim
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from tqdm import trange
 
+# Check for matplotlib availability
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    plt = None
+    MATPLOTLIB_AVAILABLE = False
 
 class Recon(ABC):
     def __init__(self, experiment, saveDir = None, isGPU = config.get_process() == 'gpu', isMultiCPU = True):
@@ -195,7 +200,12 @@ class Recon(ABC):
             withTumor (bool): If True, displays reconPhantom. If False, displays reconLaser. Default is True.
             savePath (str): Path to save the figure. If None, the figure is not saved. Default is None.
             scale (str): Scale for the aspect ratio of the plots. Default is 'same'. Options are 'same' or 'auto'.
+        
+        Note:
+            Requires matplotlib to be installed. If matplotlib is not available, this method will raise an ImportError.
         """
+        if not MATPLOTLIB_AVAILABLE:
+            raise ImportError("matplotlib is required for the show() method. Please install it with: pip install matplotlib")
         if withTumor:
             if self.reconPhantom is None:
                 raise ValueError("Reconstructed phantom with tumor is empty. Run reconstruction first.")

@@ -6,10 +6,22 @@ from .AcousticTools import hex_to_binary_profile
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import trange
-import cupy as cp
+import warnings
 
+# Optional cupy import for GPU acceleration
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    CUPY_AVAILABLE = False
+
+# Optional matplotlib import for visualization
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 class StructuredWave(AcousticField):
 
@@ -95,12 +107,12 @@ class StructuredWave(AcousticField):
             """
             return f"Pattern structure: {self.to_string()}"
 
-    def __init__(self, fileName = None, angle_deg = None, space_0 = None, space_1 = None, move_head_0_2tail = None, move_tail_1_2head = None, **kwargs):
+    def __init__(self, fileName = None, angle = None, space_0 = None, space_1 = None, move_head_0_2tail = None, move_tail_1_2head = None, **kwargs):
         """
         Initialize the StructuredWave object.
 
         Args:
-            angle_deg (float): Angle in degrees.
+            angle (float): Angle in degrees.
             fileName (str): Name of the file containing the hexadecimal active list and the angle (format : activelisthEXA_Angle)
             space_0 (int): Number of zeros in the pattern.
             space_1 (int): Number of ones in the pattern.
@@ -113,9 +125,9 @@ class StructuredWave(AcousticField):
             self.waveType = WaveType.StructuredWave
             if  self.params.general['Nt'] is None:
                 self.medium.kgrid.setTime(int(self.medium.kgrid.Nt*1.5),self.medium.kgrid.dt) # Extend the time grid to allow for delays
-            if space_0 is not None and space_1 is not None and move_head_0_2tail is not None and move_tail_1_2head is not None and angle_deg is not None:
+            if space_0 is not None and space_1 is not None and move_head_0_2tail is not None and move_tail_1_2head is not None and angle is not None:
                 self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head, self.params.acoustic['probe']['num_elements'] // 4)
-                self.angle = angle_deg
+                self.angle = angle
                 self.pattern.activeList = self.pattern.generate_pattern()
             elif fileName is not None:
                 self.pattern = self.PatternParams(0,0,0,0,self.params.acoustic['probe']['num_elements'] // 4)
@@ -126,7 +138,7 @@ class StructuredWave(AcousticField):
                 raise ValueError("Invalid pattern parameters, must provide either fileName or all space/move parameters.")
             
             self.pattern.len_hex = self.params.acoustic['probe']['num_elements'] // 4
-            self.f_s = getFrequency(fileName, self.params.acoustic['probe']['num_elements'], self.params.general['dx'])
+            self.f_s = getFrequency(self.pattern.activeList, self.params.acoustic['probe']['num_elements'], self.params.general['dx'])
 
             if len(self.pattern.activeList) != self.params.acoustic['probe']['num_elements'] // 4:
                 raise ValueError(f"Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
@@ -191,7 +203,6 @@ class StructuredWave(AcousticField):
             for i in range(total_grid_points):
                 delays[i] = (element_positions[i] * np.tan(np.deg2rad(abs(self.angle)))) / c0  # Delay in seconds
 
-
             delay_samples = np.round(delays / actual_dt).astype(int)
             max_delay = np.max(np.abs(delay_samples))
 
@@ -213,6 +224,9 @@ class StructuredWave(AcousticField):
         """
         Plot the time of the maximum of each delayed signal to visualize the wavefront.
         """
+        if not MATPLOTLIB_AVAILABLE:
+            warnings.warn("matplotlib is not available. Cannot plot delay.", UserWarning)
+            return
         try:
             # Find the index of the maximum for each delayed signal
             max_indices = np.argmax(self.delayedSignal, axis=1)
@@ -311,59 +325,81 @@ class StructuredWave(AcousticField):
             print(f"Error saving HDR/IMG files: {e}")
 
     def _SetUpSource(self, source, Nx, dt, dx, c0, factorT):
+        """
+        Set up the k-Wave source for the acoustic field simulation.
+        Configures the source mask and applies delayed signals to active elements.
+
+        Parameters:
+            source: k-Wave source object (p_mask and p will be modified).
+            Nx (int): Number of grid points in x.
+            dt (float): Time step (in seconds).
+            dx (float): Spatial step (in meters).
+            c0 (float): Speed of sound (in m/s).
+            factorT (int): Time downsampling factor.
+
+        Returns:
+            source: Configured k-Wave source object.
+        """
+        # Convert hex activeList to binary array
         active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
-        
-        # Largeur d'un élément en pixels
+
+        # Element width in pixels
         el_width_px = int(round(self.params.acoustic['probe']['element_width'] / dx))
-        # Largeur totale de la sonde en pixels
-        total_sonde_px = self.params.acoustic['probe']['num_elements'] * el_width_px
-        
-        # On récupère pva_nx depuis l'appel ou on le recalcule
+        # Total probe width in pixels
+        total_probe_px = self.params.acoustic['probe']['num_elements'] * el_width_px
+
+        # Get PVA width in pixels or recalculate
         pva_nx = int(np.round(self.params.acoustic['medium']['width'] / dx))
         air_margin = (Nx - pva_nx) // 2
-        
-        # Position de départ pour que la sonde soit centrée sur le PHANTOM
-        # On commence à la fin de la marge d'air, et on centre la sonde dans le pva_nx
-        current_position = air_margin + (pva_nx - total_sonde_px) // 2
 
-        activeListGrid = np.zeros(total_sonde_px, dtype=int)
+        # Starting position to center the probe on the PHANTOM
+        # Start at the end of the air margin, and center the probe within pva_nx
+        current_position = air_margin + (pva_nx - total_probe_px) // 2
+
+        activeListGrid = np.zeros(total_probe_px, dtype=int)
 
         for i in range(self.params.acoustic['probe']['num_elements']):
             if active_list[i] == 1:
                 x_start = current_position
                 x_end = x_start + el_width_px
-                
-                # On remplit le masque k-Wave (z=0)
+
+                # Fill k-Wave mask (z=0)
                 source.p_mask[x_start:x_end, 0] = 1
-                
-                # On marque les indices actifs pour injecter le signal delayed
+
+                # Mark active indices for delayed signal injection
                 idx_start = i * el_width_px
                 idx_end = idx_start + el_width_px
                 activeListGrid[idx_start:idx_end] = 1
 
-            current_position += el_width_px # Pas de "spacing" variable, les éléments sont collés
+            current_position += el_width_px  # No variable "spacing", elements are contiguous
 
-        # Injection du signal
+        # Signal injection
         if factorT != 1:
             delayedSignal = self._apply_delay(dt=dt, dx=dx, c0=c0)
         else:
             delayedSignal = self.delayedSignal
 
-        # On injecte uniquement là où p_mask == 1
+        # Inject only where p_mask == 1
         source.p = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity']) * delayedSignal[activeListGrid == 1, :]
         return source
-    
+
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         """
-        Simulation du champ 'field' (Nt, Nz, Nx) sans padding interne.
-        L'apodisation spatiale et l'enveloppe temporelle sont conservées.
+        Simulate the acoustic field (Nt, Nz, Nx) without internal padding.
+        Spatial apodization and temporal envelope are preserved.
+
+        Parameters:
+            show_log (bool): Whether to display simulation logs. Default is False.
+
+        Returns:
+            numpy.ndarray: Simulated acoustic field with shape (Nt, Nz, Nx).
         """
-        # 1. Paramètres de base (Grille initiale)
+        # 1. Base parameters (Initial grid)
         Nx = int(self.params.general['Nx'])
         Nz = int(self.params.general['Nz'])
         Nt = int(self.params.general['Nt'] * self.params.acoustic['f_saving'] / self.params.acoustic['f_AQ'])
-        
-        dx = self.params.general['dx'] # En mètres
+
+        dx = self.params.general['dx']  # in meters
         dt = 1 / self.params.acoustic['f_saving']
         c0 = self.params.acoustic['medium']['c0']
         f0 = self.params.acoustic['f_US']
@@ -373,12 +409,12 @@ class StructuredWave(AcousticField):
         Nx_fine, Nz_fine = Nx * factor, Nz * factor
         dx_fine = dx / factor
 
-        # Enveloppe Temporelle (Hanning)
+        # Temporal Envelope (Hanning)
         burst_duration = num_cycles / f0
         n_t_burst = int(round(burst_duration / dt))
         enveloppe_t = np.sin(np.linspace(0, np.pi, n_t_burst))**2
 
-        # --- APODISATION SPATIALE ---
+        # ---
         num_elements = self.params.acoustic['probe']['num_elements']
         if self.params.acoustic.get('useApod', False):
             from scipy.signal.windows import tukey
@@ -387,129 +423,57 @@ class StructuredWave(AcousticField):
         else:
             apod_window = np.ones(num_elements)
 
-        # Setup Sonde (Centrée sur la grille Nx)
+        # Probe setup (Centered on the Nx grid)
         active_hex = self.pattern.activeList
         active_list = np.array([int(char) for char in ''.join(f"{int(active_hex[i:i+2], 16):08b}" for i in range(0, len(active_hex), 2))])
-        
+
         el_width_px_fine = int(round(self.params.acoustic['probe']['element_width'] / dx_fine))
         pva_nx_fine = int(np.round(self.params.acoustic['medium']['width'] / dx_fine))
 
-        # Centrage standard
-        x_start_sonde_fine = ((Nx_fine - pva_nx_fine) // 2) + (pva_nx_fine - (num_elements * el_width_px_fine)) // 2
-        x_pivot_px_fine = x_start_sonde_fine if self.angle >= 0 else x_start_sonde_fine + (num_elements * el_width_px_fine)
+        # Standard centering
+        x_start_probe_fine = ((Nx_fine - pva_nx_fine) // 2) + (pva_nx_fine - (num_elements * el_width_px_fine)) // 2
+        x_pivot_px_fine = x_start_probe_fine if self.angle >= 0 else x_start_probe_fine + (num_elements * el_width_px_fine)
 
         angle_rad = np.deg2rad(self.angle)
         cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
 
-        # 2. Initialisation et Simulation
+        # 2. Initialization and Simulation
         field = np.zeros((Nt, Nz, Nx), dtype=np.float32)
         t = np.arange(Nt) * dt
-        indices_actifs = np.where(active_list == 1)[0]
+        active_indices = np.where(active_list == 1)[0]
         weight_base = 1.0 / (factor * factor)
 
-        for i in indices_actifs:
+        for i in active_indices:
             val_i = weight_base * apod_window[i]
-            
-            x_i_px_fine = x_start_sonde_fine + (i * el_width_px_fine)
+
+            x_i_px_fine = x_start_probe_fine + (i * el_width_px_fine)
             dist_to_pivot = (x_i_px_fine - x_pivot_px_fine) * dx_fine
             delay_i = (abs(dist_to_pivot) * np.sin(abs(angle_rad))) / c0
-            
+
             t_eff = t - delay_i
             mask = (t_eff > 0) & (t_eff < t[-1])
             if not np.any(mask): continue
-            
+
             dist_travelled = c0 * t_eff[mask]
             t_indices = np.where(mask)[0]
-            
+
             z_px_fine = np.floor((dist_travelled * cos_a) / dx_fine).astype(int)
             x_px_fine_base = np.floor((x_i_px_fine * dx_fine + dist_travelled * sin_a) / dx_fine).astype(int)
 
             for b_shift in range(n_t_burst):
                 st = t_indices + b_shift
                 v_t = st < Nt
-                
+
                 curr_t, curr_z, curr_xb = st[v_t], z_px_fine[v_t], x_px_fine_base[v_t]
                 val_final = enveloppe_t[b_shift] * val_i
 
                 for offset_x in range(el_width_px_fine):
                     curr_x = curr_xb + offset_x
                     m = (curr_z >= 0) & (curr_z < Nz_fine) & (curr_x >= 0) & (curr_x < Nx_fine)
-                    
+
                     if np.any(m):
                         zf, xf, tf = curr_z[m]//factor, curr_x[m]//factor, curr_t[m]
                         flat_idx = tf.astype(np.int64) * (Nz * Nx) + zf * Nx + xf
                         np.add.at(field.ravel(), flat_idx, val_final)
 
         return field
-    # def _SetUpSource(self, source, Nx, dx, factorT):
-    #     """
-    #     Set up source for both 2D and 3D structured waves.
-    #     """
-    #     active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
-    #     element_width_grid_points = int(round(self.params['element_width'] / dx))
-
-    #     if source.p_mask.ndim == 2:
-    #         element_width_grid_points = int(round(self.params['element_width'] / dx))
-    #         total_elements_width = self.params['num_elements'] * element_width_grid_points
-
-    #         # Vérifier que les éléments rentrent dans le grid
-    #         if total_elements_width > Nx:
-    #             raise ValueError(f"La largeur totale des éléments ({total_elements_width}) dépasse Nx ({Nx}).")
-
-    #         remaining_space = Nx - total_elements_width
-    #         if remaining_space < 0:
-    #             raise ValueError(f"Pas assez d'espace pour placer les éléments: total_elements_width ({total_elements_width}) > Nx ({Nx}).")
-
-    #         spacing = remaining_space // (self.params['num_elements'] + 1)
-    #         center_index = np.argmin(np.abs(np.linspace(self.params['Xrange'][0], self.params['Xrange'][1], Nx)))
-
-    #         activeListGrid = np.zeros(total_elements_width, dtype=int)
-    #         current_position = center_index - (total_elements_width + (self.params['num_elements'] - 1) * spacing) // 2
-
-    #         # Placement des éléments actifs
-    #         for i in range(self.params['num_elements']):
-    #             if active_list[i] == 1:
-    #                 x_pos = max(0, current_position)  # Éviter les indices négatifs
-    #                 x_end = x_pos + element_width_grid_points
-    #                 if x_end > Nx:
-    #                     x_end = Nx  # Limiter à Nx
-    #                 source.p_mask[x_pos:x_end,0] = 1
-
-    #                 start_idx = i * element_width_grid_points
-    #                 end_idx = start_idx + element_width_grid_points
-    #                 if end_idx > total_elements_width:
-    #                     end_idx = total_elements_width
-    #                 activeListGrid[start_idx:end_idx] = 1
-
-    #             current_position += element_width_grid_points + spacing
-
-    #         # Chargement des signaux retardés
-    #         if factorT != 1:
-    #             delayedSignal = self._apply_delay(dx=dx)
-    #         else:
-    #             delayedSignal = self.delayedSignal
-
-    #         # Vérification de la taille de delayedSignal
-    #         num_active_elements = np.sum(activeListGrid == 1)
-    #         if delayedSignal.shape[0] < num_active_elements:
-    #             raise ValueError(f"delayedSignal a une taille insuffisante: {delayedSignal.shape[0]} < {num_active_elements}.")
-
-    #         # Assigner source.p
-    #         source.p =  float(self.params['voltage']) * float(self.params['sensitivity']) * delayedSignal[activeListGrid == 1, :]
-
-
-    #     elif source.p_mask.ndim == 3:
-    #         # --- 3D ---
-    #         center_index_x = Nx // 2
-    #         center_index_y = self.params['Ny'] // 2
-    #         spacing = (Nx - self.params['num_elements'] * element_width_grid_points) // (self.params['num_elements'] + 1)
-    #         current_position = center_index_x - (self.params['num_elements'] * element_width_grid_points + (self.params['num_elements'] - 1) * spacing) // 2
-
-    #         for i in range(self.params['num_elements']):
-    #             if active_list[i] == 1:
-    #                 x_pos = current_position
-    #                 source.p_mask[x_pos:x_pos + element_width_grid_points, center_index_y, 0] = 1
-    #             current_position += element_width_grid_points + spacing
-
-    #         delayed_signals = self._apply_delay()
-    #         source.p =  float(self.params['voltage']) * float(self.params['sensitivity']) * delayed_signals.T

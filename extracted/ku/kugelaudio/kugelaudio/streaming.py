@@ -86,6 +86,10 @@ class StreamingSession:
         self._pending_messages: List[Dict[str, Any]] = []
         self._on_word_timestamps = on_word_timestamps
         self._last_word_timestamps: List[WordTimestamp] = []
+        # drain() sets these so a subsequent end_session()/close() can return
+        # the same stats without re-running the close handshake.
+        self._session_ended = False
+        self._session_stats: Dict[str, Any] = {}
 
     @property
     def last_word_timestamps(self) -> List[WordTimestamp]:
@@ -299,6 +303,67 @@ class StreamingSession:
                     break
                 raise
 
+    async def drain(self) -> AsyncIterator[AudioChunk]:
+        """Signal end-of-input and yield any remaining audio chunks.
+
+        Sends ``{"close": true}`` once, then yields every audio chunk the
+        server emits until it responds with ``session_closed``. Use this
+        before exiting the session if you need the tail audio that the
+        server still has in flight — otherwise :meth:`close` /
+        :meth:`end_session` will silently discard those chunks (KUG-421).
+
+        After ``drain()`` completes the server-side session has ended and
+        the next :meth:`send` will start a fresh session on the same
+        WebSocket. Stats are captured and returned by the subsequent
+        :meth:`end_session` / :meth:`close` call.
+
+        Example:
+            async with client.tts.streaming_session(voice_id=123) as session:
+                async for token in llm_stream:
+                    async for chunk in session.send(token):
+                        play(chunk)
+                async for chunk in session.drain():
+                    play(chunk)
+        """
+        if not self._ws or self._session_ended:
+            return
+
+        self._session_ended = True
+        try:
+            await self._ws.send(json.dumps({"close": True}))
+
+            while True:
+                msg = await asyncio.wait_for(
+                    self._ws.recv(), timeout=_DEFAULT_RECV_TIMEOUT_S
+                )
+                data = json.loads(msg)
+
+                if data.get("error"):
+                    _raise_for_error(data)
+
+                if data.get("audio"):
+                    yield AudioChunk.from_dict(data)
+
+                if "word_timestamps" in data:
+                    stamps = [
+                        WordTimestamp.from_dict(w) for w in data["word_timestamps"]
+                    ]
+                    self._last_word_timestamps = stamps
+                    if self._on_word_timestamps:
+                        self._on_word_timestamps(stamps)
+
+                if data.get("session_closed"):
+                    self._session_stats = data
+                    break
+        except Exception as e:
+            if "ConnectionClosed" in str(type(e)) or isinstance(
+                e, (OSError, asyncio.TimeoutError)
+            ):
+                self._ws = None
+                self._is_started = False
+            else:
+                raise
+
     async def end_session(self) -> Dict[str, Any]:
         """End the current session but keep the WebSocket connection open.
 
@@ -308,9 +373,23 @@ class StreamingSession:
         After calling this, use :meth:`update_config` to change voice/model
         settings, then call :meth:`send` to start the next session.
 
+        Audio chunks the server still has in flight at close time are
+        silently discarded — see :meth:`drain` for the opt-in tail-drain
+        path (KUG-421). If :meth:`drain` has already been called, this
+        method returns the stats captured there without re-running the
+        close handshake.
+
         Returns:
             Session statistics from the ended session
         """
+        if self._session_ended:
+            stats = self._session_stats
+            self._session_ended = False
+            self._session_stats = {}
+            self._config_sent = False
+            self._last_word_timestamps = []
+            return stats
+
         stats: Dict[str, Any] = {}
         if not self._ws:
             return stats
@@ -363,7 +442,9 @@ class StreamingSession:
         """Close the session and the WebSocket connection.
 
         Sends a close command, drains messages until the server responds
-        with ``session_closed``, then closes the WebSocket.
+        with ``session_closed``, then closes the WebSocket. Audio chunks
+        the server emits during this final drain are silently discarded
+        — call :meth:`drain` first if you need them (KUG-421).
 
         For session reuse without closing the connection, use
         :meth:`end_session` instead.
@@ -416,6 +497,20 @@ class StreamingSessionSync:
         async def collect() -> List[AudioChunk]:
             chunks: List[AudioChunk] = []
             async for chunk in self._session.flush():
+                chunks.append(chunk)
+            return chunks
+
+        return self._loop.run_until_complete(collect())
+
+    def drain(self) -> List[AudioChunk]:
+        """End the session and return any remaining audio chunks.
+
+        See :meth:`StreamingSession.drain` for the rationale.
+        """
+
+        async def collect() -> List[AudioChunk]:
+            chunks: List[AudioChunk] = []
+            async for chunk in self._session.drain():
                 chunks.append(chunk)
             return chunks
 

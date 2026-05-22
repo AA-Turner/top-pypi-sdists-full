@@ -38,6 +38,9 @@ export class EChartsView extends HTMLBoxView {
     container;
     _chart;
     _callbacks = [];
+    _loading_interval = null;
+    _loading_timeout = null;
+    _loading_el = null;
     connect_signals() {
         super.connect_signals();
         const { width, height, renderer, theme, event_config, js_events, data } = this.model.properties;
@@ -45,7 +48,9 @@ export class EChartsView extends HTMLBoxView {
         this.on_change([width, height], () => this._resize());
         this.on_change([theme, renderer], () => {
             this.render();
-            this._chart.resize();
+            if (this._chart != null) {
+                this._chart.resize();
+            }
         });
         this.on_change([event_config, js_events], () => this._subscribe());
     }
@@ -54,20 +59,99 @@ export class EChartsView extends HTMLBoxView {
             try {
                 window.echarts.dispose(this._chart);
             }
-            catch (e) { }
+            catch (e) {
+                // dispose may fail if echarts was never fully initialized
+            }
         }
+        this._clear_loading_timer();
         super.render();
         this.container = div({ style: { height: "100%", width: "100%" } });
+        this.shadow_el.append(this.container);
+        if (window.echarts == null) {
+            this._show_loading();
+            this._await_echarts();
+            return;
+        }
+        this._init_chart();
+    }
+    _show_loading() {
+        this._loading_el = div({
+            style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                width: "100%",
+                color: "#888",
+                fontSize: "14px",
+            },
+        });
+        this._loading_el.textContent = "Loading ECharts...";
+        this.container.append(this._loading_el);
+    }
+    _hide_loading() {
+        if (this._loading_el != null) {
+            this._loading_el.remove();
+            this._loading_el = null;
+        }
+    }
+    _await_echarts() {
+        // Try script onload listener first (event-driven, not polling)
+        const script = document.querySelector("script[src*='echarts']");
+        if (script != null) {
+            const onLoad = () => {
+                script.removeEventListener("load", onLoad);
+                this._clear_loading_timer();
+                this._hide_loading();
+                this._init_chart();
+            };
+            script.addEventListener("load", onLoad);
+        }
+        // Polling fallback in case script tag isn't found or onload doesn't fire
+        this._loading_interval = setInterval(() => {
+            if (window.echarts != null) {
+                this._clear_loading_timer();
+                this._hide_loading();
+                this._init_chart();
+            }
+        }, 50);
+        this._loading_timeout = setTimeout(() => {
+            this._clear_loading_timer();
+            this._hide_loading();
+            console.warn("ECharts library failed to load. Ensure you call pn.extension('echarts') " +
+                "before using Gauge or ECharts components.");
+        }, 10000);
+    }
+    _clear_loading_timer() {
+        if (this._loading_interval != null) {
+            clearInterval(this._loading_interval);
+            this._loading_interval = null;
+        }
+        if (this._loading_timeout != null) {
+            clearTimeout(this._loading_timeout);
+            this._loading_timeout = null;
+        }
+    }
+    _init_chart() {
+        if (window.echarts == null) {
+            return;
+        }
+        this._hide_loading();
         const config = { width: this.model.width, height: this.model.height, renderer: this.model.renderer };
         this._chart = window.echarts.init(this.container, this.model.theme, config);
         this._plot();
         this._subscribe();
-        this.shadow_el.append(this.container);
     }
     remove() {
+        this._clear_loading_timer();
         super.remove();
         if (this._chart != null) {
-            window.echarts.dispose(this._chart);
+            try {
+                window.echarts.dispose(this._chart);
+            }
+            catch (e) {
+                // dispose may fail if echarts was never fully initialized
+            }
         }
     }
     after_layout() {
@@ -77,17 +161,19 @@ export class EChartsView extends HTMLBoxView {
         }
     }
     _plot() {
-        if (window.echarts == null) {
+        if (window.echarts == null || this._chart == null) {
             return;
         }
         const data = transformJsPlaceholders(this.model.data);
         this._chart.setOption(data, this.model.options);
     }
     _resize() {
-        this._chart.resize({ width: this.model.width, height: this.model.height });
+        if (this._chart != null) {
+            this._chart.resize({ width: this.model.width, height: this.model.height });
+        }
     }
     _subscribe() {
-        if (window.echarts == null) {
+        if (window.echarts == null || this._chart == null) {
             return;
         }
         for (const [event_type, callback] of this._callbacks) {
@@ -107,7 +193,7 @@ export class EChartsView extends HTMLBoxView {
                     const serialized = JSON.parse(JSON.stringify(processed));
                     this.model.trigger_event(new EChartsEvent(event_type, serialized, query));
                 };
-                if (query == null) {
+                if (query != null) {
                     this._chart.on(event_type, query, callback);
                 }
                 else {

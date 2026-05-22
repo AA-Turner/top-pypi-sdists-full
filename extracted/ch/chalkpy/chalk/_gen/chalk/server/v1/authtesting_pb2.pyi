@@ -46,6 +46,10 @@ class GetTeamPermissionOnlyTestEndpointRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetTeamViewerPermissionOnlyTestEndpointRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetUnauthedTestEndpointResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -85,5 +89,9 @@ class GetFeatureFlagTestEndpointResponse(_message.Message):
     def __init__(self, message: _Optional[str] = ...) -> None: ...
 
 class GetTeamPermissionOnlyTestEndpointResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetTeamViewerPermissionOnlyTestEndpointResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

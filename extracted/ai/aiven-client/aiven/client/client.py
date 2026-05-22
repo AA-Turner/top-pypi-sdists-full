@@ -1760,14 +1760,6 @@ class AivenClient(AivenClientBase):
     def get_project_ca(self, project: str) -> Mapping:
         return self.verify(self.get, self.build_path("project", project, "kms", "ca"))
 
-    def get_service_ca(self, project: str, service: str, ca: str) -> dict:
-        path = self.build_path("project", project, "service", service, "kms", "ca", ca)
-        return self.verify(self.get, path)
-
-    def get_service_keypair(self, project: str, service: str, keypair: str) -> Mapping:
-        path = self.build_path("project", project, "service", service, "kms", "keypairs", keypair)
-        return self.verify(self.get, path)
-
     def invite_project_user(self, project: str, user_email: str, member_type: str | None = None) -> Mapping:
         body = {
             "user_email": user_email,
@@ -1963,14 +1955,6 @@ class AivenClient(AivenClientBase):
             self.get,
             self.build_path("project", project, "credits"),
             result_key="credits",
-        )
-
-    def claim_project_credit(self, project: str, credit_code: str) -> Mapping:
-        return self.verify(
-            self.post,
-            self.build_path("project", project, "credits"),
-            body={"code": credit_code},
-            result_key="credit",
         )
 
     def create_billing_group(
@@ -3390,4 +3374,95 @@ class AivenClient(AivenClientBase):
             self.get,
             self.build_path("project", project, "secrets", "cmks", cmk_id, "service_associations"),
             result_key="service_associations",
+        )
+
+    def upgrade_pipeline_step_create(
+        self,
+        organization_id: str,
+        source_project_name: str,
+        source_service_name: str,
+        destination_project_name: str,
+        destination_service_name: str,
+        auto_validation_delay_days: int | None,
+    ) -> Mapping:
+        return self.verify(
+            self.post,
+            self.build_path(
+                "organization",
+                organization_id,
+                "upgrade-pipeline",
+                "steps",
+            ),
+            body={
+                "source_project_name": source_project_name,
+                "source_service_name": source_service_name,
+                "destination_project_name": destination_project_name,
+                "destination_service_name": destination_service_name,
+                "auto_validation_delay_days": auto_validation_delay_days,
+            },
+        )
+
+    def upgrade_pipeline_step_update(
+        self, organization_id: str, step_id: str, auto_validation_delay_days: int | None
+    ) -> Mapping:
+        return self.verify(
+            self.patch,
+            self.build_path(
+                "organization",
+                organization_id,
+                "upgrade-pipeline",
+                "steps",
+                step_id,
+            ),
+            body={
+                "auto_validation_delay_days": auto_validation_delay_days,
+            },
+        )
+
+    def upgrade_pipeline_step_delete(self, organization_id: str, step_id: str) -> Mapping:
+        return self.verify(
+            self.delete,
+            self.build_path(
+                "organization",
+                organization_id,
+                "upgrade-pipeline",
+                "steps",
+                step_id,
+            ),
+        )
+
+    def upgrade_pipeline_step_get(self, organization_id: str, step_id: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path(
+                "organization",
+                organization_id,
+                "upgrade-pipeline",
+                "steps",
+                step_id,
+            ),
+        )
+
+    def upgrade_pipeline_step_list(self, organization_id: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path(
+                "organization",
+                organization_id,
+                "upgrade-pipeline",
+                "steps",
+            ),
+        )
+
+    def upgrade_pipeline_step_validate(self, project_name: str, service_name: str, comment: str | None) -> Mapping:
+        return self.verify(
+            self.post,
+            self.build_path(
+                "project",
+                project_name,
+                "service",
+                service_name,
+                "upgrade-validation",
+            ),
+            body={"comment": comment},
         )

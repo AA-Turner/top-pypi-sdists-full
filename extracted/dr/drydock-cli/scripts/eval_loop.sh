@@ -72,7 +72,7 @@ while true; do
 
   set +e
   # shellcheck disable=SC2086  # we WANT word-splitting on RUNNER_ARGS
-  timeout "${TIMEOUT}" /home/bobef/miniconda3/bin/python3 -u "${RUNNER}" ${RUNNER_ARGS} 2>&1 \
+  timeout --kill-after=30 "${TIMEOUT}" /home/bobef/miniconda3/bin/python3 -u "${RUNNER}" ${RUNNER_ARGS} 2>&1 \
     | tee -a "${LIVE_LOG}" \
     | tail -60 >> "${LOOP_LOG}"
   set -e

@@ -35,6 +35,11 @@ class EnvironmentServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentResponse.FromString,
         )
+        self.DiscoverEnvironmentBuckets = channel.unary_unary(
+            "/chalk.server.v1.EnvironmentService/DiscoverEnvironmentBuckets",
+            request_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsResponse.FromString,
+        )
 
 
 class EnvironmentServiceServicer(object):
@@ -64,6 +69,12 @@ class EnvironmentServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DiscoverEnvironmentBuckets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_EnvironmentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +97,11 @@ def add_EnvironmentServiceServicer_to_server(servicer, server):
             servicer.SetDefaultEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentResponse.SerializeToString,
+        ),
+        "DiscoverEnvironmentBuckets": grpc.unary_unary_rpc_method_handler(
+            servicer.DiscoverEnvironmentBuckets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.EnvironmentService", rpc_method_handlers)
@@ -202,6 +218,35 @@ class EnvironmentService(object):
             "/chalk.server.v1.EnvironmentService/SetDefaultEnvironment",
             chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_environment__pb2.SetDefaultEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DiscoverEnvironmentBuckets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.EnvironmentService/DiscoverEnvironmentBuckets",
+            chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_environment__pb2.DiscoverEnvironmentBucketsResponse.FromString,
             options,
             channel_credentials,
             insecure,

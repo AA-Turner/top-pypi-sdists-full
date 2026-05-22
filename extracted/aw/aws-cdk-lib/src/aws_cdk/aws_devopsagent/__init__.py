@@ -977,21 +977,26 @@ class CfnAssociation(
                     instance_identifier="instanceIdentifier"
                 ),
                 mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
-                    endpoint="endpoint",
-                    name="name",
                     tools=["tools"],
         
                     # the properties below are optional
                     description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    endpoint="endpoint",
+                    name="name"
                 ),
                 mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
+                    description="description",
+                    enable_webhook_updates=False,
                     endpoint="endpoint",
-                    name="name",
+                    name="name"
+                ),
+                mcp_server_grafana=devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
+                    endpoint="endpoint",
         
                     # the properties below are optional
-                    description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    tools=["tools"]
                 ),
                 mcp_server_new_relic=devopsagent.CfnAssociation.MCPServerNewRelicConfigurationProperty(
                     account_id="accountId",
@@ -1001,12 +1006,10 @@ class CfnAssociation(
                     tools=["tools"]
                 ),
                 mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
-                    endpoint="endpoint",
-                    name="name",
-        
-                    # the properties below are optional
                     description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    endpoint="endpoint",
+                    name="name"
                 ),
                 pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
                     customer_email="customerEmail",
@@ -1968,32 +1971,32 @@ class CfnAssociation(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "endpoint": "endpoint",
-            "name": "name",
             "tools": "tools",
             "description": "description",
             "enable_webhook_updates": "enableWebhookUpdates",
+            "endpoint": "endpoint",
+            "name": "name",
         },
     )
     class MCPServerConfigurationProperty:
         def __init__(
             self,
             *,
-            endpoint: builtins.str,
-            name: builtins.str,
             tools: typing.Sequence[builtins.str],
             description: typing.Optional[builtins.str] = None,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            endpoint: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for MCP (Model Context Protocol) server integration.
 
             Defines the server name, endpoint URL, available tools, optional description, and webhook update settings for custom MCP servers.
 
-            :param endpoint: MCP server endpoint URL.
-            :param name: The name of the MCP server.
             :param tools: List of MCP tools that can be used with the association.
             :param description: The description of the MCP server.
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+            :param endpoint: MCP server endpoint URL.
+            :param name: The name of the MCP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2005,51 +2008,33 @@ class CfnAssociation(
                 from aws_cdk import aws_devopsagent as devopsagent
                 
                 m_cPServer_configuration_property = devopsagent.CfnAssociation.MCPServerConfigurationProperty(
-                    endpoint="endpoint",
-                    name="name",
                     tools=["tools"],
                 
                     # the properties below are optional
                     description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    endpoint="endpoint",
+                    name="name"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__97d8de94964f9d444ce60e60c71a8386873d9d717628a8b450e0463922b08600)
-                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "endpoint": endpoint,
-                "name": name,
                 "tools": tools,
             }
             if description is not None:
                 self._values["description"] = description
             if enable_webhook_updates is not None:
                 self._values["enable_webhook_updates"] = enable_webhook_updates
-
-        @builtins.property
-        def endpoint(self) -> builtins.str:
-            '''MCP server endpoint URL.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverconfiguration.html#cfn-devopsagent-association-mcpserverconfiguration-endpoint
-            '''
-            result = self._values.get("endpoint")
-            assert result is not None, "Required property 'endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the MCP server.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverconfiguration.html#cfn-devopsagent-association-mcpserverconfiguration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
+            if endpoint is not None:
+                self._values["endpoint"] = endpoint
+            if name is not None:
+                self._values["name"] = name
 
         @builtins.property
         def tools(self) -> typing.List[builtins.str]:
@@ -2081,6 +2066,24 @@ class CfnAssociation(
             result = self._values.get("enable_webhook_updates")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
+        @builtins.property
+        def endpoint(self) -> typing.Optional[builtins.str]:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverconfiguration.html#cfn-devopsagent-association-mcpserverconfiguration-endpoint
+            '''
+            result = self._values.get("endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverconfiguration.html#cfn-devopsagent-association-mcpserverconfiguration-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2096,29 +2099,29 @@ class CfnAssociation(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "endpoint": "endpoint",
-            "name": "name",
             "description": "description",
             "enable_webhook_updates": "enableWebhookUpdates",
+            "endpoint": "endpoint",
+            "name": "name",
         },
     )
     class MCPServerDatadogConfigurationProperty:
         def __init__(
             self,
             *,
-            endpoint: builtins.str,
-            name: builtins.str,
             description: typing.Optional[builtins.str] = None,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            endpoint: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for Datadog MCP server integration.
 
             Defines the server name, endpoint URL, optional description, and webhook update settings.
 
-            :param endpoint: MCP server endpoint URL.
-            :param name: The name of the MCP server.
             :param description: The description of the MCP server.
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+            :param endpoint: MCP server endpoint URL.
+            :param name: The name of the MCP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2130,48 +2133,27 @@ class CfnAssociation(
                 from aws_cdk import aws_devopsagent as devopsagent
                 
                 m_cPServer_datadog_configuration_property = devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
-                    endpoint="endpoint",
-                    name="name",
-                
-                    # the properties below are optional
                     description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    endpoint="endpoint",
+                    name="name"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__94bdd66d2ae6508b6fa75de77b1b7bd044d6bf7b9e0c60cb573f57ca7faa1817)
-                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "endpoint": endpoint,
-                "name": name,
-            }
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if description is not None:
                 self._values["description"] = description
             if enable_webhook_updates is not None:
                 self._values["enable_webhook_updates"] = enable_webhook_updates
-
-        @builtins.property
-        def endpoint(self) -> builtins.str:
-            '''MCP server endpoint URL.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html#cfn-devopsagent-association-mcpserverdatadogconfiguration-endpoint
-            '''
-            result = self._values.get("endpoint")
-            assert result is not None, "Required property 'endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the MCP server.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html#cfn-devopsagent-association-mcpserverdatadogconfiguration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
+            if endpoint is not None:
+                self._values["endpoint"] = endpoint
+            if name is not None:
+                self._values["name"] = name
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -2193,6 +2175,24 @@ class CfnAssociation(
             result = self._values.get("enable_webhook_updates")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
+        @builtins.property
+        def endpoint(self) -> typing.Optional[builtins.str]:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html#cfn-devopsagent-association-mcpserverdatadogconfiguration-endpoint
+            '''
+            result = self._values.get("endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html#cfn-devopsagent-association-mcpserverdatadogconfiguration-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2201,6 +2201,100 @@ class CfnAssociation(
 
         def __repr__(self) -> str:
             return "MCPServerDatadogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint": "endpoint",
+            "enable_webhook_updates": "enableWebhookUpdates",
+            "tools": "tools",
+        },
+    )
+    class MCPServerGrafanaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            tools: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Grafana MCP server configuration.
+
+            :param endpoint: MCP server endpoint URL.
+            :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+            :param tools: List of tool categories to enable for the Grafana MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_grafana_configuration_property = devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
+                    endpoint="endpoint",
+                
+                    # the properties below are optional
+                    enable_webhook_updates=False,
+                    tools=["tools"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__11b54af8958257d89911b20127cdb2d75dbd71fbc0701cc26c88f75e1cdec153)
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
+                check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint": endpoint,
+            }
+            if enable_webhook_updates is not None:
+                self._values["enable_webhook_updates"] = enable_webhook_updates
+            if tools is not None:
+                self._values["tools"] = tools
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html#cfn-devopsagent-association-mcpservergrafanaconfiguration-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def enable_webhook_updates(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html#cfn-devopsagent-association-mcpservergrafanaconfiguration-enablewebhookupdates
+            '''
+            result = self._values.get("enable_webhook_updates")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def tools(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of tool categories to enable for the Grafana MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html#cfn-devopsagent-association-mcpservergrafanaconfiguration-tools
+            '''
+            result = self._values.get("tools")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerGrafanaConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2328,29 +2422,29 @@ class CfnAssociation(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "endpoint": "endpoint",
-            "name": "name",
             "description": "description",
             "enable_webhook_updates": "enableWebhookUpdates",
+            "endpoint": "endpoint",
+            "name": "name",
         },
     )
     class MCPServerSplunkConfigurationProperty:
         def __init__(
             self,
             *,
-            endpoint: builtins.str,
-            name: builtins.str,
             description: typing.Optional[builtins.str] = None,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            endpoint: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for Splunk MCP server integration.
 
             Defines the server name, endpoint URL, optional description, and webhook update settings.
 
-            :param endpoint: MCP server endpoint URL.
-            :param name: The name of the MCP server.
             :param description: The description of the MCP server.
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+            :param endpoint: MCP server endpoint URL.
+            :param name: The name of the MCP server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2362,48 +2456,27 @@ class CfnAssociation(
                 from aws_cdk import aws_devopsagent as devopsagent
                 
                 m_cPServer_splunk_configuration_property = devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
-                    endpoint="endpoint",
-                    name="name",
-                
-                    # the properties below are optional
                     description="description",
-                    enable_webhook_updates=False
+                    enable_webhook_updates=False,
+                    endpoint="endpoint",
+                    name="name"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__5251bb56068759277d9b99b06c4d20b0e0434473774eeb3d825f9ed5301ba970)
-                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "endpoint": endpoint,
-                "name": name,
-            }
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if description is not None:
                 self._values["description"] = description
             if enable_webhook_updates is not None:
                 self._values["enable_webhook_updates"] = enable_webhook_updates
-
-        @builtins.property
-        def endpoint(self) -> builtins.str:
-            '''MCP server endpoint URL.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html#cfn-devopsagent-association-mcpserversplunkconfiguration-endpoint
-            '''
-            result = self._values.get("endpoint")
-            assert result is not None, "Required property 'endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the MCP server.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html#cfn-devopsagent-association-mcpserversplunkconfiguration-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
+            if endpoint is not None:
+                self._values["endpoint"] = endpoint
+            if name is not None:
+                self._values["name"] = name
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -2424,6 +2497,24 @@ class CfnAssociation(
             '''
             result = self._values.get("enable_webhook_updates")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def endpoint(self) -> typing.Optional[builtins.str]:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html#cfn-devopsagent-association-mcpserversplunkconfiguration-endpoint
+            '''
+            result = self._values.get("endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html#cfn-devopsagent-association-mcpserversplunkconfiguration-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2542,6 +2633,7 @@ class CfnAssociation(
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
             "mcp_server_datadog": "mcpServerDatadog",
+            "mcp_server_grafana": "mcpServerGrafana",
             "mcp_server_new_relic": "mcpServerNewRelic",
             "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
@@ -2563,6 +2655,7 @@ class CfnAssociation(
             git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.GitLabConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_datadog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerDatadogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_grafana: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerGrafanaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerNewRelicConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerSigV4ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerSplunkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2583,6 +2676,7 @@ class CfnAssociation(
             :param git_lab: Configuration for GitLab project integration. Specifies the project ID, project path, instance identifier, and webhook settings to enable the Agent Space to access code, merge requests, and issues.
             :param mcp_server: Configuration for custom MCP (Model Context Protocol) server integration. Specifies the server name, endpoint URL, available tools, description, and webhook settings to enable the Agent Space to interact with custom MCP servers.
             :param mcp_server_datadog: Configuration for Datadog MCP server integration. Specifies the server name, endpoint URL, optional description, and webhook settings to enable the Agent Space to query metrics, traces, and logs from Datadog.
+            :param mcp_server_grafana: Grafana MCP server configuration.
             :param mcp_server_new_relic: Configuration for New Relic MCP server integration. Specifies the New Relic account ID and MCP endpoint URL to enable the Agent Space to query metrics, traces, and logs from New Relic.
             :param mcp_server_sig_v4: SigV4-authenticated MCP server configuration.
             :param mcp_server_splunk: Configuration for Splunk MCP server integration. Specifies the server name, endpoint URL, optional description, and webhook settings to enable the Agent Space to query logs, metrics, and events from Splunk.
@@ -2649,21 +2743,26 @@ class CfnAssociation(
                         instance_identifier="instanceIdentifier"
                     ),
                     mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
-                        endpoint="endpoint",
-                        name="name",
                         tools=["tools"],
                 
                         # the properties below are optional
                         description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        endpoint="endpoint",
+                        name="name"
                     ),
                     mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
+                        description="description",
+                        enable_webhook_updates=False,
                         endpoint="endpoint",
-                        name="name",
+                        name="name"
+                    ),
+                    mcp_server_grafana=devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
+                        endpoint="endpoint",
                 
                         # the properties below are optional
-                        description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        tools=["tools"]
                     ),
                     mcp_server_new_relic=devopsagent.CfnAssociation.MCPServerNewRelicConfigurationProperty(
                         account_id="accountId",
@@ -2673,12 +2772,10 @@ class CfnAssociation(
                         tools=["tools"]
                     ),
                     mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
-                        endpoint="endpoint",
-                        name="name",
-                
-                        # the properties below are optional
                         description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        endpoint="endpoint",
+                        name="name"
                     ),
                     pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
                         customer_email="customerEmail",
@@ -2733,6 +2830,7 @@ class CfnAssociation(
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_datadog", value=mcp_server_datadog, expected_type=type_hints["mcp_server_datadog"])
+                check_type(argname="argument mcp_server_grafana", value=mcp_server_grafana, expected_type=type_hints["mcp_server_grafana"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
                 check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
@@ -2757,6 +2855,8 @@ class CfnAssociation(
                 self._values["mcp_server"] = mcp_server
             if mcp_server_datadog is not None:
                 self._values["mcp_server_datadog"] = mcp_server_datadog
+            if mcp_server_grafana is not None:
+                self._values["mcp_server_grafana"] = mcp_server_grafana
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
             if mcp_server_sig_v4 is not None:
@@ -2873,6 +2973,17 @@ class CfnAssociation(
             '''
             result = self._values.get("mcp_server_datadog")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerDatadogConfigurationProperty"]], result)
+
+        @builtins.property
+        def mcp_server_grafana(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerGrafanaConfigurationProperty"]]:
+            '''Grafana MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-serviceconfiguration.html#cfn-devopsagent-association-serviceconfiguration-mcpservergrafana
+            '''
+            result = self._values.get("mcp_server_grafana")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerGrafanaConfigurationProperty"]], result)
 
         @builtins.property
         def mcp_server_new_relic(
@@ -3514,21 +3625,26 @@ class CfnAssociationProps:
                         instance_identifier="instanceIdentifier"
                     ),
                     mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
-                        endpoint="endpoint",
-                        name="name",
                         tools=["tools"],
             
                         # the properties below are optional
                         description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        endpoint="endpoint",
+                        name="name"
                     ),
                     mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
+                        description="description",
+                        enable_webhook_updates=False,
                         endpoint="endpoint",
-                        name="name",
+                        name="name"
+                    ),
+                    mcp_server_grafana=devopsagent.CfnAssociation.MCPServerGrafanaConfigurationProperty(
+                        endpoint="endpoint",
             
                         # the properties below are optional
-                        description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        tools=["tools"]
                     ),
                     mcp_server_new_relic=devopsagent.CfnAssociation.MCPServerNewRelicConfigurationProperty(
                         account_id="accountId",
@@ -3538,12 +3654,10 @@ class CfnAssociationProps:
                         tools=["tools"]
                     ),
                     mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
-                        endpoint="endpoint",
-                        name="name",
-            
-                        # the properties below are optional
                         description="description",
-                        enable_webhook_updates=False
+                        enable_webhook_updates=False,
+                        endpoint="endpoint",
+                        name="name"
                     ),
                     pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
                         customer_email="customerEmail",
@@ -4513,7 +4627,7 @@ class CfnService(
         :param id: Construct identifier for this resource (unique in its scope).
         :param service_type: The type of service being registered.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
-        :param service_details: Service-specific configuration details.
+        :param service_details: Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -4713,7 +4827,7 @@ class CfnService(
     def service_details(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]]:
-        '''Service-specific configuration details.'''
+        '''Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]], jsii.get(self, "serviceDetails"))
 
     @service_details.setter
@@ -8092,7 +8206,7 @@ class CfnServiceProps:
 
         :param service_type: The type of service being registered.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
-        :param service_details: Service-specific configuration details.
+        :param service_details: Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
@@ -8287,7 +8401,7 @@ class CfnServiceProps:
     def service_details(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]]:
-        '''Service-specific configuration details.
+        '''Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-servicedetails
         '''
@@ -8585,21 +8699,30 @@ def _typecheckingstub__ded74f7f3af261fdfeb1ca20f0589b46cd28465b569b567f86c794c6d
 
 def _typecheckingstub__97d8de94964f9d444ce60e60c71a8386873d9d717628a8b450e0463922b08600(
     *,
-    endpoint: builtins.str,
-    name: builtins.str,
     tools: typing.Sequence[builtins.str],
     description: typing.Optional[builtins.str] = None,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    endpoint: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__94bdd66d2ae6508b6fa75de77b1b7bd044d6bf7b9e0c60cb573f57ca7faa1817(
     *,
-    endpoint: builtins.str,
-    name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    endpoint: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11b54af8958257d89911b20127cdb2d75dbd71fbc0701cc26c88f75e1cdec153(
+    *,
+    endpoint: builtins.str,
+    enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tools: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8621,10 +8744,10 @@ def _typecheckingstub__9afa21fa4ae99fbc4534896e25187b224676c93894e599ac06339bb54
 
 def _typecheckingstub__5251bb56068759277d9b99b06c4d20b0e0434473774eeb3d825f9ed5301ba970(
     *,
-    endpoint: builtins.str,
-    name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    endpoint: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8648,6 +8771,7 @@ def _typecheckingstub__534ff66bec4c3f764380e71fc8dbccb3b6b0319f301032fa7e975aa18
     git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.GitLabConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_datadog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerDatadogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_grafana: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerGrafanaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerNewRelicConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerSigV4ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerSplunkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

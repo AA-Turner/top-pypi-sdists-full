@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Security-Too
-Version: 5.8.0
+Version: 5.8.1
 Summary: Quickly add security features to your Flask application.
 Keywords: flask security
 Author: Matt Wright

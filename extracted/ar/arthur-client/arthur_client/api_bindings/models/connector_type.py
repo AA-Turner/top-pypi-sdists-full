@@ -34,6 +34,7 @@ class ConnectorType(str, Enum):
     ODBC = 'odbc'
     SNOWFLAKE = 'snowflake'
     DATABRICKS = 'databricks'
+    AZUREBLOB = 'AzureBlob'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

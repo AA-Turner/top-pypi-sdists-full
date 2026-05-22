@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: placo
-Version: 0.9.20
+Version: 0.9.23
 Summary: PlaCo: Rhoban Planning and Control
-Requires-Python: >= 3.9
+Requires-Python: >= 3.10
 License-Expression: MIT
-Author-email: Rhoban team <team@rhoban.com>
+License-File: LICENSE
+Author-Email: Rhoban team <team@rhoban.com>
 Project-URL: Changelog, https://github.com/rhoban/placo/blob/main/CHANGELOG.md
 Home-page: https://placo.readthedocs.io/en/latest/
 Project-URL: Repository, https://github.com/rhoban/placo.git
@@ -12,12 +13,14 @@ Requires-Dist: cmeel
 Requires-Dist: eiquadprog >= 1.2.6, < 2
 Requires-Dist: pin==3.8.0
 Requires-Dist: rhoban-cmeel-jsoncpp
+Requires-Dist: cmeel-urdfdom==4.0.1
+Requires-Dist: cmeel-tinyxml2==10.0.0
 Requires-Dist: meshcat
 Requires-Dist: ischedule
 Provides-Extra: build
-Requires-Dist: pin[build]==3.8.0 ; extra == "build"
-Requires-Dist: doxystub >= 0.1.7 ; extra == "build"
-Requires-Dist: cmake<4 ; extra == "build"
+Requires-Dist: pin[build]==3.8.0; extra == "build"
+Requires-Dist: doxystub >= 0.1.7; extra == "build"
+Requires-Dist: cmake<4; extra == "build"
 Description-Content-Type: text/markdown
 
 <img width="400" src="https://placo.readthedocs.io/en/latest/_static/placo.png" />

@@ -89,6 +89,61 @@ class _LazyFrameGroupBy:
 
 
 @dataclass
+class _LazyFrameGroupingSetsGroupBy:
+    """
+    A lazy representation of the chalkdf GroupingSetsGroupBy class
+    (returned by ``DataFrame.rollup`` / ``.cube`` / ``.grouping_sets``).
+    The construction call is stored verbatim so it can be replayed
+    against the real DataFrame — only at that point does the chosen
+    multi-set form (rollup vs cube vs explicit grouping_sets) and the
+    optional ``grouping_id_col`` kwarg take effect.
+    """
+
+    _lf: LazyFramePlaceholder
+    _function_name: str
+    _args: tuple[Any, ...]
+    _kwargs: dict[str, Any]
+
+    def _construct(self, *, function_name: str, args: tuple[Any, ...] = (), **kwargs: Any):
+        return self._lf._construct(  # pyright:ignore[reportPrivateUsage]
+            self_dataframe=self._lf._construct(  # pyright:ignore[reportPrivateUsage]
+                self_dataframe=self._lf,
+                function_name=self._function_name,
+                args=self._args,
+                **self._kwargs,
+            ),
+            function_name=function_name,
+            args=args,
+            **kwargs,
+        )
+
+    def agg(self, *aggregations: Underscore):
+        """Apply the specified aggregation expressions to each (grouping
+        set, key-combo) cell."""
+        return self._construct(function_name="agg", args=aggregations)
+
+    def count(self):
+        """Apply ``count`` per (grouping set, key-combo) cell."""
+        return self._construct(function_name="count")
+
+    def max(self):
+        """Apply ``max`` to every non-by column."""
+        return self._construct(function_name="max")
+
+    def mean(self):
+        """Apply ``mean`` to every non-by column."""
+        return self._construct(function_name="mean")
+
+    def min(self):
+        """Apply ``min`` to every non-by column."""
+        return self._construct(function_name="min")
+
+    def sum(self):
+        """Apply ``sum`` to every non-by column."""
+        return self._construct(function_name="sum")
+
+
+@dataclass
 class _LazyFrameConstructor:
     """
     A lazily-called function which will be used to construct a Chalk DataFrame.
@@ -1409,6 +1464,91 @@ class LazyFramePlaceholder:
         >>> result = df.group_by(_.group).agg(_.value.mean().alias("avg"))
         """
         return _LazyFrameGroupBy(_lf=self, _by=by)
+
+    def rollup(
+        self,
+        *by: str | Underscore,
+        grouping_id_col: str | None = None,
+    ) -> _LazyFrameGroupingSetsGroupBy:
+        """Multi-set aggregation matching SQL ``GROUP BY ROLLUP(b1, b2, ...)``.
+
+        Expands to every prefix of ``by`` plus the empty (grand-total) set.
+
+        Parameters
+        ----------
+        *by
+            Columns to roll up. Must be non-empty.
+        grouping_id_col
+            Name for the discriminator column identifying which grouping
+            set produced each row. Defaults to ``__chalk_grouping_set_id__``.
+
+        Returns
+        -------
+        A handle whose ``.agg(...)`` materializes the rollup.
+        """
+        return _LazyFrameGroupingSetsGroupBy(
+            _lf=self,
+            _function_name="rollup",
+            _args=by,
+            _kwargs={"grouping_id_col": grouping_id_col},
+        )
+
+    def cube(
+        self,
+        *by: str | Underscore,
+        grouping_id_col: str | None = None,
+    ) -> _LazyFrameGroupingSetsGroupBy:
+        """Multi-set aggregation matching SQL ``GROUP BY CUBE(b1, b2, ...)``.
+
+        Expands to all ``2^N`` subsets of ``by``.
+
+        Parameters
+        ----------
+        *by
+            Columns to cube. Must be non-empty.
+        grouping_id_col
+            Name for the discriminator column identifying which grouping
+            set produced each row. Defaults to ``__chalk_grouping_set_id__``.
+
+        Returns
+        -------
+        A handle whose ``.agg(...)`` materializes the cube.
+        """
+        return _LazyFrameGroupingSetsGroupBy(
+            _lf=self,
+            _function_name="cube",
+            _args=by,
+            _kwargs={"grouping_id_col": grouping_id_col},
+        )
+
+    def grouping_sets(
+        self,
+        sets: typing.Sequence[typing.Sequence[str | Underscore]],
+        grouping_id_col: str | None = None,
+    ) -> _LazyFrameGroupingSetsGroupBy:
+        """Multi-set aggregation matching SQL ``GROUP BY GROUPING SETS (...)``.
+
+        Each inner sequence is a grouping set; the empty inner sequence
+        denotes the grand-total ``()`` set.
+
+        Parameters
+        ----------
+        sets
+            Sequence of grouping sets.
+        grouping_id_col
+            Name for the discriminator column identifying which grouping
+            set produced each row. Defaults to ``__chalk_grouping_set_id__``.
+
+        Returns
+        -------
+        A handle whose ``.agg(...)`` materializes the multi-set aggregation.
+        """
+        return _LazyFrameGroupingSetsGroupBy(
+            _lf=self,
+            _function_name="grouping_sets",
+            _args=(sets,),
+            _kwargs={"grouping_id_col": grouping_id_col},
+        )
 
     def agg(self, by: typing.Sequence[str | Underscore], *aggregations: Underscore) -> "LazyFramePlaceholder":
         """Group by columns and apply aggregation expressions.

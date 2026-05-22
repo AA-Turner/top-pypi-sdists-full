@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-21T04:04:58.852239                                                            #
+# MF version: 2.19.29.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-21T21:10:55.307465                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -71,6 +71,10 @@ class FastBakery(object, metaclass=type):
     def image_kind(self, kind: str):
         ...
     def ignore_cache(self):
+        ...
+    def platform(self, os, arch):
+        ...
+    def index_strategy(self, strategy: str):
         ...
     def bake(self) -> FastBakeryApiResponse:
         ...

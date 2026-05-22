@@ -374,7 +374,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     stage_suffix = f"_{stage_safe}" if stage_safe else ""
 
     dir_plots = dir_outlook / "plots" / model / country
-    dir_maps = dir_outlook / "maps" / model
+    dir_maps = dir_outlook / "maps" / model / country
     dir_csvs = dir_outlook / "csvs" / model / country
     if stage_safe:
         dir_plots = dir_plots / stage_safe
@@ -400,6 +400,35 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
             diag.scatter_obs_pred(df_national, title_nat, dir_plots,
                                   f"scatter_national_{country}_{crop}_{model}{stage_suffix}.png")
             df_national.to_csv(dir_csvs / f"scatter_national_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
+
+        # Per-year scatter (one PNG per Harvest Year). Sliced from `df`;
+        # reuses diag.scatter_obs_pred so RMSE/MAPE/r²/N annotations are
+        # auto-computed per year. Skipped for years with <2 valid points.
+        if "Harvest Year" in df.columns:
+            dir_scatter_year = dir_plots / "scatter_by_year"
+            dir_csv_year = dir_csvs / "scatter_by_year"
+            os.makedirs(dir_scatter_year, exist_ok=True)
+            os.makedirs(dir_csv_year, exist_ok=True)
+            for yr, df_year in df.groupby("Harvest Year"):
+                df_year = df_year.dropna(subset=[obs_col, pred_col])
+                if len(df_year) < 2:
+                    continue
+                yr_int = int(yr) if pd.notna(yr) else yr
+                title_year = f"{title} — {yr_int}"
+                fname_year = (
+                    f"scatter_{country}_{crop}_{model}{stage_suffix}_{yr_int}.png"
+                )
+                # Per-year scatter: every point shares a single Harvest Year,
+                # so color by Region instead — that's the only dimension that
+                # varies within the panel.
+                diag.scatter_obs_pred(
+                    df_year, title_year, dir_scatter_year, fname_year,
+                    color_by="region",
+                )
+                df_year.to_csv(
+                    dir_csv_year / fname_year.replace(".png", ".csv"),
+                    index=False,
+                )
 
         df_mape = (
             df.assign(
@@ -2561,6 +2590,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 df_outlook = _compute_outlook_index(
                     df_stage, current_year, n_years, aggregation,
                     use_latest_stage=(len(available_stages) <= 1),
+                    stage_name=stage_name,
                 )
                 if df_outlook.empty:
                     logger.warning(
@@ -2588,7 +2618,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
                 # Generate map — saved in maps/{model}[/{stage}] subfolder
                 stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
-                dir_model = dir_outlook / "maps" / model
+                dir_model = dir_outlook / "maps" / model / country
                 if len(available_stages) > 1:
                     dir_model = dir_model / stage_safe
                 os.makedirs(dir_model, exist_ok=True)
@@ -2794,7 +2824,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_area_pct["Country"].str.lower().str.replace("_", " ")
                     + " " + df_area_pct["Region"].str.lower()
                 )
-                area_map_dir = dir_outlook / "maps" / model
+                area_map_dir = dir_outlook / "maps" / model / country_lower
                 plot.plot_map(
                     dg,
                     df_area_pct,
@@ -2823,7 +2853,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             countries_with_data = df_group["Country"].unique().tolist()
             if len(countries_with_data) <= 1:
                 continue
-            dir_model = dir_outlook / "maps" / model
+            # Multi-country consolidated map — lives under maps/{model}/_combined/
+            # to avoid clashing with per-country folders that now sit at
+            # maps/{model}/{country}/ after the country-level insertion.
+            dir_model = dir_outlook / "maps" / model / "_combined"
             os.makedirs(dir_model, exist_ok=True)
             _generate_outlook_map(
                 dg, df_group, countries_with_data, crop, model,
@@ -2847,7 +2880,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     / df_anom["obs_mean"] * 100,
                     np.nan,
                 )
-                dir_obs_combined = dir_outlook / "maps" / model_val / "obs_anomaly" / period_label
+                dir_obs_combined = dir_outlook / "maps" / model_val / "_combined" / "obs_anomaly" / period_label
                 os.makedirs(dir_obs_combined, exist_ok=True)
                 _generate_outlook_map(
                     dg, df_anom, countries_with_data, crop_val, model_val,
@@ -2877,26 +2910,32 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             dir_ens = dir_outlook / "maps" / "ensemble"
             os.makedirs(dir_ens, exist_ok=True)
 
-            # Per-country ensemble maps
+            # Per-country ensemble maps — under maps/ensemble/{country}/
             for (country_val, crop_val), df_group in df_ensemble.groupby(["Country", "Crop"]):
                 map_countries_val = countries if country_val == "pooled" else [country_val]
                 stage_val = df_group["Stage Name"].iloc[0]
+                dir_ens_country = dir_ens / country_val
+                os.makedirs(dir_ens_country, exist_ok=True)
                 _generate_outlook_map(
                     dg, df_group, map_countries_val, crop_val,
-                    "ensemble", current_year, n_years, aggregation, dir_ens,
+                    "ensemble", current_year, n_years, aggregation, dir_ens_country,
                     stage_name=stage_val, annotate_regions=False,
                 )
 
-            # Multi-country ensemble maps
+            # Multi-country ensemble maps — under maps/ensemble/_combined/
+            dir_ens_combined = dir_ens / "_combined"
             for crop_val, df_group in df_ensemble.groupby("Crop"):
                 if len(df_group["Country"].unique()) > 1:
+                    os.makedirs(dir_ens_combined, exist_ok=True)
                     _generate_outlook_map(
                         dg, df_group, df_group["Country"].unique().tolist(), crop_val,
-                        "ensemble", current_year, n_years, aggregation, dir_ens,
+                        "ensemble", current_year, n_years, aggregation, dir_ens_combined,
                         stage_name="combined", annotate_regions=False,
                     )
 
-            # Ensemble observed-baseline anomaly maps
+            # Ensemble observed-baseline anomaly maps — single country goes
+            # under maps/ensemble/{country}/obs_anomaly/{period}/, multi-country
+            # under maps/ensemble/_combined/obs_anomaly/{period}/.
             for crop_val, df_ens_crop in df_ensemble.groupby("Crop"):
                 countries_ens = df_ens_crop["Country"].unique().tolist()
                 obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
@@ -2910,7 +2949,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         / df_ens_anom["obs_mean"] * 100,
                         np.nan,
                     )
-                    dir_ens_obs = dir_ens / "obs_anomaly" / period_label
+                    if len(countries_ens) == 1:
+                        dir_ens_obs = dir_ens / countries_ens[0] / "obs_anomaly" / period_label
+                    else:
+                        dir_ens_obs = dir_ens / "_combined" / "obs_anomaly" / period_label
                     os.makedirs(dir_ens_obs, exist_ok=True)
                     _generate_outlook_map(
                         dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,

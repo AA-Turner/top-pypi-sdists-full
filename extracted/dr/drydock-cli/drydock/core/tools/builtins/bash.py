@@ -862,8 +862,13 @@ class Bash(
                             f"run of `{cmd_preview}` with byte-identical "
                             f"output and rc={returncode}. Re-running will not "
                             f"change anything. "
-                            f"Make a decision based on the output you already have "
-                            f"and move to the next task step. "
+                            f"If the output shows the feature is NOT working as "
+                            f"requested (e.g., a flag you just added produces no "
+                            f"effect, output is missing expected data), you MUST "
+                            f"READ the source file with read_file and FIX the "
+                            f"implementation — do NOT declare 'Task Completed'. "
+                            f"Only move to the next task step if the output "
+                            f"confirms the feature works correctly. "
                             f"Previous stdout first 300 chars:\n{stdout[:300]}]"
                         )
                     yield self._build_result(

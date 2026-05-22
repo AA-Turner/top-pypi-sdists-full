@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch-scenario
-Version: 0.7.26
+Version: 0.7.27
 Summary: The end-to-end agent testing library
 Author-email: LangWatch Team <support@langwatch.ai>
 License: Apache-2.0
@@ -16,15 +16,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: pytest>=8.1.1
+Requires-Dist: pytest>=9.0.3
 Requires-Dist: pytest-rerunfailures>=14.0
-Requires-Dist: litellm>=1.49.0
+Requires-Dist: litellm>=1.83.14
 Requires-Dist: openai>=1.88.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: termcolor>=2.4.0
 Requires-Dist: pydantic>=2.7.0
 Requires-Dist: joblib>=1.4.2
-Requires-Dist: wrapt>=1.17.2
+Requires-Dist: wrapt<2,>=1.17.2
 Requires-Dist: pytest-asyncio>=0.26.0
 Requires-Dist: rich<15.0.0,>=13.3.3
 Requires-Dist: pksuid>=1.1.2
@@ -32,18 +32,32 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: rx>=3.2.0
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: pydantic-settings>=2.9.1
-Requires-Dist: langwatch>=0.2.19
+Requires-Dist: langwatch<0.3,>=0.2.19
 Requires-Dist: opentelemetry-sdk>=1.20.0
+Requires-Dist: imageio-ffmpeg>=0.5.0
+Requires-Dist: numpy>=1.26
+Requires-Dist: webrtcvad-wheels>=2.0
+Requires-Dist: websockets>=12
+Requires-Dist: twilio>=9.0
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn>=0.27
+Requires-Dist: audioop-lts>=0.2.1; python_version >= "3.13"
+Requires-Dist: google-genai>=1.0
+Requires-Dist: elevenlabs>=1.0
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pyright; extra == "dev"
-Requires-Dist: pydantic-ai; extra == "dev"
+Requires-Dist: pydantic-ai-slim[openai]>=1.56.0; extra == "dev"
 Requires-Dist: function-schema; extra == "dev"
 Requires-Dist: pdoc3; extra == "dev"
 Requires-Dist: respx; extra == "dev"
+Provides-Extra: report
+Requires-Dist: streamlit>=1.30; extra == "report"
+Requires-Dist: plotly>=5.0; extra == "report"
+Requires-Dist: pandas>=2.0; extra == "report"
 
 ![scenario](https://github.com/langwatch/scenario/raw/main/assets/scenario-wide.webp)
 
@@ -423,6 +437,37 @@ result = await scenario.run(
 ```
 
 Full guide: [scenario.langwatch.ai/advanced/red-teaming](https://scenario.langwatch.ai/advanced/red-teaming) (and the [Quick Start](https://scenario.langwatch.ai/advanced/red-teaming/quick-start)).
+
+## Voice Agents
+
+Scenario treats voice as a first-class citizen: same `scenario.run()` entrypoint, same script DSL, same judge — only the medium changes. Audio deps (ffmpeg, webrtcvad, websockets, etc.) ship as hard deps — no extras flag, `pip install scenario` includes everything.
+
+```python
+from scenario.voice import ElevenLabsAgentAdapter
+
+result = await scenario.run(
+    name="greeting_warmth",
+    agents=[
+        ElevenLabsAgentAdapter(
+            agent_id=os.environ["ELEVENLABS_AGENT_ID"],
+            api_key=os.environ["ELEVENLABS_API_KEY"],
+        ),
+        scenario.UserSimulatorAgent(voice="openai/nova"),
+        scenario.JudgeAgent(criteria=["Agent greeted warmly"]),
+    ],
+    script=[scenario.user("Hi"), scenario.agent(), scenario.judge()],
+)
+```
+
+Shipped platform adapters: ElevenLabs (hosted Conversational AI + composable STT/LLM/TTS), OpenAI Realtime (model-as-agent + model-as-user-simulator), Twilio Media Streams, Pipecat WebSocket, Gemini Live. LiveKit / Vapi / generic WebRTC are tracked as follow-up.
+
+Additional surface: `scenario.audio()` to inject recorded clips, `scenario.background_noise("cafe", 0.3)` and other bundled effects, `scenario.interrupt()` for interruption testing, `result.audio.save("out.wav")` for capture, `result.latency` with TTFB + p50 + p95.
+
+- **ElevenLabs happy path** (hosted agent): [docs/voice/happy-path-elevenlabs.md](docs/voice/happy-path-elevenlabs.md)
+- **OpenAI Realtime happy path** (model is the agent): [docs/voice/happy-path-openai-realtime.md](docs/voice/happy-path-openai-realtime.md)
+- **Capability matrix** (per-adapter features): [docs/voice/capability-matrix.md](docs/voice/capability-matrix.md)
+
+Note: the judge and the user simulator use LLMs — even for an ElevenLabs-only test, an `OPENAI_API_KEY` is required for those (or swap both via `scenario.configure`).
 
 ## LangWatch Visualization
 

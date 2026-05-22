@@ -17,8 +17,13 @@ export declare namespace QuillInput {
     type Attrs = p.AttrsOf<Props>;
     type Props = HTMLBox.Props & {
         mode: p.Property<string>;
+        on_keyup: p.Property<boolean>;
         placeholder: p.Property<string>;
+        selection: p.Property<{
+            [key: string]: any;
+        }>;
         text: p.Property<string>;
+        text_input: p.Property<string>;
         toolbar: p.Property<any>;
     };
 }

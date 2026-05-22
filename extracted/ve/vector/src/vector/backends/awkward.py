@@ -720,9 +720,11 @@ class VectorAwkward:
                         names.append(name)
                         arrays.append(self[name])
 
-            if "t" in fields or "tau" in fields:
+            if any(
+                f in fields for f in ("t", "tau", "M", "m", "mass", "E", "e", "energy")
+            ):
                 cls = cls.ProjectionClass4D
-            elif "z" in fields or "theta" in fields or "eta" in fields:
+            elif any(f in fields for f in ("z", "pz", "theta", "eta")):
                 cls = cls.ProjectionClass3D
             else:
                 cls = cls.ProjectionClass2D
@@ -839,7 +841,9 @@ class VectorAwkward:
                         names.append(name)
                         arrays.append(self[name])
 
-            if "t" in fields or "tau" in fields:
+            if any(
+                f in fields for f in ("t", "tau", "M", "m", "mass", "E", "e", "energy")
+            ):
                 cls = cls.ProjectionClass4D
             else:
                 cls = cls.ProjectionClass3D
@@ -1629,28 +1633,28 @@ behavior[numpy.cbrt, "Momentum2D"] = lambda v: v.rho2**0.16666666666666666
 behavior[numpy.cbrt, "Momentum3D"] = lambda v: v.mag2**0.16666666666666666
 behavior[numpy.cbrt, "Momentum4D"] = lambda v: v.tau2**0.16666666666666666
 
-behavior[numpy.power, "Vector2D", numbers.Real] = (
-    lambda v, expo: v.rho2 if expo == 2 else v.rho**expo
+behavior[numpy.power, "Vector2D", numbers.Real] = lambda v, expo: (
+    v.rho2 if expo == 2 else v.rho**expo
 )
-behavior[numpy.power, "Vector3D", numbers.Real] = (
-    lambda v, expo: v.mag2 if expo == 2 else v.mag**expo
+behavior[numpy.power, "Vector3D", numbers.Real] = lambda v, expo: (
+    v.mag2 if expo == 2 else v.mag**expo
 )
-behavior[numpy.power, "Vector4D", numbers.Real] = (
-    lambda v, expo: v.tau2 if expo == 2 else v.tau**expo
+behavior[numpy.power, "Vector4D", numbers.Real] = lambda v, expo: (
+    v.tau2 if expo == 2 else v.tau**expo
 )
-behavior[numpy.power, "Momentum2D", numbers.Real] = (
-    lambda v, expo: v.rho2 if expo == 2 else v.rho**expo
+behavior[numpy.power, "Momentum2D", numbers.Real] = lambda v, expo: (
+    v.rho2 if expo == 2 else v.rho**expo
 )
-behavior[numpy.power, "Momentum3D", numbers.Real] = (
-    lambda v, expo: v.mag2 if expo == 2 else v.mag**expo
+behavior[numpy.power, "Momentum3D", numbers.Real] = lambda v, expo: (
+    v.mag2 if expo == 2 else v.mag**expo
 )
-behavior[numpy.power, "Momentum4D", numbers.Real] = (
-    lambda v, expo: v.tau2 if expo == 2 else v.tau**expo
+behavior[numpy.power, "Momentum4D", numbers.Real] = lambda v, expo: (
+    v.tau2 if expo == 2 else v.tau**expo
 )
 
-behavior["__cast__", VectorNumpy2D] = lambda v: vector.Array(v)
-behavior["__cast__", VectorNumpy3D] = lambda v: vector.Array(v)
-behavior["__cast__", VectorNumpy4D] = lambda v: vector.Array(v)
+behavior["__cast__", VectorNumpy2D] = lambda v: vector.Array(v)  # noqa: PLW0108
+behavior["__cast__", VectorNumpy3D] = lambda v: vector.Array(v)  # noqa: PLW0108
+behavior["__cast__", VectorNumpy4D] = lambda v: vector.Array(v)  # noqa: PLW0108
 
 for left in (
     "Vector2D",

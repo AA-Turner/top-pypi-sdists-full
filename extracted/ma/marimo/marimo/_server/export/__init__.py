@@ -41,6 +41,9 @@ from marimo._server.models.models import InstantiateNotebookRequest
 from marimo._session.model import ConnectionState, SessionMode
 from marimo._session.notebook import AppFileManager, load_notebook
 from marimo._types.ids import ConsumerId
+from marimo._utils.inline_script_metadata import (
+    pin_pep723_dependencies_for_wasm,
+)
 from marimo._utils.marimo_path import MarimoPath
 
 LOGGER = _loggers.marimo_logger()
@@ -391,11 +394,13 @@ async def run_app_then_export_as_wasm(
         session_view, file_manager.app.cell_manager
     )
 
+    code = pin_pep723_dependencies_for_wasm(file_manager.app.to_py(), path)
+
     html, filename = Exporter().export_as_wasm(
         filename=file_manager.filename,
         app=file_manager.app,
         display_config=display_config,
-        code=file_manager.app.to_py(),
+        code=code,
         mode=mode,
         show_code=show_code,
         asset_url=asset_url,
@@ -589,13 +594,6 @@ async def run_app_until_completion(
         http_request=None,
     )
     await instantiated_event.wait()
-    # Process console messages
-    #
-    # TODO(akshayka): A timing issue with the console output worker
-    # might still exist; the better thing to do would be to flush
-    # the worker, then ask it to quit and join on it. If we have an
-    # issue with some outputs being missed, that's what we should do.
-    session.flush_messages()
     # Hack: yield to give the session view a chance to process the incoming
     # console operations.
     await asyncio.sleep(0.1)

@@ -19,10 +19,10 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
     Mapping,
     Optional,
     Sequence,
-    TypeVar,
     Union,
     cast,
     overload,
@@ -44,6 +44,7 @@ else:
 from typing import Literal, Protocol, SupportsIndex, runtime_checkable
 
 from packaging.version import Version
+from typing_extensions import TypeVar
 
 from ._util import (
     ensure_http_server,
@@ -68,10 +69,16 @@ __all__ = (
     "TagNode",
     "TagFunction",
     "Tagifiable",
+    "Tagified",
+    "TagifiedTag",
+    "TagifiedTagList",
     "consolidate_attrs",
     "head_content",
     "is_tag_child",
+    "is_tag_like",
     "is_tag_node",
+    "is_tagified",
+    "is_taglist_like",
     "wrap_displayhook_handler",
 )
 
@@ -108,50 +115,95 @@ For dictionaries of tag attributes (e.g., `{"id": "foo"}`), which can be passed 
 unnamed arguments to Tag functions like `div()`.
 """
 
+# Kept as a plain `Union` (not `TypeAliasType`) so the arms are visible
+# in pyright diagnostics — a value typed as `TagNodeLeaf` shows up as
+# `MetadataNode | ReprHtml | str | HTML` directly instead of as an
+# opaque alias name.
+TagNodeLeaf = Union["MetadataNode", "ReprHtml", str, "HTML"]
+"""
+Leaf nodes in a tag tree: members that do not recursively contain tag
+children. `MetadataNode` carries non-rendered metadata, `ReprHtml` and
+`HTML` render themselves, and `str` is plain text. These are the non-`Tag`
+/ non-`TagList` arms shared by both `TagNode` and `TagifiedNode`.
+"""
+
+# A node that has already been fully tagified: no Tagifiable objects whose
+# .tagify() still needs to be called. Recursive — a tagified Tag's children
+# are themselves tagified.
+TagifiedNode = Union["TagifiedTag", "TagifiedTagList", TagNodeLeaf]
+"""
+A fully-tagified child-slot type. References the `TagifiedTag` and
+`TagifiedTagList` classes by forward reference (defined below). Calling
+`.tagify()` on a node tree returns a structure whose slot items are all
+`TagifiedNode`.
+
+`TagifiedTagList` is a type-level member here for parity with how
+`TagNode` contains `Tagifiable` (which subsumes both `Tag` and
+`TagList`). At runtime a `TagifiedTagList` never appears as a child
+slot of another `TagifiedTagList` — `_tagchilds_to_tagnodes` flattens
+nested lists — but the type allows it.
+"""
+
+# Kept as a plain `Union` (not `TypeAliasType`) because pyright's
+# recursive-alias resolution leaks `Unknown` when downstream packages
+# inspect the type in strict mode. The alias name is then lost in
+# diagnostics, but downstream pyright stays clean.
+Tagified = Union[TagifiedNode, float, None, Sequence["Tagified"]]
+"""
+Anything `.tagify()` is permitted to return: a fully-tagified node, a
+numeric/None leaf, or a recursive sequence thereof. `Tagified` mirrors
+`TagChild`'s structural shape (both are `Element | float | None |
+Sequence[recursive]`); the element-type unions (`TagifiedNode` /
+`TagNode`) carry the tagified-vs-buildable distinction.
+"""
+
+
+# -----------------------------------------------------------------------------
+# TagNode / TagChild
+# -----------------------------------------------------------------------------
 # NOTE: If this type is updated, please update `is_tag_node()`
-TagNode = Union[
-    "Tagifiable",
-    # "Tag", # Tag is Tagifiable, do not include here
-    # "TagList" is Tagifiable, so it is included in practice.
-    #   But in reality it should be excluded because a TagList cannot contain a TagList.
-    MetadataNode,
-    "ReprHtml",
-    str,
-    "HTML",
-]
+TagNode = Union["Tagifiable", TagNodeLeaf]
 """
-Types of objects that can be a node in a `Tag` tree. Equivalently, these are the valid
-elements of a `TagList`. Note that this type represents the internal structure of items
-in a `TagList`; the user-facing type is `TagChild`.
+Types of objects that can be a node in a `Tag` tree. Equivalently, these are
+the valid elements of a `TagList`. Note that this type represents the
+internal structure of items in a `TagList`; the user-facing type is
+`TagChild`.
+
+`Tag` and `TagList` are structurally `Tagifiable` (each defines
+`.tagify() -> Tagified`), so the `Tagifiable` arm subsumes them and
+their tagified specializations. Only the leaf arm is spelled out
+explicitly.
 """
 
-# NOTE: If this type is updated, please update `is_tag_child()`
-TagChild = Union[
-    TagNode,
-    "TagList",
-    float,
-    None,
-    Sequence["TagChild"],
-]
+# NOTE: If this type is updated, please update `is_tag_child()`.
+#
+# `TagChild` is intentionally NOT generic. Making it a generic
+# `TypeAliasType` with a recursive `Sequence["TagChild[TagNodeT]"]`
+# arm caused pyright to leak `Sequence[Unknown]` into every `Tag`
+# function signature when inspected from a downstream module in
+# strict mode (e.g. Shiny's CI reported 2500+
+# `reportUnknownMemberType` errors). The trade-off is that
+# `TagList.append(some_tagifiable)` on a tagified-flavored list no
+# longer static-errors — the runtime guard in `TagList.get_html_string`
+# still catches it at render time. See
+# `tests/test_types.py::test_TagifiedTagList_append_accepts_Tagifiable`
+# for the full rationale.
+TagChild = Union[TagNode, float, None, Sequence["TagChild"]]
 """
-Types of objects that can be passed as children to Tag functions like `div()`. The `Tag`
-functions and the `TagList()` constructor can accept these as unnamed arguments; they
-will be flattened and normalized to `TagNode` objects.
+Types of objects that can be passed as children to Tag functions like
+`div()`. The `Tag` functions and the `TagList()` constructor can accept
+these as unnamed arguments; they will be flattened and normalized to
+`TagNode` objects.
 """
 
 
-# These two types existed in htmltools 0.14.0 and earlier. They are here so that
-# existing versions of Shiny will be able to load, but users of those existing packages
-# will see type errors, which should encourage them to upgrade Shiny.
+# These two types existed in htmltools 0.14.0 and earlier. They are here so
+# that existing versions of Shiny will be able to load, but users of those
+# existing packages will see type errors, which should encourage them to
+# upgrade Shiny.
 TagChildArg = Never
 TagAttrArg = Never
 
-
-# # No use yet, so keeping code commented for now
-# TagNodeT = TypeVar("TagNodeT", bound=TagNode)
-# """
-# Type variable for `TagNode`.
-# """
 
 TagChildT = TypeVar("TagChildT", bound=TagChild)
 """
@@ -206,7 +258,6 @@ def is_tag_child(x: object) -> TypeIs[TagChild]:
         x,
         (
             # TagNode, # Handled above
-            TagList,
             float,
             # None, # Handled above
             Sequence,
@@ -218,14 +269,48 @@ def is_tag_child(x: object) -> TypeIs[TagChild]:
     return False
 
 
+def is_tag_like(x: object) -> TypeIs["Tag | TagifiedTag"]:
+    """
+    True if `x` is either a buildable `Tag` or a tagified `TagifiedTag`.
+
+    Both classes share the `_TagBase` plumbing (name, attrs, children,
+    rendering). Use this helper at call sites that handle either form so
+    the "either flavor" intent is explicit and the narrowing is expressed
+    through public types rather than the private `_TagBase`.
+    """
+    return isinstance(x, (Tag, TagifiedTag))
+
+
+def is_taglist_like(x: object) -> TypeIs["TagList | TagifiedTagList"]:
+    """
+    True if `x` is either a buildable `TagList` or a tagified `TagifiedTagList`.
+
+    Both classes share the `_TagListBase` render plumbing. Use this helper
+    at call sites that handle either form.
+    """
+    return isinstance(x, (TagList, TagifiedTagList))
+
+
+def is_tagified(x: object) -> TypeIs["TagifiedTag | TagifiedTagList"]:
+    """
+    True if `x` is a fully-tagified container (`TagifiedTag` or `TagifiedTagList`).
+
+    Useful for distinguishing post-`.tagify()` values from buildable
+    `Tag` / `TagList` instances at runtime. Symmetric with `is_tag_like`
+    and `is_taglist_like`.
+    """
+    return isinstance(x, (TagifiedTag, TagifiedTagList))
+
+
 @runtime_checkable
 class Tagifiable(Protocol):
     """
-    Objects with `tagify()` methods are considered `Tagifiable`. Note that an object
-    returns a `TagList`, the children of the `TagList` must also be tagified.
+    Objects with `tagify()` methods are considered `Tagifiable`. The return
+    value must be `Tagified` — i.e. fully tagified all the way down. See
+    `TagifiedNode` / `TagifiedTagList`.
     """
 
-    def tagify(self) -> "TagList | Tag | MetadataNode | str | HTML": ...
+    def tagify(self) -> "Tagified": ...
 
 
 @runtime_checkable
@@ -252,9 +337,203 @@ class ReprHtml(Protocol):
 
 
 # =============================================================================
+# _TagListBase mixin (shared between TagList and TagifiedTagList)
+# =============================================================================
+class _TagListBase:
+    """
+    Render plumbing shared between `TagList` (buildable, `UserList`-backed)
+    and `TagifiedTagList` (immutable, `Sequence`-backed). Both subclasses
+    support iteration over their elements, which is all the bodies below
+    need.
+
+    This is the `TagList`-side analog of `_TagBase`: a methods-only mixin
+    that does NOT inherit from `UserList` or `Sequence`. Subclasses bring
+    their own iteration / indexing / mutation surface.
+    """
+
+    def tagify(self) -> "TagifiedTagList":
+        """
+        Return a fully-tagified form of this tag list. Implemented by subclasses.
+        """
+        raise NotImplementedError
+
+    def get_html_string(
+        self,
+        indent: int = 0,
+        eol: str = "\n",
+        *,
+        add_ws: bool = True,
+        _escape_strings: bool = True,
+    ) -> str:
+        """
+        Return the HTML string for this tag list.
+
+        Parameters
+        ----------
+        indent
+            Number of spaces to indent each line of the HTML.
+        eol
+            End-of-line character(s).
+        add_ws:
+            Whether to add whitespace between the opening tag and the first child. If
+            either this is True, or the child's add_ws attribute is True, then
+            whitespace will be added; if they are both False, then no whitespace will be
+            added.
+        """
+
+        html_ = ""
+        first_child = True
+        prev_was_add_ws = add_ws
+
+        for child in cast(Iterable[Any], self):
+            if isinstance(child, MetadataNode):
+                continue
+
+            # True if the previous and current node are inline; False otherwise. This
+            # affects whether or not we add whitespace and indentation.
+            prev_or_current_add_ws = prev_was_add_ws or (
+                is_tag_like(child) and child.add_ws
+            )
+
+            if first_child:
+                first_child = False
+            elif prev_or_current_add_ws:
+                html_ += eol
+
+            if is_tag_like(child):
+                # Note that we don't pass _escape_strings along, because that should
+                # only be set to True when <script> and <style> tags call
+                # self.children.get_html_string(), and those tags don't have children to
+                # recurse into.
+                if prev_or_current_add_ws:
+                    html_ += child.get_html_string(indent, eol)
+                else:
+                    html_ += child.get_html_string(0, "")
+
+                prev_was_add_ws = child.add_ws
+
+            elif isinstance(child, ReprHtml):
+                if prev_was_add_ws:
+                    html_ += "  " * indent
+
+                html_ += child._repr_html_()  # pyright: ignore[reportPrivateUsage]
+
+                prev_was_add_ws = False
+
+            elif isinstance(child, Tagifiable):
+                # Defense-in-depth: a buildable `TagList` containing an
+                # un-tagified `Tagifiable` would normally be tagified
+                # before reaching here (`.render()` calls `.tagify()`
+                # first). This guard catches the case where a caller
+                # invokes `.get_html_string()` directly on a buildable
+                # tree, or where the type system was bypassed (cast,
+                # __dict__ manipulation) to smuggle a `Tagifiable` into
+                # a tagified container's internal storage.
+                raise RuntimeError(
+                    f"Encountered an un-tagified {type(child).__name__} at render time. "
+                    "Call `.tagify()` (or `.render()`, which tagifies "
+                    "internally) before invoking `.get_html_string()` on "
+                    "a buildable tree."
+                )
+
+            else:
+                # If we get here, x must be a string.
+                if prev_was_add_ws:
+                    html_ += "  " * indent
+
+                if _escape_strings:
+                    html_ += _normalize_text(child)
+                else:
+                    html_ += child
+
+                prev_was_add_ws = False
+
+        return html_
+
+    def get_dependencies(self, *, dedup: bool = True) -> list["HTMLDependency"]:
+        """
+        Get any dependencies needed to render the HTML.
+
+        Parameters
+        ----------
+        dedup
+            Whether to deduplicate the dependencies.
+        """
+
+        deps: list[HTMLDependency] = []
+        for x in cast(Iterable[Any], self):
+            if isinstance(x, HTMLDependency):
+                deps.append(x)
+            elif is_tag_like(x):
+                # When we recurse, don't deduplicate at every node. We only need to do
+                # that once, at the top level.
+                deps.extend(x.get_dependencies(dedup=False))
+
+        if dedup:
+            return _resolve_dependencies(deps)
+        else:
+            return deps
+
+    def render(self) -> "RenderedHTML":
+        """
+        Get string representation as well as its HTML dependencies.
+        """
+        cp = self.tagify()
+        deps = cp.get_dependencies()
+        return {"dependencies": deps, "html": cp.get_html_string()}
+
+    def save_html(
+        self, file: str, *, libdir: Optional[str] = "lib", include_version: bool = True
+    ) -> str:
+        """
+        Save to a HTML file.
+
+        Parameters
+        ----------
+        file
+            The file to save to.
+        libdir
+            The directory to save the dependencies to.
+        include_version
+            Whether to include the version number in the dependency folder name.
+
+        Returns
+        -------
+        :
+            The path to the generated HTML file.
+        """
+        return HTMLDocument(self).save_html(
+            file, libdir=libdir, include_version=include_version
+        )
+
+    def show(self, renderer: Literal["auto", "ipython", "browser"] = "auto") -> object:
+        """
+        Preview as a complete HTML document.
+
+        Parameters
+        ----------
+        renderer
+            The renderer to use.
+        """
+        _tag_show(self, renderer)
+
+    def __eq__(self, other: Any) -> bool:
+        return _equals_impl(self, other)
+
+    def __str__(self) -> str:
+        return _render_tag_or_taglist(self)
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def _repr_html_(self) -> str:
+        return str(self)
+
+
+# =============================================================================
 # TagList class
 # =============================================================================
-class TagList(UserList[TagNode]):
+class TagList(_TagListBase, UserList[TagNode]):
     """
     Create an HTML tag list (i.e., a fragment of HTML)
 
@@ -300,7 +579,7 @@ class TagList(UserList[TagNode]):
 
         self[i:i] = _tagchilds_to_tagnodes([item])
 
-    def __add__(self, item: Iterable[TagChild]) -> TagList:
+    def __add__(self, item: Iterable[TagChild]) -> "TagList":
         """
         Return a new TagList with the item added at the end.
         """
@@ -310,7 +589,7 @@ class TagList(UserList[TagNode]):
 
         return TagList(self, *item)
 
-    def __radd__(self, item: Iterable[TagChild]) -> TagList:
+    def __radd__(self, item: Iterable[TagChild]) -> "TagList":
         """
         Return a new TagList with the item added to the beginning.
         """
@@ -320,192 +599,138 @@ class TagList(UserList[TagNode]):
 
         return TagList(*item, self)
 
-    def tagify(self) -> "TagList":
+    def tagify(self) -> "TagifiedTagList":
         """
-        Convert any tagifiable children to Tag/TagList objects.
+        Convert any tagifiable children to TagifiedTag/TagifiedTagList objects.
+
+        Raises
+        ------
+        TypeError
+            If a child's ``.tagify()`` returned a ``TagList`` containing an
+            un-tagified ``Tagifiable`` object — i.e. the recursion was not
+            done all the way down. The error names the offending class and
+            slot index so the broken ``.tagify()`` is easy to find.
         """
 
-        cp = copy(self)
+        # Work on a private list that we'll wrap into a TagifiedTagList at
+        # the end. Use a plain list because items may expand (a child's
+        # .tagify() can return a TagList which gets flattened in place).
+        new_data: list[Any] = list(self.data)
 
-        # Iterate backwards because if we hit a Tagifiable object, it may be replaced
-        # with 0, 1, or more items (if it returns TagList).
-        for i in reversed(range(len(cp))):
-            child = cp[i]
+        # Iterate backwards because if we hit a Tagifiable object, it may be
+        # replaced with 0, 1, or more items (if it returns TagList).
+        for i in reversed(range(len(new_data))):
+            child = new_data[i]
 
             if isinstance(child, Tagifiable):
                 tagified_child = child.tagify()
-                if isinstance(tagified_child, TagList):
-                    # If the Tagifiable object returned a TagList, flatten it into this
-                    # one.
-                    cp[i : i + 1] = _tagchilds_to_tagnodes(tagified_child)
-                else:
-                    cp[i] = tagified_child
-
-            elif isinstance(child, MetadataNode):
-                cp[i] = copy(child)
-        return cp
-
-    def save_html(
-        self, file: str, *, libdir: Optional[str] = "lib", include_version: bool = True
-    ) -> str:
-        """
-        Save to a HTML file.
-
-        Parameters
-        ----------
-        file
-            The file to save to.
-        libdir
-            The directory to save the dependencies to.
-        include_version
-            Whether to include the version number in the dependency folder name.
-
-        Returns
-        -------
-        :
-            The path to the generated HTML file.
-        """
-
-        return HTMLDocument(self).save_html(
-            file, libdir=libdir, include_version=include_version
-        )
-
-    def render(self) -> RenderedHTML:
-        """
-        Get string representation as well as its HTML dependencies.
-        """
-        cp = self.tagify()
-        deps = cp.get_dependencies()
-        return {"dependencies": deps, "html": cp.get_html_string()}
-
-    def get_html_string(
-        self,
-        indent: int = 0,
-        eol: str = "\n",
-        *,
-        add_ws: bool = True,
-        _escape_strings: bool = True,
-    ) -> str:
-        """
-        Return the HTML string for this tag list.
-
-        Parameters
-        ----------
-        indent
-            Number of spaces to indent each line of the HTML.
-        eol
-            End-of-line character(s).
-        add_ws:
-            Whether to add whitespace between the opening tag and the first child. If
-            either this is True, or the child's add_ws attribute is True, then
-            whitespace will be added; if they are both False, then no whitespace will be
-            added.
-        """
-
-        html_ = ""
-        first_child = True
-        prev_was_add_ws = add_ws
-
-        for child in self:
-            if isinstance(child, MetadataNode):
-                continue
-
-            # True if the previous and current node are inline; False otherwise. This
-            # affects whether or not we add whitespace and indentation.
-            prev_or_current_add_ws = prev_was_add_ws or (
-                (isinstance(child, Tag) and child.add_ws)
-            )
-
-            if first_child:
-                first_child = False
-            elif prev_or_current_add_ws:
-                html_ += eol
-
-            if isinstance(child, Tag):
-                # Note that we don't pass _escape_strings along, because that should
-                # only be set to True when <script> and <style> tags call
-                # self.children.get_html_string(), and those tags don't have children to
-                # recurse into.
-                if prev_or_current_add_ws:
-                    html_ += child.get_html_string(indent, eol)
-                else:
-                    html_ += child.get_html_string(0, "")
-
-                prev_was_add_ws = child.add_ws
-
-            elif isinstance(child, ReprHtml):
-                if prev_was_add_ws:
-                    html_ += "  " * indent
-
-                html_ += child._repr_html_()  # pyright: ignore[reportPrivateUsage]
-
-                prev_was_add_ws = False
-
-            elif isinstance(child, Tagifiable):
-                raise RuntimeError(
-                    "Encountered a non-tagified object. x.tagify() must be called before x.render()"
+                # _tagchilds_to_tagnodes flattens TagList and
+                # TagifiedTagList equivalently (both are handled by
+                # `flatten`), normalizes float/None/Sequence, and
+                # passes leaf nodes through.
+                new_data[i : i + 1] = _tagchilds_to_tagnodes(
+                    cast("Iterable[TagChild]", [tagified_child])
                 )
 
-            else:
-                # If we get here, x must be a string.
-                if prev_was_add_ws:
-                    html_ += "  " * indent
+            elif isinstance(child, MetadataNode):
+                new_data[i] = copy(child)
 
-                if _escape_strings:
-                    html_ += _normalize_text(child)
-                else:
-                    html_ += child
+        # Boundary check: after the recursion above, every child should be
+        # a fully-tagified shape (TagifiedTag, TagifiedTagList, MetadataNode,
+        # ReprHtml, str, or HTML). A bare Tagifiable still present here means
+        # some child's `.tagify()` returned a value containing un-tagified
+        # objects — which violates the Tagifiable protocol. Surface that
+        # here, where the offending class and index are still in scope,
+        # instead of waiting for the render-time guard in `get_html_string`
+        # to raise a less-actionable error.
+        for i, child in enumerate(new_data):
+            if isinstance(child, Tagifiable) and not isinstance(
+                child, (TagifiedTag, TagifiedTagList)
+            ):
+                raise TypeError(
+                    "Expected a fully tagified value, but a child .tagify() "
+                    f"returned an un-tagified {type(child).__name__} at index "
+                    f"{i}. A .tagify() implementation must return a fully-"
+                    "tagified value (consider returning `something.tagify()` "
+                    "instead of `something`)."
+                )
 
-                prev_was_add_ws = False
+        # Wrap in a TagifiedTagList. Use __new__ + direct _data assignment
+        # because we already normalized; running through __init__ would
+        # re-normalize unnecessarily.
+        out = TagifiedTagList.__new__(TagifiedTagList)
+        out._data = tuple(  # pyright: ignore[reportPrivateUsage]
+            cast("list[TagifiedNode]", new_data)
+        )
+        return out
 
-        return html_
 
-    def get_dependencies(self, *, dedup: bool = True) -> list["HTMLDependency"]:
-        """
-        Get any dependencies needed to render the HTML.
+# =============================================================================
+# TagifiedTagList class
+# =============================================================================
+class TagifiedTagList(_TagListBase, Sequence["TagifiedNode"]):
+    """
+    A fully-tagified `TagList`. Immutable: no append / extend / insert
+    / __setitem__ / pop / etc. Construct via `TagList.tagify()` or
+    directly with pre-tagified arguments; once constructed the
+    contents are frozen.
 
-        Parameters
-        ----------
-        dedup
-            Whether to deduplicate the dependencies.
-        """
+    Storage is an internal tuple. The `Sequence` ABC gives read-only
+    indexing, iteration, `len()`, `__contains__`, `__reversed__`,
+    `index`, and `count` — all that's needed for render-time access.
+    """
 
-        deps: list[HTMLDependency] = []
-        for x in self:
-            if isinstance(x, HTMLDependency):
-                deps.append(x)
-            elif isinstance(x, Tag):
-                # When we recurse, don't deduplicate at every node. We only need to do
-                # that once, at the top level.
-                deps.extend(x.get_dependencies(dedup=False))
+    _data: "tuple[TagifiedNode, ...]"
 
-        if dedup:
-            return _resolve_dependencies(deps)
-        else:
-            return deps
+    def __init__(self, *args: "Tagified") -> None:
+        # Flatten/normalize input through the same pipeline TagList
+        # uses, so float/None/nested Sequence behave consistently
+        # between the two sides. Cast: _tagchilds_to_tagnodes expects
+        # an iterable of TagChild; Tagified is a subset of TagChild
+        # (TagifiedNode <: TagNode), so the cast is sound.
+        normalized = _tagchilds_to_tagnodes(cast("tuple[TagChild, ...]", args))
+        self._data = tuple(cast("list[TagifiedNode]", normalized))
 
-    def show(self, renderer: Literal["auto", "ipython", "browser"] = "auto") -> object:
-        """
-        Preview as a complete HTML document.
+    # Sequence ABC requirements ------------------------------------------------
 
-        Parameters
-        ----------
-        renderer
-            The renderer to use.
-        """
-        _tag_show(self, renderer)
+    @overload
+    def __getitem__(self, i: SupportsIndex) -> "TagifiedNode": ...
+    @overload
+    def __getitem__(self, i: slice) -> "TagifiedTagList": ...
+    def __getitem__(
+        self, i: "SupportsIndex | slice"
+    ) -> "TagifiedNode | TagifiedTagList":
+        if isinstance(i, slice):
+            sliced = TagifiedTagList.__new__(TagifiedTagList)
+            sliced._data = self._data[i]
+            return sliced
+        return self._data[i]
 
-    def __eq__(self, other: Any) -> bool:
-        return _equals_impl(self, other)
+    def __len__(self) -> int:
+        return len(self._data)
 
-    def __str__(self) -> str:
-        return _render_tag_or_taglist(self)
+    def __iter__(self) -> "Iterator[TagifiedNode]":
+        return iter(self._data)
 
-    def __repr__(self) -> str:
-        return str(self)
+    # Construction-not-mutation arithmetic --------------------------------------
 
-    def _repr_html_(self) -> str:
-        return str(self)
+    def __add__(self, item: "Iterable[Tagified]") -> "TagifiedTagList":
+        # Mirror TagList.__add__'s str guard: a str is an Iterable, so a
+        # naive splat would iterate it character-by-character. Treat it
+        # as a single tagified leaf instead.
+        if isinstance(item, str):
+            return TagifiedTagList(*self._data, item)
+        return TagifiedTagList(*self._data, *item)
+
+    def __radd__(self, item: "Iterable[Tagified]") -> "TagifiedTagList":
+        if isinstance(item, str):
+            return TagifiedTagList(item, *self._data)
+        return TagifiedTagList(*item, *self._data)
+
+    # Idempotent tagify --------------------------------------------------------
+
+    def tagify(self) -> "TagifiedTagList":
+        return self
 
 
 # =============================================================================
@@ -589,7 +814,221 @@ class TagAttrDict(Dict[str, "str | HTML"]):
 # =============================================================================
 # Tag class
 # =============================================================================
-class Tag:
+class _TagBase:
+    """Shared state and render plumbing between Tag (buildable) and
+    TagifiedTag (rendered).
+
+    Both subclasses carry the same surface attributes (name, attrs,
+    add_ws, children). The children attribute is narrowed to the
+    concrete TagList / TagifiedTagList type in each subclass.
+
+    Render / equality / repr methods live here so that both subclasses
+    inherit a single implementation.
+    """
+
+    name: str
+    attrs: "TagAttrDict"
+    add_ws: bool
+    # children is also narrowed in subclasses to its concrete type
+    # (TagList for Tag, TagifiedTagList for TagifiedTag); we declare a
+    # union here so the shared methods below type-check.
+    children: "TagList | TagifiedTagList"
+
+    def tagify(self) -> "TagifiedTag":
+        """
+        Return a fully-tagified form of this tag. Implemented by subclasses.
+        """
+        raise NotImplementedError
+
+    def get_html_string(self, indent: int = 0, eol: str = "\n") -> str:
+        """
+        Get the HTML string representation of the tag.
+
+        Parameters
+        ----------
+        indent
+            The number of spaces to indent the tag.
+        eol
+            The end-of-line character(s).
+        """
+
+        indent_str = "  " * indent
+        html_ = indent_str + "<" + self.name
+
+        # Write attributes
+        for key, val in self.attrs.items():
+            if not isinstance(val, HTML):
+                val = html_escape(val, attr=True)
+            html_ += f' {key}="{val}"'
+
+        # Dependencies are ignored in the HTML output
+        children = [x for x in self.children if not isinstance(x, MetadataNode)]
+
+        # Don't enclose JSX/void elements if there are no children
+        if len(children) == 0 and self.name in _VOID_TAG_NAMES:
+            return html_ + "/>"
+
+        # Other empty tags are enclosed
+        html_ += ">"
+        close = "</" + self.name + ">"
+        if len(children) == 0:
+            return html_ + close
+
+        # Inline a single/empty child text node
+        if len(children) == 1 and isinstance(children[0], (str, HTML)):
+            if self.name in _NO_ESCAPE_TAG_NAMES:
+                return html_ + str(children[0]) + close
+            else:
+                return html_ + _normalize_text(children[0]) + close
+
+        # Write children
+        if self.add_ws:
+            html_ += eol
+
+        html_ += self.children.get_html_string(
+            indent=indent + 1,
+            eol=eol,
+            add_ws=self.add_ws,
+            _escape_strings=(self.name not in _NO_ESCAPE_TAG_NAMES),
+        )
+
+        if self.add_ws:
+            html_ += eol + indent_str
+
+        return html_ + close
+
+    def get_dependencies(self, dedup: bool = True) -> list["HTMLDependency"]:
+        """
+        Get any HTML dependencies.
+        """
+        return self.children.get_dependencies(dedup=dedup)
+
+    def render(self) -> RenderedHTML:
+        """
+        Get string representation as well as its HTML dependencies.
+        """
+        cp = self.tagify()
+        deps = cp.get_dependencies()
+        return {"dependencies": deps, "html": cp.get_html_string()}
+
+    def save_html(
+        self, file: str, *, libdir: Optional[str] = "lib", include_version: bool = True
+    ) -> str:
+        """
+        Save to a HTML file.
+
+        Parameters
+        ----------
+        file
+            The file to save to.
+        libdir
+            The directory to save the dependencies to.
+        include_version
+            Whether to include the version number in the dependency folder name.
+
+        Returns
+        -------
+        The path to the generated HTML file.
+        """
+
+        return HTMLDocument(self).save_html(
+            file, libdir=libdir, include_version=include_version
+        )
+
+    def show(self, renderer: Literal["auto", "ipython", "browser"] = "auto") -> object:
+        """
+        Preview as a complete HTML document.
+
+        Parameters
+        ----------
+        renderer
+            The renderer to use.
+        """
+        _tag_show(self, renderer)
+
+    def __eq__(self, other: Any) -> bool:
+        return _equals_impl(self, other)
+
+    def __str__(self) -> str:
+        return _render_tag_or_taglist(self)
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def _repr_html_(self) -> str:
+        return str(self)
+
+    def has_class(self, class_: str) -> bool:
+        """
+        Check if the tag has a particular class value.
+
+        Parameters
+        ----------
+        class_
+            The class name to check for.
+
+        Returns
+        -------
+        :
+            ``True`` if the tag has the class, ``False`` otherwise.
+        """
+        cls = self.attrs.get("class")
+        if cls:
+            return class_ in cls.split()
+        return False
+
+
+def _parse_tag_args(
+    args: tuple[Any, ...],
+    kwargs: dict[str, TagAttrValue],
+    add_ws: TagAttrValue,
+) -> tuple[bool, TagAttrDict, list[Any]]:
+    """Parse the positional+kwarg arguments to `Tag` / `TagifiedTag`.
+
+    Shared between both constructors: validates `_add_ws` is `bool`,
+    extracts dict-shaped attrs from positional args (per the documented
+    `Tag(...)` calling convention), folds them with `**kwargs` into a
+    `TagAttrDict`, and returns the remaining positional args (the
+    children) untouched.
+
+    The children list is intentionally returned as `list[Any]` — each
+    subclass narrows it to its own constructor's argument type
+    (`TagChild` for `TagList`, `Tagified` for `TagifiedTagList`) at the
+    call site.
+    """
+    # Note that _add_ws is marked as a TagAttrValue for the sake of static type
+    # checking, but it must in fact be a bool. This is due to limitations in
+    # Python's type system when passing along **kwargs.
+    # https://github.com/posit-dev/py-htmltools/pull/67
+    if not isinstance(add_ws, bool):
+        raise TypeError("`_add_ws` must be `True` or `False`")
+    attrs_dicts = cast(
+        "list[Mapping[str, TagAttrValue]]",
+        [x for x in args if isinstance(x, dict)],
+    )
+    attrs = TagAttrDict(*attrs_dicts, **kwargs)
+    kids = [x for x in args if not isinstance(x, dict)]
+    return add_ws, attrs, kids
+
+
+def _thaw_top(x: "Tag | TagifiedTag") -> "Tag":
+    """Build a buildable `Tag` from `x`'s top-level data.
+
+    Only the top node is freshly mutable — children are passed by
+    reference (they may still be `TagifiedTag` instances). This is the
+    minimal "thaw" needed by `_hoist_head_content` to splice in head
+    content without mutating a frozen `TagifiedTag`.
+    """
+    res = Tag.__new__(Tag)
+    res.name = x.name
+    res.add_ws = x.add_ws
+    res.attrs = copy(x.attrs)
+    res.children = TagList(*x.children)
+    res.prev_displayhook = None
+    return res
+
+
+class Tag(_TagBase):
     """
     The HTML tag class.
 
@@ -652,7 +1091,7 @@ class Tag:
     name: str
     add_ws: bool
     attrs: TagAttrDict
-    children: TagList
+    children: "TagList"
 
     def __init__(
         self,
@@ -662,21 +1101,8 @@ class Tag:
         **kwargs: TagAttrValue,
     ) -> None:
         self.name = _name
-
-        # Note that _add_ws is marked as a TagAttrValue for the sake of static type
-        # checking, but it must in fact be a bool. This is due to limitations in
-        # Python's type system when passing along **kwargs.
-        # https://github.com/posit-dev/py-htmltools/pull/67
-        if not isinstance(_add_ws, bool):
-            raise TypeError("`_add_ws` must be `True` or `False`")
-
-        self.add_ws = _add_ws
-
-        attrs = [x for x in args if isinstance(x, dict)]
-        self.attrs = TagAttrDict(*attrs, **kwargs)
-
-        kids = [x for x in args if not isinstance(x, dict)]
-        self.children = TagList(*kids)
+        self.add_ws, self.attrs, kids = _parse_tag_args(args, kwargs, _add_ws)
+        self.children = TagList(*cast("list[TagChild]", kids))  # pyright: ignore[reportIncompatibleVariableOverride]
 
         self.prev_displayhook: Callable[[object], None] | None = None
 
@@ -787,26 +1213,6 @@ class Tag:
             self.attrs.pop("class")
         return self
 
-    def has_class(self, class_: str) -> bool:
-        """
-        Check if the tag has a particular class value.
-
-        Parameters
-        ----------
-        class_
-            The class name to check for.
-
-        Returns
-        -------
-        :
-            ``True`` if the tag has the class, ``False`` otherwise.
-        """
-        cls = self.attrs.get("class")
-        if cls:
-            return class_ in cls.split()
-        else:
-            return False
-
     def add_style(self: TagT, style: str | HTML, *, prepend: bool = False) -> TagT:
         """
         Add a style value(s) to the HTML style attribute.
@@ -841,132 +1247,46 @@ class Tag:
             self.attrs.update({"style": self.attrs.get("style")}, {"style": style})
         return self
 
-    def tagify(self: TagT) -> TagT:
+    def tagify(self) -> "TagifiedTag":
         """
-        Convert any tagifiable children to Tag/TagList objects.
+        Convert any tagifiable children to TagifiedTag/TagifiedTagList objects.
         """
+        # Build a fresh TagifiedTag with tagified children. Construct via
+        # __new__ + manual field population so we bypass the constructor's
+        # argument-parsing logic. TagifiedTag is not a context manager, so
+        # don't copy `prev_displayhook`.
+        out = TagifiedTag.__new__(TagifiedTag)
+        out.name = self.name
+        out.add_ws = self.add_ws
+        out.attrs = copy(self.attrs)
+        out.children = self.children.tagify()
+        return out
 
-        cp = copy(self)
-        cp.children = cp.children.tagify()
-        return cp
 
-    def get_html_string(self, indent: int = 0, eol: str = "\n") -> str:
-        """
-        Get the HTML string representation of the tag.
+class TagifiedTag(_TagBase):
+    """
+    A fully-tagified `Tag`. Immutable: no mutators, no add_class, no
+    context-manager use. Construct via `Tag.tagify()` or directly with
+    pre-tagified arguments.
+    """
 
-        Parameters
-        ----------
-        indent
-            The number of spaces to indent the tag.
-        eol
-            The end-of-line character(s).
-        """
+    children: "TagifiedTagList"
 
-        indent_str = "  " * indent
-        html_ = indent_str + "<" + self.name
-
-        # Write attributes
-        for key, val in self.attrs.items():
-            if not isinstance(val, HTML):
-                val = html_escape(val, attr=True)
-            html_ += f' {key}="{val}"'
-
-        # Dependencies are ignored in the HTML output
-        children = [x for x in self.children if not isinstance(x, MetadataNode)]
-
-        # Don't enclose JSX/void elements if there are no children
-        if len(children) == 0 and self.name in _VOID_TAG_NAMES:
-            return html_ + "/>"
-
-        # Other empty tags are enclosed
-        html_ += ">"
-        close = "</" + self.name + ">"
-        if len(children) == 0:
-            return html_ + close
-
-        # Inline a single/empty child text node
-        if len(children) == 1 and isinstance(children[0], (str, HTML)):
-            if self.name in _NO_ESCAPE_TAG_NAMES:
-                return html_ + str(children[0]) + close
-            else:
-                return html_ + _normalize_text(children[0]) + close
-
-        # Write children
-        if self.add_ws:
-            html_ += eol
-
-        html_ += self.children.get_html_string(
-            indent=indent + 1,
-            eol=eol,
-            add_ws=self.add_ws,
-            _escape_strings=(self.name not in _NO_ESCAPE_TAG_NAMES),
+    def __init__(
+        self,
+        _name: str,
+        *args: "Tagified | TagAttrs",
+        _add_ws: TagAttrValue = True,
+        **kwargs: TagAttrValue,
+    ) -> None:
+        self.name = _name
+        self.add_ws, self.attrs, kids = _parse_tag_args(args, kwargs, _add_ws)
+        self.children = TagifiedTagList(  # pyright: ignore[reportIncompatibleVariableOverride]
+            *cast("tuple[Tagified, ...]", tuple(kids))
         )
 
-        if self.add_ws:
-            html_ += eol + indent_str
-
-        return html_ + close
-
-    def render(self) -> RenderedHTML:
-        """
-        Get string representation as well as its HTML dependencies.
-        """
-        cp = self.tagify()
-        deps = cp.get_dependencies()
-        return {"dependencies": deps, "html": cp.get_html_string()}
-
-    def save_html(
-        self, file: str, *, libdir: Optional[str] = "lib", include_version: bool = True
-    ) -> str:
-        """
-        Save to a HTML file.
-
-        Parameters
-        ----------
-        file
-            The file to save to.
-        libdir
-            The directory to save the dependencies to.
-        include_version
-            Whether to include the version number in the dependency folder name.
-
-        Returns
-        -------
-        The path to the generated HTML file.
-        """
-
-        return HTMLDocument(self).save_html(
-            file, libdir=libdir, include_version=include_version
-        )
-
-    def get_dependencies(self, dedup: bool = True) -> list["HTMLDependency"]:
-        """
-        Get any HTML dependencies.
-        """
-        return self.children.get_dependencies(dedup=dedup)
-
-    def show(self, renderer: Literal["auto", "ipython", "browser"] = "auto") -> object:
-        """
-        Preview as a complete HTML document.
-
-        Parameters
-        ----------
-        renderer
-            The renderer to use.
-        """
-        _tag_show(self, renderer)
-
-    def __eq__(self, other: Any) -> bool:
-        return _equals_impl(self, other)
-
-    def __str__(self) -> str:
-        return _render_tag_or_taglist(self)
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def _repr_html_(self) -> str:
-        return str(self)
+    def tagify(self) -> "TagifiedTag":
+        return self
 
 
 # Tags that have the form <tagname />
@@ -992,7 +1312,7 @@ _VOID_TAG_NAMES = {
 _NO_ESCAPE_TAG_NAMES = {"script", "style"}
 
 
-def _render_tag_or_taglist(x: Tag | TagList) -> str:
+def _render_tag_or_taglist(x: "_TagBase | _TagListBase") -> str:
     """Render a Tag or TagList to a string.
 
     This looks at html_dependency_render_mode to see if HTMLDependency objects should be
@@ -1025,7 +1345,7 @@ def wrap_displayhook_handler(
 
     def handler_wrapper(value: object) -> None:
         if isinstance(value, (Tag, TagList, Tagifiable)):
-            handler(value)
+            handler(value)  # pyright: ignore[reportUnknownArgumentType]
         elif isinstance(value, ReprHtml):
             handler(HTML(value._repr_html_()))  # pyright: ignore[reportPrivateUsage]
         elif value not in (None, ...):
@@ -1138,19 +1458,26 @@ class HTMLDocument:
     def _gen_html_tag_tree(
         self, lib_prefix: Optional[str], include_version: bool
     ) -> Tag:
+        # Tagify first so .get_dependencies() sees deps that only
+        # materialize during tagify (e.g. JSXTag injects its React
+        # dependencies on .tagify()). _hoist_head_content thaws the
+        # tagified wrapper into a buildable Tag so it can splice in
+        # the hoisted head content.
         content: TagList = self._content
         html: Tag
-        body: Tag
+        body: TagifiedTag
 
         if (
             len(content) == 1
             and isinstance(content[0], Tag)
             and cast(Tag, content[0]).name == "html"
         ):
-            html = cast(Tag, content[0])
-            html.attrs.update(**self._html_attr_args)
-            html = html.tagify()
-            html = HTMLDocument._hoist_head_content(html, lib_prefix, include_version)
+            user_html = cast(Tag, content[0])
+            user_html.attrs.update(**self._html_attr_args)
+            tagified_html = user_html.tagify()
+            html = HTMLDocument._hoist_head_content(
+                tagified_html, lib_prefix, include_version
+            )
             return html
 
         if (
@@ -1158,34 +1485,41 @@ class HTMLDocument:
             and isinstance(content[0], Tag)
             and cast(Tag, content[0]).name == "body"
         ):
-            body = cast(Tag, content[0])
+            user_body = cast(Tag, content[0])
         else:
-            body = Tag("body", content)
+            user_body = Tag("body", content)
 
-        body = body.tagify()
+        body = user_body.tagify()
 
-        html = Tag("html", Tag("head"), body, _add_ws=True, **self._html_attr_args)
-        html = HTMLDocument._hoist_head_content(html, lib_prefix, include_version)
+        tagified_html = Tag(
+            "html", Tag("head"), body, _add_ws=True, **self._html_attr_args
+        ).tagify()
+        html = HTMLDocument._hoist_head_content(
+            tagified_html, lib_prefix, include_version
+        )
         return html
 
-    # Given an <html> tag object, copies the top node, then extracts dependencies from
-    # the tree, and inserts the content from those dependencies into the <head>, such as
-    # <link> and <script> tags.
+    # Given a tagified <html> tag, build a fresh buildable copy of the top
+    # node (and its <head> child), extract dependencies from the tree, and
+    # splice the dependency tags into <head>.
     @staticmethod
     def _hoist_head_content(
-        x: Tag, lib_prefix: Optional[str], include_version: bool
+        x: TagifiedTag, lib_prefix: Optional[str], include_version: bool
     ) -> Tag:
         if x.name != "html":
             raise ValueError(f"Expected <html> tag, got <{x.name}>.")
 
-        res = copy(x)
+        # Thaw the tagified <html> wrapper into a buildable Tag so we can
+        # splice in the hoisted head content. Children stay tagified
+        # (TagifiedTag instances) — only the top node is freshly mutable.
+        res = _thaw_top(x)
 
         # <head> needs to be a direct child of <html>, but not necessarily the first
         # child (it would be suprising if you weren't able to, for example, have a
         # HTMLDependency() as the first child of <html>).
         head_index: Optional[int] = None
         for i, child in enumerate(res.children):
-            if isinstance(child, Tag) and child.name == "head":
+            if is_tag_like(child) and child.name == "head":
                 head_index = i
                 break
 
@@ -1193,8 +1527,10 @@ class HTMLDocument:
             res.insert(0, Tag("head"))
             head_index = 0
 
-        res.children[head_index] = copy(res.children[head_index])
-        head = cast(Tag, res.children[head_index])
+        # Thaw the <head> child too — we need to mutate it.
+        head_child = res.children[head_index]
+        head = _thaw_top(head_child) if is_tag_like(head_child) else Tag("head")
+        res.children[head_index] = head
         # Put <meta charset="utf-8"> at beginning of head, and other hoisted tags at the
         # end. This matters only if the <head> tag starts out with some children.
         head.insert(0, Tag("meta", charset="utf-8"))
@@ -1945,12 +2281,12 @@ def _tagchilds_to_tagnodes(x: Iterable[TagChild]) -> list[TagNode]:
 
 
 def _tag_show(
-    self: "TagList | Tag",
+    self: "_TagBase | _TagListBase",
     renderer: Literal["auto", "ipython", "browser"] = "auto",
 ) -> object:
     if renderer == "auto":
         try:
-            import IPython  # pyright: ignore[reportUnknownVariableType]
+            import IPython
 
             ipy = (  # pyright: ignore[reportUnknownVariableType]
                 IPython.get_ipython()  # pyright: ignore[reportUnknownMemberType, reportPrivateImportUsage, reportAttributeAccessIssue]

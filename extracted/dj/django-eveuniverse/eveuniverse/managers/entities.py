@@ -1,26 +1,33 @@
 """Managers and Querysets for EveEntity models."""
 
-import logging
-import warnings
-from collections import defaultdict
-from typing import Any, Iterable, Optional, Set, Tuple
+from __future__ import annotations
 
-from bravado.exception import HTTPNotFound
+import logging
+from collections import defaultdict
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Set, Tuple
+
 from django.db import models
 from django.db.utils import IntegrityError
+from esi.exceptions import HTTPClientError
+from typing_extensions import deprecated
 
-from eveuniverse import __title__
 from eveuniverse.app_settings import EVEUNIVERSE_BULK_METHODS_BATCH_SIZE
 from eveuniverse.constants import POST_UNIVERSE_NAMES_MAX_ITEMS
 from eveuniverse.helpers import EveEntityNameResolver
 from eveuniverse.providers import esi
-from eveuniverse.utils import LoggerAddTag, chunks
+from eveuniverse.utils import chunks
 
 from .universe import EveUniverseEntityModelManager
 
-logger = LoggerAddTag(logging.getLogger(__name__), __title__)
+if TYPE_CHECKING:
+    from eveuniverse.models import EveEntity
+
+
+logger = logging.getLogger(__name__)
 
 _ESI_INVALID_IDS = [1]  # Will never try to resolve these invalid IDs from ESI
+_ESI_MAX_NAMES_PER_REQUEST = 500
 
 
 class EveEntityQuerySet(models.QuerySet):
@@ -45,18 +52,19 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
 
     _MAX_DEPTH = 5  # max recursion depth when resolving IDs
 
+    @deprecated("Replaced by `bulk_resolve_ids()`")
     def bulk_create_esi(self, ids: Iterable[int]) -> int:
         """Resolve given IDs from ESI and update or create corresponding objects.
-
-        `DEPRECATED` - please use ``bulk_resolve_ids()`` instead
 
         Args:
             ids: List of valid EveEntity IDs
 
         Returns:
             Count of updated entities
+
+        .. deprecated:: 1.5.0
+           Use :func:`bulk_resolve_ids` instead.
         """
-        warnings.warn("Please use bulk_resolve_ids() instead.", DeprecationWarning)
         return self.bulk_resolve_ids(ids)
 
     def bulk_resolve_ids(self, ids: Iterable[int]) -> int:
@@ -126,7 +134,7 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
 
     def fetch_by_names_esi(
         self, names: Iterable[str], update: bool = False
-    ) -> models.QuerySet:
+    ) -> models.QuerySet[EveEntity]:
         """Fetch entities matching given names.
         Will fetch missing entities from ESI if needed or requested.
 
@@ -147,22 +155,26 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
                 self.filter(name__in=names).values_list("name", flat=True)
             )
             names_to_fetch = names - existing_names
+
         if names_to_fetch:
             esi_result = self._fetch_names_from_esi(names_to_fetch)
             if esi_result:
                 self._update_or_create_entities(esi_result)
+
         return self.filter(name__in=names)
 
     def _fetch_names_from_esi(self, names: Iterable[str]) -> dict:
         logger.info("Trying to fetch EveEntities from ESI by name")
         result = defaultdict(list)
-        for chunk_names in chunks(list(names), 500):
-            result_chunk = esi.client.Universe.post_universe_ids(
-                names=chunk_names
-            ).results()
-            for category, entities in result_chunk.items():
+        names_2 = sorted(names)
+        for chunk_names in chunks(names_2, _ESI_MAX_NAMES_PER_REQUEST):
+            result_chunk = esi.client.Universe.PostUniverseIds(body=chunk_names).result(
+                use_etag=False
+            )
+            for category, entities in result_chunk.model_dump().items():
                 if entities:
                     result[category] += entities
+
         result_compressed = {
             category: entities for category, entities in result.items() if entities
         }
@@ -280,15 +292,21 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
         if id in _ESI_INVALID_IDS:
             logger.info("%s: ID is not valid", id)
             return None, False
+
         try:
-            result = esi.client.Universe.post_universe_names(ids=[id]).results()
-        except HTTPNotFound:
-            logger.info("%s: ID is not valid", id)
-            return None, False
+            result = esi.client.Universe.PostUniverseNames(body=[id]).result(
+                use_etag=False
+            )
+        except HTTPClientError as ex:
+            if ex.status_code == HTTPStatus.NOT_FOUND:
+                logger.info("%s: ID is not valid", id)
+                return None, False
+            raise ex
+
         item = result[0]
         return self.update_or_create(
-            id=item.get("id"),
-            defaults={"name": item.get("name"), "category": item.get("category")},
+            id=item.id,
+            defaults={"name": item.name, "category": item.category},
         )
 
     def update_or_create_all_esi(
@@ -306,7 +324,7 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
         """Updates all Eve entity objects by id from ESI."""
         if not ids:
             return 0
-        ids = list(set((int(id) for id in ids if id not in _ESI_INVALID_IDS)))
+        ids = sorted(set((int(id) for id in ids if id not in _ESI_INVALID_IDS)))
         logger.info("Updating %d entities from ESI", len(ids))
         resolved_counter = 0
         for chunk_ids in chunks(ids, POST_UNIVERSE_NAMES_MAX_ITEMS):
@@ -317,24 +335,32 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
     def _resolve_entities_from_esi(self, ids: list, depth: int = 1):
         resolved_counter = 0
         try:
-            items = esi.client.Universe.post_universe_names(ids=ids).results()
-        except HTTPNotFound:
-            # if API fails to resolve all IDs, we divide and conquer,
-            # trying to resolve each half of the ids separately
-            if len(ids) > 1 and depth < self._MAX_DEPTH:
-                resolved_counter += self._resolve_entities_from_esi(ids[::2], depth + 1)
-                resolved_counter += self._resolve_entities_from_esi(
-                    ids[1::2], depth + 1
-                )
+            items = esi.client.Universe.PostUniverseNames(body=ids).result(
+                use_etag=False
+            )
+        except HTTPClientError as ex:
+            if ex.status_code == HTTPStatus.NOT_FOUND:
+                # if API fails to resolve all IDs, we divide and conquer,
+                # trying to resolve each half of the ids separately
+                if len(ids) > 1 and depth < self._MAX_DEPTH:
+                    resolved_counter += self._resolve_entities_from_esi(
+                        ids[::2], depth + 1
+                    )
+                    resolved_counter += self._resolve_entities_from_esi(
+                        ids[1::2], depth + 1
+                    )
+                else:
+                    logger.warning("Failed to resolve invalid IDs: %s", ids)
             else:
-                logger.warning("Failed to resolve invalid IDs: %s", ids)
+                raise ex
+
         else:
             resolved_counter += len(items)
             for item in items:
                 try:
                     self.update_or_create(
-                        id=item["id"],
-                        defaults={"name": item["name"], "category": item["category"]},
+                        id=item.id,
+                        defaults={"name": item.name, "category": item.category},
                     )
                 except IntegrityError:
                     pass

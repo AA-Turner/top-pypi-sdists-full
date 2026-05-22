@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 2.0.0b3
+Version: 2.0.0b4
 Summary: Foundation utilities and host framework for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -22,8 +22,7 @@ Requires-Dist: starlette>=0.45.0
 Requires-Dist: hypercorn>=0.17.0
 Requires-Dist: opentelemetry-api>=1.40.0
 Requires-Dist: opentelemetry-sdk>=1.40.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.40.0
-Requires-Dist: azure-monitor-opentelemetry-exporter>=1.0.0b49
+Requires-Dist: microsoft-opentelemetry>=1.0.0
 Dynamic: license-file
 
 # Azure AI Agent Server Core client library for Python

@@ -25,6 +25,11 @@ class ModelDeploymentServiceStub(object):
             request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.SerializeToString,
             response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.FromString,
         )
+        self.CallModel = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/CallModel",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelResponse.FromString,
+        )
 
 
 class ModelDeploymentServiceServicer(object):
@@ -42,6 +47,14 @@ class ModelDeploymentServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CallModel(self, request, context):
+        """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
+        container's RemoteCallService over gRPC.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ModelDeploymentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +67,11 @@ def add_ModelDeploymentServiceServicer_to_server(servicer, server):
             servicer.ListModelScalingGroups,
             request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.FromString,
             response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.SerializeToString,
+        ),
+        "CallModel": grpc.unary_unary_rpc_method_handler(
+            servicer.CallModel,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -114,6 +132,35 @@ class ModelDeploymentService(object):
             "/chalk.modeldeployment.v1.ModelDeploymentService/ListModelScalingGroups",
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.SerializeToString,
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CallModel(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/CallModel",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CallModelResponse.FromString,
             options,
             channel_credentials,
             insecure,

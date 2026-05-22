@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("03df1ee2df") /* ./tabulator */;
+    var tabulator_1 = require("b90fc40725") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -92,7 +92,7 @@
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
     var discrete_player_1 = require("0dca2cd4f6") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
-    var echarts_1 = require("1da56f3c52") /* ./echarts */;
+    var echarts_1 = require("ec1ecef6a0") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
     var feed_1 = require("f9c84aaf3d") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
@@ -106,7 +106,7 @@
     __esExport("IPyWidget", ipywidget_1.IPyWidget);
     var json_1 = require("245cd3cfde") /* ./json */;
     __esExport("JSON", json_1.JSON);
-    var jsoneditor_1 = require("5b9fdb9011") /* ./jsoneditor */;
+    var jsoneditor_1 = require("33e664043e") /* ./jsoneditor */;
     __esExport("JSONEditor", jsoneditor_1.JSONEditor);
     var katex_1 = require("f672d71a9f") /* ./katex */;
     __esExport("KaTeX", katex_1.KaTeX);
@@ -126,11 +126,11 @@
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
     var progress_1 = require("b1f4d68596") /* ./progress */;
     __esExport("Progress", progress_1.Progress);
-    var quill_1 = require("f6d86c7342") /* ./quill */;
+    var quill_1 = require("a8f2a01dfe") /* ./quill */;
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("413c9b5023") /* ./react_component */;
+    var react_component_1 = require("529fb470ea") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
@@ -19887,12 +19887,13 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"03df1ee2df": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"b90fc40725": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
     const arrayable_1 = require("@bokehjs/core/util/arrayable");
+    const defer_1 = require("@bokehjs/core/util/defer");
     const types_1 = require("@bokehjs/core/util/types");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_2 = require("@bokehjs/core/dom");
@@ -20234,6 +20235,8 @@ ${namesToRegister
         }
         return { ...group, columns: group_columns };
     }
+    /** Ignore Tabulator redraw after `after_resize` when `this.el` client size changes by at most this many pixels per axis. */
+    const EL_CLIENT_RESIZE_EPSILON_PX = 3;
     class DataTabulatorView extends layout_1.HTMLBoxView {
         constructor() {
             super(...arguments);
@@ -20245,21 +20248,25 @@ ${namesToRegister
             this._updating_sort = false;
             this._updating_page_size = false;
             this._selection_updating = false;
+            this._selection_pending = true;
             this._last_selected_row = null;
             this._lastVerticalScrollbarTopPosition = 0;
             this._lastHorizontalScrollbarLeftPosition = 0;
             this._applied_styles = false;
             this._building = false;
             this._redrawing = false;
-            this._debounced_redraw = null;
+            /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
+            this._resize_pending = false;
+            this._resize_flush = null;
             this._restore_scroll = false;
             this._updating_scroll = false;
             this._is_scrolling = false;
             this._automatic_page_size = false;
+            this._last_after_resize_el_width = null;
+            this._last_after_resize_el_height = null;
         }
         connect_signals() {
             super.connect_signals();
-            this._debounced_redraw = (0, debounce_1.debounce)(() => this._resize_redraw(), 20, false);
             const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, sorters, theme_classes, } = this.model.properties;
             this.on_change([configuration, layout, groupby], (0, debounce_1.debounce)(() => {
                 this.invalidate_render();
@@ -20303,8 +20310,11 @@ ${namesToRegister
             });
             this.on_change(cell_styles, () => {
                 if (this._applied_styles) {
+                    this._updating_scroll = true;
                     this.tabulator.redraw(true);
+                    this._updating_scroll = false;
                 }
+                this.restore_scroll();
                 this.setStyles();
             });
             this.on_change(hidden_columns, () => {
@@ -20329,10 +20339,11 @@ ${namesToRegister
                 this._restore_scroll = "horizontal";
                 this._selection_updating = true;
                 this._updating_scroll = true;
-                this.setData();
-                this._updating_scroll = false;
-                this._selection_updating = false;
-                this.postUpdate();
+                void this.setData().then(() => {
+                    this._selection_updating = false;
+                    this.postUpdate();
+                    this.restore_scroll();
+                });
             });
             this.connect(this.model.source.streaming, () => this.addData());
             this.connect(this.model.source.patching, () => {
@@ -20398,27 +20409,99 @@ ${namesToRegister
             super.after_layout();
             if (this.tabulator != null && this._initializing && !this.is_drawing) {
                 this._initializing = false;
-                this._resize_redraw();
+                if (this._selection_pending) {
+                    this.setSelection();
+                }
+                this._request_resize_redraw();
             }
         }
         after_resize() {
             super.after_resize();
-            if (!this._is_scrolling && !this._initializing && !this.is_drawing) {
-                this._debounced_redraw();
+            if (this._is_scrolling || this._initializing || this.is_drawing) {
+                return;
+            }
+            const w = this.el.clientWidth;
+            const h = this.el.clientHeight;
+            if (this._last_after_resize_el_width !== null &&
+                this._last_after_resize_el_height !== null &&
+                Math.abs(w - this._last_after_resize_el_width) <= EL_CLIENT_RESIZE_EPSILON_PX &&
+                Math.abs(h - this._last_after_resize_el_height) <= EL_CLIENT_RESIZE_EPSILON_PX) {
+                return;
+            }
+            this._last_after_resize_el_width = w;
+            this._last_after_resize_el_height = h;
+            this._request_resize_redraw();
+        }
+        /**
+         * Defer Tabulator redraw until the Bokeh root view’s `ready` promise settles — it chains async
+         * work from connected signals (similar in spirit to waiting out `has_finished` / layout churn)
+         * without polling `root.is_idle`.
+         */
+        _request_resize_redraw() {
+            this._resize_pending = true;
+            if (this._resize_flush !== null) {
+                return;
+            }
+            this._resize_flush = this._flush_resize_when_root_ready();
+            void this._resize_flush.finally(() => {
+                this._resize_flush = null;
+                if (this._resize_pending) {
+                    this._request_resize_redraw();
+                }
+            });
+        }
+        async _flush_resize_when_root_ready() {
+            while (true) {
+                if (!this._resize_pending) {
+                    return;
+                }
+                await this.root.ready;
+                // `remove()` can clear `_resize_pending` while awaiting `root.ready`.
+                /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cleared asynchronously in `remove()` */
+                if (!this._resize_pending) {
+                    continue;
+                }
+                if (this._is_scrolling ||
+                    this._initializing ||
+                    this.container === null ||
+                    this.is_drawing ||
+                    this._has_active_editor() ||
+                    ![...this._initialized_stylesheets.values()].every(v => v)) {
+                    await (0, defer_1.defer)();
+                    continue;
+                }
+                this._resize_pending = false;
+                this._resize_redraw();
+                return;
             }
         }
         _resize_redraw() {
-            if (this._initializing || !this.container || this._building) {
+            if (this._initializing || this.container === null || this._building || this._has_active_editor()) {
                 return;
             }
             const width = this.container.clientWidth;
             const height = this.container.clientHeight;
-            if (!width || !height) {
+            if (!(width > 0 && height > 0)) {
                 return;
             }
+            this.record_scroll();
+            this._updating_scroll = true;
             this.redraw(true, true);
-            this.restore_scroll();
-            requestAnimationFrame(() => this.recompute_page_size());
+            requestAnimationFrame(() => {
+                this._initializing = false;
+                if (this._selection_pending) {
+                    this.setSelection();
+                }
+                this.restore_scroll();
+                this.recompute_page_size();
+            });
+        }
+        _has_active_editor() {
+            if (this.container === null) {
+                return false;
+            }
+            // Tabulator marks the edited cell with `tabulator-editing` while an editor is active.
+            return this.container.querySelector(".tabulator-editing") !== null;
         }
         stylesheets() {
             return [...super.stylesheets(), tabulator_css_1.default];
@@ -20430,12 +20513,17 @@ ${namesToRegister
             }
         }
         remove() {
+            this._resize_pending = false;
+            this._last_after_resize_el_width = null;
+            this._last_after_resize_el_height = null;
             this.tabulator?.destroy();
             super.remove();
         }
         render() {
             this.tabulator?.destroy();
             super.render();
+            this._last_after_resize_el_width = null;
+            this._last_after_resize_el_height = null;
             this._initializing = true;
             this._building = true;
             const container = (0, dom_2.div)({ style: { display: "contents" } });
@@ -20550,14 +20638,8 @@ ${namesToRegister
                 this.setMaxPage();
                 this.tabulator.setPage(this.model.page);
             }
-            this._building = false;
-            (0, util_1.schedule_when)(() => {
-                const initializing = this._initializing;
-                this._initializing = false;
-                if (initializing) {
-                    this._resize_redraw();
-                }
-            }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
+            this._initializing = this._building = false;
+            this._request_resize_redraw();
         }
         recompute_page_size() {
             if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
@@ -21054,21 +21136,17 @@ ${namesToRegister
             const last_row = rows[rows.length - 1];
             const start = ((last_row?.data._index) || 0);
             this._updating_page = true;
-            const promise = this.setData();
-            if (this.model.follow) {
-                promise.then(() => {
+            void this.setData().then(() => {
+                if (this.model.follow) {
                     if (this.model.pagination) {
                         this.tabulator.setPage(Math.ceil(this.tabulator.rowManager.getDataCount() / (this.model.page_size || 20)));
                     }
                     if (last_row) {
                         this.tabulator.scrollToRow(start, "top", false);
                     }
-                    this._updating_page = false;
-                });
-            }
-            else {
-                this._updating_page = true;
-            }
+                }
+                this._updating_page = false;
+            });
         }
         postUpdate() {
             this.setSelection();
@@ -21193,9 +21271,14 @@ ${namesToRegister
             }
         }
         setSelection() {
-            if (this.tabulator == null || this._initializing || this._selection_updating || !this.tabulator.initialized) {
+            if (this._selection_updating) {
                 return;
             }
+            if (this.tabulator == null || this._initializing || !this.tabulator.initialized) {
+                this._selection_pending = true;
+                return;
+            }
+            this._selection_pending = false;
             const indices = this.model.source.selected.indices;
             const current_indices = this.tabulator.getSelectedData().map((row) => row._index);
             if (JSON.stringify(indices) == JSON.stringify(current_indices)) {
@@ -21223,11 +21306,11 @@ ${namesToRegister
             if (horizontal) {
                 opts.left = this._lastHorizontalScrollbarLeftPosition;
             }
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 this._updating_scroll = true;
                 this.tabulator.rowManager.element.scrollTo(opts);
                 this._updating_scroll = false;
-            }, 0);
+            });
         }
         // Update model
         record_scroll() {
@@ -26417,7 +26500,7 @@ ${namesToRegister
         _a.override({ width: 400 });
     })();
 },
-"1da56f3c52": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
+"ec1ecef6a0": /* models/echarts.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
@@ -26458,6 +26541,9 @@ ${namesToRegister
         constructor() {
             super(...arguments);
             this._callbacks = [];
+            this._loading_interval = null;
+            this._loading_timeout = null;
+            this._loading_el = null;
         }
         connect_signals() {
             super.connect_signals();
@@ -26466,7 +26552,9 @@ ${namesToRegister
             this.on_change([width, height], () => this._resize());
             this.on_change([theme, renderer], () => {
                 this.render();
-                this._chart.resize();
+                if (this._chart != null) {
+                    this._chart.resize();
+                }
             });
             this.on_change([event_config, js_events], () => this._subscribe());
         }
@@ -26475,20 +26563,99 @@ ${namesToRegister
                 try {
                     window.echarts.dispose(this._chart);
                 }
-                catch (e) { }
+                catch (e) {
+                    // dispose may fail if echarts was never fully initialized
+                }
             }
+            this._clear_loading_timer();
             super.render();
             this.container = (0, dom_1.div)({ style: { height: "100%", width: "100%" } });
+            this.shadow_el.append(this.container);
+            if (window.echarts == null) {
+                this._show_loading();
+                this._await_echarts();
+                return;
+            }
+            this._init_chart();
+        }
+        _show_loading() {
+            this._loading_el = (0, dom_1.div)({
+                style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    width: "100%",
+                    color: "#888",
+                    fontSize: "14px",
+                },
+            });
+            this._loading_el.textContent = "Loading ECharts...";
+            this.container.append(this._loading_el);
+        }
+        _hide_loading() {
+            if (this._loading_el != null) {
+                this._loading_el.remove();
+                this._loading_el = null;
+            }
+        }
+        _await_echarts() {
+            // Try script onload listener first (event-driven, not polling)
+            const script = document.querySelector("script[src*='echarts']");
+            if (script != null) {
+                const onLoad = () => {
+                    script.removeEventListener("load", onLoad);
+                    this._clear_loading_timer();
+                    this._hide_loading();
+                    this._init_chart();
+                };
+                script.addEventListener("load", onLoad);
+            }
+            // Polling fallback in case script tag isn't found or onload doesn't fire
+            this._loading_interval = setInterval(() => {
+                if (window.echarts != null) {
+                    this._clear_loading_timer();
+                    this._hide_loading();
+                    this._init_chart();
+                }
+            }, 50);
+            this._loading_timeout = setTimeout(() => {
+                this._clear_loading_timer();
+                this._hide_loading();
+                console.warn("ECharts library failed to load. Ensure you call pn.extension('echarts') " +
+                    "before using Gauge or ECharts components.");
+            }, 10000);
+        }
+        _clear_loading_timer() {
+            if (this._loading_interval != null) {
+                clearInterval(this._loading_interval);
+                this._loading_interval = null;
+            }
+            if (this._loading_timeout != null) {
+                clearTimeout(this._loading_timeout);
+                this._loading_timeout = null;
+            }
+        }
+        _init_chart() {
+            if (window.echarts == null) {
+                return;
+            }
+            this._hide_loading();
             const config = { width: this.model.width, height: this.model.height, renderer: this.model.renderer };
             this._chart = window.echarts.init(this.container, this.model.theme, config);
             this._plot();
             this._subscribe();
-            this.shadow_el.append(this.container);
         }
         remove() {
+            this._clear_loading_timer();
             super.remove();
             if (this._chart != null) {
-                window.echarts.dispose(this._chart);
+                try {
+                    window.echarts.dispose(this._chart);
+                }
+                catch (e) {
+                    // dispose may fail if echarts was never fully initialized
+                }
             }
         }
         after_layout() {
@@ -26498,17 +26665,19 @@ ${namesToRegister
             }
         }
         _plot() {
-            if (window.echarts == null) {
+            if (window.echarts == null || this._chart == null) {
                 return;
             }
             const data = (0, util_1.transformJsPlaceholders)(this.model.data);
             this._chart.setOption(data, this.model.options);
         }
         _resize() {
-            this._chart.resize({ width: this.model.width, height: this.model.height });
+            if (this._chart != null) {
+                this._chart.resize({ width: this.model.width, height: this.model.height });
+            }
         }
         _subscribe() {
-            if (window.echarts == null) {
+            if (window.echarts == null || this._chart == null) {
                 return;
             }
             for (const [event_type, callback] of this._callbacks) {
@@ -26528,7 +26697,7 @@ ${namesToRegister
                         const serialized = JSON.parse(JSON.stringify(processed));
                         this.model.trigger_event(new EChartsEvent(event_type, serialized, query));
                     };
-                    if (query == null) {
+                    if (query != null) {
                         this._chart.on(event_type, query, callback);
                     }
                     else {
@@ -27571,12 +27740,14 @@ ${namesToRegister
     }();
     exports.default = d;
 },
-"5b9fdb9011": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
+"33e664043e": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
+    const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const layout_1 = require("dab42e6dad") /* ./layout */;
+    const jsoneditor_css_1 = tslib_1.__importDefault(require("317a12d360") /* ../styles/models/jsoneditor.css */);
     class JSONEditEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
             super();
@@ -27616,6 +27787,7 @@ ${namesToRegister
         }
         stylesheets() {
             const styles = super.stylesheets();
+            styles.push(jsoneditor_css_1.default);
             for (const css of this.model.css) {
                 styles.push(new dom_1.ImportedStyleSheet(css));
             }
@@ -27676,6 +27848,10 @@ ${namesToRegister
             templates: [List(Any), []],
         }));
     })();
+},
+"317a12d360": /* styles/models/jsoneditor.css.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.default = `div.jsoneditor,div.jsoneditor-menu{border-color:var(--panel-border-color, #3883fa);}div.jsoneditor-menu{background-color:var(--panel-primary-color, #3883fa);color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-tree,div.jsoneditor textarea.jsoneditor-text{background-color:var(--panel-background-color, #ffffff);color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-field,div.jsoneditor-value{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-value.jsoneditor-string{color:var(--success-text-color, #006000);}div.jsoneditor-value.jsoneditor-number{color:var(--danger-text-color, #ee422e);}div.jsoneditor-value.jsoneditor-boolean{color:var(--warning-text-color, #ff8c00);}div.jsoneditor-value.jsoneditor-null{color:var(--info-text-color, #004ed0);}div.jsoneditor-value.jsoneditor-url,a.jsoneditor-value.jsoneditor-url{color:var(--success-text-color, #006000);}div.jsoneditor-value.jsoneditor-invalid{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor-readonly{color:var(--secondary-text-color, #acacac);}div.jsoneditor td.jsoneditor-separator{color:var(--secondary-text-color, #808080);}div.jsoneditor-field.jsoneditor-empty::after,div.jsoneditor-value.jsoneditor-empty::after{color:var(--panel-border-color, #d3d3d3);}div.jsoneditor-empty{border-color:var(--panel-border-color, #d3d3d3);}table.jsoneditor-search div.jsoneditor-frame{background:var(--panel-surface-color, #f3f3f3);}table.jsoneditor-search input{color:var(--panel-on-surface-color, #1a1d21);}tr.jsoneditor-highlight,tr.jsoneditor-selected{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-field[contenteditable="true"]:focus,div.jsoneditor-field[contenteditable="true"]:hover,div.jsoneditor-value[contenteditable="true"]:focus,div.jsoneditor-value[contenteditable="true"]:hover,div.jsoneditor-field.jsoneditor-highlight,div.jsoneditor-value.jsoneditor-highlight{background-color:var(--panel-surface-color, #f3f3f3);border-color:var(--panel-border-color, #e0e0e0);}div.jsoneditor-field.jsoneditor-highlight-active,div.jsoneditor-field.jsoneditor-highlight-active:focus,div.jsoneditor-field.jsoneditor-highlight-active:hover,div.jsoneditor-value.jsoneditor-highlight-active,div.jsoneditor-value.jsoneditor-highlight-active:focus,div.jsoneditor-value.jsoneditor-highlight-active:hover{background-color:var(--panel-surface-color, #f3f3f3);border-color:var(--panel-border-color, #e0e0e0);}div.jsoneditor-tree button:focus{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-navigation-bar{background-color:var(--panel-surface-color, #f3f3f3);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-treepath.show-all{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-treepath .jsoneditor-treepath-show-all-btn{background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-statusbar{background-color:var(--panel-surface-color, #f3f3f3);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-contextmenu .jsoneditor-menu{background:var(--panel-background-color, #ffffff);border-color:var(--panel-border-color, #d3d3d3);}div.jsoneditor-contextmenu .jsoneditor-separator{border-top-color:var(--panel-border-color, #e5e5e5);}div.jsoneditor-contextmenu .jsoneditor-menu li button{color:var(--panel-on-background-color, #1a1a1a);background-color:var(--panel-background-color, #ffffff);}div.jsoneditor-contextmenu .jsoneditor-menu li button:hover,div.jsoneditor-contextmenu .jsoneditor-menu li button:focus{color:var(--panel-on-surface-color, #1a1d21);background-color:var(--panel-surface-color, #f3f3f3);}div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected,div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected:hover,div.jsoneditor-contextmenu .jsoneditor-menu li button.jsoneditor-selected:focus{color:var(--panel-on-primary-color, #ffffff);background-color:var(--panel-primary-color, #3883fa);}div.jsoneditor-popover{background-color:var(--panel-surface-color, #4c4c4c);color:var(--panel-on-surface-color, #ffffff);}div.jsoneditor-popover.jsoneditor-above::before{border-top-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-below::before{border-bottom-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-left::before{border-left-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor-popover.jsoneditor-right::before{border-right-color:var(--panel-surface-color, #4c4c4c);}div.jsoneditor .jsoneditor-text-errors{border-top-color:var(--panel-border-color, #ffc700);}div.jsoneditor .jsoneditor-text-errors tr{background-color:var(--panel-surface-color, #ffffab);}div.jsoneditor .jsoneditor-additional-errors{color:var(--secondary-text-color, #808080);background-color:var(--panel-surface-color, #ebebeb);}div.jsoneditor .autocomplete.dropdown{background:var(--panel-background-color, #ffffff);border-color:var(--panel-border-color, #d3d3d3);}div.jsoneditor .autocomplete.dropdown .item{color:var(--panel-on-background-color, #1a1a1a);}div.jsoneditor .autocomplete.dropdown .item.hover{background-color:var(--panel-surface-color, #ebebeb);}div.jsoneditor .autocomplete.hint{color:var(--secondary-text-color, #a1a1a1);}div.jsoneditor-tree div.jsoneditor-show-more{background-color:var(--panel-surface-color, #e5e5e5);}div.jsoneditor-tree div.jsoneditor-show-more a{color:var(--secondary-text-color, #808080);}div.jsoneditor-modal{color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal .pico-modal-header{background:var(--panel-primary-color, #3883fa);color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-modal .pico-close{color:var(--panel-on-primary-color, #ffffff);}div.jsoneditor-modal select,div.jsoneditor-modal textarea,div.jsoneditor-modal input,div.jsoneditor-modal input[type="text"],div.jsoneditor-modal input[type="text"]:focus,div.jsoneditor-modal #query{background:var(--panel-background-color, #ffffff);border:1px solid var(--panel-border-color, #d3d3d3);color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal input[disabled]{background:var(--panel-surface-color, #d3d3d3);color:var(--secondary-text-color, #808080);}div.jsoneditor-modal .jsoneditor-transform-preview{background:var(--panel-surface-color, #f5f5f5);color:var(--panel-on-surface-color, #1a1d21);}div.jsoneditor-modal table td,div.jsoneditor-modal table th{color:var(--panel-on-background-color, #4d4d4d);}div.jsoneditor-modal input[type="button"],div.jsoneditor-modal input[type="submit"]{background:var(--panel-surface-color, #f5f5f5);color:var(--panel-on-surface-color, #1a1d21);}`;
 },
 "f672d71a9f": /* models/katex.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -29003,7 +29179,7 @@ ${namesToRegister
         }));
     })();
 },
-"f6d86c7342": /* models/quill.js */ function _(require, module, exports, __esModule, __esExport) {
+"a8f2a01dfe": /* models/quill.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -29153,8 +29329,55 @@ ${namesToRegister
                     return;
                 }
                 this._editing = true;
-                this.model.text = this.quill.getSemanticHTML();
+                const html = this.quill.getSemanticHTML();
+                this.model.text_input = html;
+                if (this.model.on_keyup) {
+                    this.model.text = html;
+                }
                 this._editing = false;
+            });
+            // selection-change drives two behaviors:
+            //   1. When range is null the editor has blurred; if on_keyup is false,
+            //      commit the current content into text (deferred commit). Also
+            //      clear the selection state.
+            //   2. When range is non-null update the selection param with the
+            //      visible text (or clear it if the selection collapsed).
+            // The _editing guard avoids acting on selection-change events fired by
+            // programmatic content replacement (pasteHTML / setContents).
+            this.quill.on("selection-change", (range, _oldRange, _source) => {
+                if (this._editing) {
+                    return;
+                }
+                if (range === null) {
+                    if (!this.model.on_keyup) {
+                        this._editing = true;
+                        this.model.text = this.quill.getSemanticHTML();
+                        this._editing = false;
+                    }
+                    if (Object.keys(this.model.selection).length > 0) {
+                        this.model.selection = {};
+                    }
+                    return;
+                }
+                if (range.length > 0) {
+                    const text = this.quill.getText(range.index, range.length);
+                    this.model.selection = { text };
+                }
+                else if (Object.keys(this.model.selection).length > 0) {
+                    this.model.selection = {};
+                }
+            });
+            // Ctrl/Cmd+Enter commits text_input -> text when on_keyup is false.
+            // preventDefault unconditionally so the shortcut doesn't insert a newline.
+            this.quill.root.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    if (!this.model.on_keyup) {
+                        this._editing = true;
+                        this.model.text = this.quill.getSemanticHTML();
+                        this._editing = false;
+                    }
+                }
             });
             if (!this.model.disabled) {
                 this.quill.enable(!this.model.disabled);
@@ -29190,10 +29413,13 @@ ${namesToRegister
     QuillInput.__module__ = "panel.models.quill";
     (() => {
         _a.prototype.default_view = QuillInputView;
-        _a.define(({ Any, Str }) => ({
+        _a.define(({ Any, Bool, Dict, Str }) => ({
             mode: [Str, "toolbar"],
+            on_keyup: [Bool, true],
             placeholder: [Str, ""],
+            selection: [Dict(Any), {}],
             text: [Str, ""],
+            text_input: [Str, ""],
             toolbar: [Any, null],
         }));
         _a.override({
@@ -29275,7 +29501,7 @@ ${namesToRegister
         }));
     })();
 },
-"413c9b5023": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"529fb470ea": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -29449,6 +29675,9 @@ ${namesToRegister
             // children changing order we must force an update in the
             // React component to ensure anything depending on the DOM
             // structure (e.g. emotion caches) is updated
+            if (!this.model.use_shadow_dom) {
+                this._apply_visible();
+            }
             super.r_after_render();
             if (this.use_shadow_dom) {
                 this.force_update();
@@ -29750,10 +29979,11 @@ async function render(id) {
             return () => react_proxy.off(prop, cb)
           }, [])
 
+          let initialized = React.useRef(false)
           React.useEffect(() => {
-            if (!target.model.events.includes(resolvedProp)) {
+            if (!target.model.events.includes(resolvedProp) && initialized.current) {
               targetModel.setv({ [resolvedProp]: value })
-            }
+            } else { initialized.current = true }
           }, [value])
 
           return [value, setValue]
@@ -41091,5 +41321,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"a5f4225d5f","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"03df1ee2df","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"5b9fdb9011","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"413c9b5023","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"a5f4225d5f","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"529fb470ea","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

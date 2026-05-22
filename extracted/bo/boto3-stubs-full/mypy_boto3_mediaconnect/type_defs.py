@@ -48,6 +48,7 @@ from .literals import (
     MediaLiveInputPipelineIdType,
     MediaLiveTransitEncryptionKeyTypeType,
     MediaStreamTypeType,
+    NdiOutputTimecodeSourceType,
     NdiStateType,
     NetworkInterfaceTypeType,
     OutputStatusType,
@@ -1765,6 +1766,7 @@ TransportTypeDef = TypedDict(
         "NdiSpeedHqQuality": NotRequired[int],
         "NdiProgramName": NotRequired[str],
         "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
     },
 )
 
@@ -2623,6 +2625,7 @@ AddOutputRequestTypeDef = TypedDict(
         "OutputTags": NotRequired[Mapping[str, str]],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
     },
 )
 SetSourceRequestTypeDef = TypedDict(
@@ -2682,6 +2685,7 @@ UpdateFlowOutputRequestTypeDef = TypedDict(
         "NdiSpeedHqQuality": NotRequired[int],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
+        "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
     },
 )
 UpdateFlowSourceRequestTypeDef = TypedDict(

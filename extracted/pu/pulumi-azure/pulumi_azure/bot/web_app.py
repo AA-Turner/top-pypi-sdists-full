@@ -22,16 +22,19 @@ class WebAppArgs:
                  microsoft_app_id: pulumi.Input[_builtins.str],
                  resource_group_name: pulumi.Input[_builtins.str],
                  sku: pulumi.Input[_builtins.str],
-                 developer_app_insights_api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 luis_app_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 luis_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 developer_app_insights_api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 luis_app_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 luis_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_user_assigned_identity_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a WebApp resource.
 
@@ -46,6 +49,11 @@ class WebAppArgs:
         :param pulumi.Input[_builtins.str] location: The supported Azure location where the resource exists. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] luis_app_ids: A list of LUIS App IDs to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] luis_key: The LUIS key to associate with the Web App Bot.
+        :param pulumi.Input[_builtins.str] microsoft_app_tenant_id: The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_type: The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+               
+               > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        :param pulumi.Input[_builtins.str] microsoft_app_user_assigned_identity_id: The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags to assign to the resource.
         """
@@ -68,6 +76,12 @@ class WebAppArgs:
             pulumi.set(__self__, "luis_app_ids", luis_app_ids)
         if luis_key is not None:
             pulumi.set(__self__, "luis_key", luis_key)
+        if microsoft_app_tenant_id is not None:
+            pulumi.set(__self__, "microsoft_app_tenant_id", microsoft_app_tenant_id)
+        if microsoft_app_type is not None:
+            pulumi.set(__self__, "microsoft_app_type", microsoft_app_type)
+        if microsoft_app_user_assigned_identity_id is not None:
+            pulumi.set(__self__, "microsoft_app_user_assigned_identity_id", microsoft_app_user_assigned_identity_id)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if tags is not None:
@@ -111,141 +125,182 @@ class WebAppArgs:
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsApiKey")
-    def developer_app_insights_api_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_api_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights API Key to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_api_key")
 
     @developer_app_insights_api_key.setter
-    def developer_app_insights_api_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_api_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_api_key", value)
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsApplicationId")
-    def developer_app_insights_application_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_application_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights Application ID to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_application_id")
 
     @developer_app_insights_application_id.setter
-    def developer_app_insights_application_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_application_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_application_id", value)
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsKey")
-    def developer_app_insights_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights Key to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_key")
 
     @developer_app_insights_key.setter
-    def developer_app_insights_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_key", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Web App Bot will be displayed as. This defaults to `name` if not specified.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def endpoint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Web App Bot endpoint.
         """
         return pulumi.get(self, "endpoint")
 
     @endpoint.setter
-    def endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def endpoint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "endpoint", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The supported Azure location where the resource exists. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="luisAppIds")
-    def luis_app_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def luis_app_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of LUIS App IDs to associate with the Web App Bot.
         """
         return pulumi.get(self, "luis_app_ids")
 
     @luis_app_ids.setter
-    def luis_app_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def luis_app_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "luis_app_ids", value)
 
     @_builtins.property
     @pulumi.getter(name="luisKey")
-    def luis_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def luis_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The LUIS key to associate with the Web App Bot.
         """
         return pulumi.get(self, "luis_key")
 
     @luis_key.setter
-    def luis_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def luis_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "luis_key", value)
 
     @_builtins.property
+    @pulumi.getter(name="microsoftAppTenantId")
+    def microsoft_app_tenant_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_tenant_id")
+
+    @microsoft_app_tenant_id.setter
+    def microsoft_app_tenant_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_tenant_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppType")
+    def microsoft_app_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+
+        > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        """
+        return pulumi.get(self, "microsoft_app_type")
+
+    @microsoft_app_type.setter
+    def microsoft_app_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppUserAssignedIdentityId")
+    def microsoft_app_user_assigned_identity_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_user_assigned_identity_id")
+
+    @microsoft_app_user_assigned_identity_id.setter
+    def microsoft_app_user_assigned_identity_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_user_assigned_identity_id", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A mapping of tags to assign to the resource.
         """
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
 
 @pulumi.input_type
 class _WebAppState:
     def __init__(__self__, *,
-                 developer_app_insights_api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 luis_app_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 luis_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 microsoft_app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 sku: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 developer_app_insights_api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 luis_app_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 luis_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_user_assigned_identity_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 sku: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering WebApp resources.
 
@@ -258,6 +313,11 @@ class _WebAppState:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] luis_app_ids: A list of LUIS App IDs to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] luis_key: The LUIS key to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] microsoft_app_id: The Microsoft Application ID for the Web App Bot. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_tenant_id: The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_type: The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+               
+               > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        :param pulumi.Input[_builtins.str] microsoft_app_user_assigned_identity_id: The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group in which to create the Web App Bot. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] sku: The SKU of the Web App Bot. Valid values include `F0` or `S1`. Changing this forces a new resource to be created.
@@ -281,6 +341,12 @@ class _WebAppState:
             pulumi.set(__self__, "luis_key", luis_key)
         if microsoft_app_id is not None:
             pulumi.set(__self__, "microsoft_app_id", microsoft_app_id)
+        if microsoft_app_tenant_id is not None:
+            pulumi.set(__self__, "microsoft_app_tenant_id", microsoft_app_tenant_id)
+        if microsoft_app_type is not None:
+            pulumi.set(__self__, "microsoft_app_type", microsoft_app_type)
+        if microsoft_app_user_assigned_identity_id is not None:
+            pulumi.set(__self__, "microsoft_app_user_assigned_identity_id", microsoft_app_user_assigned_identity_id)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if resource_group_name is not None:
@@ -292,158 +358,196 @@ class _WebAppState:
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsApiKey")
-    def developer_app_insights_api_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_api_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights API Key to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_api_key")
 
     @developer_app_insights_api_key.setter
-    def developer_app_insights_api_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_api_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_api_key", value)
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsApplicationId")
-    def developer_app_insights_application_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_application_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights Application ID to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_application_id")
 
     @developer_app_insights_application_id.setter
-    def developer_app_insights_application_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_application_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_application_id", value)
 
     @_builtins.property
     @pulumi.getter(name="developerAppInsightsKey")
-    def developer_app_insights_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_app_insights_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Application Insights Key to associate with the Web App Bot.
         """
         return pulumi.get(self, "developer_app_insights_key")
 
     @developer_app_insights_key.setter
-    def developer_app_insights_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_app_insights_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_app_insights_key", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Web App Bot will be displayed as. This defaults to `name` if not specified.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def endpoint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Web App Bot endpoint.
         """
         return pulumi.get(self, "endpoint")
 
     @endpoint.setter
-    def endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def endpoint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "endpoint", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The supported Azure location where the resource exists. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="luisAppIds")
-    def luis_app_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def luis_app_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of LUIS App IDs to associate with the Web App Bot.
         """
         return pulumi.get(self, "luis_app_ids")
 
     @luis_app_ids.setter
-    def luis_app_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def luis_app_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "luis_app_ids", value)
 
     @_builtins.property
     @pulumi.getter(name="luisKey")
-    def luis_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def luis_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The LUIS key to associate with the Web App Bot.
         """
         return pulumi.get(self, "luis_key")
 
     @luis_key.setter
-    def luis_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def luis_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "luis_key", value)
 
     @_builtins.property
     @pulumi.getter(name="microsoftAppId")
-    def microsoft_app_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def microsoft_app_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Microsoft Application ID for the Web App Bot. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "microsoft_app_id")
 
     @microsoft_app_id.setter
-    def microsoft_app_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def microsoft_app_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "microsoft_app_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="microsoftAppTenantId")
+    def microsoft_app_tenant_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_tenant_id")
+
+    @microsoft_app_tenant_id.setter
+    def microsoft_app_tenant_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_tenant_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppType")
+    def microsoft_app_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+
+        > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        """
+        return pulumi.get(self, "microsoft_app_type")
+
+    @microsoft_app_type.setter
+    def microsoft_app_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppUserAssignedIdentityId")
+    def microsoft_app_user_assigned_identity_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_user_assigned_identity_id")
+
+    @microsoft_app_user_assigned_identity_id.setter
+    def microsoft_app_user_assigned_identity_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "microsoft_app_user_assigned_identity_id", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceGroupName")
-    def resource_group_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_group_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the resource group in which to create the Web App Bot. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "resource_group_name")
 
     @resource_group_name.setter
-    def resource_group_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_group_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_group_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def sku(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def sku(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The SKU of the Web App Bot. Valid values include `F0` or `S1`. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "sku")
 
     @sku.setter
-    def sku(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def sku(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "sku", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A mapping of tags to assign to the resource.
         """
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
 
@@ -453,19 +557,22 @@ class WebApp(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 developer_app_insights_api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 luis_app_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 luis_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 microsoft_app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 sku: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 developer_app_insights_api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 luis_app_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 luis_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_user_assigned_identity_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 sku: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         Manages a Bot Web App.
@@ -485,7 +592,9 @@ class WebApp(pulumi.CustomResource):
             location="global",
             resource_group_name=example.name,
             sku="F0",
-            microsoft_app_id=current.client_id)
+            microsoft_app_id=current.client_id,
+            microsoft_app_type="SingleTenant",
+            microsoft_app_tenant_id=current.tenant_id)
         ```
 
         ## Import
@@ -508,6 +617,11 @@ class WebApp(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] luis_app_ids: A list of LUIS App IDs to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] luis_key: The LUIS key to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] microsoft_app_id: The Microsoft Application ID for the Web App Bot. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_tenant_id: The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_type: The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+               
+               > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        :param pulumi.Input[_builtins.str] microsoft_app_user_assigned_identity_id: The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group in which to create the Web App Bot. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] sku: The SKU of the Web App Bot. Valid values include `F0` or `S1`. Changing this forces a new resource to be created.
@@ -537,7 +651,9 @@ class WebApp(pulumi.CustomResource):
             location="global",
             resource_group_name=example.name,
             sku="F0",
-            microsoft_app_id=current.client_id)
+            microsoft_app_id=current.client_id,
+            microsoft_app_type="SingleTenant",
+            microsoft_app_tenant_id=current.tenant_id)
         ```
 
         ## Import
@@ -564,19 +680,22 @@ class WebApp(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 developer_app_insights_api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_app_insights_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 luis_app_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 luis_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 microsoft_app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 sku: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 developer_app_insights_api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_app_insights_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 luis_app_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 luis_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 microsoft_app_user_assigned_identity_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 sku: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -597,6 +716,9 @@ class WebApp(pulumi.CustomResource):
             if microsoft_app_id is None and not opts.urn:
                 raise TypeError("Missing required property 'microsoft_app_id'")
             __props__.__dict__["microsoft_app_id"] = microsoft_app_id
+            __props__.__dict__["microsoft_app_tenant_id"] = microsoft_app_tenant_id
+            __props__.__dict__["microsoft_app_type"] = microsoft_app_type
+            __props__.__dict__["microsoft_app_user_assigned_identity_id"] = microsoft_app_user_assigned_identity_id
             __props__.__dict__["name"] = name
             if resource_group_name is None and not opts.urn:
                 raise TypeError("Missing required property 'resource_group_name'")
@@ -617,19 +739,22 @@ class WebApp(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            developer_app_insights_api_key: Optional[pulumi.Input[_builtins.str]] = None,
-            developer_app_insights_application_id: Optional[pulumi.Input[_builtins.str]] = None,
-            developer_app_insights_key: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            luis_app_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            luis_key: Optional[pulumi.Input[_builtins.str]] = None,
-            microsoft_app_id: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-            sku: Optional[pulumi.Input[_builtins.str]] = None,
-            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'WebApp':
+            developer_app_insights_api_key: pulumi.Input[Optional[_builtins.str]] = None,
+            developer_app_insights_application_id: pulumi.Input[Optional[_builtins.str]] = None,
+            developer_app_insights_key: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            luis_app_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            luis_key: pulumi.Input[Optional[_builtins.str]] = None,
+            microsoft_app_id: pulumi.Input[Optional[_builtins.str]] = None,
+            microsoft_app_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+            microsoft_app_type: pulumi.Input[Optional[_builtins.str]] = None,
+            microsoft_app_user_assigned_identity_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
+            sku: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'WebApp':
         """
         Get an existing WebApp resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -646,6 +771,11 @@ class WebApp(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] luis_app_ids: A list of LUIS App IDs to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] luis_key: The LUIS key to associate with the Web App Bot.
         :param pulumi.Input[_builtins.str] microsoft_app_id: The Microsoft Application ID for the Web App Bot. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_tenant_id: The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] microsoft_app_type: The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+               
+               > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        :param pulumi.Input[_builtins.str] microsoft_app_user_assigned_identity_id: The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the Web App Bot. Changing this forces a new resource to be created. Must be globally unique.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group in which to create the Web App Bot. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] sku: The SKU of the Web App Bot. Valid values include `F0` or `S1`. Changing this forces a new resource to be created.
@@ -664,6 +794,9 @@ class WebApp(pulumi.CustomResource):
         __props__.__dict__["luis_app_ids"] = luis_app_ids
         __props__.__dict__["luis_key"] = luis_key
         __props__.__dict__["microsoft_app_id"] = microsoft_app_id
+        __props__.__dict__["microsoft_app_tenant_id"] = microsoft_app_tenant_id
+        __props__.__dict__["microsoft_app_type"] = microsoft_app_type
+        __props__.__dict__["microsoft_app_user_assigned_identity_id"] = microsoft_app_user_assigned_identity_id
         __props__.__dict__["name"] = name
         __props__.__dict__["resource_group_name"] = resource_group_name
         __props__.__dict__["sku"] = sku
@@ -741,6 +874,32 @@ class WebApp(pulumi.CustomResource):
         The Microsoft Application ID for the Web App Bot. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "microsoft_app_id")
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppTenantId")
+    def microsoft_app_tenant_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The Microsoft Application Tenant ID for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_tenant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppType")
+    def microsoft_app_type(self) -> pulumi.Output[_builtins.str]:
+        """
+        The Microsoft Application Type for the Bot Channels Registration. Possible values are `MultiTenant`, `SingleTenant` and `UserAssignedMSI`. Defaults to `MultiTenant`. Changing this forces a new resource to be created.
+
+        > **Note:** Creation of `bot.WebApp` resources using the `MultiTenant` type is no longer supported by Azure, existing resources can continue using this type.
+        """
+        return pulumi.get(self, "microsoft_app_type")
+
+    @_builtins.property
+    @pulumi.getter(name="microsoftAppUserAssignedIdentityId")
+    def microsoft_app_user_assigned_identity_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The ID of Microsoft Application User Assigned Identity for the Bot Channels Registration. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "microsoft_app_user_assigned_identity_id")
 
     @_builtins.property
     @pulumi.getter

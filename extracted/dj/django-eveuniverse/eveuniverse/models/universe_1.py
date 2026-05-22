@@ -36,8 +36,8 @@ class EveAncestry(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "id"
-        esi_path_list = "Universe.get_universe_ancestries"
-        esi_path_object = "Universe.get_universe_ancestries"
+        esi_path_list = "Universe.GetUniverseAncestries"
+        esi_path_object = "Universe.GetUniverseAncestries"
         field_mappings = {"eve_bloodline": "bloodline_id"}
         load_order = 180
 
@@ -53,7 +53,11 @@ class EveBloodline(EveUniverseEntityModel):
         related_name="eve_bloodlines",
     )
     eve_ship_type = models.ForeignKey(
-        "EveType", on_delete=models.CASCADE, related_name="eve_bloodlines"
+        "EveType",
+        on_delete=models.SET_DEFAULT,
+        default=None,
+        null=True,
+        related_name="eve_bloodlines",
     )
     charisma = models.PositiveIntegerField()
     corporation_id = models.PositiveIntegerField()
@@ -65,8 +69,8 @@ class EveBloodline(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "bloodline_id"
-        esi_path_list = "Universe.get_universe_bloodlines"
-        esi_path_object = "Universe.get_universe_bloodlines"
+        esi_path_list = "Universe.GetUniverseBloodlines"
+        esi_path_object = "Universe.GetUniverseBloodlines"
         field_mappings = {"eve_race": "race_id", "eve_ship_type": "ship_type_id"}
         load_order = 170
 
@@ -78,8 +82,8 @@ class EveCategory(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "category_id"
-        esi_path_list = "Universe.get_universe_categories"
-        esi_path_object = "Universe.get_universe_categories_category_id"
+        esi_path_list = "Universe.GetUniverseCategories"
+        esi_path_object = "Universe.GetUniverseCategoriesCategoryId"
         children = {"groups": "EveGroup"}
         load_order = 130
 
@@ -104,8 +108,8 @@ class EveDogmaAttribute(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "attribute_id"
-        esi_path_list = "Dogma.get_dogma_attributes"
-        esi_path_object = "Dogma.get_dogma_attributes_attribute_id"
+        esi_path_list = "Dogma.GetDogmaAttributes"
+        esi_path_object = "Dogma.GetDogmaAttributesAttributeId"
         field_mappings = {"eve_unit": "unit_id"}
         load_order = 140
 
@@ -113,7 +117,7 @@ class EveDogmaAttribute(EveUniverseEntityModel):
 class EveDogmaEffect(EveUniverseEntityModel):
     """A dogma effect in Eve Online"""
 
-    # we need to redefine the name field, because effect names can be very long
+    # we had to redefine the name field, because effect names can be very long
     name = models.CharField(
         max_length=400,
         default="",
@@ -172,8 +176,8 @@ class EveDogmaEffect(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "effect_id"
-        esi_path_list = "Dogma.get_dogma_effects"
-        esi_path_object = "Dogma.get_dogma_effects_effect_id"
+        esi_path_list = "Dogma.GetDogmaEffects"
+        esi_path_object = "Dogma.GetDogmaEffectsEffectId"
         field_mappings = {
             "discharge_attribute": "discharge_attribute_id",
             "duration_attribute": "duration_attribute_id",
@@ -281,8 +285,8 @@ class EveFaction(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "faction_id"
-        esi_path_list = "Universe.get_universe_factions"
-        esi_path_object = "Universe.get_universe_factions"
+        esi_path_list = "Universe.GetUniverseFactions"
+        esi_path_object = "Universe.GetUniverseFactions"
         field_mappings = {"eve_solar_system": "solar_system_id"}
         load_order = 210
 
@@ -319,8 +323,8 @@ class EveGraphic(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "graphic_id"
-        esi_path_list = "Universe.get_universe_graphics"
-        esi_path_object = "Universe.get_universe_graphics_graphic_id"
+        esi_path_list = "Universe.GetUniverseGraphics"
+        esi_path_object = "Universe.GetUniverseGraphicsGraphicId"
         load_order = 120
 
 
@@ -334,8 +338,8 @@ class EveGroup(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "group_id"
-        esi_path_list = "Universe.get_universe_groups"
-        esi_path_object = "Universe.get_universe_groups_group_id"
+        esi_path_list = "Universe.GetUniverseGroups"
+        esi_path_object = "Universe.GetUniverseGroupsGroupId"
         field_mappings = {"eve_category": "category_id"}
         children = {"types": "EveType"}
         load_order = 132
@@ -355,8 +359,8 @@ class EveMarketGroup(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "market_group_id"
-        esi_path_list = "Market.get_markets_groups"
-        esi_path_object = "Market.get_markets_groups_market_group_id"
+        esi_path_list = "Market.GetMarketsGroups"
+        esi_path_object = "Market.GetMarketsGroupsMarketGroupId"
         field_mappings = {"parent_market_group": "parent_group_id"}
         children = {"types": "EveType"}
         load_order = 230
@@ -398,8 +402,8 @@ class EveRace(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "race_id"
-        esi_path_list = "Universe.get_universe_races"
-        esi_path_object = "Universe.get_universe_races"
+        esi_path_list = "Universe.GetUniverseRaces"
+        esi_path_object = "Universe.GetUniverseRaces"
         load_order = 150
 
 
@@ -454,8 +458,8 @@ class EveType(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "type_id"
-        esi_path_list = "Universe.get_universe_types"
-        esi_path_object = "Universe.get_universe_types_type_id"
+        esi_path_list = "Universe.GetUniverseTypes"
+        esi_path_object = "Universe.GetUniverseTypesTypeId"
         field_mappings = {
             "eve_graphic": "graphic_id",
             "eve_group": "group_id",

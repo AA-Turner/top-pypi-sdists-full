@@ -6,6 +6,8 @@ use std::sync::Arc;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tracing::{debug, trace, warn};
+use uv_audit::osv;
+use uv_audit::{Dependency, VulnerabilityID};
 use uv_auth::CredentialsCache;
 use uv_cache::{Cache, CacheBucket};
 use uv_cache_key::{cache_digest, cache_name};
@@ -33,8 +35,10 @@ use uv_python::{
     PythonEnvironment, PythonInstallation, PythonPreference, PythonRequest, PythonSource,
     PythonVariant, PythonVersionFile, VersionFileDiscoveryOptions, VersionRequest,
 };
-use uv_requirements::upgrade::{LockedRequirements, read_lock_requirements};
-use uv_requirements::{NamedRequirementsResolver, RequirementsSpecification};
+use uv_requirements::{
+    LockedRequirements, NamedRequirementsResolver, RequirementsSpecification,
+    read_lock_requirements,
+};
 use uv_resolver::{
     FlatIndex, Installable, Lock, OptionsBuilder, Preference, PythonRequirement,
     ResolverEnvironment, ResolverOutput,
@@ -234,7 +238,9 @@ pub(crate) enum ProjectError {
     #[error("PEP 723 scripts do not support optional dependencies, but extra `{0}` was specified")]
     MissingExtraScript(ExtraName),
 
-    #[error("Supported environments must be disjoint, but the following markers overlap: `{0}` and `{1}`.\n\n{hint}{colon} replace `{1}` with `{2}`.", hint = "hint".bold().cyan(), colon = ":".bold())]
+    #[error(
+        "Supported environments must be disjoint, but the following markers overlap: `{0}` and `{1}`"
+    )]
     OverlappingMarkers(String, String, String),
 
     #[error("Environment markers `{0}` don't overlap with Python requirement `{1}`")]
@@ -256,13 +262,21 @@ pub(crate) enum ProjectError {
     UvLockParse(#[source] toml::de::Error),
 
     #[error("Failed to parse `pyproject.toml`")]
-    PyprojectTomlParse(#[source] toml::de::Error),
+    PyprojectTomlParse(#[source] uv_workspace::pyproject::PyprojectTomlError),
 
     #[error("Failed to update `pyproject.toml`")]
     PyprojectTomlUpdate,
 
     #[error("Failed to parse PEP 723 script metadata")]
     Pep723ScriptTomlParse(#[source] toml::de::Error),
+
+    #[error(
+        "Malware detected in one or more dependencies that would be installed; aborting sync. Set `UV_MALWARE_CHECK=0` to bypass this check."
+    )]
+    MalwareFound,
+
+    #[error("Malware check failed due to an error from OSV")]
+    Osv(#[from] osv::Error),
 
     #[error("Failed to find `site-packages` directory for environment")]
     NoSitePackages,
@@ -344,6 +358,47 @@ pub(crate) enum ProjectError {
 
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
+}
+
+/// Vulnerability identifiers grouped by dependency.
+#[derive(Debug)]
+pub(crate) struct MalwareFindings(pub(crate) Vec<(Dependency, Vec<VulnerabilityID>)>);
+
+impl std::fmt::Display for MalwareFindings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first = true;
+        for (dependency, vuln_ids) in &self.0 {
+            for vuln_id in vuln_ids {
+                if !first {
+                    writeln!(f)?;
+                }
+                first = false;
+                write!(
+                    f,
+                    "  - `{}=={}`: {} (https://osv.dev/vulnerability/{})",
+                    dependency.name(),
+                    dependency.version(),
+                    vuln_id.as_str(),
+                    vuln_id.as_str(),
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl uv_errors::Hint for ProjectError {
+    fn hints(&self) -> uv_errors::Hints<'_> {
+        match self {
+            Self::OverlappingMarkers(_, rhs, replacement) => {
+                uv_errors::Hints::from(format!("replace `{rhs}` with `{replacement}`"))
+            }
+            Self::Lock(err) => err.hints(),
+            Self::Python(err) => err.hints(),
+            Self::Operation(err) => err.hints(),
+            _ => uv_errors::Hints::none(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1215,7 +1270,7 @@ impl WorkspacePython {
         } else {
             // (3) `requires-python` in `pyproject.toml`
             let request = requires_python
-                .clone()
+                .as_ref()
                 .and_then(PythonRequest::from_requires_python);
             let source = PythonRequestSource::RequiresPython;
             (source, request)
@@ -1318,7 +1373,7 @@ impl ScriptPython {
         } else {
             // (4) `requires-python` from workspace `pyproject.toml`
             let request = workspace_requires_python
-                .clone()
+                .as_ref()
                 .and_then(PythonRequest::from_requires_python);
             (PythonRequestSource::RequiresPython, request)
         };

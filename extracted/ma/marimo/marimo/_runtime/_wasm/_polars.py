@@ -12,9 +12,9 @@ Two flavors of fallback live here, both built on :class:`WasmPatchSet`:
 * **DataFrame.write_json** — file system / native JSON writers can fail in
   WASM. On failure we round-trip via CSV and emit JSON manually.
 
-Read/scan path is best-effort: polars-only kwargs (``n_rows``,
-``try_parse_dates``, ...) are ignored; common kwargs with a pyarrow
-equivalent (``columns``, csv ``separator``, ``has_header``) are honored.
+Read/scan path is best-effort: polars-only kwargs (`n_rows`,
+`try_parse_dates`, ...) are ignored; common kwargs with a pyarrow
+equivalent (`columns`, csv `separator`, `has_header`) are honored.
 All patches are no-ops outside pyodide.
 """
 
@@ -25,6 +25,7 @@ import pathlib
 from typing import TYPE_CHECKING, Any
 
 from marimo import _loggers
+from marimo._runtime._wasm import _fetch
 from marimo._runtime._wasm._patches import Unpatch, WasmPatchSet
 from marimo._utils.platform import is_pyodide
 
@@ -47,17 +48,6 @@ def _is_url(source: Any) -> bool:
     )
 
 
-def _fetch_url_bytes(url: str) -> bytes:
-    """Sync fetch via urllib — works in pyodide thanks to pyodide_http's
-    patch_all (installed at marimo startup), which routes urllib through JS
-    fetch. Single sync path for text and binary.
-    """
-    import urllib.request
-
-    with urllib.request.urlopen(url) as response:
-        return response.read()  # type: ignore[no-any-return]
-
-
 def _resolve_to_bytes(source: Any) -> bytes:
     """Coerce a polars I/O source into raw bytes."""
     if isinstance(source, bytes):
@@ -73,7 +63,7 @@ def _resolve_to_bytes(source: Any) -> bytes:
         return source.read_bytes()
     if isinstance(source, str):
         if _is_url(source):
-            return _fetch_url_bytes(source)
+            return _fetch.fetch_url_bytes(source)
         return pathlib.Path(source).read_bytes()
     raise TypeError(
         f"Unsupported source type for WASM polars fallback: {type(source)!r}"
@@ -147,7 +137,7 @@ _ARROW_READERS: dict[str, Callable[..., Any]] = {
 
 
 def _make_fallback(fmt: str, lazy: bool) -> Callable[..., Any]:
-    """Decode ``source`` via pyarrow and return polars."""
+    """Decode `source` via pyarrow and return polars."""
     import polars as pl
 
     from marimo._dependencies.dependencies import DependencyManager
@@ -199,9 +189,9 @@ def _write_json_fallback(
 ) -> str | None:
     """Convert the frame to dicts and emit JSON.
 
-    ``to_dicts`` preserves types and handles quoting/embedded delimiters
+    `to_dicts` preserves types and handles quoting/embedded delimiters
     correctly (unlike a naive CSV split), and avoids I/O so it works in WASM.
-    ``default=str`` covers temporal/decimal types that aren't JSON-native.
+    `default=str` covers temporal/decimal types that aren't JSON-native.
     """
     import json
 

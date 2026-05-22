@@ -110,7 +110,7 @@ if TYPE_CHECKING:
 
     from pymammotion.data.model.device import MowingDevice
     from pymammotion.data.mqtt.event import ThingEventMessage
-    from pymammotion.data.mqtt.properties import ThingPropertiesMessage
+    from pymammotion.data.mqtt.properties import MammotionPropertiesMessage, ThingPropertiesMessage
     from pymammotion.data.mqtt.status import ThingStatusMessage
     from pymammotion.http.model.http import MQTTConnection
 
@@ -1244,6 +1244,8 @@ class MammotionClient:
         transport.on_device_message = self._route_device_message
         transport.on_device_status = self._route_device_status
         transport.on_device_properties = self._route_device_properties
+        transport.on_device_mammotion_properties = self._route_device_mammotion_properties
+        transport.on_device_notification = self._route_device_notification
 
         # When the connection loop permanently fails auth, trigger a full
         # re-login and reconnect so the integration recovers automatically.
@@ -1392,23 +1394,34 @@ class MammotionClient:
                     known_ids.add(device.device_name)
 
         if check_for_new_devices:
-            try:
-                fresh = await cloud_client.list_binding_by_account()
-                if fresh.data:
-                    for device in fresh.data.data:
-                        if device.device_name and device.device_name not in known_ids:
-                            iot_id = owned_iot_id_map.get(device.device_name) or device.iot_id
-                            await self._register_aliyun_device(
-                                device.device_name,
-                                iot_id,
-                                transport,
-                                ua,
-                                device.product_key,
-                                token_manager=acct_session.token_manager,
-                            )
-                            known_ids.add(device.device_name)
-            except Exception:  # noqa: BLE001
-                _logger.warning("restore_credentials: new-device discovery failed (Aliyun)", exc_info=True)
+            session_data = (
+                cloud_client.session_by_authcode_response.data
+                if cloud_client.session_by_authcode_response is not None
+                else None
+            )
+            if session_data is None or not session_data.iotToken:
+                _logger.warning(
+                    "restore_credentials: skipping list_binding_by_account — iotToken not available"
+                    " (credentials not fully restored)"
+                )
+            else:
+                try:
+                    fresh = await cloud_client.list_binding_by_account()
+                    if fresh.data:
+                        for device in fresh.data.data:
+                            if device.device_name and device.device_name not in known_ids:
+                                iot_id = owned_iot_id_map.get(device.device_name) or device.iot_id
+                                await self._register_aliyun_device(
+                                    device.device_name,
+                                    iot_id,
+                                    transport,
+                                    ua,
+                                    device.product_key,
+                                    token_manager=acct_session.token_manager,
+                                )
+                                known_ids.add(device.device_name)
+                except Exception:  # noqa: BLE001
+                    _logger.warning("restore_credentials: new-device discovery failed (Aliyun)", exc_info=True)
 
         if not known_ids:
             _logger.info("No Aliyun devices found — skipping Aliyun MQTT connection")
@@ -1638,6 +1651,14 @@ class MammotionClient:
             "online" if online else "offline",
         )
 
+    async def _route_device_notification(self, iot_id: str, identifier: str) -> None:
+        """Enqueue a get_report_cfg refresh when the device sends a thing/event notification."""
+        handle = self._handle_for_iot_id(iot_id, "_route_device_notification")
+        if handle is None:
+            return
+        _logger.debug("Device notification '%s' from iot_id=%s — refreshing report cfg", identifier, iot_id)
+        await handle.request_report_cfg(dedup_key="report_cfg_on_notification")
+
     async def _route_device_event(self, iot_id: str, event: ThingEventMessage) -> None:
         """Forward a non-protobuf thing.events message to the correct DeviceHandle."""
         handle = self._handle_for_iot_id(iot_id, "_route_device_event")
@@ -1651,6 +1672,13 @@ class MammotionClient:
         if handle is None:
             return
         await handle.on_device_properties(properties)
+
+    async def _route_device_mammotion_properties(self, iot_id: str, properties: MammotionPropertiesMessage) -> None:
+        """Forward a Mammotion MQTT flat property/post message to the correct DeviceHandle."""
+        handle = self._handle_for_iot_id(iot_id, "_route_device_mammotion_properties")
+        if handle is None:
+            return
+        await handle.on_mammotion_properties(properties)
 
     # ------------------------------------------------------------------
     # Map sync
@@ -1673,6 +1701,7 @@ class MammotionClient:
                 command_builder=commands,
                 send_command=handle.send_raw,
                 get_map=lambda: cast(MowerDevice, handle.snapshot.raw).map,
+                sync_type=2 if handle.is_transport_connected(TransportType.BLE) else 3,
             )
 
             async def _on_map_complete() -> None:
@@ -1836,6 +1865,7 @@ class MammotionClient:
                 route_info=route_info,
                 skip_planning=skip_planning,
                 device_name=device_name,
+                sync_type=2 if handle.is_transport_connected(TransportType.BLE) else 3,
             )
 
             async def _on_mow_path_complete() -> None:
@@ -2135,6 +2165,7 @@ class MammotionClient:
         key: str,
         *,
         prefer_ble: bool = False,
+        skip_if_saga_active: bool = False,
         _record_cmd: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -2145,14 +2176,19 @@ class MammotionClient:
         queue so it is properly ordered with respect to running sagas.
 
         Args:
-            name:        Registered device name.
-            key:         Method name on :class:`MammotionCommand`.
-            prefer_ble:  When True, prefer BLE over MQTT for this call only
-                         (useful for movement commands that need low latency).
-                         Does not mutate the handle's transport preference.
-            _record_cmd: Internal flag — set False for watchdog-initiated sends
-                         so they do not stamp _last_user_command_ts and
-                         inadvertently lock the watchdog into the 60 s window.
+            name:                Registered device name.
+            key:                 Method name on :class:`MammotionCommand`.
+            prefer_ble:          When True, prefer BLE over MQTT for this call only
+                                 (useful for movement commands that need low latency).
+                                 Does not mutate the handle's transport preference.
+            skip_if_saga_active: When True, the command is silently dropped if a
+                                 saga (map/plan/mow-path fetch) is currently running.
+                                 Use for fire-and-forget UI ops (volume, knife height,
+                                 light toggle) that the user expects to take effect
+                                 immediately rather than queue behind a long fetch.
+            _record_cmd:         Internal flag — set False for watchdog-initiated sends
+                                 so they do not stamp _last_user_command_ts and
+                                 inadvertently lock the watchdog into the 60 s window.
 
         Raises:
             KeyError:       if *name* is not a registered device.
@@ -2200,7 +2236,7 @@ class MammotionClient:
                 _session,
             )
 
-        await handle.queue.enqueue(_do_send, priority=Priority.NORMAL)
+        await handle.queue.enqueue(_do_send, priority=Priority.NORMAL, skip_if_saga_active=skip_if_saga_active)
 
     async def send_command_and_wait(
         self,

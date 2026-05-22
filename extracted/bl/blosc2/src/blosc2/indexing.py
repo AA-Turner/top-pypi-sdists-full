@@ -179,6 +179,9 @@ class IndexPlan:
     candidate_nav_segments: int = 0
     candidate_base_spans: int = 0
     lookup_path: str | None = None
+    # Cross-column refinement: exact positions from one indexed column that
+    # still need refinement against other predicates (different columns).
+    partial_exact_positions: np.ndarray | None = None
 
 
 @dataclass(slots=True)
@@ -1097,6 +1100,16 @@ def _fill_summaries_from_2d(
     summaries_arr["flags"][offset : offset + n] = flags
 
 
+def _sorted_segment_boundary(segment: np.ndarray, dtype: np.dtype):
+    if dtype.kind == "f":
+        valid = ~np.isnan(segment)
+        if not np.any(valid):
+            nan = np.asarray(np.nan, dtype=dtype)[()]
+            return nan, nan
+        segment = segment[valid]
+    return segment[0], segment[-1]
+
+
 def _compute_sorted_boundaries(values: np.ndarray, dtype: np.dtype, segment_len: int) -> np.ndarray:
     nsegments = math.ceil(values.shape[0] / segment_len)
     boundaries = np.empty(nsegments, dtype=_boundary_dtype(dtype))
@@ -1105,7 +1118,7 @@ def _compute_sorted_boundaries(values: np.ndarray, dtype: np.dtype, segment_len:
         start = idx * segment_len
         stop = min(start + segment_len, values.shape[0])
         segment = values[start:stop]
-        boundaries[idx] = (segment[0], segment[-1])
+        boundaries[idx] = _sorted_segment_boundary(segment, dtype)
     return boundaries
 
 
@@ -1753,14 +1766,16 @@ def _build_chunk_sorted_payload(
         sorted_values[cursor:next_cursor] = chunk_sorted
         positions[cursor:next_cursor] = chunk_positions
         offsets[chunk_id + 1] = next_cursor
-        l1[chunk_id] = (chunk_sorted[0], chunk_sorted[-1])
+        l1[chunk_id] = _sorted_segment_boundary(chunk_sorted, np.dtype(values.dtype))
 
         row_start = chunk_id * nsegments_per_chunk
         segment_count = _segment_row_count(chunk_size, nav_segment_len)
         for segment_id in range(segment_count):
             seg_start = cursor + segment_id * nav_segment_len
             seg_stop = min(seg_start + nav_segment_len, next_cursor)
-            l2[row_start + segment_id] = (sorted_values[seg_start], sorted_values[seg_stop - 1])
+            l2[row_start + segment_id] = _sorted_segment_boundary(
+                sorted_values[seg_start:seg_stop], np.dtype(values.dtype)
+            )
         for segment_id in range(segment_count, nsegments_per_chunk):
             l2[row_start + segment_id] = l2[row_start + segment_count - 1]
         cursor = next_cursor
@@ -1810,13 +1825,15 @@ def _build_chunk_sorted_payload_direct(
         aux[cursor:next_cursor] = chunk_aux
         offsets[chunk_id + 1] = next_cursor
         if chunk_size > 0:
-            l1[chunk_id] = (chunk_payload[0], chunk_payload[-1])
+            l1[chunk_id] = _sorted_segment_boundary(chunk_payload, payload_dtype)
             row_start = chunk_id * nsegments_per_chunk
             segment_count = _segment_row_count(chunk_size, nav_segment_len)
             for segment_id in range(segment_count):
                 seg_start = segment_id * nav_segment_len
                 seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                l2[row_start + segment_id] = (chunk_payload[seg_start], chunk_payload[seg_stop - 1])
+                l2[row_start + segment_id] = _sorted_segment_boundary(
+                    chunk_payload[seg_start:seg_stop], payload_dtype
+                )
             for segment_id in range(segment_count, nsegments_per_chunk):
                 l2[row_start + segment_id] = l2[row_start + segment_count - 1]
         cursor = next_cursor
@@ -1945,13 +1962,15 @@ def _build_partial_chunk_payloads_intra_chunk(
         positions[cursor:next_cursor] = local_positions
         offsets[chunk_id + 1] = next_cursor
         if chunk_size > 0:
-            l1[chunk_id] = (chunk_sorted[0], chunk_sorted[-1])
+            l1[chunk_id] = _sorted_segment_boundary(chunk_sorted, dtype)
             row_start = chunk_id * nsegments_per_chunk
             segment_count = _segment_row_count(chunk_size, nav_segment_len)
             for segment_id in range(segment_count):
                 seg_start = segment_id * nav_segment_len
                 seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                l2[row_start + segment_id] = (chunk_sorted[seg_start], chunk_sorted[seg_stop - 1])
+                l2[row_start + segment_id] = _sorted_segment_boundary(
+                    chunk_sorted[seg_start:seg_stop], dtype
+                )
             for segment_id in range(segment_count, nsegments_per_chunk):
                 l2[row_start + segment_id] = l2[row_start + segment_count - 1]
         cursor = next_cursor
@@ -2176,13 +2195,15 @@ def _build_partial_descriptor_ooc(
                     positions_handle[cursor:next_cursor] = local_positions
                 offsets[chunk_id + 1] = next_cursor
                 if chunk_size > 0:
-                    l1[chunk_id] = (chunk_sorted[0], chunk_sorted[-1])
+                    l1[chunk_id] = _sorted_segment_boundary(chunk_sorted, dtype)
                     row_start = chunk_id * nsegments_per_chunk
                     segment_count = _segment_row_count(chunk_size, nav_segment_len)
                     for segment_id in range(segment_count):
                         seg_start = segment_id * nav_segment_len
                         seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                        l2[row_start + segment_id] = (chunk_sorted[seg_start], chunk_sorted[seg_stop - 1])
+                        l2[row_start + segment_id] = _sorted_segment_boundary(
+                            chunk_sorted[seg_start:seg_stop], dtype
+                        )
                     for segment_id in range(segment_count, nsegments_per_chunk):
                         l2[row_start + segment_id] = l2[row_start + segment_count - 1]
                 cursor = next_cursor
@@ -2401,13 +2422,15 @@ def _build_bucket_chunk_payloads(
         )
         offsets[chunk_id + 1] = next_cursor
         if chunk_size > 0:
-            l1[chunk_id] = (stored_chunk_sorted[0], stored_chunk_sorted[-1])
+            l1[chunk_id] = _sorted_segment_boundary(stored_chunk_sorted, dtype)
             row_start = chunk_id * nsegments_per_chunk
             segment_count = _segment_row_count(chunk_size, nav_segment_len)
             for segment_id in range(segment_count):
                 seg_start = segment_id * nav_segment_len
                 seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                l2[row_start + segment_id] = (chunk_sorted[seg_start], chunk_sorted[seg_stop - 1])
+                l2[row_start + segment_id] = _sorted_segment_boundary(
+                    chunk_sorted[seg_start:seg_stop], dtype
+                )
             for segment_id in range(segment_count, nsegments_per_chunk):
                 l2[row_start + segment_id] = l2[row_start + segment_count - 1]
         cursor = next_cursor
@@ -2456,13 +2479,15 @@ def _build_bucket_chunk_payloads_intra_chunk(
         )
         offsets[chunk_id + 1] = next_cursor
         if chunk_size > 0:
-            l1[chunk_id] = (stored_chunk_sorted[0], stored_chunk_sorted[-1])
+            l1[chunk_id] = _sorted_segment_boundary(stored_chunk_sorted, dtype)
             row_start = chunk_id * nsegments_per_chunk
             segment_count = _segment_row_count(chunk_size, nav_segment_len)
             for segment_id in range(segment_count):
                 seg_start = segment_id * nav_segment_len
                 seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                l2[row_start + segment_id] = (chunk_sorted[seg_start], chunk_sorted[seg_stop - 1])
+                l2[row_start + segment_id] = _sorted_segment_boundary(
+                    chunk_sorted[seg_start:seg_stop], dtype
+                )
             for segment_id in range(segment_count, nsegments_per_chunk):
                 l2[row_start + segment_id] = l2[row_start + segment_count - 1]
         cursor = next_cursor
@@ -2591,13 +2616,15 @@ def _build_bucket_descriptor_ooc(
                     )
                 offsets[chunk_id + 1] = next_cursor
                 if chunk_size > 0:
-                    l1[chunk_id] = (stored_chunk_sorted[0], stored_chunk_sorted[-1])
+                    l1[chunk_id] = _sorted_segment_boundary(stored_chunk_sorted, dtype)
                     row_start = chunk_id * nsegments_per_chunk
                     segment_count = _segment_row_count(chunk_size, nav_segment_len)
                     for segment_id in range(segment_count):
                         seg_start = segment_id * nav_segment_len
                         seg_stop = min(seg_start + nav_segment_len, chunk_size)
-                        l2[row_start + segment_id] = (chunk_sorted[seg_start], chunk_sorted[seg_stop - 1])
+                        l2[row_start + segment_id] = _sorted_segment_boundary(
+                            chunk_sorted[seg_start:seg_stop], dtype
+                        )
                     for segment_id in range(segment_count, nsegments_per_chunk):
                         l2[row_start + segment_id] = l2[row_start + segment_count - 1]
                 cursor = next_cursor
@@ -5333,8 +5360,12 @@ def _plan_exact_conjunction(node: ast.AST, operands: dict) -> list[ExactPredicat
             return None
         left = _plan_exact_conjunction(node.left, operands)
         right = _plan_exact_conjunction(node.right, operands)
-        if left is None or right is None:
+        if left is None and right is None:
             return None
+        if left is None:
+            return right
+        if right is None:
+            return left
         return left + right
     return None
 
@@ -5419,6 +5450,15 @@ def _candidate_units_from_boundaries(boundaries: np.ndarray, plan: ExactPredicat
         return np.zeros(0, dtype=bool)
     starts = boundaries["start"]
     ends = boundaries["end"]
+    if ends.dtype.kind == "f":
+        nan_mask = np.isnan(ends)
+        if np.any(nan_mask):
+            ends = ends.copy()
+            ends[nan_mask] = np.inf
+        nan_mask_start = np.isnan(starts)
+        if np.any(nan_mask_start):
+            starts = starts.copy()
+            starts[nan_mask_start] = -np.inf
     candidate = np.ones(len(boundaries), dtype=bool)
     if plan.lower is not None:
         candidate &= ends >= plan.lower if plan.lower_inclusive else ends > plan.lower
@@ -6442,34 +6482,93 @@ def _multi_exact_positions(plans: list[ExactPredicatePlan]) -> tuple[blosc2.NDAr
     return base, result
 
 
+def _plan_cross_column_exact(plans: list[ExactPredicatePlan]) -> IndexPlan | None:
+    """Try cross-column refinement when plans span different base NDArrays.
+
+    When a conjunction has predicates on different columns (e.g. ``tips > 100
+    AND km > 0 AND sec > 0``) and one of those columns has a FULL/PARTIAL
+    index that can return compact exact positions, use those positions as a
+    pre-filter.  The remaining comparison predicates are evaluated only on
+    the candidate positions, skipping a full table scan.
+
+    Returns an ``IndexPlan`` with ``partial_exact_positions`` and
+    ``refine_plans`` when a compact candidate set is found, or ``None``.
+    """
+    threshold = _cross_column_threshold(plans)
+    for plan in plans:
+        positions = _exact_positions_from_plan(plan)
+        if positions is None:
+            continue
+        positions = np.asarray(positions, dtype=np.int64)
+        if len(positions) == 0 or len(positions) > threshold:
+            continue
+        # Compact exact positions found for this column's index.
+        # The caller (``_try_index_where``) will evaluate the full
+        # expression on these positions to refine against other
+        # predicates.
+        descriptor = _copy_descriptor(plan.descriptor)
+        return IndexPlan(
+            True,
+            "cross-column exact refinement",
+            descriptor=descriptor,
+            base=plan.base,
+            target=plan.descriptor.get("target"),
+            field=plan.field,
+            level=plan.descriptor["kind"],
+            total_units=int(plan.base.shape[0]),
+            selected_units=len(positions),
+            partial_exact_positions=positions,
+        )
+    return None
+
+
+def _cross_column_threshold(plans: list[ExactPredicatePlan]) -> int:
+    """Return the maximum number of exact positions worth refining against.
+
+    If the candidate set is too large the refinement cost (reading extra
+    columns at every candidate position) outweighs the benefit over a
+    full scan.  Cap at the smallest column size to stay conservative.
+    """
+    if not plans:
+        return 100_000
+    min_nrows = min(int(p.base.shape[0]) for p in plans)
+    return min(100_000, max(1, min_nrows // 10))
+
+
 def _plan_multi_exact_query(plans: list[ExactPredicatePlan]) -> IndexPlan | None:
     multi_exact = _multi_exact_positions(plans)
-    if multi_exact is None:
-        return None
-    base, exact_positions = multi_exact
-    if len(exact_positions) >= int(base.shape[0]):
-        return None
-    descriptor = _copy_descriptor(plans[0].descriptor)
-    lookup_path = None
-    if descriptor["kind"] == "partial":
-        lookup_path = (
-            "chunk-nav-ooc"
-            if _chunk_nav_supports_selective_ooc_lookup(base, descriptor, "partial")
-            else "chunk-nav"
+    if multi_exact is not None:
+        base, exact_positions = multi_exact
+        if len(exact_positions) >= int(base.shape[0]):
+            return None
+        descriptor = _copy_descriptor(plans[0].descriptor)
+        lookup_path = None
+        if descriptor["kind"] == "partial":
+            lookup_path = (
+                "chunk-nav-ooc"
+                if _chunk_nav_supports_selective_ooc_lookup(base, descriptor, "partial")
+                else "chunk-nav"
+            )
+        return IndexPlan(
+            True,
+            "multi-field positional indexes selected",
+            descriptor=descriptor,
+            base=base,
+            target=plans[0].descriptor.get("target"),
+            field=None,
+            level="partial",
+            total_units=int(base.shape[0]),
+            selected_units=len(exact_positions),
+            exact_positions=exact_positions,
+            lookup_path=lookup_path,
         )
-    return IndexPlan(
-        True,
-        "multi-field positional indexes selected",
-        descriptor=descriptor,
-        base=base,
-        target=plans[0].descriptor.get("target"),
-        field=None,
-        level="partial",
-        total_units=int(base.shape[0]),
-        selected_units=len(exact_positions),
-        exact_positions=exact_positions,
-        lookup_path=lookup_path,
-    )
+    # Cross-column fallback: try each plan's index individually.  If one
+    # column's index produces compact exact positions we can use them as a
+    # pre-filter and refine the remaining predicates cheaply.
+    cross_col = _plan_cross_column_exact(plans)
+    if cross_col is not None:
+        return cross_col
+    return None
 
 
 def _plan_single_exact_query(exact_plan: ExactPredicatePlan) -> IndexPlan:
@@ -6570,6 +6669,15 @@ def plan_query(expression: str, operands: dict, where: dict | None, *, use_index
         exact_query_plan = _plan_single_exact_query(exact_plan)
         if exact_query_plan.usable:
             return exact_query_plan
+
+    # Cross-column refinement: the full expression tree has no single-plan
+    # exact equivalent (different columns, only some indexed), but a
+    # partial conjunction may give us compact exact positions from one
+    # indexed column that we can refine against the other predicates.
+    if exact_terms is not None and len(exact_terms) == 1:
+        cross_col = _plan_cross_column_exact(exact_terms)
+        if cross_col is not None:
+            return cross_col
 
     segment_plan = _plan_segment_node(tree.body, operands)
     if segment_plan is None:

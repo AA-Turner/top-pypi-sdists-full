@@ -43,7 +43,7 @@ jobs:
       PRERELEASE: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       # This step will fetch/store the directory used by ccache before/after the ci run
@@ -52,7 +52,7 @@ jobs:
       #    path: ${{ env.CCACHE_DIR }}
       #    key: ccache-${{ matrix.env.ROS_DISTRO }}-${{ matrix.env.ROS_REPO }}
       # Run industrial_ci
-      - uses: 'ros-industrial/industrial_ci@3e67ec54d63496e076267392148a26229740befc'
+      - uses: 'ros-industrial/industrial_ci@f3c2dc8b4a9e6215f9c00f83e86ca0692970f81d'
         env: ${{ matrix.env }}
 
   check:

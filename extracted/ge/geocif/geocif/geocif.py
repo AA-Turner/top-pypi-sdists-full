@@ -166,6 +166,24 @@ class Geocif:
         # Valid values: none, SHAP, stabl, feature_engine, mrmr, RFECV, lasso,
         #   BorutaPy, Leshy, PowerShap, BorutaShap, Genetic, RFE, multi, gOMP
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
+        # Per-region anomaly target: when set, training fits on
+        # (y - region_mean_train_years); predictions add the region mean back
+        # at inference time so the DB / plots / FDW stay in absolute yield
+        # units. Empirical Lasso probe on Somalia maize showed CV R² jump
+        # from ~0.05 → ~0.21 just from this transform — most yield variance
+        # is regional baseline, not seasonal anomaly.
+        # No-op when check_yield_trend=True (detrending handles baseline
+        # removal differently) or when use_yield_trend_as_feature is set.
+        self.target_mode = self.parser.get(
+            "ML", "target_mode", fallback="absolute"
+        ).strip().lower()
+        if self.target_mode not in ("absolute", "region_anomaly"):
+            self.target_mode = "absolute"
+        self.region_anomaly_min_years = self.parser.getint(
+            "ML", "region_anomaly_min_years", fallback=5
+        )
+        # Populated by _prepare_train_test_split when target_mode == region_anomaly.
+        self._region_target_means: dict = {}
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
         self.run_time_steps = self.parser.get("ML", "run_time_steps", fallback="latest")
         # "current" means use today's partial-season stage window for ALL
@@ -798,6 +816,26 @@ class Geocif:
             months = list(reversed(months))
         return months[0]
 
+    def _get_season_months(self) -> list:
+        """Return chronological season months from the longest in-season Stage_ID.
+
+        For ``_r`` methods Stage_ID arrays are harvest→planting, so reverse
+        to get planting→harvest. Returns ``[]`` if no in-season stages exist.
+        Used by ``_execute_pre_season`` to enumerate valid forecast targets
+        when iterating in-season init months.
+        """
+        stage_ids = [
+            s for s in self.df_inputs["Stage_ID"].dropna().unique()
+            if not s.startswith(("PS", "IS"))
+        ]
+        if not stage_ids:
+            return []
+        longest = max(stage_ids, key=lambda s: len(s.split("_")))
+        months = [int(x) for x in longest.split("_")]
+        if self.method.endswith("_r"):
+            months = list(reversed(months))
+        return months
+
 
     def _is_forecast_only(self) -> bool:
         """Check if use_cids contains only forecast types (FLDAS/S2S)."""
@@ -894,14 +932,56 @@ class Geocif:
                 forecast_types = ["FLDAS", "S2S"]
             else:
                 forecast_types = [c for c in self.use_cids if c in ("FLDAS", "S2S")]
-            df = self.df_inputs[
-                (self.df_inputs["Type"].isin(forecast_types)) &
-                (self.df_inputs["Stage"] == stage_pattern)
-            ]
+
+            if is_before_planting:
+                # Pre-season init: data tagged with PS_<init>
+                df = self.df_inputs[
+                    (self.df_inputs["Type"].isin(forecast_types)) &
+                    (self.df_inputs["Stage"] == stage_pattern)
+                ]
+                debug_filter_kind = "ps_init"
+            else:
+                # In-season init: data is tagged by numeric target-month
+                # Stage_ID, not PS_<init>. For init M and target T, the
+                # freshest forecast is the row whose LEAD == (T - M) mod 12;
+                # all other LEAD values for that target are stale older-init
+                # forecasts. Valid targets are season months reachable from
+                # M within max_lead = 6 (matches FLDAS LEAD0..5 / S2S LEAD1..6).
+                max_lead = 6
+                season_months = self._get_season_months()
+                sid = pd.to_numeric(self.df_inputs["Stage_ID"], errors="coerce")
+                lead = (
+                    self.df_inputs["Index"].astype(str)
+                    .str.extract(r"_LEAD(\d+)", expand=False)
+                    .astype("Int64")
+                )
+                matches = pd.Series(False, index=self.df_inputs.index)
+                target_log = []
+                for tgt in season_months:
+                    exp_lead = (tgt - init_month) % 12
+                    if exp_lead >= max_lead:
+                        continue  # outside lead horizon
+                    sub = (sid == tgt) & (lead == exp_lead)
+                    if sub.any():
+                        target_log.append((int(tgt), int(exp_lead), int(sub.sum())))
+                        matches = matches | sub
+                df = self.df_inputs[
+                    self.df_inputs["Type"].isin(forecast_types) & matches
+                ]
+                debug_filter_kind = "is_init_fresh"
+                if not df.empty:
+                    self.logger.info(
+                        f"  In-season init {month_name}: admitted "
+                        f"{len(target_log)} (target, lead) pairs: "
+                        + ", ".join(
+                            f"tgt={t}/LEAD{l}({n})" for t, l, n in target_log
+                        )
+                    )
 
             debug_row = {
                 "step": init_month,
                 "month_name": month_name,
+                "filter_kind": debug_filter_kind,
                 "n_rows_stage_match": n_stage,
                 "n_rows_stage_id_match": n_stage_id,
                 "n_rows_type_fldas": n_fldas,
@@ -968,6 +1048,15 @@ class Geocif:
         all_simulation_stages = list(self.simulation_stages)
         step_subsets = self._get_setup_stages()
 
+        # Same chronological derivation as _get_setup_stages, reused here to
+        # know the "publish date" (latest covered month) and remaining-season
+        # months at each step. Feeds _filter_by_simulation_stages so it can
+        # admit forward-looking FLDAS/S2S leads from the freshest init only.
+        chronological = []
+        if all_simulation_stages:
+            longest = max(all_simulation_stages, key=lambda s: len(s))
+            chronological = list(reversed([int(x) for x in longest]))
+
         df_inputs_orig = self.df_inputs.copy()
         cached_latlon = None
 
@@ -975,6 +1064,22 @@ class Geocif:
             self.simulation_stages = stage_subset
             self.df_inputs = df_inputs_orig.copy()
             self._current_step_label = f"[{step_idx + 1}/{len(step_subsets)}]"
+
+            # Per-step publish date + remaining season — read by
+            # _filter_by_simulation_stages when use_cids contains forecast
+            # types. No-op when chronological is empty.
+            if chronological:
+                covered = {int(x) for s in stage_subset for x in s}
+                chronological_covered = [m for m in chronological if m in covered]
+                self._latest_covered_month = (
+                    chronological_covered[-1] if chronological_covered else None
+                )
+                self._remaining_season_months = [
+                    m for m in chronological if m not in covered
+                ]
+            else:
+                self._latest_covered_month = None
+                self._remaining_season_months = []
 
             self.logger.info(
                 f"Time step {self._current_step_label}: "
@@ -1042,12 +1147,60 @@ class Geocif:
         return df
 
     def _filter_by_simulation_stages(self) -> pd.DataFrame:
-        """Filter data to include only simulation stages."""
+        """Filter data to include only simulation stages.
+
+        Augmented for forward-looking forecast leads: when
+        ``self._remaining_season_months`` is set (multi-step in-season
+        mode with forecast types in ``use_cids``), additionally admit
+        FLDAS/S2S rows whose target ``Stage_ID`` is a future-season month
+        AND whose ``Index`` carries the freshest-init LEAD number
+        ``(target - latest_covered) mod 12``. This brings forward-looking
+        forecasts into ``X_train`` so "All CIDs" gets the same forecast
+        signal as "FLDAS Only" / "S2S Only" — without ever admitting a
+        stale older-init lead for the same target.
+        """
         stages_list = [
             stages.convert_stage_string(s, to_array=False)
             for s in self.simulation_stages
         ]
         mask = self.df_inputs["Stage_ID"].isin(stages_list)
+
+        remaining = getattr(self, "_remaining_season_months", None) or []
+        latest_covered = getattr(self, "_latest_covered_month", None)
+        keep_forecast = (
+            "all" in self.use_cids
+            or any(t in self.use_cids for t in ("FLDAS", "S2S"))
+        )
+        if (
+            keep_forecast
+            and remaining
+            and latest_covered is not None
+            and "Type" in self.df_inputs.columns
+            and "Index" in self.df_inputs.columns
+        ):
+            sid = pd.to_numeric(self.df_inputs["Stage_ID"], errors="coerce")
+            lead = (
+                self.df_inputs["Index"].astype(str)
+                .str.extract(r"_LEAD(\d+)", expand=False)
+                .astype("Int64")
+            )
+            future_set = {int(m) for m in remaining}
+            # Freshest init for target M at this step = LEAD (M - L) mod 12
+            expected_lead = (sid - int(latest_covered)) % 12
+            fresh_future_mask = (
+                self.df_inputs["Type"].isin(("FLDAS", "S2S"))
+                & sid.isin(future_set)
+                & (lead == expected_lead)
+            )
+            n_admitted = int(fresh_future_mask.sum())
+            if n_admitted:
+                self.logger.info(
+                    f"Admitting {n_admitted} fresh-init forward-looking "
+                    f"FLDAS/S2S rows (latest_covered={latest_covered}, "
+                    f"future_targets={sorted(future_set)})"
+                )
+                mask = mask | fresh_future_mask
+
         return self.df_inputs[mask]
 
     def _prune_stale_forecast_rows(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -1244,14 +1397,71 @@ class Geocif:
         }
 
     def _prepare_train_test_split(self, df: pd.DataFrame):
-        """Separate data into training and testing sets."""
+        """Separate data into training and testing sets.
+
+        When ``target_mode == "region_anomaly"`` (and not detrending), subtract
+        each region's training-year mean from the target column so the model
+        fits on per-region yield anomalies. Region means are stored in
+        ``self._region_target_means`` for re-addition at prediction time.
+        Regions with fewer than ``region_anomaly_min_years`` training rows are
+        dropped from both df_train and df_test (we can't compute a stable mean
+        for them and predictions wouldn't be retrievable without one).
+        """
         df[f"{self.target}_class"] = np.nan
-        
+
         mask = df["Harvest Year"] == self.forecast_season
         self.df_train = df[~mask].copy()
         self.df_test = df[mask].copy()
-        
+
         self.df_train = self.df_train.dropna(subset=[self.target])
+
+        # Region-anomaly target transform (leak-safe: uses train years only).
+        # Only computes the per-region mean lookup + prunes regions with too
+        # few training rows. The actual demean of y_train happens later in
+        # _setup_training_data so that df_train[self.target] stays absolute
+        # (used by _compute_yield_trend_feature, last_observed_map, plots).
+        self._region_target_means = {}
+        if (
+            self.target_mode == "region_anomaly"
+            and not self.check_yield_trend
+            and self.target in self.df_train.columns
+            and "Region" in self.df_train.columns
+        ):
+            admin_col = (
+                "Country__Region"
+                if getattr(self, "countries_pooled", None)
+                and "Country__Region" in self.df_train.columns
+                else "Region"
+            )
+            counts = self.df_train.groupby(admin_col)[self.target].count()
+            keep = counts[counts >= self.region_anomaly_min_years].index.tolist()
+            dropped = sorted(set(counts.index) - set(keep))
+            if dropped:
+                self.logger.warning(
+                    f"  region_anomaly: skipping {len(dropped)} region(s) "
+                    f"with < {self.region_anomaly_min_years} training rows: "
+                    f"{dropped[:10]}{'...' if len(dropped) > 10 else ''}"
+                )
+            self._region_target_means = (
+                self.df_train[self.df_train[admin_col].isin(keep)]
+                .groupby(admin_col)[self.target]
+                .mean()
+                .to_dict()
+            )
+            # Drop skipped regions from train + test (no usable mean to re-add)
+            self.df_train = self.df_train[
+                self.df_train[admin_col].isin(keep)
+            ].copy()
+            self.df_test = self.df_test[
+                self.df_test[admin_col].isin(keep)
+            ].copy()
+            if self._region_target_means:
+                self.logger.info(
+                    f"  region_anomaly: stored means for {len(self._region_target_means)} "
+                    f"region(s) (mean-of-means="
+                    f"{np.mean(list(self._region_target_means.values())):.3f}); "
+                    f"y_train will be demeaned in _setup_training_data"
+                )
 
     def _compute_yield_trend_feature(self):
         """Compute per-region BEAST-segmented linear trend, write to
@@ -2259,6 +2469,10 @@ class Geocif:
         
         if self.check_yield_trend:
             y_pred, y_pred_ci = self._retrend_predictions(y_pred, df_region, y_pred_ci)
+        elif self.target_mode == "region_anomaly" and self._region_target_means:
+            y_pred, y_pred_ci = self._re_add_region_mean_to_predictions(
+                y_pred, df_region, y_pred_ci
+            )
 
         if getattr(self, 'countries_pooled', None):
             experiment_id = f"pooled_{self.crop}"
@@ -2677,6 +2891,56 @@ class Geocif:
                 df_region.iloc[ri, df_region.columns.get_loc("Detrended Model Type")] = model_type
 
         return y_pred_retrended, y_pred_ci_retrended
+
+    def _re_add_region_mean_to_predictions(
+        self,
+        y_pred: np.ndarray,
+        df_region: pd.DataFrame,
+        y_pred_ci: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """Inverse of the region-anomaly training transform.
+
+        Training subtracted ``region_mean_train_years`` from ``self.target``
+        in ``df_train``; ``y_pred`` (and CI bounds) come out in the same
+        anomaly space. Add the stored per-region mean back so the DB /
+        plots / FDW exports stay in absolute yield units.
+
+        Rows for regions missing from ``self._region_target_means`` are left
+        unchanged — those regions were dropped at training time so the test
+        slice should already be empty for them, but the lookup defensively
+        returns the value as-is rather than NaN-ing the prediction.
+        """
+        y_pred_out = y_pred.copy()
+        y_pred_ci_out = y_pred_ci.copy() if y_pred_ci is not None else None
+
+        admin_col = (
+            "Country__Region"
+            if getattr(self, "countries_pooled", None)
+            and "Country__Region" in df_region.columns
+            else "Region"
+        )
+        means_series = (
+            df_region[admin_col].map(self._region_target_means).astype(float)
+        )
+        # Treat missing region (unseen at train time) as 0 shift so the raw
+        # anomaly prediction is preserved rather than NaN-poisoning the row.
+        offsets = means_series.fillna(0.0).to_numpy()
+
+        y_pred_out = y_pred_out + offsets
+        if y_pred_ci_out is not None:
+            # CI shape: (n_samples, 2, 1) — [:, 0, 0] = lower, [:, 1, 0] = upper.
+            # Shift both bounds by the same per-row offset to preserve width.
+            y_pred_ci_out[:, 0, 0] = y_pred_ci_out[:, 0, 0] + offsets
+            y_pred_ci_out[:, 1, 0] = y_pred_ci_out[:, 1, 0] + offsets
+
+        n_shifted = int((offsets != 0).sum())
+        if n_shifted:
+            self.logger.info(
+                f"  region_anomaly: re-added region mean to {n_shifted}/"
+                f"{len(offsets)} test predictions"
+            )
+
+        return y_pred_out, y_pred_ci_out
 
     def _build_results_dataframe(
         self,
@@ -3099,15 +3363,42 @@ class Geocif:
     def _setup_training_data(self, df_region_train: pd.DataFrame):
         """Setup X_train and y_train, handling NaN values."""
         df_region_train = df_region_train.dropna(subset=[self.target_column])
-        
+
         self.X_train = df_region_train[self.feature_names + ["Region"]]
-        
+
         self.X_train = self._clean_training_features(self.X_train)
-        
+
         if self.model_name in ["gam", "linear", "gpr"]:
             self._fill_missing_values()
-        
+
         self.y_train = df_region_train[self.target_column]
+
+        # Region-anomaly target transform — subtract per-region training-mean
+        # ONLY from y_train so the model fits on yield deviations from each
+        # region's baseline. df_region_train[self.target_column] is left
+        # absolute, so last_observed_map and any other downstream readers
+        # keep seeing physical units. Re-added at prediction time via
+        # _re_add_region_mean_to_predictions.
+        if (
+            self.target_mode == "region_anomaly"
+            and not self.check_yield_trend
+            and getattr(self, "_region_target_means", None)
+            and self.target_column == self.target
+        ):
+            admin_col = (
+                "Country__Region"
+                if getattr(self, "countries_pooled", None)
+                and "Country__Region" in df_region_train.columns
+                else "Region"
+            )
+            means = (
+                df_region_train[admin_col]
+                .map(self._region_target_means)
+                .astype(float)
+                .fillna(0.0)
+            )
+            # Keep Series type so downstream .loc / .iloc on y_train still works
+            self.y_train = (self.y_train.astype(float) - means.values)
 
         # Compute last available observed year and yield PER REGION
         df_valid = df_region_train.dropna(subset=[self.target_column])

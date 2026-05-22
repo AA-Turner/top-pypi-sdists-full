@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dandi
-Version: 1.0.0
+Version: 0.76.0
 Summary: Command line client for interaction with DANDI instances
 Author-email: DANDI developers <team@dandiarchive.org>
 Maintainer-email: DANDI developers <team@dandiarchive.org>
@@ -220,6 +220,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -243,7 +244,7 @@ Requires-Dist: platformdirs
 Requires-Dist: pycryptodomex
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pynwb!=1.1.0,!=2.3.0,>=1.0.3
-Requires-Dist: numcodecs<0.16
+Requires-Dist: numcodecs
 Requires-Dist: nwbinspector>=0.7.0
 Requires-Dist: pyout!=0.6.0,>=0.5
 Requires-Dist: python-dateutil

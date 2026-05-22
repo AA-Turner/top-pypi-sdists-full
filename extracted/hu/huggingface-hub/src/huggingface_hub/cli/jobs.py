@@ -66,7 +66,6 @@ import multiprocessing
 import multiprocessing.pool
 import shutil
 import time
-from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from fnmatch import fnmatch
@@ -79,6 +78,7 @@ from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
+from huggingface_hub.utils._parsing import format_duration
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -279,7 +279,7 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
         "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
-        "hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
+        "hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
     ],
 )
 def jobs_run(
@@ -325,7 +325,13 @@ def jobs_run(
 
 
 @jobs_cli.command(
-    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>"]
+    "logs",
+    examples=[
+        "hf jobs logs <job_id>",
+        "hf jobs logs -f <job_id>",
+        "hf jobs logs --tail 20 <job_id>",
+        "hf jobs logs -f --tail 100 <job_id>",
+    ],
 )
 def jobs_logs(
     job_id: JobIdArg,
@@ -342,7 +348,7 @@ def jobs_logs(
         typer.Option(
             "-n",
             "--tail",
-            help="Number of lines to show from the end of the logs.",
+            help="Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.",
         ),
     ] = None,
     namespace: NamespaceOpt = None,
@@ -352,18 +358,13 @@ def jobs_logs(
 
     By default, prints currently available logs and exits (non-blocking).
     Use --follow/-f to stream logs in real-time until the job completes.
+    Use --tail/-n to limit the number of lines returned (server-side when supported).
     """
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-    if follow and tail is not None:
-        raise CLIError(
-            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
-        )
 
     api = get_hf_api(token=token)
     try:
-        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
-        if tail is not None:
-            logs = deque(logs, maxlen=tail)
+        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
         for log in logs:
             print(log)
     except HfHubHTTPError as e:
@@ -621,12 +622,13 @@ def jobs_ps(
             print("[]")
         return
 
-    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-    aliases = ["id", "image", "command", "created", "status"]
+    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "RUNTIME"]
+    aliases = ["id", "image", "command", "created", "status", "runtime"]
     items = [api_object_to_dict(job) for job in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
         status = item.get("status", {})
+        durations = item.get("durations") or {}
         cmd = item.get("command") or []
         command_str = " ".join(cmd) if cmd else "N/A"
         return [
@@ -635,6 +637,7 @@ def jobs_ps(
             _format_cell(command_str),
             item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
             str(status.get("stage", "UNKNOWN")),
+            format_duration(durations.get("running_secs")),
         ]
 
     # Custom template format
@@ -657,8 +660,8 @@ def jobs_hardware() -> None:
     """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
-    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-    headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "STORAGE", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+    headers_aliases = ["name", "prettyName", "cpu", "ram", "ephemeralStorage", "accelerator", "costMin", "costHour"]
     rows: list[list[str | int]] = []
 
     for hw in hardware_list:
@@ -667,7 +670,18 @@ def jobs_hardware() -> None:
             accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
         cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
         cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
-        rows.append([hw.name, hw.pretty_name or "", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+        rows.append(
+            [
+                hw.name,
+                hw.pretty_name or "",
+                hw.cpu,
+                hw.ram,
+                hw.ephemeral_storage,
+                accelerator_info,
+                cost_min,
+                cost_hour,
+            ]
+        )
 
     if not rows:
         print("No hardware options found")
@@ -738,7 +752,7 @@ jobs_cli.add_typer(uv_app, name="uv")
         "hf jobs uv run my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
-        "hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py",
+        "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
     ],
 )
 def jobs_uv_run(

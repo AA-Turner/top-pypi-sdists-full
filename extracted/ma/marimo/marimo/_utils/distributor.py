@@ -35,10 +35,6 @@ class Distributor(Protocol, Generic[T]):
         """Stop the distributor."""
         ...
 
-    def flush(self) -> None:
-        """Flush the distributor."""
-        ...
-
 
 class ConnectionDistributor(Distributor[T]):
     """
@@ -59,6 +55,9 @@ class ConnectionDistributor(Distributor[T]):
     def __init__(self, input_connection: TypedConnection[T]) -> None:
         self.consumers: list[Consumer[T]] = []
         self.input_connection = input_connection
+        # Captured on start() so stop() uses the same loop the reader
+        # was registered with — even if another loop is running by then.
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def add_consumer(self, consumer: Consumer[T]) -> Disposable:
         """Add a consumer to the distributor."""
@@ -91,26 +90,23 @@ class ConnectionDistributor(Distributor[T]):
                 consumer(response)
 
     def start(self) -> Disposable:
-        """Start distributing the response."""
-        asyncio.get_event_loop().add_reader(
-            self.input_connection.fileno(), self._on_change
-        )
+        """Start distributing the response.
+
+        Must be called from a thread that has a running event loop —
+        `add_reader` is loop-bound.
+        """
+        self._loop = asyncio.get_running_loop()
+        self._loop.add_reader(self.input_connection.fileno(), self._on_change)
         return Disposable(self.stop)
 
     def stop(self) -> None:
         """Stop distributing the response."""
-        asyncio.get_event_loop().remove_reader(self.input_connection.fileno())
+        if self._loop is not None:
+            self._loop.remove_reader(self.input_connection.fileno())
+            self._loop = None
         if not self.input_connection.closed:
             self.input_connection.close()
         self.consumers.clear()
-
-    def flush(self) -> None:
-        """Flush the distributor."""
-        while self.input_connection.poll():
-            try:
-                self.input_connection.recv()
-            except EOFError:
-                break
 
 
 class QueueDistributor(Distributor[T]):
@@ -152,6 +148,3 @@ class QueueDistributor(Distributor[T]):
 
     def stop(self) -> None:
         self.queue.put_nowait(None)
-
-    def flush(self) -> None:
-        """Flush the distributor."""

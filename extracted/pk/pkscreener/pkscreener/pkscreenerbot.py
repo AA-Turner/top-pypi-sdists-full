@@ -1381,7 +1381,7 @@ def kickOffScannerJobIfNotKickedOff(scanId, user, dbManager, requiredBalance, al
         menuText = "We encountered an error updating your subscription! Please reach out to @ItsOnlyPK on Telegram with your UTR and subscription scanner details."
     return menuText
 
-def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_name="w7-workflow-prod-scans-trigger.yml"):
+def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_name="w7-workflow-prod-scans-trigger.yml", github_token=None):
     """
     Trigger the production scans workflow via GitHub Actions.
     
@@ -1392,8 +1392,9 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
         result = None
         logger.info("Attempting to trigger production scans workflow...")
         
-        # Get GitHub token from environment
-        github_token = PKEnvironment().allSecrets.get('GITHUB_TOKEN') or PKEnvironment().allSecrets.get('CI_PAT') or PKEnvironment().allSecrets.get("PKG")
+        if not github_token:
+            # Get GitHub token from environment
+            github_token = PKEnvironment().allSecrets.get('GITHUB_TOKEN') or PKEnvironment().allSecrets.get('CI_PAT') or PKEnvironment().allSecrets.get("PKG")
         
         if not github_token:
             logger.error("No GitHub token found, cannot trigger workflow")
@@ -1427,7 +1428,7 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
     
     Args:
         triggers: List of (hour, minute, repo, workflow_name) tuples.
-                  Example: [(9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+                  Example: [(9, 43, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
                             (15, 33, "PKBrokers", "w1-workflow-history-data-parent.yml")]
     """
     global _trigger_stop_event
@@ -1449,19 +1450,20 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
             triggered_today.clear()
             last_date = current_date
             logger.debug(f"New day {current_date} – reset triggered set")
-        
+        github_token = None
         # Check each trigger
         for hour, minute, repo, wf_name in triggers:
             key = (hour, minute)
             if key not in triggered_today and current_hour == hour and current_minute == minute:
                 logger.info(f"🕐 Trigger time {hour:02d}:{minute:02d} IST reached – firing workflow {wf_name}")
-                success,response = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name)
+                success,response = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name, github_token=github_token)
                 if success:
                     triggered_today.add(key)
                     logger.info(f"✅ Triggered {wf_name} successfully")
                 else:
-                    logger.warning(f"⚠️ Failed to trigger {repo}/{wf_name}, will retry next minute: {response}")
+                    logger.warning(f"⚠️ Failed to trigger {repo}/{wf_name}, will retry next minute: {response.status_code}: {response.content}")
                     sleep(60)
+                    github_token = PKEnvironment().allSecrets.get('CI_PAT')
                     continue   # re-check after retry
         
         # Determine sleep interval based on next pending trigger (if any)
@@ -1502,7 +1504,7 @@ def start_scheduled_workflow(triggers=None):
     
     if triggers is None:
         triggers = [
-            (9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+            (9, 43, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
             (15, 30, "PKBrokers", "w1-workflow-history-data-parent.yml")
         ]
     
@@ -1571,6 +1573,11 @@ def manual_trigger(update: Update, context: CallbackContext) -> None:
             update.message.reply_text(f"✅ {repo}/{wf_name} Workflow triggered successfully!")
         else:
             update.message.reply_text(f"❌ Failed to trigger workflow - {repo}/{wf_name} Check logs for details: {response}")
+            if response.status_code in [401,403]:
+                github_token = PKEnvironment().allSecrets.get('CI_PAT')
+                success, response = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name, github_token=github_token)
+                if success:
+                    update.message.reply_text(f"✅ {repo}/{wf_name} Workflow triggered successfully in the 2nd attempt!")
 
 
 def stop_trigger(update: Update, context: CallbackContext) -> None:

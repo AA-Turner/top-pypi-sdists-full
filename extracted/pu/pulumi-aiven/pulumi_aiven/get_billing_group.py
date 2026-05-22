@@ -277,7 +277,7 @@ def get_billing_group(billing_group_id: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_aiven as aiven
 
-    example_billing_group = aiven.get_billing_group(billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
+    example = aiven.get_billing_group(billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
     ```
 
 
@@ -309,8 +309,8 @@ def get_billing_group(billing_group_id: Optional[_builtins.str] = None,
         timeouts=pulumi.get(__ret__, 'timeouts'),
         vat_id=pulumi.get(__ret__, 'vat_id'),
         zip_code=pulumi.get(__ret__, 'zip_code'))
-def get_billing_group_output(billing_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                             timeouts: Optional[pulumi.Input[Optional[Union['GetBillingGroupTimeoutsArgs', 'GetBillingGroupTimeoutsArgsDict']]]] = None,
+def get_billing_group_output(billing_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                             timeouts: pulumi.Input[Optional[Optional[Union['GetBillingGroupTimeoutsArgs', 'GetBillingGroupTimeoutsArgsDict']]]] = None,
                              opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetBillingGroupResult]:
     """
     Gets information about a billing group.
@@ -321,7 +321,7 @@ def get_billing_group_output(billing_group_id: Optional[pulumi.Input[_builtins.s
     import pulumi
     import pulumi_aiven as aiven
 
-    example_billing_group = aiven.get_billing_group(billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
+    example = aiven.get_billing_group(billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
     ```
 
 

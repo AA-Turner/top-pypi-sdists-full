@@ -2484,7 +2484,12 @@ class CfnMatchingWorkflow(
                     rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
                         condition="condition",
                         rule_name="ruleName"
-                    )]
+                    )],
+        
+                    # the properties below are optional
+                    matching_config=entityresolution.CfnMatchingWorkflow.MatchingConfigProperty(
+                        enable_transitive_matching=False
+                    )
                 )
             ),
             role_arn="roleArn",
@@ -2808,9 +2813,10 @@ class CfnMatchingWorkflow(
             domain_arn: builtins.str,
             object_type_arn: builtins.str,
         ) -> None:
-            '''
-            :param domain_arn: 
-            :param object_type_arn: 
+            '''The Customer Profiles integration configuration for the output source.
+
+            :param domain_arn: The Amazon Resource Name (ARN) of the Customer Profiles domain.
+            :param object_type_arn: The Amazon Resource Name (ARN) of the Customer Profiles object type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html
             :exampleMetadata: fixture=_generated
@@ -2837,7 +2843,8 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def domain_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the Customer Profiles domain.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html#cfn-entityresolution-matchingworkflow-customerprofilesintegrationconfig-domainarn
             '''
             result = self._values.get("domain_arn")
@@ -2846,7 +2853,8 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def object_type_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the Customer Profiles object type.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-customerprofilesintegrationconfig.html#cfn-entityresolution-matchingworkflow-customerprofilesintegrationconfig-objecttypearn
             '''
             result = self._values.get("object_type_arn")
@@ -3078,6 +3086,63 @@ class CfnMatchingWorkflow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.MatchingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enable_transitive_matching": "enableTransitiveMatching"},
+    )
+    class MatchingConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_transitive_matching: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''Configuration for matching behavior within rule condition properties.
+
+            :param enable_transitive_matching: Enables transitive matching to process records across all rule levels and connect unmatched records to existing match groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-matchingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_entityresolution as entityresolution
+                
+                matching_config_property = entityresolution.CfnMatchingWorkflow.MatchingConfigProperty(
+                    enable_transitive_matching=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__52244ed0af213be43115eaf2316f3d9c373eca5ada20a67eef3ff7f2f7402e18)
+                check_type(argname="argument enable_transitive_matching", value=enable_transitive_matching, expected_type=type_hints["enable_transitive_matching"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_transitive_matching is not None:
+                self._values["enable_transitive_matching"] = enable_transitive_matching
+
+        @builtins.property
+        def enable_transitive_matching(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Enables transitive matching to process records across all rule levels and connect unmatched records to existing match groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-matchingconfig.html#cfn-entityresolution-matchingworkflow-matchingconfig-enabletransitivematching
+            '''
+            result = self._values.get("enable_transitive_matching")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MatchingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.OutputAttributeProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "hashed": "hashed"},
@@ -3183,7 +3248,7 @@ class CfnMatchingWorkflow(
 
             :param output: A list of ``OutputAttribute`` objects, each of which have the fields ``Name`` and ``Hashed`` . Each of these objects selects a column to be included in the output table, and whether the values of the column should be hashed.
             :param apply_normalization: Normalizes the attributes defined in the schema in the input data. For example, if an attribute has an ``AttributeType`` of ``PHONE_NUMBER`` , and the data in the input table is in a format of 1234567890, AWS Entity Resolution will normalize this field in the output to (123)-456-7890.
-            :param customer_profiles_integration_config: 
+            :param customer_profiles_integration_config: The Customer Profiles integration configuration for the output source.
             :param kms_arn: Customer KMS ARN for encryption at rest. If not provided, system will use an AWS Entity Resolution managed KMS key.
             :param output_s3_path: The S3 path to which AWS Entity Resolution will write the output table.
 
@@ -3264,7 +3329,8 @@ class CfnMatchingWorkflow(
         def customer_profiles_integration_config(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.CustomerProfilesIntegrationConfigProperty"]]:
-            '''
+            '''The Customer Profiles integration configuration for the output source.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-outputsource.html#cfn-entityresolution-matchingworkflow-outputsource-customerprofilesintegrationconfig
             '''
             result = self._values.get("customer_profiles_integration_config")
@@ -3465,7 +3531,12 @@ class CfnMatchingWorkflow(
                         rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
                             condition="condition",
                             rule_name="ruleName"
-                        )]
+                        )],
+                
+                        # the properties below are optional
+                        matching_config=entityresolution.CfnMatchingWorkflow.MatchingConfigProperty(
+                            enable_transitive_matching=False
+                        )
                     )
                 )
             '''
@@ -3650,17 +3721,19 @@ class CfnMatchingWorkflow(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty",
         jsii_struct_bases=[],
-        name_mapping={"rules": "rules"},
+        name_mapping={"rules": "rules", "matching_config": "matchingConfig"},
     )
     class RuleConditionPropertiesProperty:
         def __init__(
             self,
             *,
             rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            matching_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMatchingWorkflow.MatchingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties of a rule condition that provides the ability to use more complex syntax.
 
             :param rules: A list of rule objects, each of which have fields ``ruleName`` and ``condition`` .
+            :param matching_config: Configuration for matching behavior within rule condition properties.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-ruleconditionproperties.html
             :exampleMetadata: fixture=_generated
@@ -3675,15 +3748,23 @@ class CfnMatchingWorkflow(
                     rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
                         condition="condition",
                         rule_name="ruleName"
-                    )]
+                    )],
+                
+                    # the properties below are optional
+                    matching_config=entityresolution.CfnMatchingWorkflow.MatchingConfigProperty(
+                        enable_transitive_matching=False
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c01a018e071645429b67216971e253282d8265d42f85a054b775019645ee4406)
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+                check_type(argname="argument matching_config", value=matching_config, expected_type=type_hints["matching_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rules": rules,
             }
+            if matching_config is not None:
+                self._values["matching_config"] = matching_config
 
         @builtins.property
         def rules(
@@ -3696,6 +3777,17 @@ class CfnMatchingWorkflow(
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.RuleConditionProperty"]]], result)
+
+        @builtins.property
+        def matching_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.MatchingConfigProperty"]]:
+            '''Configuration for matching behavior within rule condition properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-ruleconditionproperties.html#cfn-entityresolution-matchingworkflow-ruleconditionproperties-matchingconfig
+            '''
+            result = self._values.get("matching_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMatchingWorkflow.MatchingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3962,7 +4054,12 @@ class CfnMatchingWorkflowProps:
                         rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
                             condition="condition",
                             rule_name="ruleName"
-                        )]
+                        )],
+            
+                        # the properties below are optional
+                        matching_config=entityresolution.CfnMatchingWorkflow.MatchingConfigProperty(
+                            enable_transitive_matching=False
+                        )
                     )
                 ),
                 role_arn="roleArn",
@@ -5501,6 +5598,13 @@ def _typecheckingstub__daeae439a9bdc17358415316e1698c6a761d86970a2159c5d870437f7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__52244ed0af213be43115eaf2316f3d9c373eca5ada20a67eef3ff7f2f7402e18(
+    *,
+    enable_transitive_matching: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__006a3c9280759d8123ca560d0c7cfef20e64f8703bb04be12b8a7e08728768e5(
     *,
     name: builtins.str,
@@ -5551,6 +5655,7 @@ def _typecheckingstub__96d1f97c0110dea5fb9a8413e199ae25878eedad10521ad056ca772f3
 def _typecheckingstub__c01a018e071645429b67216971e253282d8265d42f85a054b775019645ee4406(
     *,
     rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    matching_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.MatchingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

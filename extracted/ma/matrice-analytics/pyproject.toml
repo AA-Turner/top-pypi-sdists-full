@@ -1,0 +1,216 @@
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_analytics"
+dynamic = ["version"]
+description = "Post-processing analytics for Matrice.ai inference pipelines"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = "MIT"
+requires-python = ">=3.8, <4"
+keywords = ["matrice", "analytics", "post-processing", "inference"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.5",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio>=0.21",
+    "ruff==0.11.12",
+    "bandit[toml]==1.9.4",
+    "mypy==1.13.0",
+    "pre-commit==4.2.0",
+    "pip-audit==2.7.3",
+    "safety==3.2.11",
+    "psutil>=5.9",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "matrice-common>=0.1.0",
+    "httpx==0.28.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["matrice_analytics*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (security)
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented code)
+    "T20",  # flake8-print
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
+]
+ignore = [
+    "S101",   # assert allowed in tests
+    "T201",   # print allowed (use logging in production)
+    "ERA001", # commented code sometimes useful
+    "S105",   # hardcoded password string (legacy false positives)
+    "S108",   # hardcoded tmp file (legacy)
+    "S110",   # try-except-pass (audited)
+    "S112",   # try-except-continue (audited)
+    "S311",   # non-cryptographic random (audited)
+    "S602",   # subprocess shell=True (audited)
+    "S603",   # subprocess call (audited)
+    "S606",   # start process with no shell (audited)
+    "S607",   # start process with partial path (audited)
+    "S608",   # hardcoded sql (audited)
+    "S103",   # bad file permissions (audited)
+    "S104",   # hardcoded bind all interfaces (audited)
+    "PTH100", # replaced by pathlib (legacy)
+    "PTH101", # replaced by pathlib (legacy)
+    "PTH103", # replaced by pathlib (legacy)
+    "PTH106", # replaced by pathlib (legacy)
+    "PTH107", # replaced by pathlib (legacy)
+    "PTH108", # replaced by pathlib (legacy)
+    "PTH109", # replaced by pathlib (legacy)
+    "PTH110", # replaced by pathlib (legacy)
+    "PTH111", # replaced by pathlib (legacy)
+    "PTH112", # replaced by pathlib (legacy)
+    "PTH118", # replaced by pathlib (legacy)
+    "PTH119", # replaced by pathlib (legacy)
+    "PTH120", # replaced by pathlib (legacy)
+    "PTH122", # replaced by pathlib (legacy)
+    "PTH123", # replaced by pathlib (legacy)
+    "PTH202", # replaced by pathlib (legacy)
+    "PTH207", # replaced by pathlib (legacy)
+    "PTH208", # replaced by pathlib (legacy)
+    "SIM102", # collapsible if (readability preserved)
+    "SIM103", # needless bool (readability preserved)
+    "SIM105", # suppressible exception (readability preserved)
+    "SIM108", # if-else to ternary (readability preserved)
+    "SIM110", # reimplemented builtin (readability)
+    "SIM114", # if with same arms (readability)
+    "SIM115", # open file with context (audited)
+    "SIM117", # combine with statements (readability)
+    "SIM118", # in-dict-keys (legacy)
+    "SIM910", # dict.get with None default (legacy)
+    "N801",   # invalid class name (legacy)
+    "N803",   # non-lowercase argument name (legacy API compat)
+    "N806",   # non-lowercase variable (legacy)
+    "N812",   # lowercase imported as non-lowercase (legacy)
+    "N814",   # camelcase imported as constant (legacy)
+    "N999",   # invalid module name (legacy)
+    "E501",   # line too long (legacy)
+    "RUF001", # ambiguous unicode in string (intentional)
+    "RUF002", # ambiguous unicode in docstring (intentional)
+    "RUF003", # ambiguous unicode in comment (intentional)
+    "RUF005", # collection literal concatenation (legacy)
+    "RUF010", # explicit f-string conversion (legacy)
+    "RUF012", # mutable class default (dataclass-like)
+    "RUF013", # implicit optional (legacy)
+    "RUF015", # iterable allocation for first (legacy)
+    "RUF022", # unsorted dunder-all (legacy)
+    "RUF046", # cast-to-int (legacy)
+    "A001",   # builtin variable shadowing (legacy)
+    "A002",   # builtin argument shadowing (legacy)
+    "B006",   # mutable argument default (legacy)
+    "B007",   # unused loop control variable (legacy)
+    "B008",   # function call in default arg (legacy)
+    "B904",   # raise from None/err (legacy)
+    "B905",   # zip without explicit strict (legacy)
+    "C408",   # unnecessary collection call (legacy)
+    "C414",   # unnecessary double cast (legacy)
+    "C416",   # unnecessary comprehension (legacy)
+    "C401",   # unnecessary generator set (legacy)
+    "C420",   # unnecessary dict comprehension (legacy)
+    "UP006",  # non-pep585-annotation (py38 compat)
+    "UP007",  # non-pep604-annotation-union (py38 compat)
+    "UP015",  # redundant open modes (legacy)
+    "UP017",  # datetime-timezone-utc (py38 compat)
+    "UP018",  # native literals (legacy)
+    "UP032",  # f-string conversion (legacy)
+    "UP035",  # deprecated import (py38 compat)
+    "UP037",  # quoted annotation (legacy)
+    "UP038",  # non-pep604-isinstance (py38 compat)
+    "PIE790", # unnecessary placeholder (legacy)
+    "PIE810", # multiple starts/ends-with (legacy)
+    "RET504", # unnecessary assign before return (legacy)
+    "RET505", # superfluous else-return (legacy)
+    "TC001",  # typing-only first-party import (legacy)
+    "TC002",  # typing-only third-party import (legacy)
+    "TC003",  # typing-only standard library import (legacy)
+    "B009",   # get-attr-with-constant (legacy)
+    "RUF100", # unused-noqa (transition)
+    "B017",   # assert raises exception (tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S106", "S105", "S108", "T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv", "build", "dist"]
+skips = ["B101", "B105", "B107", "B110", "B112", "B310", "B404", "B603", "B607", "B608"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-v --tb=short --cov=src/matrice_analytics --cov-report=term-missing --cov-report=xml"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = false
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+disable_error_code = ["import-untyped", "list-item", "arg-type", "no-redef", "misc", "assignment", "attr-defined", "call-arg", "call-overload", "index", "operator", "return-value", "union-attr", "var-annotated", "name-defined", "no-untyped-def", "no-untyped-call", "annotation-unchecked", "dict-item", "has-type", "override", "return", "str-format", "valid-type", "type-arg", "type-var", "typeddict-item", "typeddict-unknown-key", "used-before-def", "import-not-found", "abstract", "empty-body", "func-returns-value", "has-type", "unreachable"]
+exclude = ["^src/matrice_analytics/.*\\.pyi$", "^src/matrice_analytics/post_processing/ocr/fast_plate_ocr_py38/"]
+
+[[tool.mypy.overrides]]
+module = ["kafka", "kafka.*", "kubernetes", "kubernetes.*", "cv2", "cv2.*", "ultralytics", "ultralytics.*", "sklearn", "sklearn.*", "matrice_common", "matrice_common.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "**/__pycache__/*"]
+
+[tool.coverage.report]
+fail_under = 0
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]

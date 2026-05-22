@@ -103,6 +103,18 @@ class GetUtilizationRatesResponse(_message.Message):
         sandbox_credits_per_gb_memory_hour: _Optional[_Union[_decimal_pb2.Decimal, _Mapping]] = ...,
     ) -> None: ...
 
+class GetAvailableInstanceTypesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetAvailableInstanceTypesResponse(_message.Message):
+    __slots__ = ("instance_types",)
+    INSTANCE_TYPES_FIELD_NUMBER: _ClassVar[int]
+    instance_types: _containers.RepeatedCompositeFieldContainer[_rate_pb2.CloudInstanceType]
+    def __init__(
+        self, instance_types: _Optional[_Iterable[_Union[_rate_pb2.CloudInstanceType, _Mapping]]] = ...
+    ) -> None: ...
+
 class GetNodesAndPodsRequest(_message.Message):
     __slots__ = ("namespace", "pod_label_selector", "environment_id")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]

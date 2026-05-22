@@ -165,6 +165,8 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
         "cron_query_name",
         "store_plan_stages",
         "unload_resolvers",
+        "branch_id",
+        "deployment_id",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -192,6 +194,8 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
     CRON_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     STORE_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
     UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     cron_query_id: int
     planner_options: _containers.MessageMap[str, _struct_pb2.Value]
     incremental_resolvers: _containers.RepeatedScalarFieldContainer[str]
@@ -200,6 +204,8 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
     cron_query_name: str
     store_plan_stages: bool
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
+    branch_id: str
+    deployment_id: str
     def __init__(
         self,
         cron_query_id: _Optional[int] = ...,
@@ -210,6 +216,8 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
         cron_query_name: _Optional[str] = ...,
         store_plan_stages: bool = ...,
         unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
+        branch_id: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ManualTriggerScheduledQueryResponse(_message.Message):

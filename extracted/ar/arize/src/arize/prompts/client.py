@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from arize.pre_releases import ReleaseStage, prerelease_endpoint
+from arize.prompts.types import PromptVersion, PromptWithVersion
 from arize.utils.resolve import (
     _find_prompt_id,
     _find_space_id,
@@ -23,11 +24,9 @@ if TYPE_CHECKING:
         LLMMessage,
         LlmProvider,
         Prompt,
-        PromptsList200Response,
-        PromptVersion,
-        PromptVersionLabelsSet200Response,
-        PromptVersionsList200Response,
-        PromptWithVersion,
+        PromptListResponse,
+        PromptVersionLabelsResponse,
+        PromptVersionListResponse,
         ProviderParams,
     )
 
@@ -71,7 +70,7 @@ class PromptsClient:
         space: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PromptsList200Response:
+    ) -> PromptListResponse:
         """List prompts in a space.
 
         Args:
@@ -158,7 +157,8 @@ class PromptsClient:
             description=description,
             version=version,
         )
-        return self._api.prompts_create(prompts_create_request=body)
+        result = self._api.prompts_create(prompts_create_request=body)
+        return PromptWithVersion.model_validate(result, from_attributes=True)
 
     @prerelease_endpoint(key="prompts.get", stage=ReleaseStage.ALPHA)
     def get(
@@ -193,11 +193,12 @@ class PromptsClient:
             prompt=prompt,
             space=space,
         )
-        return self._api.prompts_get(
+        result = self._api.prompts_get(
             prompt_id=prompt_id,
             version_id=version_id,
             label=label,
         )
+        return PromptWithVersion.model_validate(result, from_attributes=True)
 
     @prerelease_endpoint(key="prompts.update", stage=ReleaseStage.ALPHA)
     def update(
@@ -269,7 +270,7 @@ class PromptsClient:
         space: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PromptVersionsList200Response:
+    ) -> PromptVersionListResponse:
         """List versions for a prompt.
 
         Args:
@@ -353,9 +354,10 @@ class PromptsClient:
             invocation_params=invocation_params,
             provider_params=provider_params,
         )
-        return self._api.prompt_versions_create(
+        result = self._api.prompt_versions_create(
             prompt_id=prompt_id, prompt_versions_create_request=body
         )
+        return PromptVersion.model_validate(result, from_attributes=True)
 
     @prerelease_endpoint(key="prompts.get_label", stage=ReleaseStage.ALPHA)
     def get_label(
@@ -381,9 +383,10 @@ class PromptsClient:
             prompt=prompt,
             space=space,
         )
-        return self._api.prompt_labels_get(
+        result = self._api.prompt_labels_get(
             prompt_id=prompt_id, label_name=label_name
         )
+        return PromptVersion.model_validate(result, from_attributes=True)
 
     @prerelease_endpoint(key="prompts.set_labels", stage=ReleaseStage.ALPHA)
     def set_labels(
@@ -391,7 +394,7 @@ class PromptsClient:
         *,
         version_id: str,
         labels: builtins.list[str],
-    ) -> PromptVersionLabelsSet200Response:
+    ) -> PromptVersionLabelsResponse:
         """Set labels on a prompt version.
 
         Replaces all existing labels on the version with the provided list.

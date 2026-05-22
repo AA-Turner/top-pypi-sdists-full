@@ -143,6 +143,13 @@ def get_sql_role_definition(account_name: Optional[_builtins.str] = None,
         role_definition_id="00000000-0000-0000-0000-000000000000")
     ```
 
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
+
 
     :param _builtins.str account_name: The name of the Cosmos DB Account.
     :param _builtins.str resource_group_name: The name of the Resource Group in which the Cosmos DB SQL Role Definition is created.
@@ -164,9 +171,9 @@ def get_sql_role_definition(account_name: Optional[_builtins.str] = None,
         resource_group_name=pulumi.get(__ret__, 'resource_group_name'),
         role_definition_id=pulumi.get(__ret__, 'role_definition_id'),
         type=pulumi.get(__ret__, 'type'))
-def get_sql_role_definition_output(account_name: Optional[pulumi.Input[_builtins.str]] = None,
-                                   resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-                                   role_definition_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_sql_role_definition_output(account_name: pulumi.Input[Optional[_builtins.str]] = None,
+                                   resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
+                                   role_definition_id: pulumi.Input[Optional[_builtins.str]] = None,
                                    opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetSqlRoleDefinitionResult]:
     """
     Use this data source to access information about an existing Cosmos DB SQL Role Definition.
@@ -181,6 +188,13 @@ def get_sql_role_definition_output(account_name: Optional[pulumi.Input[_builtins
         account_name="tfex-cosmosdb-sql-role-definition-account-name",
         role_definition_id="00000000-0000-0000-0000-000000000000")
     ```
+
+    ## API Providers
+
+    <!-- This section is generated, changes will be overwritten -->
+    This data source uses the following Azure API Providers:
+
+    * `Microsoft.DocumentDB` - 2024-08-15
 
 
     :param _builtins.str account_name: The name of the Cosmos DB Account.

@@ -133,7 +133,7 @@ def get_organizational_unit(id: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_aiven as aiven
 
-    example_unit = aiven.get_organizational_unit(name="Example organizational unit")
+    example = aiven.get_organizational_unit(id="foo")
     ```
 
 
@@ -155,9 +155,9 @@ def get_organizational_unit(id: Optional[_builtins.str] = None,
         tenant_id=pulumi.get(__ret__, 'tenant_id'),
         timeouts=pulumi.get(__ret__, 'timeouts'),
         update_time=pulumi.get(__ret__, 'update_time'))
-def get_organizational_unit_output(id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                   name: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                   timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationalUnitTimeoutsArgs', 'GetOrganizationalUnitTimeoutsArgsDict']]]] = None,
+def get_organizational_unit_output(id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                   name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                   timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationalUnitTimeoutsArgs', 'GetOrganizationalUnitTimeoutsArgsDict']]]] = None,
                                    opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationalUnitResult]:
     """
     Gets information about an organizational unit.
@@ -168,7 +168,7 @@ def get_organizational_unit_output(id: Optional[pulumi.Input[Optional[_builtins.
     import pulumi
     import pulumi_aiven as aiven
 
-    example_unit = aiven.get_organizational_unit(name="Example organizational unit")
+    example = aiven.get_organizational_unit(id="foo")
     ```
 
 

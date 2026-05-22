@@ -16,8 +16,8 @@ description = "cmeel distribution for urdfdom, URDF parser"
 license = "BSD-3-Clause"
 name = "cmeel-urdfdom"
 readme = "urdfdom/README.md"
-requires-python = ">= 3.8"
-version = "4.0.1"
+requires-python = ">= 3.10"
+version = "6.0.0"
 
 [project.urls]
 homepage = "https://github.com/cmake-wheel/cmeel-urdfdom"

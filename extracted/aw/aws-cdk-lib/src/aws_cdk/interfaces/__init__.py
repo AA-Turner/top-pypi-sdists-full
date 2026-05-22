@@ -221,6 +221,7 @@ __all__ = [
     "aws_auditmanager",
     "aws_autoscaling",
     "aws_autoscalingplans",
+    "aws_awsexternalanthropic",
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
@@ -510,6 +511,7 @@ from . import aws_athena
 from . import aws_auditmanager
 from . import aws_autoscaling
 from . import aws_autoscalingplans
+from . import aws_awsexternalanthropic
 from . import aws_b2bi
 from . import aws_backup
 from . import aws_backupgateway

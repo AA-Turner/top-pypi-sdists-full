@@ -23,7 +23,8 @@ class AgentlessScanningAwsScanOptionsArgs:
                  lambda_: pulumi.Input[_builtins.bool],
                  sensitive_data: pulumi.Input[_builtins.bool],
                  vuln_containers_os: pulumi.Input[_builtins.bool],
-                 vuln_host_os: pulumi.Input[_builtins.bool]):
+                 vuln_host_os: pulumi.Input[_builtins.bool],
+                 compliance_host: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a AgentlessScanningAwsScanOptions resource.
 
@@ -32,12 +33,15 @@ class AgentlessScanningAwsScanOptionsArgs:
         :param pulumi.Input[_builtins.bool] sensitive_data: Indicates if scanning for sensitive data is enabled.
         :param pulumi.Input[_builtins.bool] vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled.
         :param pulumi.Input[_builtins.bool] vuln_host_os: Indicates if scanning for vulnerabilities in hosts is enabled.
+        :param pulumi.Input[_builtins.bool] compliance_host: Indicates if host compliance scanning is enabled. Defaults to `false`.
         """
         pulumi.set(__self__, "aws_account_id", aws_account_id)
         pulumi.set(__self__, "lambda_", lambda_)
         pulumi.set(__self__, "sensitive_data", sensitive_data)
         pulumi.set(__self__, "vuln_containers_os", vuln_containers_os)
         pulumi.set(__self__, "vuln_host_os", vuln_host_os)
+        if compliance_host is not None:
+            pulumi.set(__self__, "compliance_host", compliance_host)
 
     @_builtins.property
     @pulumi.getter(name="awsAccountId")
@@ -99,19 +103,33 @@ class AgentlessScanningAwsScanOptionsArgs:
     def vuln_host_os(self, value: pulumi.Input[_builtins.bool]):
         pulumi.set(self, "vuln_host_os", value)
 
+    @_builtins.property
+    @pulumi.getter(name="complianceHost")
+    def compliance_host(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Indicates if host compliance scanning is enabled. Defaults to `false`.
+        """
+        return pulumi.get(self, "compliance_host")
+
+    @compliance_host.setter
+    def compliance_host(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "compliance_host", value)
+
 
 @pulumi.input_type
 class _AgentlessScanningAwsScanOptionsState:
     def __init__(__self__, *,
-                 aws_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 lambda_: Optional[pulumi.Input[_builtins.bool]] = None,
-                 sensitive_data: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_containers_os: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_host_os: Optional[pulumi.Input[_builtins.bool]] = None):
+                 aws_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compliance_host: pulumi.Input[Optional[_builtins.bool]] = None,
+                 lambda_: pulumi.Input[Optional[_builtins.bool]] = None,
+                 sensitive_data: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_containers_os: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_host_os: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering AgentlessScanningAwsScanOptions resources.
 
         :param pulumi.Input[_builtins.str] aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
+        :param pulumi.Input[_builtins.bool] compliance_host: Indicates if host compliance scanning is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] lambda_: Indicates if scanning of Lambda functions is enabled.
         :param pulumi.Input[_builtins.bool] sensitive_data: Indicates if scanning for sensitive data is enabled.
         :param pulumi.Input[_builtins.bool] vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled.
@@ -119,6 +137,8 @@ class _AgentlessScanningAwsScanOptionsState:
         """
         if aws_account_id is not None:
             pulumi.set(__self__, "aws_account_id", aws_account_id)
+        if compliance_host is not None:
+            pulumi.set(__self__, "compliance_host", compliance_host)
         if lambda_ is not None:
             pulumi.set(__self__, "lambda_", lambda_)
         if sensitive_data is not None:
@@ -130,62 +150,74 @@ class _AgentlessScanningAwsScanOptionsState:
 
     @_builtins.property
     @pulumi.getter(name="awsAccountId")
-    def aws_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def aws_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
         """
         return pulumi.get(self, "aws_account_id")
 
     @aws_account_id.setter
-    def aws_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def aws_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "aws_account_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="complianceHost")
+    def compliance_host(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Indicates if host compliance scanning is enabled. Defaults to `false`.
+        """
+        return pulumi.get(self, "compliance_host")
+
+    @compliance_host.setter
+    def compliance_host(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "compliance_host", value)
+
+    @_builtins.property
     @pulumi.getter(name="lambda")
-    def lambda_(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def lambda_(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates if scanning of Lambda functions is enabled.
         """
         return pulumi.get(self, "lambda_")
 
     @lambda_.setter
-    def lambda_(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def lambda_(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "lambda_", value)
 
     @_builtins.property
     @pulumi.getter(name="sensitiveData")
-    def sensitive_data(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def sensitive_data(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates if scanning for sensitive data is enabled.
         """
         return pulumi.get(self, "sensitive_data")
 
     @sensitive_data.setter
-    def sensitive_data(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def sensitive_data(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "sensitive_data", value)
 
     @_builtins.property
     @pulumi.getter(name="vulnContainersOs")
-    def vuln_containers_os(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def vuln_containers_os(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates if scanning for vulnerabilities in containers is enabled.
         """
         return pulumi.get(self, "vuln_containers_os")
 
     @vuln_containers_os.setter
-    def vuln_containers_os(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def vuln_containers_os(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "vuln_containers_os", value)
 
     @_builtins.property
     @pulumi.getter(name="vulnHostOs")
-    def vuln_host_os(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def vuln_host_os(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates if scanning for vulnerabilities in hosts is enabled.
         """
         return pulumi.get(self, "vuln_host_os")
 
     @vuln_host_os.setter
-    def vuln_host_os(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def vuln_host_os(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "vuln_host_os", value)
 
 
@@ -195,11 +227,12 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 aws_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 lambda_: Optional[pulumi.Input[_builtins.bool]] = None,
-                 sensitive_data: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_containers_os: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_host_os: Optional[pulumi.Input[_builtins.bool]] = None,
+                 aws_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compliance_host: pulumi.Input[Optional[_builtins.bool]] = None,
+                 lambda_: pulumi.Input[Optional[_builtins.bool]] = None,
+                 sensitive_data: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_containers_os: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_host_os: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         Provides a Datadog Agentless Scanning AWS scan options resource. This can be used to activate and configure Agentless scan options for an AWS account.
@@ -235,6 +268,7 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
+        :param pulumi.Input[_builtins.bool] compliance_host: Indicates if host compliance scanning is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] lambda_: Indicates if scanning of Lambda functions is enabled.
         :param pulumi.Input[_builtins.bool] sensitive_data: Indicates if scanning for sensitive data is enabled.
         :param pulumi.Input[_builtins.bool] vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled.
@@ -292,11 +326,12 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 aws_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 lambda_: Optional[pulumi.Input[_builtins.bool]] = None,
-                 sensitive_data: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_containers_os: Optional[pulumi.Input[_builtins.bool]] = None,
-                 vuln_host_os: Optional[pulumi.Input[_builtins.bool]] = None,
+                 aws_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compliance_host: pulumi.Input[Optional[_builtins.bool]] = None,
+                 lambda_: pulumi.Input[Optional[_builtins.bool]] = None,
+                 sensitive_data: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_containers_os: pulumi.Input[Optional[_builtins.bool]] = None,
+                 vuln_host_os: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -309,6 +344,7 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
             if aws_account_id is None and not opts.urn:
                 raise TypeError("Missing required property 'aws_account_id'")
             __props__.__dict__["aws_account_id"] = aws_account_id
+            __props__.__dict__["compliance_host"] = compliance_host
             if lambda_ is None and not opts.urn:
                 raise TypeError("Missing required property 'lambda_'")
             __props__.__dict__["lambda_"] = lambda_
@@ -331,11 +367,12 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            aws_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-            lambda_: Optional[pulumi.Input[_builtins.bool]] = None,
-            sensitive_data: Optional[pulumi.Input[_builtins.bool]] = None,
-            vuln_containers_os: Optional[pulumi.Input[_builtins.bool]] = None,
-            vuln_host_os: Optional[pulumi.Input[_builtins.bool]] = None) -> 'AgentlessScanningAwsScanOptions':
+            aws_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+            compliance_host: pulumi.Input[Optional[_builtins.bool]] = None,
+            lambda_: pulumi.Input[Optional[_builtins.bool]] = None,
+            sensitive_data: pulumi.Input[Optional[_builtins.bool]] = None,
+            vuln_containers_os: pulumi.Input[Optional[_builtins.bool]] = None,
+            vuln_host_os: pulumi.Input[Optional[_builtins.bool]] = None) -> 'AgentlessScanningAwsScanOptions':
         """
         Get an existing AgentlessScanningAwsScanOptions resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -344,6 +381,7 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
+        :param pulumi.Input[_builtins.bool] compliance_host: Indicates if host compliance scanning is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] lambda_: Indicates if scanning of Lambda functions is enabled.
         :param pulumi.Input[_builtins.bool] sensitive_data: Indicates if scanning for sensitive data is enabled.
         :param pulumi.Input[_builtins.bool] vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled.
@@ -354,6 +392,7 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
         __props__ = _AgentlessScanningAwsScanOptionsState.__new__(_AgentlessScanningAwsScanOptionsState)
 
         __props__.__dict__["aws_account_id"] = aws_account_id
+        __props__.__dict__["compliance_host"] = compliance_host
         __props__.__dict__["lambda_"] = lambda_
         __props__.__dict__["sensitive_data"] = sensitive_data
         __props__.__dict__["vuln_containers_os"] = vuln_containers_os
@@ -367,6 +406,14 @@ class AgentlessScanningAwsScanOptions(pulumi.CustomResource):
         The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
         """
         return pulumi.get(self, "aws_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="complianceHost")
+    def compliance_host(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Indicates if host compliance scanning is enabled. Defaults to `false`.
+        """
+        return pulumi.get(self, "compliance_host")
 
     @_builtins.property
     @pulumi.getter(name="lambda")

@@ -1,6 +1,6 @@
 """Tools for interacting with ESI."""
 
-from bravado.exception import HTTPError
+from esi.exceptions import HTTPClientError, HTTPServerError
 
 from eveuniverse.providers import esi
 
@@ -8,9 +8,11 @@ from eveuniverse.providers import esi
 def is_esi_online() -> bool:
     """Reports whether the Eve servers are online."""
     try:
-        status = esi.client.Status.get_status().results(ignore_cache=True)
-        if status.get("vip"):
+        status = esi.client.Status.GetStatus().result(use_etag=False, use_cache=False)
+        if status.vip:
             return False
-    except (AttributeError, HTTPError):
+
+    except (AttributeError, HTTPServerError, HTTPClientError):
         return False
+
     return True

@@ -69,6 +69,8 @@ __all__ = (
     "EnvironmentSummaryTypeDef",
     "EnvironmentTypeDef",
     "ErrorDetailTypeDef",
+    "GetDepotUrlRequestTypeDef",
+    "GetDepotUrlResponseTypeDef",
     "GetEnvironmentRequestTypeDef",
     "GetEnvironmentResponseTypeDef",
     "GetVersionsResponseTypeDef",
@@ -242,6 +244,10 @@ class ErrorDetailTypeDef(TypedDict):
     errorCode: str
     errorMessage: str
 
+class GetDepotUrlRequestTypeDef(TypedDict):
+    environmentId: str
+    rotate: NotRequired[bool]
+
 class GetEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
 
@@ -313,6 +319,11 @@ class UpdateEnvironmentConnectorRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     applianceFqdn: NotRequired[str]
     secretIdentifier: NotRequired[str]
+
+class GetDepotUrlResponseTypeDef(TypedDict):
+    depotUrl: str
+    token: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]

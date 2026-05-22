@@ -951,6 +951,7 @@ class Session:
         "_reply_callback",
         "_stream_callback",
         "_stream_write_callback",
+        "_stream_done_callback",
         "_stream_reply_factory",
         "_notify_callback",
         "_block_callback",
@@ -980,6 +981,7 @@ class Session:
         self._reply_callback: Any = None
         self._stream_callback: Any = None
         self._stream_write_callback: Any = None
+        self._stream_done_callback: Any = None
         self._stream_reply_factory: Any = None
         self._notify_callback: Any = None
         self._block_callback: Any = None
@@ -1215,7 +1217,12 @@ class Session:
             return self._stream_reply_factory()
         if not self._stream_write_callback:
             raise RuntimeError("stream_reply is only available inside a message handler")
-        return ReplyStream(self._stream_write_callback, self.history, self.channel.type)
+        return ReplyStream(
+            self._stream_write_callback,
+            self.history,
+            self.channel.type,
+            done_cb=self._stream_done_callback,
+        )
 
     def chat_messages(self, current: Message, *, cls: Any = None) -> list:
         """Build a role-merged message list from history plus the current message.
@@ -1347,6 +1354,71 @@ class Session:
             )
         )
 
+    async def trigger_action(self, name: str, payload: dict[str, Any] | None = None) -> Any:
+        """Run a named action inline using this session.
+
+        Use this from a message, workflow start, or workflow message handler
+        when a branch of logic should delegate to an existing action handler
+        without creating another session or another transport request.
+
+        Resolution matches the UI click path: workflow-backed sessions try
+        the current workflow's ``@workflow.action(...)`` handlers first, then
+        app-level ``@app.action(...)`` handlers. Regular chat sessions go
+        straight to app actions.
+
+        The action is awaited in the current handler lifecycle. Replies,
+        streams, blocks, and ``session.data`` writes are emitted and persisted
+        as part of the same turn.
+
+        Args:
+            name: Registered action name.
+            payload: Optional JSON-like dict passed to the action.
+
+        Returns:
+            The action handler's return value, if any.
+        """
+        action_name = str(name or "").strip()
+        if not action_name:
+            raise ValueError("trigger_action requires a non-empty action name")
+        if payload is not None and not isinstance(payload, dict):
+            raise TypeError("trigger_action payload must be a dict")
+
+        runner = _get_runner_for_session(self)
+        dispatcher = getattr(runner, "_trigger_action", None) if runner is not None else None
+        if dispatcher is None:
+            raise RuntimeError("session.trigger_action requires an active runner session")
+        result = dispatcher(self, action_name, dict(payload or {}))
+        if asyncio.iscoroutine(result):
+            return await result
+        return result
+
+    async def show_suggestions(self, suggestions: Any, *, title: str = "") -> None:
+        """Show clickable next-step buttons in the current chat.
+
+        Suggestions are persisted as an inline structured block, so they
+        remain visible when the session history reloads. Clicking a prompt
+        suggestion sends that prompt to the same session. Clicking an action
+        suggestion posts the action to the same session and shows the normal
+        chat thinking indicator until the action finishes.
+
+        Accepted values:
+            - ``"Research Acme"`` for a prompt suggestion.
+            - ``cpsl.Suggestion("Approve", action="approve", payload={...})``.
+            - Dicts using the frontend action shape:
+              ``{"label": "...", "target": "prompt"|"action", "value": "..."}``.
+
+        Args:
+            suggestions: One suggestion or a list/tuple of suggestions.
+            title: Optional short label shown above the buttons.
+        """
+        items = _serialize_chat_suggestions(suggestions)
+        if not items:
+            return
+        payload: dict[str, Any] = {"suggestions": items}
+        if title:
+            payload["title"] = title
+        await self.show(Block(type="suggestions", payload=payload))
+
     async def show_step(
         self,
         label: str,
@@ -1354,41 +1426,103 @@ class Session:
         status: str = "running",
         detail: str = "",
         step_id: str | None = None,
+        links: list[dict[str, Any]] | None = None,
+        fields: dict[str, Any] | None = None,
+        expanded: bool = False,
     ) -> str:
         """Render or update an inline step indicator in chat.
 
-        Pass the same ``step_id`` (or the same ``label`` when no id is given)
-        across calls to update a single step in place — for example, calling
-        with ``status="running"`` then ``status="completed"`` shows one row
-        that transitions, not two.
+        Calls without ``step_id`` append a fresh timeline row, even when the
+        label matches an earlier step. To update a row in place, keep the
+        returned ``step_id`` and pass it back on the next call.
 
         Args:
             label: Short human-readable description ("Researching ICP").
             status: ``"running"``, ``"completed"``, ``"failed"``, or
                 ``"skipped"``. Anything else is rendered as a generic step.
-            detail: Optional secondary line ("Found 18 matching accounts").
-            step_id: Stable identifier across calls. Defaults to a slug of
-                ``label`` so passing the same label updates the same step.
+            detail: Optional expandable detail text.
+            step_id: Stable identifier for updating an existing row. Omit it
+                to append a new row.
+            links: Optional list of ``{"label": str, "url": str}`` links.
+            fields: Optional key/value metadata shown in expanded details.
+            expanded: Whether rich details should start open.
 
         Returns:
-            The resolved ``step_id`` so callers can chain updates without
-            re-deriving it.
+            The resolved ``step_id``. Store it when you want later calls to
+            update this same row.
         """
-        sid = step_id or _slugify_step_label(label)
+        sid = step_id or _timeline_item_id(label)
         block_id = f"step_{sid}"
+        payload: dict[str, Any] = {
+            "label": label,
+            "status": status,
+            "detail": detail,
+            "step_id": sid,
+            "expanded": bool(expanded),
+        }
+        normalized_links = _normalize_timeline_links(links)
+        normalized_fields = _normalize_timeline_fields(fields)
+        if normalized_links:
+            payload["links"] = normalized_links
+        if normalized_fields:
+            payload["fields"] = normalized_fields
         await self.show(
             Block(
                 id=block_id,
                 type="step_status",
-                payload={
-                    "label": label,
-                    "status": status,
-                    "detail": detail,
-                    "step_id": sid,
-                },
+                payload=payload,
             )
         )
         return sid
+
+    async def show_activity(
+        self,
+        label: str,
+        *,
+        detail: str = "",
+        links: list[dict[str, Any]] | None = None,
+        fields: dict[str, Any] | None = None,
+        icon: str = "",
+        activity_id: str | None = None,
+        expanded: bool = False,
+    ) -> str:
+        """Render an append-only activity row with optional rich details.
+
+        Use activities for completed observations such as "Opened source",
+        "Stored graph", or "Found matching company" where there is no
+        running/completed status transition. Calls without ``activity_id``
+        append a fresh row. Reuse ``activity_id`` only when intentionally
+        replacing a previous activity.
+
+        Args:
+            label: Short human-readable activity title.
+            detail: Optional expandable detail text.
+            links: Optional list of ``{"label": str, "url": str}`` links.
+            fields: Optional key/value metadata shown in expanded details.
+            icon: Optional icon name or short glyph for the row.
+            activity_id: Stable identifier for replacing an existing row.
+            expanded: Whether rich details should start open.
+
+        Returns:
+            The resolved ``activity_id``.
+        """
+        aid = activity_id or _timeline_item_id(label)
+        payload: dict[str, Any] = {
+            "label": label,
+            "detail": detail,
+            "activity_id": aid,
+            "expanded": bool(expanded),
+        }
+        normalized_links = _normalize_timeline_links(links)
+        normalized_fields = _normalize_timeline_fields(fields)
+        if icon:
+            payload["icon"] = str(icon)
+        if normalized_links:
+            payload["links"] = normalized_links
+        if normalized_fields:
+            payload["fields"] = normalized_fields
+        await self.show(Block(id=f"activity_{aid}", type="activity", payload=payload))
+        return aid
 
     async def show_browser(
         self,
@@ -2121,6 +2255,66 @@ def _ui_widget_title(widget: dict[str, Any]) -> str:
     return typ.replace("_", " ").replace("-", " ").title()
 
 
+def _serialize_chat_suggestions(value: Any) -> list[dict[str, Any]]:
+    """Normalize ``session.show_suggestions`` input for the chat block.
+
+    Chat suggestions intentionally support only same-session operations:
+    prompt sends and action clicks. Home-only navigation targets are rejected
+    here so a chat button never silently navigates away from the current
+    workflow or conversation.
+    """
+    if value is None:
+        return []
+    values = value if isinstance(value, (list, tuple)) else [value]
+    out: list[dict[str, Any]] = []
+    allowed = {
+        "label",
+        "target",
+        "value",
+        "description",
+        "icon",
+        "image",
+        "accent",
+        "primary",
+        "payload",
+    }
+    for item in values:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                out.append({"label": text, "target": "prompt", "value": text})
+            continue
+
+        to_dict = getattr(item, "to_dict", None)
+        if callable(to_dict) and not isinstance(item, dict):
+            raw = to_dict()
+        elif isinstance(item, dict):
+            raw = dict(item)
+        else:
+            raise TypeError(
+                f"suggestion must be a string, Suggestion, or dict, got {type(item).__name__}"
+            )
+        if not isinstance(raw, dict):
+            raise TypeError("suggestion to_dict() must return a dict")
+
+        target = str(raw.get("target") or "").strip()
+        label = str(raw.get("label") or "").strip()
+        action_value = str(raw.get("value") or "").strip()
+        if target not in {"prompt", "action"}:
+            raise ValueError("session.show_suggestions supports target='prompt' or target='action'")
+        if not label or not action_value:
+            raise ValueError("suggestion requires non-empty label and value")
+
+        suggestion = {key: _json_safe_value(raw[key]) for key in allowed if key in raw}
+        suggestion["target"] = target
+        suggestion["label"] = label
+        suggestion["value"] = action_value
+        if "payload" in suggestion and not isinstance(suggestion["payload"], dict):
+            raise ValueError("suggestion payload must be a dict")
+        out.append(suggestion)
+    return out
+
+
 class FileUploadTimeout(TimeoutError):
     """Raised when ``session.prompt_file`` times out."""
 
@@ -2268,13 +2462,30 @@ def _get_runner_for_session(session: "Session"):
     return getattr(session, "_runner", None)
 
 
-def _slugify_step_label(label: str) -> str:
-    """Derive a stable id from a step label.
+def _timeline_item_id(label: str) -> str:
+    return f"{_slugify_step_label(label)}_{uuid.uuid4().hex[:8]}"
 
-    Used so callers can pass the same ``label`` across ``show_step`` updates
-    and have a single inline row transition between states, rather than each
-    call appending a new card.
-    """
+
+def _normalize_timeline_links(links: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for item in links or []:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or item.get("title") or item.get("url") or "").strip()
+        url = str(item.get("url") or item.get("href") or "").strip()
+        if label and url:
+            out.append({"label": label, "url": url})
+    return out
+
+
+def _normalize_timeline_fields(fields: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(fields, dict):
+        return {}
+    return {str(key): _json_safe_value(value) for key, value in fields.items()}
+
+
+def _slugify_step_label(label: str) -> str:
+    """Derive the readable prefix used in generated timeline ids."""
     out: list[str] = []
     for ch in (label or "").lower():
         if ch.isalnum():

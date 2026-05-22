@@ -20,7 +20,7 @@ from PKDevTools.classes.log import default_logger
 
 from pkscreener.classes import ConsoleUtility, Utility
 from pkscreener.classes.PKAnalytics import PKAnalyticsService
-from pkscreener.classes.MenuOptions import INDICES_MAP, PIPED_SCANNERS, PREDEFINED_SCAN_MENU_KEYS, PREDEFINED_SCAN_MENU_TEXTS
+from pkscreener.classes.MenuOptions import level2_P_Profitable_MenuDict, PROFITABLE_SCAN_VALUES, INDICES_MAP, PIPED_SCANNERS, PREDEFINED_SCAN_MENU_KEYS, PREDEFINED_SCAN_MENU_TEXTS
 
 
 class MenuOptionHandler:
@@ -715,13 +715,13 @@ def handle_predefined_menu(
         predefinedOption = OutputControls().takeUserInput(colorText.FAIL + f"{pastDate}  [+] Select option: ") or "1"
     OutputControls().printOutput(colorText.END, end="")
     
-    if predefinedOption not in ["1", "2", "3", "4"]:
+    if predefinedOption not in ["1", "2", "3", "4", "5"]:
         return (True, None, listStockCodes)
     
     selectedChoice["1"] = predefinedOption
     update_hierarchy_cb()
     
-    if predefinedOption in ["1", "4"]:
+    if predefinedOption in ["1", "4", "5"]:
         return _handle_predefined_option_1_4(
             predefinedOption, selPredefinedOption, selIndexOption, pastDate,
             m0, m1, m2, configManager, userPassedArgs, selectedChoice,
@@ -754,14 +754,14 @@ def _handle_predefined_option_1_4(
         selPredefinedOption = OutputControls().takeUserInput(colorText.FAIL + f"{pastDate}  [+] Select option: ") or "1"
     OutputControls().printOutput(colorText.END, end="")
     
-    if selPredefinedOption not in PREDEFINED_SCAN_MENU_KEYS:
+    keyValues = [level2_P_Profitable_MenuDict.keys(), PROFITABLE_SCAN_VALUES,list(level2_P_Profitable_MenuDict.values())] if predefinedOption == "5" else [PREDEFINED_SCAN_MENU_KEYS,PIPED_SCANNERS,PREDEFINED_SCAN_MENU_TEXTS]
+    if selPredefinedOption not in keyValues[0]:
         return (True, None, listStockCodes)
-    
-    scannerOption = PIPED_SCANNERS[selPredefinedOption]
+    scannerOption = keyValues[1][int(selPredefinedOption)-1 if isinstance(keyValues[1],List) else str(selPredefinedOption)]
     
     if predefinedOption == "4":  # Watchlist
         scannerOption = scannerOption.replace("-o 'X:12:", "-o 'X:W:")
-    elif predefinedOption == "1":  # Predefined
+    elif predefinedOption in ["1", "5"]:  # Predefined
         if selIndexOption is None and (userPassedArgs is None or userPassedArgs.answerdefault is None):
             m1.renderForMenu(m0.find(key="X"), skip=["W", "N", "E", "S", "Z"],
                            asList=(userPassedArgs is not None and userPassedArgs.options is not None))
@@ -772,7 +772,7 @@ def _handle_predefined_option_1_4(
             scannerOption = scannerOption.replace("-o 'X:12:", f"-o 'X:{selIndexOption}:")
     
     if userPassedArgs is not None:
-        userPassedArgs.usertag = PREDEFINED_SCAN_MENU_TEXTS[int(selPredefinedOption) - 1]
+        userPassedArgs.usertag = keyValues[2][int(selPredefinedOption) - 1]
     
     selectedChoice["2"] = selPredefinedOption
     update_hierarchy_cb()

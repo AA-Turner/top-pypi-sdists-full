@@ -5,7 +5,7 @@ from .._internal import expect, positive, profile_section
 from .._rendering import Pipeline, Camera
 from .._flag import Activity
 from ..abc import Layer, LightSource, LightEffect
-from ..fx import (
+from ..fx.light import (
     PointLight, ConeLight,
     Ambient, Bloom, Tint, Vignette,
     LightRenderer,

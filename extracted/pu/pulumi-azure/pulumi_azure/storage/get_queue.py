@@ -137,7 +137,7 @@ def get_queue(metadata: Optional[Mapping[str, _builtins.str]] = None,
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param Mapping[str, _builtins.str] metadata: A mapping of MetaData for this Queue.
@@ -163,10 +163,10 @@ def get_queue(metadata: Optional[Mapping[str, _builtins.str]] = None,
         storage_account_id=pulumi.get(__ret__, 'storage_account_id'),
         storage_account_name=pulumi.get(__ret__, 'storage_account_name'),
         url=pulumi.get(__ret__, 'url'))
-def get_queue_output(metadata: Optional[pulumi.Input[Optional[Mapping[str, _builtins.str]]]] = None,
-                     name: Optional[pulumi.Input[_builtins.str]] = None,
-                     storage_account_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                     storage_account_name: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_queue_output(metadata: pulumi.Input[Optional[Optional[Mapping[str, _builtins.str]]]] = None,
+                     name: pulumi.Input[Optional[_builtins.str]] = None,
+                     storage_account_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                     storage_account_name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                      opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetQueueResult]:
     """
     Use this data source to access information about an existing Storage Queue.
@@ -186,7 +186,7 @@ def get_queue_output(metadata: Optional[pulumi.Input[Optional[Mapping[str, _buil
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param Mapping[str, _builtins.str] metadata: A mapping of MetaData for this Queue.

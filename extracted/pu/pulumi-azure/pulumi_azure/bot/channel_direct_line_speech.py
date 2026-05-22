@@ -20,31 +20,35 @@ __all__ = ['ChannelDirectLineSpeechArgs', 'ChannelDirectLineSpeech']
 class ChannelDirectLineSpeechArgs:
     def __init__(__self__, *,
                  bot_name: pulumi.Input[_builtins.str],
-                 cognitive_service_access_key: pulumi.Input[_builtins.str],
-                 cognitive_service_location: pulumi.Input[_builtins.str],
                  resource_group_name: pulumi.Input[_builtins.str],
-                 cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_speech_model_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_voice_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None):
+                 cognitive_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_access_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_speech_model_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_voice_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ChannelDirectLineSpeech resource.
 
         :param pulumi.Input[_builtins.str] bot_name: The name of the Bot Resource this channel will be associated with. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service.
-        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group where the Direct Line Speech Channel should be created. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with.
+        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+               
+               !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         :param pulumi.Input[_builtins.str] custom_speech_model_id: The custom speech model id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] custom_voice_deployment_id: The custom voice deployment id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] location: Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
         """
         pulumi.set(__self__, "bot_name", bot_name)
-        pulumi.set(__self__, "cognitive_service_access_key", cognitive_service_access_key)
-        pulumi.set(__self__, "cognitive_service_location", cognitive_service_location)
         pulumi.set(__self__, "resource_group_name", resource_group_name)
         if cognitive_account_id is not None:
             pulumi.set(__self__, "cognitive_account_id", cognitive_account_id)
+        if cognitive_service_access_key is not None:
+            pulumi.set(__self__, "cognitive_service_access_key", cognitive_service_access_key)
+        if cognitive_service_location is not None:
+            pulumi.set(__self__, "cognitive_service_location", cognitive_service_location)
         if custom_speech_model_id is not None:
             pulumi.set(__self__, "custom_speech_model_id", custom_speech_model_id)
         if custom_voice_deployment_id is not None:
@@ -65,30 +69,6 @@ class ChannelDirectLineSpeechArgs:
         pulumi.set(self, "bot_name", value)
 
     @_builtins.property
-    @pulumi.getter(name="cognitiveServiceAccessKey")
-    def cognitive_service_access_key(self) -> pulumi.Input[_builtins.str]:
-        """
-        The access key to access the Cognitive Service.
-        """
-        return pulumi.get(self, "cognitive_service_access_key")
-
-    @cognitive_service_access_key.setter
-    def cognitive_service_access_key(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "cognitive_service_access_key", value)
-
-    @_builtins.property
-    @pulumi.getter(name="cognitiveServiceLocation")
-    def cognitive_service_location(self) -> pulumi.Input[_builtins.str]:
-        """
-        Specifies the supported Azure location where the Cognitive Service resource exists.
-        """
-        return pulumi.get(self, "cognitive_service_location")
-
-    @cognitive_service_location.setter
-    def cognitive_service_location(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "cognitive_service_location", value)
-
-    @_builtins.property
     @pulumi.getter(name="resourceGroupName")
     def resource_group_name(self) -> pulumi.Input[_builtins.str]:
         """
@@ -102,71 +82,99 @@ class ChannelDirectLineSpeechArgs:
 
     @_builtins.property
     @pulumi.getter(name="cognitiveAccountId")
-    def cognitive_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cognitive_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID of the Cognitive Account this Bot Channel should be associated with.
+        The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+
+        !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
         """
         return pulumi.get(self, "cognitive_account_id")
 
     @cognitive_account_id.setter
-    def cognitive_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cognitive_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cognitive_account_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="cognitiveServiceAccessKey")
+    def cognitive_service_access_key(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        """
+        return pulumi.get(self, "cognitive_service_access_key")
+
+    @cognitive_service_access_key.setter
+    def cognitive_service_access_key(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "cognitive_service_access_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="cognitiveServiceLocation")
+    def cognitive_service_location(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        """
+        return pulumi.get(self, "cognitive_service_location")
+
+    @cognitive_service_location.setter
+    def cognitive_service_location(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "cognitive_service_location", value)
+
+    @_builtins.property
     @pulumi.getter(name="customSpeechModelId")
-    def custom_speech_model_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_speech_model_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The custom speech model id for the Direct Line Speech Channel.
         """
         return pulumi.get(self, "custom_speech_model_id")
 
     @custom_speech_model_id.setter
-    def custom_speech_model_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_speech_model_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_speech_model_id", value)
 
     @_builtins.property
     @pulumi.getter(name="customVoiceDeploymentId")
-    def custom_voice_deployment_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_voice_deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The custom voice deployment id for the Direct Line Speech Channel.
         """
         return pulumi.get(self, "custom_voice_deployment_id")
 
     @custom_voice_deployment_id.setter
-    def custom_voice_deployment_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_voice_deployment_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_voice_deployment_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
 
 @pulumi.input_type
 class _ChannelDirectLineSpeechState:
     def __init__(__self__, *,
-                 bot_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_access_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_speech_model_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_voice_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 bot_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_access_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_speech_model_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_voice_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ChannelDirectLineSpeech resources.
 
         :param pulumi.Input[_builtins.str] bot_name: The name of the Bot Resource this channel will be associated with. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with.
-        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service.
-        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists.
+        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+               
+               !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         :param pulumi.Input[_builtins.str] custom_speech_model_id: The custom speech model id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] custom_voice_deployment_id: The custom voice deployment id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] location: Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
@@ -191,98 +199,100 @@ class _ChannelDirectLineSpeechState:
 
     @_builtins.property
     @pulumi.getter(name="botName")
-    def bot_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bot_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Bot Resource this channel will be associated with. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "bot_name")
 
     @bot_name.setter
-    def bot_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bot_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bot_name", value)
 
     @_builtins.property
     @pulumi.getter(name="cognitiveAccountId")
-    def cognitive_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cognitive_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID of the Cognitive Account this Bot Channel should be associated with.
+        The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+
+        !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
         """
         return pulumi.get(self, "cognitive_account_id")
 
     @cognitive_account_id.setter
-    def cognitive_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cognitive_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cognitive_account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="cognitiveServiceAccessKey")
-    def cognitive_service_access_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cognitive_service_access_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The access key to access the Cognitive Service.
+        The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         """
         return pulumi.get(self, "cognitive_service_access_key")
 
     @cognitive_service_access_key.setter
-    def cognitive_service_access_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cognitive_service_access_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cognitive_service_access_key", value)
 
     @_builtins.property
     @pulumi.getter(name="cognitiveServiceLocation")
-    def cognitive_service_location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cognitive_service_location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies the supported Azure location where the Cognitive Service resource exists.
+        Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         """
         return pulumi.get(self, "cognitive_service_location")
 
     @cognitive_service_location.setter
-    def cognitive_service_location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cognitive_service_location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cognitive_service_location", value)
 
     @_builtins.property
     @pulumi.getter(name="customSpeechModelId")
-    def custom_speech_model_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_speech_model_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The custom speech model id for the Direct Line Speech Channel.
         """
         return pulumi.get(self, "custom_speech_model_id")
 
     @custom_speech_model_id.setter
-    def custom_speech_model_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_speech_model_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_speech_model_id", value)
 
     @_builtins.property
     @pulumi.getter(name="customVoiceDeploymentId")
-    def custom_voice_deployment_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_voice_deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The custom voice deployment id for the Direct Line Speech Channel.
         """
         return pulumi.get(self, "custom_voice_deployment_id")
 
     @custom_voice_deployment_id.setter
-    def custom_voice_deployment_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_voice_deployment_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_voice_deployment_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceGroupName")
-    def resource_group_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_group_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the resource group where the Direct Line Speech Channel should be created. Changing this forces a new resource to be created.
         """
         return pulumi.get(self, "resource_group_name")
 
     @resource_group_name.setter
-    def resource_group_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_group_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_group_name", value)
 
 
@@ -292,14 +302,14 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bot_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_access_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_speech_model_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_voice_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 bot_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_access_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_speech_model_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_voice_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Manages a Direct Line Speech integration for a Bot Channel
@@ -346,9 +356,11 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bot_name: The name of the Bot Resource this channel will be associated with. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with.
-        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service.
-        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists.
+        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+               
+               !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         :param pulumi.Input[_builtins.str] custom_speech_model_id: The custom speech model id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] custom_voice_deployment_id: The custom voice deployment id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] location: Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
@@ -417,14 +429,14 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bot_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_access_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 cognitive_service_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_speech_model_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_voice_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 bot_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_access_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 cognitive_service_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_speech_model_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_voice_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -438,11 +450,7 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
                 raise TypeError("Missing required property 'bot_name'")
             __props__.__dict__["bot_name"] = bot_name
             __props__.__dict__["cognitive_account_id"] = cognitive_account_id
-            if cognitive_service_access_key is None and not opts.urn:
-                raise TypeError("Missing required property 'cognitive_service_access_key'")
             __props__.__dict__["cognitive_service_access_key"] = None if cognitive_service_access_key is None else pulumi.Output.secret(cognitive_service_access_key)
-            if cognitive_service_location is None and not opts.urn:
-                raise TypeError("Missing required property 'cognitive_service_location'")
             __props__.__dict__["cognitive_service_location"] = cognitive_service_location
             __props__.__dict__["custom_speech_model_id"] = custom_speech_model_id
             __props__.__dict__["custom_voice_deployment_id"] = custom_voice_deployment_id
@@ -462,14 +470,14 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bot_name: Optional[pulumi.Input[_builtins.str]] = None,
-            cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-            cognitive_service_access_key: Optional[pulumi.Input[_builtins.str]] = None,
-            cognitive_service_location: Optional[pulumi.Input[_builtins.str]] = None,
-            custom_speech_model_id: Optional[pulumi.Input[_builtins.str]] = None,
-            custom_voice_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_group_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'ChannelDirectLineSpeech':
+            bot_name: pulumi.Input[Optional[_builtins.str]] = None,
+            cognitive_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+            cognitive_service_access_key: pulumi.Input[Optional[_builtins.str]] = None,
+            cognitive_service_location: pulumi.Input[Optional[_builtins.str]] = None,
+            custom_speech_model_id: pulumi.Input[Optional[_builtins.str]] = None,
+            custom_voice_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_group_name: pulumi.Input[Optional[_builtins.str]] = None) -> 'ChannelDirectLineSpeech':
         """
         Get an existing ChannelDirectLineSpeech resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -478,9 +486,11 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bot_name: The name of the Bot Resource this channel will be associated with. Changing this forces a new resource to be created.
-        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with.
-        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service.
-        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists.
+        :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+               
+               !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] cognitive_service_access_key: The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+        :param pulumi.Input[_builtins.str] cognitive_service_location: Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         :param pulumi.Input[_builtins.str] custom_speech_model_id: The custom speech model id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] custom_voice_deployment_id: The custom voice deployment id for the Direct Line Speech Channel.
         :param pulumi.Input[_builtins.str] location: Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
@@ -512,23 +522,25 @@ class ChannelDirectLineSpeech(pulumi.CustomResource):
     @pulumi.getter(name="cognitiveAccountId")
     def cognitive_account_id(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The ID of the Cognitive Account this Bot Channel should be associated with.
+        The ID of the Cognitive Account this Bot Channel should be associated with. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
+
+        !> **Note:** Once added, `cognitive_account_id` cannot be removed, doing so forces a new resource to be created.
         """
         return pulumi.get(self, "cognitive_account_id")
 
     @_builtins.property
     @pulumi.getter(name="cognitiveServiceAccessKey")
-    def cognitive_service_access_key(self) -> pulumi.Output[_builtins.str]:
+    def cognitive_service_access_key(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The access key to access the Cognitive Service.
+        The access key to access the Cognitive Service. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         """
         return pulumi.get(self, "cognitive_service_access_key")
 
     @_builtins.property
     @pulumi.getter(name="cognitiveServiceLocation")
-    def cognitive_service_location(self) -> pulumi.Output[_builtins.str]:
+    def cognitive_service_location(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Specifies the supported Azure location where the Cognitive Service resource exists.
+        Specifies the supported Azure location where the Cognitive Service resource exists. Either `cognitive_account_id` or both `cognitive_service_access_key` and `cognitive_service_location` must be specified.
         """
         return pulumi.get(self, "cognitive_service_location")
 

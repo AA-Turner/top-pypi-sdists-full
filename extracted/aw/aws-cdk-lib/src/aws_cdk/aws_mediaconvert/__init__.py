@@ -1320,6 +1320,7 @@ class CfnQueue(
         cfn_queue = mediaconvert.CfnQueue(self, "MyCfnQueue",
             concurrent_jobs=123,
             description="description",
+            maximum_concurrent_feeds=123,
             name="name",
             pricing_plan="pricingPlan",
             status="status",
@@ -1334,6 +1335,7 @@ class CfnQueue(
         *,
         concurrent_jobs: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
+        maximum_concurrent_feeds: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
@@ -1345,6 +1347,7 @@ class CfnQueue(
         :param id: Construct identifier for this resource (unique in its scope).
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
         :param description: Optional. A description of the queue that you are creating.
+        :param maximum_concurrent_feeds: 
         :param name: The name of the queue that you are creating.
         :param pricing_plan: When you use CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
         :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
@@ -1357,6 +1360,7 @@ class CfnQueue(
         props = CfnQueueProps(
             concurrent_jobs=concurrent_jobs,
             description=description,
+            maximum_concurrent_feeds=maximum_concurrent_feeds,
             name=name,
             pricing_plan=pricing_plan,
             status=status,
@@ -1548,6 +1552,18 @@ class CfnQueue(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="maximumConcurrentFeeds")
+    def maximum_concurrent_feeds(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumConcurrentFeeds"))
+
+    @maximum_concurrent_feeds.setter
+    def maximum_concurrent_feeds(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdc52d018c01592ea173bc3ec5f793b439e41f80b6dfcf0a8add677447b7f5ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumConcurrentFeeds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the queue that you are creating.'''
@@ -1593,6 +1609,7 @@ class CfnQueue(
     name_mapping={
         "concurrent_jobs": "concurrentJobs",
         "description": "description",
+        "maximum_concurrent_feeds": "maximumConcurrentFeeds",
         "name": "name",
         "pricing_plan": "pricingPlan",
         "status": "status",
@@ -1605,6 +1622,7 @@ class CfnQueueProps:
         *,
         concurrent_jobs: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
+        maximum_concurrent_feeds: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
         pricing_plan: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
@@ -1614,6 +1632,7 @@ class CfnQueueProps:
 
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
         :param description: Optional. A description of the queue that you are creating.
+        :param maximum_concurrent_feeds: 
         :param name: The name of the queue that you are creating.
         :param pricing_plan: When you use CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
         :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
@@ -1633,6 +1652,7 @@ class CfnQueueProps:
             cfn_queue_props = mediaconvert.CfnQueueProps(
                 concurrent_jobs=123,
                 description="description",
+                maximum_concurrent_feeds=123,
                 name="name",
                 pricing_plan="pricingPlan",
                 status="status",
@@ -1643,6 +1663,7 @@ class CfnQueueProps:
             type_hints = typing.get_type_hints(_typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05)
             check_type(argname="argument concurrent_jobs", value=concurrent_jobs, expected_type=type_hints["concurrent_jobs"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument maximum_concurrent_feeds", value=maximum_concurrent_feeds, expected_type=type_hints["maximum_concurrent_feeds"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -1652,6 +1673,8 @@ class CfnQueueProps:
             self._values["concurrent_jobs"] = concurrent_jobs
         if description is not None:
             self._values["description"] = description
+        if maximum_concurrent_feeds is not None:
+            self._values["maximum_concurrent_feeds"] = maximum_concurrent_feeds
         if name is not None:
             self._values["name"] = name
         if pricing_plan is not None:
@@ -1682,6 +1705,14 @@ class CfnQueueProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def maximum_concurrent_feeds(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-maximumconcurrentfeeds
+        '''
+        result = self._values.get("maximum_concurrent_feeds")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -2000,6 +2031,7 @@ def _typecheckingstub__ce85d095c93254b82e67ee70a5cae96a78ca7b1fbb86f6494f48602d8
     *,
     concurrent_jobs: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
+    maximum_concurrent_feeds: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
@@ -2066,6 +2098,12 @@ def _typecheckingstub__e85c7cbaa4ed5f47efbb96c65b1b5f493c2811227a36b5f2af1c323b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cdc52d018c01592ea173bc3ec5f793b439e41f80b6dfcf0a8add677447b7f5ce(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dd8d8c3dde443d166f24457acfce6e106f213d1607655d8d767e1db9afc13094(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -2088,6 +2126,7 @@ def _typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f431
     *,
     concurrent_jobs: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
+    maximum_concurrent_feeds: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
     pricing_plan: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,

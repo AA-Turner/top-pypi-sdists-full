@@ -60,6 +60,19 @@ class TelemetryRuntime(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TELEMETRY_RUNTIME_OTEL: _ClassVar[TelemetryRuntime]
     TELEMETRY_RUNTIME_VECTOR: _ClassVar[TelemetryRuntime]
 
+class VectorClusterMetricsSinkMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VECTOR_CLUSTER_METRICS_SINK_MODE_UNSPECIFIED: _ClassVar[VectorClusterMetricsSinkMode]
+    VECTOR_CLUSTER_METRICS_SINK_MODE_DISABLED: _ClassVar[VectorClusterMetricsSinkMode]
+    VECTOR_CLUSTER_METRICS_SINK_MODE_SHADOW: _ClassVar[VectorClusterMetricsSinkMode]
+    VECTOR_CLUSTER_METRICS_SINK_MODE_WRITE: _ClassVar[VectorClusterMetricsSinkMode]
+
+class VectorClusterMetricsShadowOutput(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_UNSPECIFIED: _ClassVar[VectorClusterMetricsShadowOutput]
+    VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_STDOUT: _ClassVar[VectorClusterMetricsShadowOutput]
+    VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_TABLE: _ClassVar[VectorClusterMetricsShadowOutput]
+
 class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PERFETTO_TRIGGER_UNSPECIFIED: _ClassVar[PerfettoTrigger]
@@ -105,6 +118,13 @@ OTEL_COLLECTOR_IMAGE_CHALK_SHARED: OtelCollectorImage
 TELEMETRY_RUNTIME_UNSPECIFIED: TelemetryRuntime
 TELEMETRY_RUNTIME_OTEL: TelemetryRuntime
 TELEMETRY_RUNTIME_VECTOR: TelemetryRuntime
+VECTOR_CLUSTER_METRICS_SINK_MODE_UNSPECIFIED: VectorClusterMetricsSinkMode
+VECTOR_CLUSTER_METRICS_SINK_MODE_DISABLED: VectorClusterMetricsSinkMode
+VECTOR_CLUSTER_METRICS_SINK_MODE_SHADOW: VectorClusterMetricsSinkMode
+VECTOR_CLUSTER_METRICS_SINK_MODE_WRITE: VectorClusterMetricsSinkMode
+VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_UNSPECIFIED: VectorClusterMetricsShadowOutput
+VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_STDOUT: VectorClusterMetricsShadowOutput
+VECTOR_CLUSTER_METRICS_SHADOW_OUTPUT_TABLE: VectorClusterMetricsShadowOutput
 PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
 PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
 PERFETTO_TRIGGER_HTTP: PerfettoTrigger
@@ -1595,18 +1615,26 @@ class NodePodMetricsFilter(_message.Message):
     ) -> None: ...
 
 class ClusterManagerConfig(_message.Message):
-    __slots__ = ("node_pod_metrics_filters", "node_pod_metrics_interval_secs", "record_node_pod_metrics")
+    __slots__ = (
+        "node_pod_metrics_filters",
+        "node_pod_metrics_interval_secs",
+        "record_node_pod_metrics",
+        "record_gpu_metrics",
+    )
     NODE_POD_METRICS_FILTERS_FIELD_NUMBER: _ClassVar[int]
     NODE_POD_METRICS_INTERVAL_SECS_FIELD_NUMBER: _ClassVar[int]
     RECORD_NODE_POD_METRICS_FIELD_NUMBER: _ClassVar[int]
+    RECORD_GPU_METRICS_FIELD_NUMBER: _ClassVar[int]
     node_pod_metrics_filters: _containers.RepeatedCompositeFieldContainer[NodePodMetricsFilter]
     node_pod_metrics_interval_secs: int
     record_node_pod_metrics: bool
+    record_gpu_metrics: bool
     def __init__(
         self,
         node_pod_metrics_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...,
         node_pod_metrics_interval_secs: _Optional[int] = ...,
         record_node_pod_metrics: bool = ...,
+        record_gpu_metrics: bool = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):
@@ -1743,6 +1771,101 @@ class CustomerCollectorConfig(_message.Message):
     CONFIG_YAML_FIELD_NUMBER: _ClassVar[int]
     config_yaml: str
     def __init__(self, config_yaml: _Optional[str] = ...) -> None: ...
+
+class VectorClusterMetricsSpec(_message.Message):
+    __slots__ = (
+        "collector_scrape_enabled",
+        "timescale_sink_enabled",
+        "sink_mode",
+        "shadow",
+        "tables",
+        "destination_refresh_interval_seconds",
+        "destination_refresh_backoff_seconds",
+        "batch_max_events",
+        "batch_timeout_seconds",
+        "collector_scrape_interval_seconds",
+        "collector_scrape_timeout_seconds",
+        "api_server_uri",
+        "pod_filters",
+    )
+    COLLECTOR_SCRAPE_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    TIMESCALE_SINK_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    SINK_MODE_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_FIELD_NUMBER: _ClassVar[int]
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    DESTINATION_REFRESH_INTERVAL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    DESTINATION_REFRESH_BACKOFF_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_TIMEOUT_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    COLLECTOR_SCRAPE_INTERVAL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    COLLECTOR_SCRAPE_TIMEOUT_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    API_SERVER_URI_FIELD_NUMBER: _ClassVar[int]
+    POD_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    collector_scrape_enabled: bool
+    timescale_sink_enabled: bool
+    sink_mode: VectorClusterMetricsSinkMode
+    shadow: VectorClusterMetricsShadowSpec
+    tables: VectorClusterMetricsTablesSpec
+    destination_refresh_interval_seconds: int
+    destination_refresh_backoff_seconds: int
+    batch_max_events: int
+    batch_timeout_seconds: int
+    collector_scrape_interval_seconds: int
+    collector_scrape_timeout_seconds: int
+    api_server_uri: str
+    pod_filters: _containers.RepeatedCompositeFieldContainer[NodePodMetricsFilter]
+    def __init__(
+        self,
+        collector_scrape_enabled: bool = ...,
+        timescale_sink_enabled: bool = ...,
+        sink_mode: _Optional[_Union[VectorClusterMetricsSinkMode, str]] = ...,
+        shadow: _Optional[_Union[VectorClusterMetricsShadowSpec, _Mapping]] = ...,
+        tables: _Optional[_Union[VectorClusterMetricsTablesSpec, _Mapping]] = ...,
+        destination_refresh_interval_seconds: _Optional[int] = ...,
+        destination_refresh_backoff_seconds: _Optional[int] = ...,
+        batch_max_events: _Optional[int] = ...,
+        batch_timeout_seconds: _Optional[int] = ...,
+        collector_scrape_interval_seconds: _Optional[int] = ...,
+        collector_scrape_timeout_seconds: _Optional[int] = ...,
+        api_server_uri: _Optional[str] = ...,
+        pod_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...,
+    ) -> None: ...
+
+class VectorClusterMetricsShadowSpec(_message.Message):
+    __slots__ = ("output", "tables")
+    OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    output: VectorClusterMetricsShadowOutput
+    tables: VectorClusterMetricsShadowTables
+    def __init__(
+        self,
+        output: _Optional[_Union[VectorClusterMetricsShadowOutput, str]] = ...,
+        tables: _Optional[_Union[VectorClusterMetricsShadowTables, _Mapping]] = ...,
+    ) -> None: ...
+
+class VectorClusterMetricsTablesSpec(_message.Message):
+    __slots__ = ("cluster_metrics", "metrics1", "metrics4")
+    CLUSTER_METRICS_FIELD_NUMBER: _ClassVar[int]
+    METRICS1_FIELD_NUMBER: _ClassVar[int]
+    METRICS4_FIELD_NUMBER: _ClassVar[int]
+    cluster_metrics: str
+    metrics1: str
+    metrics4: str
+    def __init__(
+        self, cluster_metrics: _Optional[str] = ..., metrics1: _Optional[str] = ..., metrics4: _Optional[str] = ...
+    ) -> None: ...
+
+class VectorClusterMetricsShadowTables(_message.Message):
+    __slots__ = ("cluster_metrics", "metrics1", "metrics4")
+    CLUSTER_METRICS_FIELD_NUMBER: _ClassVar[int]
+    METRICS1_FIELD_NUMBER: _ClassVar[int]
+    METRICS4_FIELD_NUMBER: _ClassVar[int]
+    cluster_metrics: str
+    metrics1: str
+    metrics4: str
+    def __init__(
+        self, cluster_metrics: _Optional[str] = ..., metrics1: _Optional[str] = ..., metrics4: _Optional[str] = ...
+    ) -> None: ...
 
 class OtelCollectorSpec(_message.Message):
     __slots__ = ("otel_collector_version", "request", "limit", "toleration_mode", "otel_collector_image")
@@ -2153,6 +2276,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "require_infrastructure_nodepool",
         "gpu_telemetry",
         "telemetry_runtime",
+        "vector_cluster_metrics",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -2165,6 +2289,7 @@ class TelemetryDeploymentSpec(_message.Message):
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     GPU_TELEMETRY_FIELD_NUMBER: _ClassVar[int]
     TELEMETRY_RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_CLUSTER_METRICS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -2176,6 +2301,7 @@ class TelemetryDeploymentSpec(_message.Message):
     require_infrastructure_nodepool: bool
     gpu_telemetry: GpuTelemetrySpec
     telemetry_runtime: TelemetryRuntime
+    vector_cluster_metrics: VectorClusterMetricsSpec
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2189,6 +2315,7 @@ class TelemetryDeploymentSpec(_message.Message):
         require_infrastructure_nodepool: bool = ...,
         gpu_telemetry: _Optional[_Union[GpuTelemetrySpec, _Mapping]] = ...,
         telemetry_runtime: _Optional[_Union[TelemetryRuntime, str]] = ...,
+        vector_cluster_metrics: _Optional[_Union[VectorClusterMetricsSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):

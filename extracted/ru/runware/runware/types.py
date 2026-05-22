@@ -166,6 +166,31 @@ class RunwareBaseType:
 
 
 @dataclass
+class IImageInferenceTextBlock:
+
+    alignment: Optional[str] = None
+    angle: Optional[float] = None
+    color: Optional[str] = None
+    fontAlternatives: Optional[List[str]] = None
+    fontName: Optional[str] = None
+    fontSize: Optional[int] = None
+    formatting: Optional[List[str]] = None
+    height: Optional[int] = None
+    lineHeight: Optional[float] = None
+    role: Optional[str] = None
+    text: Optional[str] = None
+    width: Optional[int] = None
+    x: Optional[int] = None
+    y: Optional[int] = None
+
+
+@dataclass
+class IImageInferenceOutputs:
+
+    textBlocks: Optional[List[IImageInferenceTextBlock]] = None
+
+
+@dataclass
 class IImage:
     taskType: str
     imageUUID: str
@@ -177,6 +202,7 @@ class IImage:
     imageDataURI: Optional[str] = None
     NSFWContent: Optional[bool] = None
     cost: Optional[float] = None
+    outputs: Optional[IImageInferenceOutputs] = None
 
 
 @dataclass
@@ -911,6 +937,7 @@ class ISettings(SerializableMixin):
     boundingBox: Optional[List[int]] = None
     bpm: Optional[int] = None
     cache: Optional[Union[ITextInferenceCache, Dict[str, Any]]] = None
+    caption: Optional[bool] = None
     cfgIntervalEnd: Optional[float] = None
     cfgIntervalStart: Optional[float] = None
     CFGScale: Optional[float] = None
@@ -931,6 +958,7 @@ class ISettings(SerializableMixin):
     expressiveness: Optional[str] = None
     faceCount: Optional[int] = None
     faceLimit: Optional[int] = None
+    fit: Optional[str] = None
     frequencyPenalty: Optional[float] = None
     generateParts: Optional[bool] = None
     generateType: Optional[str] = None
@@ -1334,7 +1362,7 @@ class IImageInference:
     positivePrompt: Optional[str] = None
     taskUUID: Optional[str] = None
     deliveryMethod: str = "sync"  
-    outputType: Optional[IOutputType] = None
+    outputType: Optional[Union[IOutputType, List[IOutputType]]] = None
     outputFormat: Optional[IOutputFormat] = None
     uploadEndpoint: Optional[str] = None
     checkNsfw: InitVar[Optional[bool]] = None
@@ -1522,7 +1550,7 @@ class IVectorize:
     includeCost: bool = False
     taskUUID: Optional[str] = None
     model: Optional[str] = None
-    outputType: Optional[IOutputType] = "URL"
+    outputType: Optional[IOutputType] = None
     outputFormat: Optional[IOutputFormat] = "SVG"
     webhookURL: Optional[str] = None
     width: Optional[int] = None
@@ -1784,6 +1812,7 @@ class IVideoSpeechSettings(SerializableMixin):
     text: Optional[str] = None  # Text script to be converted to speech (~200 characters, not UTF-8 Encoding)
     speed: Optional[float] = None
     pitch: Optional[float] = None
+    volume: Optional[float] = None
     language: Optional[str] = None
 
     @property

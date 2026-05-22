@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Union
+from typing import Optional, Union
 
 import pyrogram
 from pyrogram import raw, types
@@ -30,22 +30,28 @@ class InputPollOption(Object):
     Parameters:
         text (``str`` | :obj:`~pyrogram.enums.FormattedText`, *optional*):
             Option text, 1-100 characters.
+
+        media (:obj:`~pyrogram.types.InputPollOptionMedia`, *optional*):
+            Option media.
+            Currently, can be only of the types Animation, Location, Photo, Sticker, Venue, or Video without caption.
     """
 
-    # TODO: media
     def __init__(
         self,
         *,
         text: Union[str, "types.FormattedText"],
+        media: Optional["types.InputPollOptionMedia"] = None,
     ):
         super().__init__()
 
         self.text = text
+        self.media = media
 
     async def write(self, client: "pyrogram.Client") -> "raw.types.InputPollAnswer":
         if isinstance(self.text, str):
             self.text = types.FormattedText(text=self.text)
 
         return raw.types.InputPollAnswer(
-            text=await self.text.write(client)
+            text=await self.text.write(client),
+            media=await self.media.write(client=client) if self.media is not None else None,
         )

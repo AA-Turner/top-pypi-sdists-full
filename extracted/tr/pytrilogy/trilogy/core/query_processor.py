@@ -39,6 +39,7 @@ from trilogy.core.models.execute import (
     CTE,
     BaseJoin,
     CTEConceptPair,
+    DatasourceCTE,
     InstantiatedUnnestJoin,
     Join,
     QueryDatasource,
@@ -48,6 +49,7 @@ from trilogy.core.models.execute import (
 )
 from trilogy.core.optimization import optimize_ctes
 from trilogy.core.processing.concept_strategies_v3 import source_query_concepts
+from trilogy.core.processing.condition_utility import strip_tautological_not_null
 from trilogy.core.processing.nodes import History, SelectNode, StrategyNode
 from trilogy.core.statements.author import (
     ChartLayer,
@@ -337,6 +339,10 @@ def datasource_to_cte(
         )
         return final
 
+    # set in the single-source branch when the QDS is one raw, non-constant
+    # BuildDatasource — the candidate for inline-datasource folding
+    leaf_datasource: BuildDatasource | None = None
+
     if len(query_datasource.datasources) > 1 or any(
         [isinstance(x, QueryDatasource) for x in query_datasource.datasources]
     ):
@@ -366,6 +372,8 @@ def datasource_to_cte(
                     for k, v in query_datasource.source_map.items()
                 }
                 existence_map = source_map
+                if isinstance(source, BuildDatasource):
+                    leaf_datasource = source
         else:
             source_map = {k: [] for k in query_datasource.source_map}
             existence_map = source_map
@@ -380,11 +388,15 @@ def datasource_to_cte(
     base_name, base_alias = resolve_cte_base_name_and_alias_v2(
         human_id, query_datasource, source_map, final_joins
     )
-    cte_class = CTE
+    cte_class: type[CTE] = CTE
+    extra_kwargs: dict = {}
 
     if query_datasource.source_type == SourceType.RECURSIVE:
         cte_class = RecursiveCTE
         # extra_kwargs['left_recursive_concept'] = query_datasource.left
+    elif leaf_datasource is not None:
+        cte_class = DatasourceCTE
+        extra_kwargs["datasource"] = leaf_datasource
     cte = cte_class(
         name=human_id,
         source=query_datasource,
@@ -411,6 +423,7 @@ def datasource_to_cte(
         base_name_override=base_name,
         base_alias_override=base_alias,
         order_by=query_datasource.ordering,
+        **extra_kwargs,
     )
     if cte.grain != query_datasource.grain:
         raise ValueError("Grain was corrupted in CTE generation")
@@ -476,11 +489,30 @@ def get_query_node(
 
     search_concepts: list[BuildConcept] = build_statement.output_components
 
+    # A model-non-nullable column can only be NULL via outer-join padding, so a
+    # WHERE-only `X IS NOT NULL` on it is tautological pre-join; dropping it here
+    # keeps X from pinning into required concepts / dedup grains for no semantic
+    # effect. Concepts the query directly selects/groups/orders by are protected:
+    # an `IS NOT NULL` there is an author-intended join guard, not noise.
+    protected_addresses: set[str] = set()
+    for component in build_statement.output_components:
+        protected_addresses.add(component.address)
+        protected_addresses.add(component.canonical_address)
+    order_by = getattr(build_statement, "order_by", None)
+    if order_by is not None:
+        for item in order_by.items:
+            for arg in item.concept_arguments:
+                protected_addresses.add(arg.address)
+                protected_addresses.add(arg.canonical_address)
+    resolution_conditions = strip_tautological_not_null(
+        build_statement.where_clause, build_environment, protected_addresses
+    )
+
     ods: StrategyNode = source_query_concepts(
         output_concepts=search_concepts,
         environment=build_environment,
         g=graph,
-        conditions=build_statement.where_clause,
+        conditions=resolution_conditions,
         history=history,
     )
     if not ods:

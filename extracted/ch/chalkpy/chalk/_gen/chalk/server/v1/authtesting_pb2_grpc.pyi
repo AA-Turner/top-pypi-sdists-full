@@ -24,6 +24,8 @@ from chalk._gen.chalk.server.v1.authtesting_pb2 import (
     GetOwnerTestEndpointResponse,
     GetTeamPermissionOnlyTestEndpointRequest,
     GetTeamPermissionOnlyTestEndpointResponse,
+    GetTeamViewerPermissionOnlyTestEndpointRequest,
+    GetTeamViewerPermissionOnlyTestEndpointResponse,
     GetUnauthedTestEndpointRequest,
     GetUnauthedTestEndpointResponse,
     GetViewerTestEndpointRequest,
@@ -77,6 +79,10 @@ class AuthTestingServiceStub:
     GetTeamPermissionOnlyTestEndpoint: UnaryUnaryMultiCallable[
         GetTeamPermissionOnlyTestEndpointRequest,
         GetTeamPermissionOnlyTestEndpointResponse,
+    ]
+    GetTeamViewerPermissionOnlyTestEndpoint: UnaryUnaryMultiCallable[
+        GetTeamViewerPermissionOnlyTestEndpointRequest,
+        GetTeamViewerPermissionOnlyTestEndpointResponse,
     ]
 
 class AuthTestingServiceServicer(metaclass=ABCMeta):
@@ -140,5 +146,11 @@ class AuthTestingServiceServicer(metaclass=ABCMeta):
         request: GetTeamPermissionOnlyTestEndpointRequest,
         context: ServicerContext,
     ) -> GetTeamPermissionOnlyTestEndpointResponse: ...
+    @abstractmethod
+    def GetTeamViewerPermissionOnlyTestEndpoint(
+        self,
+        request: GetTeamViewerPermissionOnlyTestEndpointRequest,
+        context: ServicerContext,
+    ) -> GetTeamViewerPermissionOnlyTestEndpointResponse: ...
 
 def add_AuthTestingServiceServicer_to_server(servicer: AuthTestingServiceServicer, server: Server) -> None: ...

@@ -36,12 +36,17 @@ from kugelaudio.exceptions import (
     ConnectionError as KugelAudioConnectionError,
     InsufficientCreditsError,
     KugelAudioError,
+    NotFoundError,
     RateLimitError,
     ValidationError,
 )
 from kugelaudio.models import (
     AudioChunk,
     AudioResponse,
+    BulkReplaceResult,
+    Dictionary,
+    DictionaryEntry,
+    DictionaryEntryList,
     GenerateRequest,
     Model,
     StreamConfig,
@@ -57,11 +62,15 @@ from kugelaudio.streaming import (
     StreamingSessionSync,
 )
 
-__version__ = "1.2.3"
+__version__ = "1.3.1"
 __all__ = [
     "KugelAudio",
     "AudioChunk",
     "AudioResponse",
+    "BulkReplaceResult",
+    "Dictionary",
+    "DictionaryEntry",
+    "DictionaryEntryList",
     "GenerateRequest",
     "Model",
     "StreamConfig",
@@ -78,6 +87,7 @@ __all__ = [
     "RateLimitError",
     "InsufficientCreditsError",
     "ValidationError",
+    "NotFoundError",
     "KugelAudioConnectionError",
 ]
 

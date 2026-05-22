@@ -1388,6 +1388,39 @@ def _track_ai_partial(event: PartialTrackAIEvent) -> None:
         )
 
 
+def _should_drop_empty_ai_event(evt: PartialTrackAIEvent) -> bool:
+    """Drop finalized ``events/track_partial`` payloads with no AI text body.
+
+    Mirrors the Rust SDK's ``should_drop_empty_ai_event`` gate
+    (`raindrop-ai/raindrop-rust#12 <https://github.com/raindrop-ai/raindrop-rust/pull/12>`_).
+    A wrapper that calls ``begin()`` with only ``convo_id`` / ``model`` /
+    token-usage ``properties`` and then ``finish()`` with no ``output``
+    produces a finalized payload whose ``ai_data`` (after
+    ``model_dump(exclude_none=True)``) carries neither ``input`` nor
+    ``output`` — these show up in the dashboard as phantom ``ai_generation``
+    rows with empty input/output columns. Drop them at the buffer level with
+    a single ``logger.warning`` rather than shipping.
+
+    Pending intermediates (``is_pending`` not explicitly ``False``) always
+    ship — a still-in-flight interaction with no input yet is expected.
+    Events with attachments also always ship — an attachment-only upload is
+    a real payload regardless of whether ``ai_data`` text fields are
+    populated.
+
+    To record an errored generation, populate at least one of ``input`` /
+    ``output`` (e.g. ship the prompt as ``input`` and set the error in
+    ``properties``) so the event lands in the dashboard.
+    """
+    if evt.is_pending is not False:
+        return False
+    if evt.attachments:
+        return False
+    ai = evt.ai_data
+    if ai is None:
+        return True
+    return not ai.input and not ai.output
+
+
 def _flush_partial_event(event_id: str) -> None:
     """
     Enqueue the accumulated patch for asynchronous send to `events/track_partial`.
@@ -1403,6 +1436,17 @@ def _flush_partial_event(event_id: str) -> None:
 
     evt = _partial_buffers.pop(event_id, None)
     if not evt:
+        return
+
+    if _should_drop_empty_ai_event(evt):
+        logger.warning(
+            "[raindrop] dropping finalized track_partial with empty ai_input "
+            "and ai_output (event_id=%s, event=%r). Populate input/output via "
+            "begin()/finish() or ship the prompt as input on errored "
+            "generations so the event lands in the dashboard.",
+            event_id,
+            evt.event,
+        )
         return
 
     # convert to ordinary TrackAIEvent-ish dict before send

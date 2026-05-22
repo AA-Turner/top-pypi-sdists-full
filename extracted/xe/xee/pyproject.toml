@@ -3,7 +3,7 @@ name = "xee"
 dynamic = ["version"]
 description = "A Google Earth Engine extension for Xarray."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [
   {name = "Google LLC", email = "noreply@google.com"},
@@ -17,7 +17,6 @@ classifiers = [
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -46,11 +45,17 @@ tests = [
 dataflow = [
   "absl-py",
   "apache-beam[gcp]",
-  "gcsfs<=2026.1.0",
+  "gcsfs<=2026.5.0",
   "xarray-beam",
 ]
+# Keep examples equivalent to dataflow, but avoid self-referential extras
+# ("xee[dataflow]") which can confuse dependency resolvers.
 examples = [
-  "xee[dataflow]",
+  "absl-py",
+  "apache-beam[gcp]",
+  "gcsfs<=2026.5.0",
+  "matplotlib",
+  "xarray-beam",
 ]
 
 [project.urls]
@@ -72,3 +77,34 @@ packages = ["xee"]
 
 [tool.setuptools_scm]
 fallback_version = "9999"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+xee = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.docs.pypi-dependencies]
+Jinja2 = "==3.1.6"
+myst-nb = "==1.4.0"
+myst-parser = "==4.0.1"
+scipy = "==1.15.3"
+sphinx = "==8.1.3"
+sphinx-rtd-theme = "==3.1.0"
+
+[tool.pixi.feature.docs.tasks]
+docs-build = { cmd = "sphinx-build -W -b html docs docs/_build/html" }
+docs-check = { cmd = "sphinx-build -W -n -b html docs docs/_build/html" }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dataflow = { features = ["dataflow"], solve-group = "dataflow" }
+docs = { features = ["docs"], solve-group = "docs" }
+examples = { features = ["examples", "dataflow"], solve-group = "dataflow" }
+tests = { features = ["tests"], solve-group = "tests" }
+
+[tool.pixi.tasks]

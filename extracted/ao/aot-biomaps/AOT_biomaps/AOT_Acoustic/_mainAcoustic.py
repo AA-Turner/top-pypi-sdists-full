@@ -1,32 +1,89 @@
 import copy
-import AOT_biomaps.Settings
+import AOT_biomaps
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, loadmat
-from .AcousticTools import next_power_of_2, reshape_field
-from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType
+from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, loadmat, reshape_field
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
-from IPython.display import HTML
-import h5py
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from kwave.utils.signals import tone_burst
-from kwave.ksource import kSource
-from kwave.ksensor import kSensor
-from kwave.kspaceFirstOrder3D import kspaceFirstOrder3D
-from kwave.kspaceFirstOrder2D import kspaceFirstOrder2D
-from kwave.options.simulation_options import SimulationOptions
-from kwave.options.simulation_execution_options import SimulationExecutionOptions
-from AOT_biomaps.Settings import Params
+from scipy.io import loadmat as scipy_loadmat
 
+# Optional matplotlib imports for visualization
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 from tempfile import gettempdir
 from abc import ABC, abstractmethod
 import logging
+import warnings
+import sys
+import platform
 
+# Optional kwave imports - will be None if kwave is not installed
+KWAVE_AVAILABLE = False
+KWAVE_BINARIES_AVAILABLE = False
 
+try:
+    from kwave.utils.signals import tone_burst
+    from kwave.ksource import kSource
+    from kwave.ksensor import kSensor
+    from kwave.kspaceFirstOrder3D import kspaceFirstOrder3D
+    from kwave.kspaceFirstOrder2D import kspaceFirstOrder2D
+    from kwave.options.simulation_options import SimulationOptions
+    from kwave.options.simulation_execution_options import SimulationExecutionOptions
+    KWAVE_AVAILABLE = True
+    
+    # Check if kwave binaries are available and executable
+    import subprocess
+    import sys
+    try:
+        # Try to check if the CUDA binary exists and is executable
+        import kwave
+        bin_path = os.path.join(os.path.dirname(kwave.__file__), 'bin')
+        if sys.platform.startswith('linux'):
+            cuda_bin = os.path.join(bin_path, 'linux', 'kspaceFirstOrder-CUDA')
+        elif sys.platform == 'darwin':
+            cuda_bin = os.path.join(bin_path, 'mac', 'kspaceFirstOrder-CUDA')
+        elif sys.platform == 'win32':
+            cuda_bin = os.path.join(bin_path, 'windows', 'kspaceFirstOrder-CUDA.exe')
+        else:
+            cuda_bin = None
+        
+        if cuda_bin and os.path.exists(cuda_bin):
+            # Try to check if we can execute it (this will fail if dependencies are missing)
+            result = subprocess.run([cuda_bin, '-h'], 
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  timeout=5)
+            KWAVE_BINARIES_AVAILABLE = (result.returncode == 0)
+        else:
+            KWAVE_BINARIES_AVAILABLE = False
+    except Exception:
+        KWAVE_BINARIES_AVAILABLE = False
+    
+    if not KWAVE_BINARIES_AVAILABLE:
+        system = platform.system().lower()
+        message = "kWave binaries are not available or cannot be executed. Some acoustic simulation features will be disabled."
+
+        if system == "linux":
+            message += " On Linux, you may need to install: libaec0 libaec-dev libfftw3-dev"
+        elif system == "windows":
+            message += " On Windows, ensure Visual C++ Redistributable is installed."
+        else:
+            message += " Check system dependencies for kWave."
+
+        print(message, file=sys.stderr)  # Clean output without file path
+        KWAVE_AVAILABLE = False
+            
+except ImportError:
+    KWAVE_AVAILABLE = False
+    warnings.warn("kWave is not available. Some acoustic simulation features will be disabled.", UserWarning)
+
+from AOT_biomaps.Settings import Params
 
 ####### ABSTRACT CLASS #######
 
@@ -192,13 +249,15 @@ class AcousticField(ABC):
     def getName_field(self):
         pass
 
-
     ## DISPLAY METHODS ##
 
     def plot_burst_signal(self):
         """
         Plot the burst signal used for generating the acoustic field.
         """
+        if not MATPLOTLIB_AVAILABLE:
+            warnings.warn("matplotlib is not available. Cannot plot burst signal.", UserWarning)
+            return
         try:
             time2plot = np.arange(0, len(self.burst)) / self.params.acoustic['f_AQ'] * 1000000  # Convert to microseconds
             plt.figure(figsize=(8, 8))
@@ -223,6 +282,9 @@ class AcousticField(ABC):
         Returns:
             ani: Matplotlib FuncAnimation object.
         """
+        if not MATPLOTLIB_AVAILABLE:
+            warnings.warn("matplotlib is not available. Cannot create animation.", UserWarning)
+            return None
         try:
 
             maxF = np.max(self.field[:,20:,:])
@@ -261,7 +323,6 @@ class AcousticField(ABC):
             ax.set_xlabel("x (mm)", fontsize=8)
             ax.set_ylabel("z (mm)", fontsize=8)
 
-
             # Unified update function for all subplots
             def update(frame):
                 im.set_data(self.field[frame, :, :])
@@ -291,7 +352,12 @@ class AcousticField(ABC):
 
             plt.close(fig)
 
-            return HTML(ani.to_jshtml())
+            try:
+                from IPython.display import HTML
+                return HTML(ani.to_jshtml())
+            except ImportError:
+                print("IPython not available. Returning animation object without HTML wrapper.")
+                return ani
         except Exception as e:
             print(f"Error creating animation: {e}")
             return None
@@ -304,6 +370,9 @@ class AcousticField(ABC):
         - use_dB (bool): If True, display in dB relative to the reference pressure.
         - reference (float): Reference pressure in Pa for dB calculation (default: 1 MPa).
         """
+        if not MATPLOTLIB_AVAILABLE:
+            warnings.warn("matplotlib is not available. Cannot display acoustic field.", UserWarning)
+            return
         try:
             if self.field is None:
                 raise ValueError("Field data is not available. Please generate or load the field first.")
@@ -381,13 +450,13 @@ class AcousticField(ABC):
         # Appel à la méthode spécialisée
         source = self._SetUpSource(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean,self.medium.factorT)  # factorT=1 pour simplifier
 
-        # --- 4. Sensor setup ---
+        # ---
         sensor = kSensor()
         sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped))
-        # --- 5. PML setup ---
+        # ---
         pml_size = 50 
 
-        # --- 7. Simulation options ---
+        # ---
         simulation_options = SimulationOptions(
         pml_inside=False, # PML ajoutée autour de la grille Air+PVA
         pml_size=[1, pml_size],
@@ -411,7 +480,7 @@ class AcousticField(ABC):
 
         medium_copy = copy.deepcopy(self.medium) # Avoid in-place modifications of the medium properties during simulation, which can affect subsequent simulations if the same medium object is reused.
 
-        # --- 8. Run simulation ---
+        # ---
         sensor_data = kspaceFirstOrder2D(
             kgrid=medium_copy.kgrid,
             medium=medium_copy.kmedium,
@@ -421,7 +490,7 @@ class AcousticField(ABC):
             execution_options=execution_options,
         )
 
-        # --- 9. Post-process results ---
+        # ---
         data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped    )
         if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
             data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
@@ -430,13 +499,12 @@ class AcousticField(ABC):
         else:
             return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
 
-
     # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
     #     """
     #     Generate a 3D acoustic field using k-Wave.
     #     """
     #     try:
-    #         # --- 1. Grid setup (common) ---
+    #         # ---
     #         dx = self.params['dx']
     #         if dx >= self.params['element_width']:
     #             dx = self.params['element_width'] / 2
@@ -458,7 +526,7 @@ class AcousticField(ABC):
     #             else:
     #                 Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dz']))
 
-    #         # --- 2. Time and space factors (common) ---
+    #         # ---
     #         factorT = int(np.ceil(self.params['f_AQ'] / self.params['f_saving']))
     #         factorX = int(np.ceil(Nx / self.params['Nx']))
     #         factorZ = int(np.ceil(Nz / self.params['Nz']))

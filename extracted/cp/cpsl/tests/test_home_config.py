@@ -56,6 +56,27 @@ class HomeConfigTests(unittest.TestCase):
         self.assertEqual(home["widget_tree"]["children"][0]["type"], "image_gallery")
         self.assertEqual(home["widget_tree"]["children"][1]["type"], "action_card")
 
+    def test_action_suggestion_allows_payload(self):
+        suggestion = cpsl.Suggestion(
+            "Approve",
+            action="approve_company",
+            payload={"company_id": "co_123"},
+            icon="check",
+            primary=True,
+        )
+
+        self.assertEqual(
+            suggestion.to_dict(),
+            {
+                "label": "Approve",
+                "target": "action",
+                "value": "approve_company",
+                "icon": "check",
+                "primary": True,
+                "payload": {"company_id": "co_123"},
+            },
+        )
+
     def test_suggestion_requires_exactly_one_target(self):
         with self.assertRaises(ValueError):
             cpsl.Suggestion("Bad", prompt="hello", page="Home")

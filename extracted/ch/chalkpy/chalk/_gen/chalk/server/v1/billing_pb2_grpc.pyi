@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.billing_pb2 import (
+    GetAvailableInstanceTypesRequest,
+    GetAvailableInstanceTypesResponse,
     GetCreditBundlesRequest,
     GetCreditBundlesResponse,
     GetInstanceUsageRequest,
@@ -77,6 +79,11 @@ class BillingServiceStub:
     """GetUtilizationRates returns the current utilization rates for all
     instance types.
     """
+    GetAvailableInstanceTypes: UnaryUnaryMultiCallable[
+        GetAvailableInstanceTypesRequest,
+        GetAvailableInstanceTypesResponse,
+    ]
+    """GetAvailableInstanceTypes returns instance type metadata without pricing."""
     GetPodRequestCharts: UnaryUnaryMultiCallable[
         GetPodRequestChartsRequest,
         GetPodRequestChartsResponse,
@@ -165,6 +172,13 @@ class BillingServiceServicer(metaclass=ABCMeta):
         """GetUtilizationRates returns the current utilization rates for all
         instance types.
         """
+    @abstractmethod
+    def GetAvailableInstanceTypes(
+        self,
+        request: GetAvailableInstanceTypesRequest,
+        context: ServicerContext,
+    ) -> GetAvailableInstanceTypesResponse:
+        """GetAvailableInstanceTypes returns instance type metadata without pricing."""
     @abstractmethod
     def GetPodRequestCharts(
         self,

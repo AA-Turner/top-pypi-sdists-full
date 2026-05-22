@@ -12,6 +12,7 @@ ipyleaflet functions use snake case, such as add_tile_layer(), add_wms_layer(), 
 # *******************************************************************************#
 
 import base64
+from collections.abc import Callable
 import csv
 import io
 import json
@@ -22,29 +23,28 @@ import time
 from typing import Any
 import warnings
 
+import box
+from bqplot import pyplot as plt
 import ee
 import ipyleaflet
-import ipywidgets as widgets
+import ipywidgets
 import numpy as np
 import pandas as pd
 import requests
-
-import box
-from bqplot import pyplot as plt
+import xarray as xr
 
 from IPython.display import display
 from .basemaps import get_xyz_dict, xyz_to_leaflet
+from . import colormaps
 from .common import *
 from .conversion import *
 from .ee_tile_layers import *
 from . import core
 from . import coreutils
-from . import examples
 from . import map_widgets
 from .plot import *
 from .timelapse import *
 from . import toolbar
-
 
 basemaps = box.Box(xyz_to_leaflet(), frozen_box=True)
 
@@ -339,12 +339,14 @@ class Map(core.Map):
                 one of the standard Google Maps API map types. Defaults to 'HYBRID'.
             **kwargs: Additional keyword arguments.
         """
+        del kwargs  # Unused.
 
         try:
             self.add(mapTypeId)
         except Exception:
             raise ValueError(
-                'Google basemaps can only be one of "ROADMAP", "SATELLITE", "HYBRID" or "TERRAIN".'
+                'Google basemaps can only be one of "ROADMAP", "SATELLITE", '
+                '"HYBRID" or "TERRAIN".'
             )
 
     setOptions = set_options
@@ -412,9 +414,9 @@ class Map(core.Map):
         """Centers the map view at a given coordinates with the given zoom level.
 
         Args:
-            lon (float): The longitude of the center, in degrees.
-            lat (float): The latitude of the center, in degrees.
-            zoom (Optional[int], optional): The zoom level, from 1 to 24. Defaults to None.
+            lon: The longitude of the center, in degrees.
+            lat: The latitude of the center, in degrees.
+            zoom: The zoom level, from 1 to 24. Defaults to None.
         """
         super().set_center(lon, lat, zoom)
         if is_arcpy():
@@ -451,7 +453,8 @@ class Map(core.Map):
             bounds (Union[List[float], tuple[float, float, float, float]]): A
                 list/tuple containing minx, miny, maxx, maxy values for the bounds.
         """
-        #  The ipyleaflet fit_bounds method takes lat/lon bounds in the form [[south, west], [north, east]].
+        # The ipyleaflet fit_bounds method takes lat/lon bounds in the form
+        # [[south, west], [north, east]].
         self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
 
     def get_scale(self) -> float:
@@ -514,7 +517,9 @@ class Map(core.Map):
                 arc_add_layer(basemaps[basemap].url, basemap)
             elif basemap in basemaps and basemaps[basemap].name in layer_names:
                 print(f"{basemap} has been already added before.")
-            elif basemap.startswith("http"):  # pytype: disable=attribute-error
+            elif isinstance(basemap, str) and basemap.startswith(
+                ("http://", "https://")
+            ):
                 self.add_tile_layer(url=basemap, shown=show, **kwargs)
             else:
                 print(
@@ -612,15 +617,14 @@ class Map(core.Map):
         """Adds a TileLayer to the map.
 
         Args:
-            url (str, optional): The URL of the tile layer. Defaults to
+            url: The URL of the tile layer. Defaults to
                 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'.
-            name (str, optional): The layer name to use for the layer. Defaults to 'Untitled'.
-            attribution (str, optional): The attribution to use. Defaults to ''.
-            opacity (float, optional): The opacity of the layer. Defaults to 1.0.
-            shown (bool, optional): A flag indicating whether the layer should
+            name: The layer name to use for the layer. Defaults to 'Untitled'.
+            attribution: The attribution to use. Defaults to ''.
+            opacity: The opacity of the layer. Defaults to 1.0.
+            shown: A flag indicating whether the layer should
                 be on by default. Defaults to True.
         """
-
         if "max_zoom" not in kwargs:
             kwargs["max_zoom"] = 100
         if "max_native_zoom" not in kwargs:
@@ -657,24 +661,22 @@ class Map(core.Map):
         """Sets plotting options.
 
         Args:
-            add_marker_cluster (bool, optional): Whether to add a marker cluster.
-                Defaults to False.
-            sample_scale (float, optional):  A nominal scale in meters of the
-                projection to sample in . Defaults to None.
-            plot_type (str, optional): The plot type can be one of "None", "bar",
-                "scatter" or "hist". Defaults to None.
-            overlay (bool, optional): Whether to overlay plotted lines on the figure.
-                Defaults to False.
-            position (str, optional): Position of the control, can be ‘bottomleft’,
-                ‘bottomright’, ‘topleft’, or ‘topright’. Defaults to 'bottomright'.
-            min_width (int, optional): Min width of the widget (in pixels),
-                if None it will respect the content size. Defaults to None.
-            max_width (int, optional): Max width of the widget (in pixels),
-                if None it will respect the content size. Defaults to None.
-            min_height (int, optional): Min height of the widget (in pixels),
-                if None it will respect the content size. Defaults to None.
-            max_height (int, optional): Max height of the widget (in pixels),
-                if None it will respect the content size. Defaults to None.
+            add_marker_cluster: Whether to add a marker cluster.  Defaults to False.
+            sample_scale: A nominal scale in meters of the projection to sample
+                in. Defaults to None.
+            plot_type: The plot type can be one of "None", "bar", "scatter" or
+                "hist". Defaults to None.
+            overlay: Whether to overlay plotted lines on the figure.  Defaults to False.
+            position: Position of the control, can be ‘bottomleft’, ‘bottomright’,
+                ‘topleft’, or ‘topright’. Defaults to 'bottomright'.
+            min_width: Min width of the widget (in pixels), if None it will respect the
+                content size. Defaults to None.
+            max_width: Max width of the widget (in pixels), if None it will respect the
+                content size. Defaults to None.
+            min_height: Min height of the widget (in pixels), if None it will respect
+                the content size. Defaults to None.
+            max_height: Max height of the widget (in pixels), if None it will respect
+                the content size. Defaults to None.
         """
         plot_options_dict = {}
         plot_options_dict["add_marker_cluster"] = add_marker_cluster
@@ -727,7 +729,7 @@ class Map(core.Map):
         if hasattr(self, "_plot_widget") and self._plot_widget is not None:
             plot_widget = self._plot_widget
         else:
-            plot_widget = widgets.Output(
+            plot_widget = ipywidgets.Output(
                 layout={"border": "1px solid black", "max_width": "500px"}
             )
             plot_control = ipyleaflet.WidgetControl(
@@ -1092,7 +1094,7 @@ class Map(core.Map):
                 "plot", and "timelapse".
             position: The position of the GUI. Defaults to "topright".
             opened: Whether the GUI is opened. Defaults to True.
-            show_close_button: Whether to show the close button.  Defaults to True.
+            show_close_button: Whether to show the close button. Defaults to True.
             **kwargs: Additional keyword arguments.
         """
         name = name.lower()
@@ -1269,7 +1271,6 @@ class Map(core.Map):
                 https://cogeotiff.github.io/rio-tiler/colormap/. To select a certain
                 bands, use bidx=[1, 2, 3]
         """
-
         tile_url = cog_tile(url, bands, titiler_endpoint, **kwargs)
         bounds = cog_bounds(url, titiler_endpoint)
         self.add_tile_layer(tile_url, name, attribution, opacity, shown)
@@ -1434,6 +1435,8 @@ class Map(core.Map):
             max_height: Max height of the widget (in pixels), if None it will respect
                 the content size. Defaults to None.
         """
+        del position  # Unused.
+
         if hasattr(self, "random_marker") and self.random_marker is not None:
             self.remove_layer(self.random_marker)
 
@@ -1520,7 +1523,7 @@ class Map(core.Map):
         if hasattr(self, "random_marker") and self.random_marker is not None:
             self.remove_layer(self.random_marker)
 
-        plot_widget = widgets.Output(layout={"border": "1px solid black"})
+        plot_widget = ipywidgets.Output(layout={"border": "1px solid black"})
         plot_control = ipyleaflet.WidgetControl(
             widget=plot_widget,
             position=position,
@@ -1725,7 +1728,9 @@ class Map(core.Map):
             if left_layer in basemaps.keys():
                 left_layer = get_basemap(left_layer)
             elif isinstance(left_layer, str):
-                if left_layer.startswith("http") and left_layer.endswith(".tif"):
+                if left_layer.startswith(
+                    ("http://", "https://")
+                ) and left_layer.endswith(".tif"):
                     url = cog_tile(left_layer)
                     left_layer = ipyleaflet.TileLayer(
                         url=url,
@@ -1749,7 +1754,9 @@ class Map(core.Map):
             if right_layer in basemaps.keys():
                 right_layer = get_basemap(right_layer)
             elif isinstance(right_layer, str):
-                if right_layer.startswith("http") and right_layer.endswith(".tif"):
+                if right_layer.startswith(
+                    ("http://", "https://")
+                ) and right_layer.endswith(".tif"):
                     url = cog_tile(right_layer)
                     right_layer = ipyleaflet.TileLayer(
                         url=url,
@@ -1778,8 +1785,8 @@ class Map(core.Map):
 
             if left_label is not None:
                 if widget_layout is None:
-                    widget_layout = widgets.Layout(padding="0px 4px 0px 4px")
-                left_widget = widgets.HTML(value=left_label, layout=widget_layout)
+                    widget_layout = ipywidgets.Layout(padding="0px 4px 0px 4px")
+                left_widget = ipywidgets.HTML(value=left_label, layout=widget_layout)
 
                 left_control = ipyleaflet.WidgetControl(
                     widget=left_widget, position=left_position
@@ -1788,18 +1795,18 @@ class Map(core.Map):
 
             if right_label is not None:
                 if widget_layout is None:
-                    widget_layout = widgets.Layout(padding="0px 4px 0px 4px")
-                right_widget = widgets.HTML(value=right_label, layout=widget_layout)
+                    widget_layout = ipywidgets.Layout(padding="0px 4px 0px 4px")
+                right_widget = ipywidgets.HTML(value=right_label, layout=widget_layout)
                 right_control = ipyleaflet.WidgetControl(
                     widget=right_widget, position=right_position
                 )
                 self.add(right_control)
 
-            close_button = widgets.ToggleButton(
+            close_button = ipywidgets.ToggleButton(
                 value=False,
                 tooltip="Close split-panel map",
                 icon="times",
-                layout=widgets.Layout(
+                layout=ipywidgets.Layout(
                     height="28px", width="28px", padding="0px 0px 0px 4px"
                 ),
             )
@@ -1834,12 +1841,12 @@ class Map(core.Map):
     def ts_inspector(
         self,
         left_ts,
-        left_names=None,
-        left_vis={},
+        left_names: list[str] | None = None,
+        left_vis: dict[str, Any] | None = None,
         left_index: int = 0,
         right_ts=None,
-        right_names=None,
-        right_vis=None,
+        right_names: list[str] | None = None,
+        right_vis: dict[str, Any] | None = None,
         right_index: int = -1,
         width: str = "130px",
         date_format: str = "YYYY-MM-dd",
@@ -1850,20 +1857,22 @@ class Map(core.Map):
 
         Args:
             left_ts (object): An ee.ImageCollection to show on the left panel.
-            left_names (list): A list of names to show under the left dropdown.
-            left_vis (dict, optional): Visualization parameters for the left
-                layer. Defaults to {}.
+            left_names: A list of names to show under the left dropdown.
+            left_vis: Visualization parameters for the left layer. Defaults to {}.
             left_index: The index of the left layer to show. Defaults to 0.
             right_ts (object): An ee.ImageCollection to show on the right panel.
-            right_names (list): A list of names to show under the right dropdown.
-            right_vis (dict, optional): Visualization parameters for the right
-                layer. Defaults to {}.
+            right_names: A list of names to show under the right dropdown.
+            # TODO: Default is to match left_vis.
+            right_vis: Visualization parameters for the right layer. Defaults to {}.
             right_index: The index of the right layer to show. Defaults to -1.
             width: The width of the dropdown list. Defaults to '130px'.
             date_format: The date format to show in the dropdown. Defaults to
                 'YYYY-MM-dd'.
             add_close_button: Whether to show the close button. Defaults to False.
         """
+        del kwargs  # Unused.
+        left_vis = left_vis or {}
+
         controls = self.controls
         layers = self.layers
 
@@ -1884,12 +1893,14 @@ class Map(core.Map):
 
         if left_count != len(left_names):
             print(
-                "The number of images in left_ts must match the number of layer names in left_names."
+                "The number of images in left_ts must match the number of layer names "
+                "in left_names."
             )
             return
         if right_count != len(right_names):
             print(
-                "The number of images in right_ts must match the number of layer names in right_names."
+                "The number of images in right_ts must match the number of layer names "
+                "in right_names."
             )
             return
 
@@ -1905,8 +1916,8 @@ class Map(core.Map):
         )
 
         self.clear_controls()
-        left_dropdown = widgets.Dropdown(options=left_names, value=None)
-        right_dropdown = widgets.Dropdown(options=right_names, value=None)
+        left_dropdown = ipywidgets.Dropdown(options=left_names, value=None)
+        right_dropdown = ipywidgets.Dropdown(options=right_names, value=None)
         left_dropdown.layout.max_width = width
         right_dropdown.layout.max_width = width
 
@@ -1925,6 +1936,7 @@ class Map(core.Map):
         self.add(ipyleaflet.FullScreenControl())
 
         def left_dropdown_change(change):
+            del change  # Unused.
             left_dropdown_index = left_dropdown.index
             if left_dropdown_index is not None and left_dropdown_index >= 0:
                 try:
@@ -1956,6 +1968,7 @@ class Map(core.Map):
         left_dropdown.observe(left_dropdown_change, names="value")
 
         def right_dropdown_change(change) -> None:
+            del change  # Unused.
             right_dropdown_index = right_dropdown.index
             if right_dropdown_index is not None and right_dropdown_index >= 0:
                 try:
@@ -1993,11 +2006,11 @@ class Map(core.Map):
         if right_index is not None:
             right_dropdown.value = right_names[right_index]
 
-        close_button = widgets.ToggleButton(
+        close_button = ipywidgets.ToggleButton(
             value=False,
             tooltip="Close the tool",
             icon="times",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 4px"
             ),
         )
@@ -2057,7 +2070,7 @@ class Map(core.Map):
         """
         from branca.colormap import LinearColormap
 
-        output = widgets.Output()
+        output = ipywidgets.Output()
         output.layout.height = height
 
         if "width" in kwargs:
@@ -2117,7 +2130,7 @@ class Map(core.Map):
         from PIL import Image, ImageSequence
 
         try:
-            if not url.startswith("http"):
+            if not url.startswith(("http://", "https://")):
                 if not os.path.exists(url):
                     print("The provided file does not exist.")
                     return
@@ -2236,7 +2249,7 @@ class Map(core.Map):
                     None,
                     False,
                 )
-        elif isinstance(roi, ee.Feature) or isinstance(roi, ee.FeatureCollection):
+        elif isinstance(roi, (ee.Feature, ee.FeatureCollection)):
             roi = roi.geometry()
         elif isinstance(roi, ee.Geometry):
             pass
@@ -2364,16 +2377,16 @@ class Map(core.Map):
         if not isinstance(width, str):
             print("width must be a string.")
             return
-        elif width.endswith("px") or width.endswith("%"):
-            pass
-        else:
+
+        if not width.endswith("px") and not width.endswith("%"):
             print("width must end with px or %")
             return
 
         if not isinstance(height, str):
             print("height must be a string.")
             return
-        elif not height.endswith("px"):
+
+        if not height.endswith("px"):
             print("height must end with px")
             return
 
@@ -2425,43 +2438,44 @@ class Map(core.Map):
 
     def add_raster(
         self,
-        source,
-        indexes=None,
-        colormap=None,
-        vmin=None,
-        vmax=None,
-        nodata=None,
-        attribution=None,
-        layer_name="Raster",
-        zoom_to_layer=True,
-        visible=True,
-        array_args={},
+        source: str,
+        indexes: int | list[int] | None = None,
+        colormap: str | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        nodata: float | None = None,
+        attribution: str | None = None,
+        layer_name: str = "Raster",
+        zoom_to_layer: bool = True,
+        visible: bool = True,
+        array_args: dict[str, Any] | None = None,
         **kwargs,
     ):
         """Add a local raster dataset to the map.
-            If you are using this function in JupyterHub on a remote server (e.g., Binder, Microsoft Planetary Computer) and
-            if the raster does not render properly, try installing jupyter-server-proxy using `pip install jupyter-server-proxy`,
-            then running the following code before calling this function. For more info, see https://bit.ly/3JbmF93.
 
-            import os
-            os.environ['LOCALTILESERVER_CLIENT_PREFIX'] = 'proxy/{port}'
+        If you are using this function in JupyterHub on a remote server (e.g., Binder, Microsoft Planetary Computer) and
+        if the raster does not render properly, try installing jupyter-server-proxy using `pip install jupyter-server-proxy`,
+        then running the following code before calling this function. For more info, see https://bit.ly/3JbmF93.
+
+        import os
+        os.environ['LOCALTILESERVER_CLIENT_PREFIX'] = 'proxy/{port}'
 
         Args:
-            source (str): The path to the GeoTIFF file or the URL of the Cloud Optimized GeoTIFF.
-            indexes (int, optional): The band(s) to use. Band indexing starts at 1. Defaults to None.
-            colormap (str, optional): The name of the colormap from `matplotlib` to use when plotting a single band. See https://matplotlib.org/stable/gallery/color/colormap_reference.html. Default is greyscale.
-            vmin (float, optional): The minimum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            vmax (float, optional): The maximum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            nodata (float, optional): The value from the band to use to interpret as not valid data. Defaults to None.
-            attribution (str, optional): Attribution for the source raster. This defaults to a message about it being a local file. Defaults to None.
-            layer_name (str, optional): The layer name to use. Defaults to 'Raster'.
-            zoom_to_layer (bool, optional): Whether to zoom to the extent of the layer. Defaults to True.
-            visible (bool, optional): Whether the layer is visible. Defaults to True.
-            array_args (dict, optional): Additional arguments to pass to `array_to_memory_file` when reading the raster. Defaults to {}.
+            source: The path to the GeoTIFF file or the URL of the Cloud Optimized GeoTIFF.
+            indexes: The band(s) to use. Band indexing starts at 1. Defaults to None.
+            colormap: The name of the colormap from `matplotlib` to use when plotting a single band. See https://matplotlib.org/stable/gallery/color/colormap_reference.html. Default is greyscale.
+            vmin: The minimum value to use when colormapping the palette when plotting a single band. Defaults to None.
+            vmax: The maximum value to use when colormapping the palette when plotting a single band. Defaults to None.
+            nodata: The value from the band to use to interpret as not valid data. Defaults to None.
+            attribution: Attribution for the source raster. This defaults to a message about it being a local file. Defaults to None.
+            layer_name: The layer name to use. Defaults to 'Raster'.
+            zoom_to_layer: Whether to zoom to the extent of the layer. Defaults to True.
+            visible: Whether the layer is visible. Defaults to True.
+            array_args: Additional arguments to pass to `array_to_memory_file` when reading the raster. Defaults to {}.
         """
-        import xarray as xr
+        array_args = array_args or {}
 
-        if isinstance(source, np.ndarray) or isinstance(source, xr.DataArray):
+        if isinstance(source, (np.ndarray, xr.DataArray)):
             source = array_to_image(source, **array_args)
 
         tile_layer, tile_client = get_local_tile_layer(
@@ -2507,29 +2521,29 @@ class Map(core.Map):
 
     def add_remote_tile(
         self,
-        source,
-        band=None,
-        palette=None,
-        vmin=None,
-        vmax=None,
-        nodata=None,
-        attribution=None,
-        layer_name=None,
+        source: str,
+        band: int | None = None,
+        palette: str | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        nodata: float | None = None,
+        attribution: str | None = None,
+        layer_name: str | None = None,
         **kwargs,
-    ):
+    ) -> None:
         """Add a remote Cloud Optimized GeoTIFF (COG) to the map.
 
         Args:
-            source (str): The path to the remote Cloud Optimized GeoTIFF.
-            band (int, optional): The band to use. Band indexing starts at 1. Defaults to None.
-            palette (str, optional): The name of the color palette from `palettable` to use when plotting a single band. See https://jiffyclub.github.io/palettable. Default is greyscale
-            vmin (float, optional): The minimum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            vmax (float, optional): The maximum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            nodata (float, optional): The value from the band to use to interpret as not valid data. Defaults to None.
-            attribution (str, optional): Attribution for the source raster. This defaults to a message about it being a local file. Defaults to None.
-            layer_name (str, optional): The layer name to use. Defaults to None.
+            source: The path to the remote Cloud Optimized GeoTIFF.
+            band: The band to use. Band indexing starts at 1. Defaults to None.
+            palette: The name of the color palette from `palettable` to use when plotting a single band. See https://jiffyclub.github.io/palettable. Default is greyscale
+            vmin: The minimum value to use when colormapping the palette when plotting a single band. Defaults to None.
+            vmax: The maximum value to use when colormapping the palette when plotting a single band. Defaults to None.
+            nodata: The value from the band to use to interpret as not valid data. Defaults to None.
+            attribution: Attribution for the source raster. This defaults to a message about it being a local file. Defaults to None.
+            layer_name: The layer name to use. Defaults to None.
         """
-        if isinstance(source, str) and source.startswith("http"):
+        if isinstance(source, str) and source.startswith(("http://", "https://")):
             self.add_raster(
                 source,
                 band=band,
@@ -2544,18 +2558,18 @@ class Map(core.Map):
         else:
             raise Exception("The source must be a URL.")
 
-    def remove_draw_control(self):
+    def remove_draw_control(self) -> None:
         """Removes the draw control from the map"""
         self.remove("draw_control")
 
-    def remove_drawn_features(self):
+    def remove_drawn_features(self) -> None:
         """Removes user-drawn geometries from the map"""
         if self._draw_control is not None:
             self._draw_control.reset()
         if "Drawn Features" in self.ee_layers:
             self.ee_layers.pop("Drawn Features")
 
-    def remove_last_drawn(self):
+    def remove_last_drawn(self) -> None:
         """Removes last user-drawn geometry from the map"""
         if self._draw_control is not None:
             if self._draw_control.count == 1:
@@ -2567,7 +2581,7 @@ class Map(core.Map):
                 if hasattr(self, "_chart_points"):
                     self._chart_points = self._chart_points[:-1]
 
-    def extract_values_to_points(self, filename: str):
+    def extract_values_to_points(self, filename: str) -> None:
         """Exports pixel values to a csv file based on user-drawn geometries.
 
         Args:
@@ -2614,29 +2628,27 @@ class Map(core.Map):
 
     def add_styled_vector(
         self,
-        ee_object,
-        column,
-        palette,
-        layer_name="Untitled",
-        shown=True,
-        opacity=1.0,
+        ee_object: ee.FeatureCollection,
+        column: str,
+        palette: list[str] | dict[str, str],
+        layer_name: str = "Untitled",
+        shown: bool = True,
+        opacity: float = 1.0,
         **kwargs,
-    ):
+    ) -> None:
         """Adds a styled vector to the map.
 
         Args:
-            ee_object (object): An ee.FeatureCollection.
-            column (str): The column name to use for styling.
-            palette (list | dict): The palette (e.g., list of colors or a dict containing label and color pairs) to use for styling.
-            layer_name (str, optional): The name to be used for the new layer. Defaults to "Untitled".
-            shown (bool, optional): A flag indicating whether the layer should be on by default. Defaults to True.
-            opacity (float, optional): The opacity of the layer. Defaults to 1.0.
+            ee_object: An ee.FeatureCollection.
+            column: The column name to use for styling.
+            palette: The palette (e.g., list of colors or a dict containing label and color pairs) to use for styling.
+            layer_name: The name to be used for the new layer. Defaults to "Untitled".
+            shown: A flag indicating whether the layer should be on by default. Defaults to True.
+            opacity: The opacity of the layer. Defaults to 1.0.
         """
         if isinstance(palette, str):
-            from .colormaps import get_palette
-
             count = ee_object.size().getInfo()
-            palette = get_palette(palette, count)
+            palette = colormaps.get_palette(palette, count)
 
         styled_vector = vector_styling(ee_object, column, palette, **kwargs)
         self.addLayer(
@@ -2649,30 +2661,34 @@ class Map(core.Map):
 
     def add_shp(
         self,
-        in_shp,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        encoding="utf-8",
-    ):
+        in_shp: str,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        encoding: str = "utf-8",
+    ) -> None:
         """Adds a shapefile to the map.
 
         Args:
-            in_shp (str): The input file path to the shapefile.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            encoding (str, optional): The encoding of the shapefile. Defaults to "utf-8".
+            in_shp: The input file path to the shapefile.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            encoding: The encoding of the shapefile. Defaults to "utf-8".
 
         Raises:
             FileNotFoundError: The provided shapefile could not be found.
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
         in_shp = os.path.abspath(in_shp)
         if not os.path.exists(in_shp):
             raise FileNotFoundError("The provided shapefile could not be found.")
@@ -2693,39 +2709,43 @@ class Map(core.Map):
 
     def add_geojson(
         self,
-        in_geojson,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        encoding="utf-8",
-    ):
+        in_geojson: str | dict,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        encoding: str = "utf-8",
+    ) -> None:
         """Adds a GeoJSON file to the map.
 
         Args:
-            in_geojson (str | dict): The file path or http URL to the input GeoJSON or a dictionary containing the geojson.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            encoding (str, optional): The encoding of the GeoJSON file. Defaults to "utf-8".
+            in_geojson: The file path or http URL to the input GeoJSON or a dictionary containing the geojson.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            encoding: The encoding of the GeoJSON file. Defaults to "utf-8".
 
         Raises:
             FileNotFoundError: The provided GeoJSON file could not be found.
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
         warnings.filterwarnings("ignore")
 
         style_callback_only = False
 
-        if len(style) == 0 and style_callback is not None:
+        if not style and style_callback is not None:
             style_callback_only = True
 
         if isinstance(in_geojson, str):
-            if in_geojson.startswith("http"):
+            if in_geojson.startswith(("http://", "https://")):
                 in_geojson = coreutils.github_raw_url(in_geojson)
                 data = requests.get(in_geojson).json()
             else:
@@ -2761,37 +2781,38 @@ class Map(core.Map):
             hover_style = {"weight": style["weight"] + 1, "fillOpacity": 0.5}
 
         def random_color(feature):
+            del feature  # Unused.
             return {
                 "color": "black",
                 "fillColor": random.choice(fill_colors),
             }
 
-        toolbar_button = widgets.ToggleButton(
+        toolbar_button = ipywidgets.ToggleButton(
             value=True,
             tooltip="Toolbar",
             icon="info",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 width="28px", height="28px", padding="0px 0px 0px 4px"
             ),
         )
 
-        close_button = widgets.ToggleButton(
+        close_button = ipywidgets.ToggleButton(
             value=False,
             tooltip="Close the tool",
             icon="times",
             # button_style="primary",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 4px"
             ),
         )
 
-        html = widgets.HTML()
+        html = ipywidgets.HTML()
         html.layout.margin = "0px 10px 0px 10px"
         html.layout.max_height = "250px"
         html.layout.max_width = "250px"
 
-        output_widget = widgets.VBox(
-            [widgets.HBox([toolbar_button, close_button]), html]
+        output_widget = ipywidgets.VBox(
+            [ipywidgets.HBox([toolbar_button, close_button]), html]
         )
         info_control = ipyleaflet.WidgetControl(
             widget=output_widget, position="bottomright"
@@ -2804,10 +2825,14 @@ class Map(core.Map):
             if change["new"]:
                 close_button.value = False
                 output_widget.children = [
-                    widgets.VBox([widgets.HBox([toolbar_button, close_button]), html])
+                    ipywidgets.VBox(
+                        [ipywidgets.HBox([toolbar_button, close_button]), html]
+                    )
                 ]
             else:
-                output_widget.children = [widgets.HBox([toolbar_button, close_button])]
+                output_widget.children = [
+                    ipywidgets.HBox([toolbar_button, close_button])
+                ]
 
         toolbar_button.observe(toolbar_btn_click, "value")
 
@@ -2821,6 +2846,7 @@ class Map(core.Map):
         close_button.observe(close_btn_click, "value")
 
         def update_html(feature, **kwargs):
+            del kwargs  # Unused.
             value = [
                 "<b>{}: </b>{}<br>".format(prop, feature["properties"][prop])
                 for prop in feature["properties"].keys()
@@ -2869,30 +2895,33 @@ class Map(core.Map):
 
     def add_kml(
         self,
-        in_kml,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        in_kml: str,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds a GeoJSON file to the map.
 
         Args:
-            in_kml (str): The input file path to the KML.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            in_kml: The input file path to the KML.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
 
         Raises:
             FileNotFoundError: The provided KML file could not be found.
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
-        if isinstance(in_kml, str) and in_kml.startswith("http"):
+        if isinstance(in_kml, str) and in_kml.startswith(("http://", "https://")):
             in_kml = coreutils.github_raw_url(in_kml)
             in_kml = coreutils.download_file(in_kml)
 
@@ -2911,37 +2940,41 @@ class Map(core.Map):
 
     def add_vector(
         self,
-        filename,
-        layer_name="Untitled",
-        to_ee=False,
+        filename: str,
+        layer_name: str = "Untitled",
+        to_ee: bool = False,
         bbox=None,
         mask=None,
         rows=None,
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        encoding="utf-8",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        encoding: str = "utf-8",
         **kwargs,
-    ):
+    ) -> None:
         """Adds any geopandas-supported vector dataset to the map.
 
         Args:
-            filename (str): Either the absolute or relative path to the file or URL to be opened, or any object with a read() method (such as an open file or StringIO).
-            layer_name (str, optional): The layer name to use. Defaults to "Untitled".
-            to_ee (bool, optional): Whether to convert the GeoJSON to ee.FeatureCollection. Defaults to False.
+            filename: Either the absolute or relative path to the file or URL to be opened, or any object with a read() method (such as an open file or StringIO).
+            layer_name: The layer name to use. Defaults to "Untitled".
+            to_ee: Whether to convert the GeoJSON to ee.FeatureCollection. Defaults to False.
             bbox (tuple | GeoDataFrame or GeoSeries | shapely Geometry, optional): Filter features by given bounding box, GeoSeries, GeoDataFrame or a shapely geometry. CRS mis-matches are resolved if given a GeoSeries or GeoDataFrame. Cannot be used with mask. Defaults to None.
             mask (dict | GeoDataFrame or GeoSeries | shapely Geometry, optional): Filter for features that intersect with the given dict-like geojson geometry, GeoSeries, GeoDataFrame or shapely geometry. CRS mis-matches are resolved if given a GeoSeries or GeoDataFrame. Cannot be used with bbox. Defaults to None.
             rows (int or slice, optional): Load in specific rows by passing an integer (first n rows) or a slice() object. Defaults to None.
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            encoding (str, optional): The encoding to use to read the file. Defaults to "utf-8".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            encoding: The encoding to use to read the file. Defaults to "utf-8".
         """
-        if not filename.startswith("http"):
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
+        if not filename.startswith(("http://", "https://")):
             filename = os.path.abspath(filename)
         else:
             filename = coreutils.github_raw_url(filename)
@@ -3004,32 +3037,36 @@ class Map(core.Map):
     def add_osm(
         self,
         query,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        which_result=None,
-        by_osmid=False,
-        to_ee=False,
-        geodesic=True,
-    ):
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        which_result: int | None = None,
+        by_osmid: bool = False,
+        to_ee: bool = False,
+        geodesic: bool = True,
+    ) -> None:
         """Adds OSM data to the map.
 
         Args:
             query (str | dict | list): Query string(s) or structured dict(s) to geocode.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
             fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            which_result (INT, optional): Which geocoding result to use. if None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. to get the top match regardless of geometry type, set which_result=1. Defaults to None.
-            by_osmid (bool, optional): If True, handle query as an OSM ID for lookup rather than text search. Defaults to False.
-            to_ee (bool, optional): Whether to convert the csv to an ee.FeatureCollection.
-            geodesic (bool, optional): Whether line segments should be interpreted as spherical geodesics. If false, indicates that line segments should be interpreted as planar lines in the specified CRS. If absent, defaults to true if the CRS is geographic (including the default EPSG:4326), or to false if the CRS is projected.
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            which_result: Which geocoding result to use. if None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. to get the top match regardless of geometry type, set which_result=1. Defaults to None.
+            by_osmid: If True, handle query as an OSM ID for lookup rather than text search. Defaults to False.
+            to_ee: Whether to convert the csv to an ee.FeatureCollection.
+            geodesic: Whether line segments should be interpreted as spherical geodesics. If false, indicates that line segments should be interpreted as planar lines in the specified CRS. If absent, defaults to true if the CRS is geographic (including the default EPSG:4326), or to false if the CRS is projected.
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
         gdf = osm_to_gdf(query, which_result=which_result, by_osmid=by_osmid)
         geojson = gdf.__geo_interface__
 
@@ -3053,28 +3090,32 @@ class Map(core.Map):
     def add_osm_from_geocode(
         self,
         query,
-        which_result=None,
-        by_osmid=False,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        which_result: int | None = None,
+        by_osmid: bool = False,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM data of place(s) by name or ID to the map.
 
         Args:
             query (str | dict | list): Query string(s) or structured dict(s) to geocode.
-            which_result (int, optional): Which geocoding result to use. if None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. to get the top match regardless of geometry type, set which_result=1. Defaults to None.
-            by_osmid (bool, optional): If True, handle query as an OSM ID for lookup rather than text search. Defaults to False.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            which_result: Which geocoding result to use. If None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. To get the top match regardless of geometry type, set which_result=1. Defaults to None.
+            by_osmid: If True, handle query as an OSM ID for lookup rather than text search. Defaults to False.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
         from .osm import osm_gdf_from_geocode
 
         gdf = osm_gdf_from_geocode(query, which_result=which_result, by_osmid=by_osmid)
@@ -3093,30 +3134,34 @@ class Map(core.Map):
 
     def add_osm_from_address(
         self,
-        address,
-        tags,
-        dist=1000,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        address: str,
+        tags: dict[str, Any],
+        dist: int = 1000,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM entities within some distance N, S, E, W of address to the map.
 
         Args:
-            address (str): The address to geocode and use as the central point around which to get the geometries.
-            tags (dict): Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
-            dist (int, optional): Distance in meters. Defaults to 1000.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            address: The address to geocode and use as the central point around which to get the geometries.
+            tags: Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
+            dist: Distance in meters. Defaults to 1000.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_address
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         gdf = osm_gdf_from_address(address, tags, dist)
         geojson = gdf.__geo_interface__
@@ -3135,29 +3180,33 @@ class Map(core.Map):
     def add_osm_from_place(
         self,
         query,
-        tags,
-        which_result=None,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        tags: dict[str, Any],
+        which_result: int | None = None,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM entities within boundaries of geocodable place(s) to the map.
 
         Args:
             query (str | dict | list): Query string(s) or structured dict(s) to geocode.
-            tags (dict): Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
-            which_result (int, optional): Which geocoding result to use. if None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. to get the top match regardless of geometry type, set which_result=1. Defaults to None.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            tags: Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
+            which_result: Which geocoding result to use. if None, auto-select the first (Multi)Polygon or raise an error if OSM doesn't return one. to get the top match regardless of geometry type, set which_result=1. Defaults to None.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_place
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         gdf = osm_gdf_from_place(query, tags, which_result)
         geojson = gdf.__geo_interface__
@@ -3175,30 +3224,34 @@ class Map(core.Map):
 
     def add_osm_from_point(
         self,
-        center_point,
-        tags,
-        dist=1000,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        center_point: tuple[float, float],
+        tags: dict[str, Any],
+        dist: int = 1000,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM entities within some distance N, S, E, W of a point to the map.
 
         Args:
-            center_point (tuple): The (lat, lng) center point around which to get the geometries.
-            tags (dict): Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
-            dist (int, optional): Distance in meters. Defaults to 1000.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            center_point: The (lat, lng) center point around which to get the geometries.
+            tags: Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
+            dist: Distance in meters. Defaults to 1000.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_point
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         gdf = osm_gdf_from_point(center_point, tags, dist)
         geojson = gdf.__geo_interface__
@@ -3217,27 +3270,31 @@ class Map(core.Map):
     def add_osm_from_polygon(
         self,
         polygon,
-        tags,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
+        tags: dict[str, Any],
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
         info_mode="on_hover",
-    ):
+    ) -> None:
         """Adds OSM entities within boundaries of a (multi)polygon to the map.
 
         Args:
             polygon (shapely.geometry.Polygon | shapely.geometry.MultiPolygon): Geographic boundaries to fetch geometries within
-            tags (dict): Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            tags: Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_polygon
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         gdf = osm_gdf_from_polygon(polygon, tags)
         geojson = gdf.__geo_interface__
@@ -3255,34 +3312,38 @@ class Map(core.Map):
 
     def add_osm_from_bbox(
         self,
-        north,
-        south,
-        east,
-        west,
-        tags,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        north: float,
+        south: float,
+        east: float,
+        west: float,
+        tags: dict[str, Any],
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM entities within a N, S, E, W bounding box to the map.
 
         Args:
-            north (float): Northern latitude of bounding box.
-            south (float): Southern latitude of bounding box.
-            east (float): Eastern longitude of bounding box.
-            west (float): Western longitude of bounding box.
-            tags (dict): Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            north: Northern latitude of bounding box.
+            south: Southern latitude of bounding box.
+            east: Eastern longitude of bounding box.
+            west: Western longitude of bounding box.
+            tags: Dict of tags used for finding objects in the selected area. Results returned are the union, not intersection of each individual tag. Each result matches at least one given tag. The dict keys should be OSM tags, (e.g., building, landuse, highway, etc) and the dict values should be either True to retrieve all items with the given tag, or a string to get a single tag-value combination, or a list of strings to get multiple values for the given tag. For example, tags = {‘building’: True} would return all building footprints in the area. tags = {‘amenity’:True, ‘landuse’:[‘retail’,’commercial’], ‘highway’:’bus_stop’} would return all amenities, landuse=retail, landuse=commercial, and highway=bus_stop.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_bbox
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         gdf = osm_gdf_from_bbox(north, south, east, west, tags)
         geojson = gdf.__geo_interface__
@@ -3300,14 +3361,14 @@ class Map(core.Map):
 
     def add_osm_from_view(
         self,
-        tags,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-    ):
+        tags: dict[str, Any],
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+    ) -> None:
         """Adds OSM entities within the current map view to the map.
 
         Args:
@@ -3320,6 +3381,10 @@ class Map(core.Map):
             info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
         """
         from .osm import osm_gdf_from_bbox
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         bounds = self.bounds
         if len(bounds) == 0:
@@ -3351,29 +3416,33 @@ class Map(core.Map):
     def add_gdf(
         self,
         gdf,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        zoom_to_layer=True,
-        encoding="utf-8",
-    ):
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
+        encoding: str = "utf-8",
+    ) -> None:
         """Adds a GeoDataFrame to the map.
 
         Args:
             gdf (GeoDataFrame): A GeoPandas GeoDataFrame.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            zoom_to_layer (bool, optional): Whether to zoom to the layer.
-            encoding (str, optional): The encoding of the GeoDataFrame. Defaults to "utf-8".
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            zoom_to_layer: Whether to zoom to the layer.
+            encoding: The encoding of the GeoDataFrame. Defaults to "utf-8".
         """
         data = gdf_to_geojson(gdf, epsg="4326")
+
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
 
         self.add_geojson(
             data,
@@ -3396,30 +3465,34 @@ class Map(core.Map):
 
     def add_gdf_from_postgis(
         self,
-        sql,
+        sql: str,
         con,
-        layer_name="Untitled",
-        style={},
-        hover_style={},
-        style_callback=None,
-        fill_colors=["black"],
-        info_mode="on_hover",
-        zoom_to_layer=True,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        fill_colors: list[str] | None = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         """Reads a PostGIS database and returns data as a GeoDataFrame to be added to the map.
 
         Args:
-            sql (str): SQL query to execute in selecting entries from database, or name of the table to read from the database.
+            sql: SQL query to execute in selecting entries from database, or name of the table to read from the database.
             con (sqlalchemy.engine.Engine): Active connection to the database to query.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
-            fill_colors (list, optional): The random colors to use for filling polygons. Defaults to ["black"].
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            zoom_to_layer (bool, optional): Whether to zoom to the layer.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            fill_colors: The random colors to use for filling polygons. Defaults to ["black"].
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            zoom_to_layer: Whether to zoom to the layer.
         """
+        style = style or {}
+        hover_style = hover_style or {}
+        fill_colors = fill_colors or ["black"]
+
         gdf = read_postgis(sql, con, **kwargs)
         gdf = gdf.to_crs("epsg:4326")
         self.add_gdf(
@@ -3436,34 +3509,37 @@ class Map(core.Map):
     def add_time_slider(
         self,
         ee_object,
-        vis_params={},
+        vis_params: dict[str, Any] | None = None,
         region=None,
-        layer_name="Time series",
+        layer_name: str = "Time series",
         labels=None,
-        time_interval=1,
-        position="bottomright",
-        slider_length="150px",
-        date_format="YYYY-MM-dd",
-        opacity=1.0,
+        time_interval: int = 1,
+        position: str = "bottomright",
+        slider_length: str = "150px",
+        date_format: str = "YYYY-MM-dd",
+        opacity: float = 1.0,
         **kwargs,
-    ):
+    ) -> None:
         """Adds a time slider to the map.
 
         Args:
             ee_object (ee.Image | ee.ImageCollection): The Image or ImageCollection to visualize.
-            vis_params (dict, optional): Visualization parameters to use for visualizing image. Defaults to {}.
+            vis_params: Visualization parameters to use for visualizing image. Defaults to {}.
             region (ee.Geometry | ee.FeatureCollection): The region to visualize.
-            layer_name (str, optional): The layer name to be used. Defaults to "Time series".
+            layer_name: The layer name to be used. Defaults to "Time series".
             labels (list, optional): The list of labels to be used for the time series. Defaults to None.
-            time_interval (int, optional): Time interval in seconds. Defaults to 1.
-            position (str, optional): Position to place the time slider, can be any of ['topleft', 'topright', 'bottomleft', 'bottomright']. Defaults to "bottomright".
-            slider_length (str, optional): Length of the time slider. Defaults to "150px".
-            date_format (str, optional): The date format to use. Defaults to 'YYYY-MM-dd'.
-            opacity (float, optional): The opacity of layers. Defaults to 1.0.
+            time_interval: Time interval in seconds. Defaults to 1.
+            position: Position to place the time slider, can be any of ['topleft', 'topright', 'bottomleft', 'bottomright']. Defaults to "bottomright".
+            slider_length: Length of the time slider. Defaults to "150px".
+            date_format: The date format to use. Defaults to 'YYYY-MM-dd'.
+            opacity: The opacity of layers. Defaults to 1.0.
 
         Raises:
             TypeError: If the ee_object is not ee.Image | ee.ImageCollection.
         """
+        del kwargs  # Unused.
+        vis_params = vis_params or {}
+
         if isinstance(ee_object, ee.Image):
             if region is not None:
                 if isinstance(region, ee.Geometry):
@@ -3512,43 +3588,44 @@ class Map(core.Map):
             self.addLayer(ee_object.toBands(), {}, layer_name, False, opacity)
         self.addLayer(first, vis_params, "Image X", True, opacity)
 
-        slider = widgets.IntSlider(
+        slider = ipywidgets.IntSlider(
             min=1,
             max=len(labels),
             readout=False,
             continuous_update=False,
-            layout=widgets.Layout(width=slider_length),
+            layout=ipywidgets.Layout(width=slider_length),
         )
-        label = widgets.Label(
-            value=labels[0], layout=widgets.Layout(padding="0px 5px 0px 5px")
+        label = ipywidgets.Label(
+            value=labels[0], layout=ipywidgets.Layout(padding="0px 5px 0px 5px")
         )
 
-        play_btn = widgets.Button(
+        play_btn = ipywidgets.Button(
             icon="play",
             tooltip="Play the time slider",
             button_style="primary",
-            layout=widgets.Layout(width="32px"),
+            layout=ipywidgets.Layout(width="32px"),
         )
 
-        pause_btn = widgets.Button(
+        pause_btn = ipywidgets.Button(
             icon="pause",
             tooltip="Pause the time slider",
             button_style="primary",
-            layout=widgets.Layout(width="32px"),
+            layout=ipywidgets.Layout(width="32px"),
         )
 
-        close_btn = widgets.Button(
+        close_btn = ipywidgets.Button(
             icon="times",
             tooltip="Close the time slider",
             button_style="primary",
-            layout=widgets.Layout(width="32px"),
+            layout=ipywidgets.Layout(width="32px"),
         )
 
-        play_chk = widgets.Checkbox(value=False)
+        play_chk = ipywidgets.Checkbox(value=False)
 
-        slider_widget = widgets.HBox([slider, label, play_btn, pause_btn, close_btn])
+        slider_widget = ipywidgets.HBox([slider, label, play_btn, pause_btn, close_btn])
 
         def play_click(b):
+            del b  # Unused.
 
             play_chk.value = True
 
@@ -3564,12 +3641,14 @@ class Map(core.Map):
             thread.start()
 
         def pause_click(b):
+            del b  # Unused.
             play_chk.value = False
 
         play_btn.on_click(play_click)
         pause_btn.on_click(pause_click)
 
         def slider_changed(change):
+            del change  # Unused.
             self.default_style = {"cursor": "wait"}
             index = slider.value - 1
             label.value = labels[index]
@@ -3582,6 +3661,7 @@ class Map(core.Map):
         slider.observe(slider_changed, "value")
 
         def close_click(b):
+            del b  # Unused.
             play_chk.value = False
             self.toolbar_reset()
             self.remove_ee_layer("Image X")
@@ -3599,22 +3679,22 @@ class Map(core.Map):
 
     def add_xy_data(
         self,
-        in_csv,
-        x="longitude",
-        y="latitude",
-        label=None,
-        layer_name="Marker cluster",
-        to_ee=False,
+        in_csv: str,
+        x: str = "longitude",
+        y: str = "latitude",
+        label: str | None = None,
+        layer_name: str = "Marker cluster",
+        to_ee: bool = False,
     ):
         """Adds points from a CSV file containing lat/lon information and display data on the map.
 
         Args:
-            in_csv (str): The file path to the input CSV file.
-            x (str, optional): The name of the column containing longitude coordinates. Defaults to "longitude".
-            y (str, optional): The name of the column containing latitude coordinates. Defaults to "latitude".
-            label (str, optional): The name of the column containing label information to used for marker popup. Defaults to None.
-            layer_name (str, optional): The layer name to use. Defaults to "Marker cluster".
-            to_ee (bool, optional): Whether to convert the csv to an ee.FeatureCollection.
+            in_csv: The file path to the input CSV file.
+            x: The name of the column containing longitude coordinates. Defaults to "longitude".
+            y: The name of the column containing latitude coordinates. Defaults to "latitude".
+            label: The name of the column containing label information to used for marker popup. Defaults to None.
+            layer_name: The layer name to use. Defaults to "Marker cluster".
+            to_ee: Whether to convert the csv to an ee.FeatureCollection.
 
         Raises:
             FileNotFoundError: The specified input csv does not exist.
@@ -3622,7 +3702,9 @@ class Map(core.Map):
             ValueError: The specified y column does not exist.
             ValueError: The specified label column does not exist.
         """
-        if not in_csv.startswith("http") and (not os.path.exists(in_csv)):
+        if not in_csv.startswith(("http://", "https://")) and (
+            not os.path.exists(in_csv)
+        ):
             raise FileNotFoundError("The specified input csv does not exist.")
 
         df = pd.read_csv(in_csv)
@@ -3654,7 +3736,7 @@ class Map(core.Map):
                     ipyleaflet.Marker(
                         location=point,
                         draggable=False,
-                        popup=widgets.HTML(str(labels[index])),
+                        popup=ipywidgets.HTML(str(labels[index])),
                     )
                     for index, point in enumerate(points)
                 ]
@@ -3671,34 +3753,39 @@ class Map(core.Map):
 
     def add_points_from_xy(
         self,
-        data,
-        x="longitude",
-        y="latitude",
-        popup=None,
-        layer_name="Marker Cluster",
-        color_column=None,
-        marker_colors=None,
-        icon_colors=["white"],
-        icon_names=["info"],
-        spin=False,
-        add_legend=True,
+        data: str | pd.DataFrame,
+        x: str = "longitude",
+        y: str = "latitude",
+        popup: list[str] | None = None,
+        layer_name: str = "Marker Cluster",
+        color_column: str | None = None,
+        marker_colors: list | None = None,
+        icon_colors: list[str] | None = None,
+        icon_names: list[str] | None = None,
+        spin: bool = False,
+        add_legend: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         """Adds a marker cluster to the map.
 
         Args:
-            data (str | pd.DataFrame): A csv or Pandas DataFrame containing x, y, z values.
-            x (str, optional): The column name for the x values. Defaults to "longitude".
-            y (str, optional): The column name for the y values. Defaults to "latitude".
-            popup (list, optional): A list of column names to be used as the popup. Defaults to None.
-            layer_name (str, optional): The name of the layer. Defaults to "Marker Cluster".
-            color_column (str, optional): The column name for the color values. Defaults to None.
-            marker_colors (list, optional): A list of colors to be used for the markers. Defaults to None.
-            icon_colors (list, optional): A list of colors to be used for the icons. Defaults to ['white'].
-            icon_names (list, optional): A list of names to be used for the icons. More icons can be found at https://fontawesome.com/v4/icons. Defaults to ['info'].
-            spin (bool, optional): If True, the icon will spin. Defaults to False.
-            add_legend (bool, optional): If True, a legend will be added to the map. Defaults to True.
+            data: A csv or Pandas DataFrame containing x, y, z values.
+            x: The column name for the x values. Defaults to "longitude".
+            y: The column name for the y values. Defaults to "latitude".
+            popup: A list of column names to be used as the popup. Defaults to None.
+            layer_name: The name of the layer. Defaults to "Marker Cluster".
+            color_column: The column name for the color values. Defaults to None.
+            marker_colors: A list of colors to be used for the markers. Defaults to None.
+            icon_colors: A list of colors to be used for the icons. Defaults to ['white'].
+            icon_names: A list of names to be used for the icons. More icons can be found at https://fontawesome.com/v4/icons. Defaults to ['info'].
+            spin: If True, the icon will spin. Defaults to False.
+            add_legend: If True, a legend will be added to the map. Defaults to True.
         """
+        del kwargs  # Unused.
+
+        icon_colors = icon_colors or ["white"]
+        icon_names = icon_names or ["info"]
+
         data = coreutils.github_raw_url(data)
 
         color_options = [
@@ -3725,7 +3812,9 @@ class Map(core.Map):
 
         if isinstance(data, pd.DataFrame):
             df = data
-        elif not data.startswith("http") and (not os.path.exists(data)):
+        elif not data.startswith(("http://", "https://")) and (
+            not os.path.exists(data)
+        ):
             raise FileNotFoundError("The specified input csv does not exist.")
         else:
             df = pd.read_csv(data)
@@ -3819,7 +3908,7 @@ class Map(core.Map):
                     marker = ipyleaflet.Marker(
                         location=point,
                         draggable=False,
-                        popup=widgets.HTML(str(labels[index])),
+                        popup=ipywidgets.HTML(str(labels[index])),
                         icon=marker_icon,
                     )
                     markers.append(marker)
@@ -3861,7 +3950,7 @@ class Map(core.Map):
                     marker = ipyleaflet.Marker(
                         location=point,
                         draggable=False,
-                        popup=widgets.HTML(labels[index]),
+                        popup=ipywidgets.HTML(labels[index]),
                         icon=marker_icon,
                     )
                     markers.append(marker)
@@ -3902,27 +3991,31 @@ class Map(core.Map):
 
     def add_circle_markers_from_xy(
         self,
-        data,
-        x="longitude",
-        y="latitude",
-        radius=10,
-        popup=None,
+        data: str | pd.DataFrame,
+        x: str = "longitude",
+        y: str = "latitude",
+        radius: int = 10,
+        popup: list[str] | None = None,
         **kwargs,
-    ):
-        """Adds a marker cluster to the map. For a list of options, see https://ipyleaflet.readthedocs.io/en/latest/api_reference/circle_marker.html
+    ) -> None:
+        """Adds a marker cluster to the map.
+
+        For a list of options, see https://ipyleaflet.readthedocs.io/en/latest/api_reference/circle_marker.html
 
         Args:
-            data (str | pd.DataFrame): A csv or Pandas DataFrame containing x, y, z values.
-            x (str, optional): The column name for the x values. Defaults to "longitude".
-            y (str, optional): The column name for the y values. Defaults to "latitude".
-            radius (int, optional): The radius of the circle. Defaults to 10.
-            popup (list, optional): A list of column names to be used as the popup. Defaults to None.
+            data: A csv or Pandas DataFrame containing x, y, z values.
+            x: The column name for the x values. Defaults to "longitude".
+            y: The column name for the y values. Defaults to "latitude".
+            radius: The radius of the circle. Defaults to 10.
+            popup: A list of column names to be used as the popup. Defaults to None.
         """
         data = coreutils.github_raw_url(data)
 
         if isinstance(data, pd.DataFrame):
             df = data
-        elif not data.startswith("http") and (not os.path.exists(data)):
+        elif not data.startswith(("http://", "https://")) and (
+            not os.path.exists(data)
+        ):
             raise FileNotFoundError("The specified input csv does not exist.")
         else:
             df = pd.read_csv(data)
@@ -3945,7 +4038,7 @@ class Map(core.Map):
             html = ""
             for p in popup:
                 html = html + "<b>" + p + "</b>" + ": " + str(getattr(row, p)) + "<br>"
-            popup_html = widgets.HTML(html)
+            popup_html = ipywidgets.HTML(html)
 
             marker = ipyleaflet.CircleMarker(
                 location=[getattr(row, y), getattr(row, x)],
@@ -3956,62 +4049,87 @@ class Map(core.Map):
             super().add(marker)
 
     def add_planet_by_month(
-        self, year=2016, month=1, name=None, api_key=None, token_name="PLANET_API_KEY"
-    ):
-        """Adds a Planet global mosaic by month to the map. To get a Planet API key, see https://developers.planet.com/quickstart/apis
+        self,
+        year: int = 2016,
+        month: int = 1,
+        name: str | None = None,
+        api_key: str | None = None,
+        token_name: str = "PLANET_API_KEY",
+    ) -> None:
+        """Adds a Planet global mosaic by month to the map.
+
+        To get a Planet API key, see https://developers.planet.com/quickstart/apis
 
         Args:
-            year (int, optional): The year of Planet global mosaic, must be >=2016. Defaults to 2016.
-            month (int, optional): The month of Planet global mosaic, must be 1-12. Defaults to 1.
-            name (str, optional): The layer name to use. Defaults to None.
-            api_key (str, optional): The Planet API key. Defaults to None.
-            token_name (str, optional): The environment variable name of the API key. Defaults to "PLANET_API_KEY".
+            year: The year of Planet global mosaic, must be >=2016. Defaults to 2016.
+            month: The month of Planet global mosaic, must be 1-12. Defaults to 1.
+            name: The layer name to use. Defaults to None.
+            api_key: The Planet API key. Defaults to None.
+            token_name: The environment variable name of the API key. Defaults to "PLANET_API_KEY".
         """
         layer = planet_tile_by_month(year, month, name, api_key, token_name)
         self.add(layer)
 
     def add_planet_by_quarter(
-        self, year=2016, quarter=1, name=None, api_key=None, token_name="PLANET_API_KEY"
-    ):
-        """Adds a Planet global mosaic by quarter to the map. To get a Planet API key, see https://developers.planet.com/quickstart/apis
+        self,
+        year: int = 2016,
+        quarter: int = 1,
+        name: str | None = None,
+        api_key: str | None = None,
+        token_name: str = "PLANET_API_KEY",
+    ) -> None:
+        """Adds a Planet global mosaic by quarter to the map.
+
+        To get a Planet API key, see https://developers.planet.com/quickstart/apis
 
         Args:
-            year (int, optional): The year of Planet global mosaic, must be >=2016. Defaults to 2016.
-            quarter (int, optional): The quarter of Planet global mosaic, must be 1-12. Defaults to 1.
-            name (str, optional): The layer name to use. Defaults to None.
-            api_key (str, optional): The Planet API key. Defaults to None.
-            token_name (str, optional): The environment variable name of the API key. Defaults to "PLANET_API_KEY".
+            year: The year of Planet global mosaic, must be >=2016. Defaults to 2016.
+            quarter: The quarter of Planet global mosaic, must be 1-12. Defaults to 1.
+            name: The layer name to use. Defaults to None.
+            api_key: The Planet API key. Defaults to None.
+            token_name: The environment variable name of the API key. Defaults to "PLANET_API_KEY".
         """
         layer = planet_tile_by_quarter(year, quarter, name, api_key, token_name)
         self.add(layer)
 
-    def to_streamlit(self, width=None, height=600, scrolling=False, **kwargs):
+    def to_streamlit(
+        self,
+        width: int | None = None,
+        height: int = 600,
+        scrolling: bool = False,
+        **kwargs,
+    ):
         """Renders map figure in a Streamlit app.
 
         Args:
-            width (int, optional): Width of the map. Defaults to None.
-            height (int, optional): Height of the map. Defaults to 600.
-            responsive (bool, optional): Whether to make the map responsive. Defaults to True.
-            scrolling (bool, optional): If True, show a scrollbar when the content is larger than the iframe. Otherwise, do not show a scrollbar. Defaults to False.
+            width: Width of the map. Defaults to None.
+            height: Height of the map. Defaults to 600.
+            scrolling: If True, show a scrollbar when the content is larger than the iframe. Otherwise, do not show a scrollbar. Defaults to False.
 
         Returns:
             streamlit.components: components.html object.
         """
         import streamlit.components.v1 as components
 
+        del kwargs  # Unused.
+
         return components.html(
             self.to_html(), width=width, height=height, scrolling=scrolling
         )
 
     def add_point_layer(
-        self, filename, popup=None, layer_name="Marker Cluster", **kwargs
-    ):
+        self,
+        filename: str,
+        popup: str | list[str] | None = None,
+        layer_name: str = "Marker Cluster",
+        **kwargs,
+    ) -> None:
         """Adds a point layer to the map with a popup attribute.
 
         Args:
-            filename (str): str, http url, path object or file-like object. Either the absolute or relative path to the file or URL to be opened, or any object with a read() method (such as an open file or StringIO)
-            popup (str | list, optional): Column name(s) to be used for popup. Defaults to None.
-            layer_name (str, optional): A layer name to use. Defaults to "Marker Cluster".
+            filename: str, http url, path object or file-like object. Either the absolute or relative path to the file or URL to be opened, or any object with a read() method (such as an open file or StringIO)
+            popup: Column name(s) to be used for popup. Defaults to None.
+            layer_name: A layer name to use. Defaults to "Marker Cluster".
 
         Raises:
             ValueError: If the specified column name does not exist.
@@ -4022,7 +4140,7 @@ class Map(core.Map):
 
         self.default_style = {"cursor": "wait"}
 
-        if not filename.startswith("http"):
+        if not filename.startswith(("http://", "https://")):
             filename = os.path.abspath(filename)
         gdf = gpd.read_file(filename, **kwargs)
         df = gdf.to_crs(epsg="4326")
@@ -4051,7 +4169,7 @@ class Map(core.Map):
                     ipyleaflet.Marker(
                         location=point,
                         draggable=False,
-                        popup=widgets.HTML(str(labels[index])),
+                        popup=ipywidgets.HTML(str(labels[index])),
                     )
                     for index, point in enumerate(points)
                 ]
@@ -4068,7 +4186,7 @@ class Map(core.Map):
                     ipyleaflet.Marker(
                         location=point,
                         draggable=False,
-                        popup=widgets.HTML(labels[index]),
+                        popup=ipywidgets.HTML(labels[index]),
                     )
                     for index, point in enumerate(points)
                 ]
@@ -4083,13 +4201,18 @@ class Map(core.Map):
 
         self.default_style = {"cursor": "default"}
 
-    def add_census_data(self, wms, layer, census_dict=None, **kwargs):
+    def add_census_data(
+        self, wms: str, layer: str, census_dict: dict | None = None, **kwargs
+    ) -> None:
         """Adds a census data layer to the map.
 
         Args:
-            wms (str): The wms to use. For example, "Current", "ACS 2021", "Census 2020".  See the complete list at https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_wms.html
-            layer (str): The layer name to add to the map.
-            census_dict (dict, optional): A dictionary containing census data. Defaults to None. It can be obtained from the get_census_dict() function.
+            wms: The wms to use. For example, "Current", "ACS 2021", "Census 2020". See
+                the complete list at
+                https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_wms.html
+            layer: The layer name to add to the map.
+            census_dict: A dictionary containing census data. Defaults to None. It can
+                be obtained from the get_census_dict() function.
         """
         if census_dict is None:
             census_dict = get_census_dict()
@@ -4115,17 +4238,20 @@ class Map(core.Map):
 
         self.add_wms_layer(url, layer, **kwargs)
 
-    def add_xyz_service(self, provider, **kwargs):
+    def add_xyz_service(self, provider: str, **kwargs) -> None:
         """Add a XYZ tile layer to the map.
 
         Args:
-            provider (str): A tile layer name starts with xyz or qms. For example, xyz.OpenTopoMap,
+            provider: A tile layer name starts with xyz or qms. For example,
+                xyz.OpenTopoMap,
 
         Raises:
             ValueError: The provider is not valid. It must start with xyz or qms.
         """
         import xyzservices.providers as xyz
         from xyzservices import TileProvider
+
+        del kwargs  # Unused.
 
         if provider.startswith("xyz"):
             name = provider[4:]
@@ -4187,31 +4313,30 @@ class Map(core.Map):
     def add_labels(
         self,
         data,
-        column,
-        font_size="12pt",
-        font_color="black",
-        font_family="arial",
-        font_weight="normal",
-        x="longitude",
-        y="latitude",
-        draggable=True,
-        layer_name="Labels",
+        column: str,
+        font_size: str = "12pt",
+        font_color: str = "black",
+        font_family: str = "arial",
+        font_weight: str = "normal",
+        x: str = "longitude",
+        y: str = "latitude",
+        draggable: bool = True,
+        layer_name: str = "Labels",
         **kwargs,
-    ):
+    ) -> None:
         """Adds a label layer to the map. Reference: https://ipyleaflet.readthedocs.io/en/latest/api_reference/divicon.html
 
         Args:
             data (pd.DataFrame | ee.FeatureCollection): The input data to label.
-            column (str): The column name of the data to label.
-            font_size (str, optional): The font size of the labels. Defaults to "12pt".
-            font_color (str, optional): The font color of the labels. Defaults to "black".
-            font_family (str, optional): The font family of the labels. Defaults to "arial".
-            font_weight (str, optional): The font weight of the labels, can be normal, bold. Defaults to "normal".
-            x (str, optional): The column name of the longitude. Defaults to "longitude".
-            y (str, optional): The column name of the latitude. Defaults to "latitude".
-            draggable (bool, optional): Whether the labels are draggable. Defaults to True.
-            layer_name (str, optional): Layer name to use. Defaults to "Labels".
-
+            column: The column name of the data to label.
+            font_size: The font size of the labels. Defaults to "12pt".
+            font_color: The font color of the labels. Defaults to "black".
+            font_family: The font family of the labels. Defaults to "arial".
+            font_weight: The font weight of the labels, can be normal, bold. Defaults to "normal".
+            x: The column name of the longitude. Defaults to "longitude".
+            y: The column name of the latitude. Defaults to "latitude".
+            draggable: Whether the labels are draggable. Defaults to True.
+            layer_name: Layer name to use. Defaults to "Labels".
         """
         warnings.filterwarnings("ignore")
 
@@ -4268,7 +4393,7 @@ class Map(core.Map):
         self.add(layer_group)
         self.labels = layer_group
 
-    def remove_labels(self):
+    def remove_labels(self) -> None:
         """Removes all labels from the map."""
         if hasattr(self, "labels"):
             self.remove_layer(self.labels)
@@ -4276,39 +4401,48 @@ class Map(core.Map):
 
     def add_netcdf(
         self,
-        filename,
+        filename: str,
         variables=None,
         palette=None,
-        vmin=None,
-        vmax=None,
-        nodata=None,
-        attribution=None,
-        layer_name="NetCDF layer",
-        shift_lon=True,
-        lat="lat",
-        lon="lon",
+        vmin: float | None = None,
+        vmax: float | None = None,
+        nodata: float | None = None,
+        attribution: str | None = None,
+        layer_name: str = "NetCDF layer",
+        shift_lon: bool = True,
+        lat: str = "lat",
+        lon: str = "lon",
         **kwargs,
     ):
         """Generate an ipyleaflet/folium TileLayer from a netCDF file.
-            If you are using this function in JupyterHub on a remote server (e.g., Binder, Microsoft Planetary Computer),
-            try adding to following two lines to the beginning of the notebook if the raster does not render properly.
 
-            import os
-            os.environ['LOCALTILESERVER_CLIENT_PREFIX'] = f'{os.environ['JUPYTERHUB_SERVICE_PREFIX'].lstrip('/')}/proxy/{{port}}'
+        If you are using this function in JupyterHub on a remote server (e.g., Binder,
+        Microsoft Planetary Computer), try adding to following two lines to the
+        beginning of the notebook if the raster does not render properly.
+
+        import os
+        os.environ['LOCALTILESERVER_CLIENT_PREFIX'] = f'{os.environ['JUPYTERHUB_SERVICE_PREFIX'].lstrip('/')}/proxy/{{port}}'
 
         Args:
-            filename (str): File path or HTTP URL to the netCDF file.
-            variables (int, optional): The variable/band names to extract data from the netCDF file. Defaults to None. If None, all variables will be extracted.
-            port (str, optional): The port to use for the server. Defaults to "default".
-            palette (str, optional): The name of the color palette from `palettable` to use when plotting a single band. See https://jiffyclub.github.io/palettable. Default is greyscale
-            vmin (float, optional): The minimum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            vmax (float, optional): The maximum value to use when colormapping the palette when plotting a single band. Defaults to None.
-            nodata (float, optional): The value from the band to use to interpret as not valid data. Defaults to None.
-            attribution (str, optional): Attribution for the source raster. This defaults to a message about it being a local file. Defaults to None.
-            layer_name (str, optional): The layer name to use. Defaults to "netCDF layer".
-            shift_lon (bool, optional): Flag to shift longitude values from [0, 360] to the range [-180, 180]. Defaults to True.
-            lat (str, optional): Name of the latitude variable. Defaults to 'lat'.
-            lon (str, optional): Name of the longitude variable. Defaults to 'lon'.
+            filename: File path or HTTP URL to the netCDF file.
+            variables (int, optional): The variable/band names to extract data from the
+                netCDF file. Defaults to None. If None, all variables will be extracted.
+            palette (str, optional): The name of the color palette from `palettable` to
+                use when plotting a single band. See
+                https://jiffyclub.github.io/palettable. Default is greyscale.
+            vmin: The minimum value to use when colormapping the palette when plotting a
+                single band. Defaults to None.
+            vmax: The maximum value to use when colormapping the palette when plotting a
+                single band. Defaults to None.
+            nodata: The value from the band to use to interpret as not valid
+                data. Defaults to None.
+            attribution: Attribution for the source raster. This defaults to a message
+                about it being a local file. Defaults to None.
+            layer_name: The layer name to use. Defaults to "netCDF layer".
+            shift_lon: Flag to shift longitude values from [0, 360] to the range [-180,
+                180]. Defaults to True.
+            lat: Name of the latitude variable. Defaults to 'lat'.
+            lon: Name of the longitude variable. Defaults to 'lon'.
         """
         tif, vars = netcdf_to_tif(
             filename, shift_lon=shift_lon, lat=lat, lon=lon, return_vars=True
@@ -4340,51 +4474,52 @@ class Map(core.Map):
     def add_velocity(
         self,
         data,
-        zonal_speed,
-        meridional_speed,
-        latitude_dimension="lat",
-        longitude_dimension="lon",
-        level_dimension="lev",
-        level_index=0,
-        time_index=0,
-        velocity_scale=0.01,
-        max_velocity=20,
-        display_options={},
-        name="Velocity",
-    ):
+        zonal_speed: str,
+        meridional_speed: str,
+        latitude_dimension: str = "lat",
+        longitude_dimension: str = "lon",
+        level_dimension: str = "lev",
+        level_index: int = 0,
+        time_index: int = 0,
+        velocity_scale: float = 0.01,
+        max_velocity: int = 20,
+        display_options: dict[str, Any] | None = None,
+        name: str = "Velocity",
+    ) -> None:
         """Add a velocity layer to the map.
 
         Args:
-            data (str | xr.Dataset): The data to use for the velocity layer. It can be a file path to a NetCDF file or an xarray Dataset.
-            zonal_speed (str): Name of the zonal speed in the dataset. See https://en.wikipedia.org/wiki/Zonal_and_meridional_flow.
-            meridional_speed (str): Name of the meridional speed in the dataset. See https://en.wikipedia.org/wiki/Zonal_and_meridional_flow.
-            latitude_dimension (str, optional): Name of the latitude dimension in the dataset. Defaults to 'lat'.
-            longitude_dimension (str, optional): Name of the longitude dimension in the dataset. Defaults to 'lon'.
-            level_dimension (str, optional): Name of the level dimension in the dataset. Defaults to 'lev'.
-            level_index (int, optional): The index of the level dimension to display. Defaults to 0.
-            time_index (int, optional): The index of the time dimension to display. Defaults to 0.
-            velocity_scale (float, optional): The scale of the velocity. Defaults to 0.01.
-            max_velocity (int, optional): The maximum velocity to display. Defaults to 20.
-            display_options (dict, optional): The display options for the velocity layer. Defaults to {}. See https://bit.ly/3uf8t6w.
-            name (str, optional): Layer name to use . Defaults to 'Velocity'.
+            data (str | xr.Dataset): The data to use for the velocity layer. It can be a
+                file path to a NetCDF file or an xarray Dataset.
+            zonal_speed: Name of the zonal speed in the dataset. See
+                https://en.wikipedia.org/wiki/Zonal_and_meridional_flow.
+            meridional_speed: Name of the meridional speed in the dataset. See
+                https://en.wikipedia.org/wiki/Zonal_and_meridional_flow.
+            latitude_dimension: Name of the latitude dimension in the dataset. Defaults
+                to 'lat'.
+            longitude_dimension: Name of the longitude dimension in the
+                dataset. Defaults to 'lon'.
+            level_dimension: Name of the level dimension in the dataset. Defaults to
+                'lev'.
+            level_index: The index of the level dimension to display. Defaults to 0.
+            time_index: The index of the time dimension to display. Defaults to 0.
+            velocity_scale: The scale of the velocity. Defaults to 0.01.
+            max_velocity: The maximum velocity to display. Defaults to 20.
+            display_options: The display options for the velocity layer. Defaults to
+                {}. See https://bit.ly/3uf8t6w.
+            name: Layer name to use. Defaults to 'Velocity'.
 
         Raises:
             ImportError: If the xarray package is not installed.
             ValueError: If the data is not a NetCDF file or an xarray Dataset.
         """
-        try:
-            import xarray as xr
+        display_options = display_options or {}
 
-            # Velocity depends on traittypes Dataset that needs xarray.
-            from ipyleaflet.velocity import Velocity
-        except ImportError:
-            raise ImportError(
-                "The xarray package is required to add a velocity layer. "
-                "Please install it with `pip install xarray`."
-            )
+        # Velocity depends on traittypes Dataset that needs xarray.
+        from ipyleaflet.velocity import Velocity
 
         if isinstance(data, str):
-            if data.startswith("http"):
+            if data.startswith(("http://", "https://")):
                 data = coreutils.download_file(data)
             ds = xr.open_dataset(data)
 
@@ -4395,7 +4530,7 @@ class Map(core.Map):
 
         coords = list(ds.coords.keys())
 
-        # Rasterio does not handle time or levels. So we must drop them
+        # Rasterio does not handle time or levels, so we must drop them.
         if "time" in coords:
             ds = ds.isel(time=time_index, drop=True)
 
@@ -4419,34 +4554,33 @@ class Map(core.Map):
     def add_data(
         self,
         data,
-        column,
-        colors=None,
-        labels=None,
-        cmap=None,
-        scheme="Quantiles",
-        k=5,
-        add_legend=True,
+        column: str,
+        colors: list[str] | None = None,
+        labels: list[str] | None = None,
+        cmap: str | None = None,
+        scheme: str = "Quantiles",
+        k: int = 5,
+        add_legend: bool = True,
         legend_title=None,
-        legend_kwds=None,
-        classification_kwds=None,
-        layer_name="Untitled",
-        style=None,
-        hover_style=None,
-        style_callback=None,
-        info_mode="on_hover",
-        encoding="utf-8",
+        legend_kwds: dict[str, Any] | None = None,
+        classification_kwds: dict[str, Any] | None = None,
+        layer_name: str = "Untitled",
+        style: dict[str, Any] | None = None,
+        hover_style: dict[str, Any] | None = None,
+        style_callback: Callable | None = None,
+        info_mode: str = "on_hover",
+        encoding: str = "utf-8",
         **kwargs,
     ):
         """Add vector data to the map with a variety of classification schemes.
 
         Args:
             data (str | pd.DataFrame | gpd.GeoDataFrame): The data to classify. It can be a filepath to a vector dataset, a pandas dataframe, or a geopandas geodataframe.
-            column (str): The column to classify.
-            cmap (str, optional): The name of a colormap recognized by matplotlib. Defaults to None.
-            colors (list, optional): A list of colors to use for the classification. Defaults to None.
-            labels (list, optional): A list of labels to use for the legend. Defaults to None.
-            scheme (str, optional): Name of a choropleth classification scheme (requires mapclassify).
-                Name of a choropleth classification scheme (requires mapclassify).
+            column: The column to classify.
+            colors: A list of colors to use for the classification. Defaults to None.
+            labels: A list of labels to use for the legend. Defaults to None.
+            cmap: The name of a colormap recognized by matplotlib. Defaults to None.
+            scheme: Name of a choropleth classification scheme (requires mapclassify).
                 A mapclassify.MapClassifier object will be used
                 under the hood. Supported are all schemes provided by mapclassify (e.g.
                 'BoxPlot', 'EqualInterval', 'FisherJenks', 'FisherJenksSampled',
@@ -4454,8 +4588,9 @@ class Map(core.Map):
                 'JenksCaspallSampled', 'MaxP', 'MaximumBreaks',
                 'NaturalBreaks', 'Quantiles', 'Percentiles', 'StdMean',
                 'UserDefined'). Arguments can be passed in classification_kwds.
-            k (int, optional): Number of classes (ignored if scheme is None or if column is categorical). Default to 5.
-            legend_kwds (dict, optional): Keyword arguments to pass to :func:`matplotlib.pyplot.legend` or `matplotlib.pyplot.colorbar`. Defaults to None.
+            k: Number of classes (ignored if scheme is None or if column is categorical). Default to 5.
+            legend_title: TODO.
+            legend_kwds: Keyword arguments to pass to :func:`matplotlib.pyplot.legend` or `matplotlib.pyplot.colorbar`. Defaults to None.
                 Keyword arguments to pass to :func:`matplotlib.pyplot.legend` or
                 Additional accepted keywords when `scheme` is specified:
                 fmt : string
@@ -4468,9 +4603,9 @@ class Map(core.Map):
                 interval : boolean (default False)
                     An option to control brackets from mapclassify legend.
                     If True, open/closed interval brackets are shown in the legend.
-            classification_kwds (dict, optional): Keyword arguments to pass to mapclassify. Defaults to None.
-            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
-            style (dict, optional): A dictionary specifying the style to be used. Defaults to None.
+            classification_kwds: Keyword arguments to pass to mapclassify. Defaults to None.
+            layer_name: The layer name to be used. Defaults to "Untitled".
+            style: A dictionary specifying the style to be used. Defaults to None.
                 style is a dictionary of the following form:
                     style = {
                     "stroke": False,
@@ -4483,15 +4618,17 @@ class Map(core.Map):
                     "dashArray": "9"
                     "clickable": True,
                 }
-            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
+            hover_style: Hover style dictionary. Defaults to {}.
                 hover_style is a dictionary of the following form:
                     hover_style = {"weight": style["weight"] + 1, "fillOpacity": 0.5}
-            style_callback (function, optional): Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
+            style_callback: Styling function that is called for each feature, and should return the feature style. This styling function takes the feature as argument. Defaults to None.
                 style_callback is a function that takes the feature as argument and should return a dictionary of the following form:
                 style_callback = lambda feat: {"fillColor": feat["properties"]["color"]}
-            info_mode (str, optional): Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
-            encoding (str, optional): The encoding of the GeoJSON file. Defaults to "utf-8".
+            info_mode: Displays the attributes by either on_hover or on_click. Any value other than "on_hover" or "on_click" will be treated as None. Defaults to "on_hover".
+            encoding: The encoding of the GeoJSON file. Defaults to "utf-8".
         """
+        hover_style = hover_style or {}
+
         gdf, legend_dict = classify(  # pytype: disable=attribute-error
             data=data,
             column=column,
@@ -4541,7 +4678,7 @@ class Map(core.Map):
         if add_legend:
             self.add_legend(title=legend_title, legend_dict=legend_dict)
 
-    def user_roi_coords(self, decimals: int = 4):
+    def user_roi_coords(self, decimals: int = 4) -> list[float] | None:
         """Return the bounding box of the ROI as a list of coordinates.
 
         Args:
@@ -4552,43 +4689,48 @@ class Map(core.Map):
     def add_widget(
         self,
         content,
-        position="bottomright",
-        add_header=False,
-        opened=True,
-        show_close_button=True,
-        widget_icon="gear",
-        close_button_icon="times",
-        widget_args={},
-        close_button_args={},
-        display_widget=None,
+        position: str = "bottomright",
+        add_header: bool = False,
+        opened: bool = True,
+        show_close_button: bool = True,
+        widget_icon: str = "gear",
+        close_button_icon: str = "times",
+        widget_args: dict | None = None,
+        close_button_args: dict | None = None,
+        display_widget: ipywidgets.Widget | None = None,
         **kwargs,
     ):
         """Add a widget (e.g., text, HTML, figure) to the map.
 
         Args:
             content (str | ipywidgets.Widget | object): The widget to add.
-            position (str, optional): The position of the widget. Defaults to "bottomright".
-            add_header (bool, optional): Whether to add a header with close buttons to the widget. Defaults to False.
-            opened (bool, optional): Whether to open the toolbar. Defaults to True.
-            show_close_button (bool, optional): Whether to show the close button. Defaults to True.
-            widget_icon (str, optional): The icon name for the toolbar button. Defaults to 'gear'.
-            close_button_icon (str, optional): The icon name for the close button. Defaults to "times".
-            widget_args (dict, optional): Additional arguments to pass to the toolbar button. Defaults to {}.
-            close_button_args (dict, optional): Additional arguments to pass to the close button. Defaults to {}.
-            display_widget (ipywidgets.Widget, optional): The widget to be displayed when the toolbar is clicked.
+            position: The position of the widget. Defaults to "bottomright".
+            add_header: Whether to add a header with close buttons to the widget. Defaults to False.
+            opened: Whether to open the toolbar. Defaults to True.
+            show_close_button: Whether to show the close button. Defaults to True.
+            widget_icon: The icon name for the toolbar button. Defaults to 'gear'.
+            close_button_icon: The icon name for the close button. Defaults to "times".
+            widget_args: Additional arguments to pass to the toolbar button. Defaults to {}.
+            close_button_args: Additional arguments to pass to the close button. Defaults to {}.
+            display_widget: The widget to be displayed when the toolbar is clicked.
             **kwargs: Additional arguments to pass to the HTML or Output widgets
         """
+        if widget_args is None:
+            widget_args = {}
+        if close_button_args is None:
+            close_button_args = {}
+
         allowed_positions = ["topleft", "topright", "bottomleft", "bottomright"]
 
         if position not in allowed_positions:
             raise Exception(f"position must be one of {allowed_positions}")
 
         if "layout" not in kwargs:
-            kwargs["layout"] = widgets.Layout(padding="0px 4px 0px 4px")
+            kwargs["layout"] = ipywidgets.Layout(padding="0px 4px 0px 4px")
         try:
             if add_header:
                 if isinstance(content, str):
-                    widget = widgets.HTML(value=content, **kwargs)
+                    widget = ipywidgets.HTML(value=content, **kwargs)
                 else:
                     widget = content
 
@@ -4606,9 +4748,9 @@ class Map(core.Map):
                 )
             else:
                 if isinstance(content, str):
-                    widget = widgets.HTML(value=content, **kwargs)
+                    widget = ipywidgets.HTML(value=content, **kwargs)
                 else:
-                    widget = widgets.Output(**kwargs)
+                    widget = ipywidgets.Output(**kwargs)
                     with widget:
                         display(content)
                 control = ipyleaflet.WidgetControl(widget=widget, position=position)
@@ -4617,62 +4759,62 @@ class Map(core.Map):
         except Exception as e:
             raise Exception(f"Error adding widget: {e}")
 
-    def add_image(self, image, position="bottomright", **kwargs):
+    def add_image(self, image, position: str = "bottomright", **kwargs) -> None:
         """Add an image to the map.
 
         Args:
             image (str | ipywidgets.Image): The image to add.
-            position (str, optional): The position of the image, can be one of "topleft",
+            position: The position of the image, can be one of "topleft",
                 "topright", "bottomleft", "bottomright". Defaults to "bottomright".
         """
         if isinstance(image, str):
-            if image.startswith("http"):
-                image = widgets.Image(value=requests.get(image).content, **kwargs)
+            if image.startswith(("http://", "https://")):
+                image = ipywidgets.Image(value=requests.get(image).content, **kwargs)
             elif os.path.exists(image):
                 with open(image, "rb") as f:
-                    image = widgets.Image(value=f.read(), **kwargs)
-        elif isinstance(image, widgets.Image):
+                    image = ipywidgets.Image(value=f.read(), **kwargs)
+        elif isinstance(image, ipywidgets.Image):
             pass
         else:
             raise Exception("Invalid image")
 
         self.add_widget(image, position=position, **kwargs)
 
-    def add_html(self, html, position="bottomright", **kwargs):
+    def add_html(self, html: str, position: str = "bottomright", **kwargs) -> None:
         """Add HTML to the map.
 
         Args:
-            html (str): The HTML to add.
-            position (str, optional): The position of the HTML, can be one of "topleft",
+            html: The HTML to add.
+            position: The position of the HTML, can be one of "topleft",
                 "topright", "bottomleft", "bottomright". Defaults to "bottomright".
         """
         self.add_widget(html, position=position, **kwargs)
 
     def add_text(
         self,
-        text,
-        fontsize=20,
-        fontcolor="black",
-        bold=False,
-        padding="5px",
-        background=True,
-        bg_color="white",
-        border_radius="5px",
-        position="bottomright",
+        text: str,
+        fontsize: int = 20,
+        fontcolor: str = "black",
+        bold: bool = False,
+        padding: str = "5px",
+        background: bool = True,
+        bg_color: str = "white",
+        border_radius: str = "5px",
+        position: str = "bottomright",
         **kwargs,
     ):
         """Add text to the map.
 
         Args:
-            text (str): The text to add.
-            fontsize (int, optional): The font size. Defaults to 20.
-            fontcolor (str, optional): The font color. Defaults to "black".
-            bold (bool, optional): Whether to use bold font. Defaults to False.
-            padding (str, optional): The padding. Defaults to "5px".
+            text: The text to add.
+            fontsize: The font size. Defaults to 20.
+            fontcolor: The font color. Defaults to "black".
+            bold: Whether to use bold font. Defaults to False.
+            padding: The padding. Defaults to "5px".
             background (bool, optional): Whether to use background. Defaults to True.
-            bg_color (str, optional): The background color. Defaults to "white".
-            border_radius (str, optional): The border radius. Defaults to "5px".
-            position (str, optional): The position of the widget. Defaults to "bottomright".
+            bg_color: The background color. Defaults to "white".
+            border_radius: The border radius. Defaults to "5px".
+            position: The position of the widget. Defaults to "bottomright".
         """
         if background:
             text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {'bold' if bold else 'normal'};
@@ -4684,37 +4826,40 @@ class Map(core.Map):
 
         self.add_html(text, position=position, **kwargs)
 
-    def to_gradio(self, width="100%", height="500px", **kwargs):
-        """Converts the map to an HTML string that can be used in Gradio. Removes unsupported elements, such as
-            attribution and any code blocks containing functions. See https://github.com/gradio-app/gradio/issues/3190
+    def to_gradio(self, width: str = "100%", height: str = "500px", **kwargs):
+        """Converts the map to an HTML string that can be used in Gradio.
+
+        Removes unsupported elements, such as attribution and any code blocks containing functions. See
+        https://github.com/gradio-app/gradio/issues/3190
 
         Args:
-            width (str, optional): The width of the map. Defaults to '100%'.
-            height (str, optional): The height of the map. Defaults to '500px'.
+            width: The width of the map. Defaults to '100%'.
+            height: The height of the map. Defaults to '500px'.
 
         Returns:
             str: The HTML string to use in Gradio.
         """
+        del width, height, kwargs  # Unused.
         print(
             "The ipyleaflet plotting backend does not support this function. Please use the folium backend instead."
         )
 
     def add_search_control(
         self,
-        marker=None,
-        url=None,
-        zoom=5,
-        property_name="display_name",
-        position="topleft",
+        marker: ipyleaflet.Marker | None = None,
+        url: str | None = None,
+        zoom: int = 5,
+        property_name: str = "display_name",
+        position: str = "topleft",
     ):
         """Add a search control to the map.
 
         Args:
             marker (ipyleaflet.Marker, optional): The marker to use. Defaults to None.
-            url (str, optional): The URL to use for the search. Defaults to None.
-            zoom (int, optional): The zoom level to use. Defaults to 5.
-            property_name (str, optional): The property name to use. Defaults to "display_name".
-            position (str, optional): The position of the widget. Defaults to "topleft".
+            url: The URL to use for the search. Defaults to None.
+            zoom: The zoom level to use. Defaults to 5.
+            property_name: The property name to use. Defaults to "display_name".
+            position: The position of the widget. Defaults to "topleft".
         """
         if marker is None:
             marker = ipyleaflet.Marker(
@@ -4744,17 +4889,18 @@ class Map(core.Map):
         vis_params: dict | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Converts a specific layer from Earth Engine to an image file.
+        """Converts a specific layer from Earth Engine to an image file.
 
         Args:
-            layer_name (str): The name of the layer to convert.
-            output (str): The output file path for the image. Defaults to None.
-            crs (str, optional): The coordinate reference system (CRS) of the output image. Defaults to "EPSG:3857".
-            scale (int, optional): The scale of the output image. Defaults to None.
-            region (ee.Geometry, optional): The region of interest for the conversion. Defaults to None.
-            vis_params (dict, optional): The visualization parameters. Defaults to None.
-            **kwargs: Additional keyword arguments to pass to the `download_ee_image` function.
+            layer_name: The name of the layer to convert.
+            output: The output file path for the image. Defaults to None.
+            crs: The coordinate reference system (CRS) of the output image. Defaults to
+                "EPSG:3857".
+            scale: The scale of the output image. Defaults to None.
+            region: The region of interest for the conversion. Defaults to None.
+            vis_params: The visualization parameters. Defaults to None.
+            **kwargs: Additional keyword arguments to pass to the `download_ee_image`
+              function.
         """
         if region is None:
             b = self.bounds
@@ -4802,7 +4948,7 @@ class ImageOverlay(ipyleaflet.ImageOverlay):
 
         url = kwargs.get("url")
         assert url is not None  # For pytype.
-        if not url.startswith("http"):
+        if not url.startswith(("http://", "https://")):
             url = os.path.abspath(url)
             if not os.path.exists(url):
                 raise FileNotFoundError("The provided file does not exist.")
@@ -4839,17 +4985,24 @@ class ImageOverlay(ipyleaflet.ImageOverlay):
 
 
 def ee_tile_layer(
-    ee_object, vis_params={}, name="Layer untitled", shown=True, opacity=1.0
+    ee_object,
+    vis_params: dict | None = None,
+    name: str = "Layer untitled",
+    shown: bool = True,
+    opacity: float = 1.0,
 ):
     """Converts and Earth Engine layer to ipyleaflet TileLayer.
 
     Args:
         ee_object (Collection|Feature|Image|MapId): The object to add to the map.
-        vis_params (dict, optional): The visualization parameters. Defaults to {}.
-        name (str, optional): The name of the layer. Defaults to 'Layer untitled'.
-        shown (bool, optional): A flag indicating whether the layer should be on by default. Defaults to True.
-        opacity (float, optional): The layer's opacity represented as a number between 0 and 1. Defaults to 1.
+        vis_params: The visualization parameters. Defaults to {}.
+        name: The name of the layer. Defaults to 'Layer untitled'.
+        shown: A flag indicating whether the layer should be on by default. Defaults to
+            True.
+        opacity: The layer's opacity represented as a number between 0 and 1. Defaults
+            to 1.
     """
+    vis_params = vis_params or {}
     return EELeafletTileLayer(ee_object, vis_params, name, shown, opacity)
 
 
@@ -4885,7 +5038,7 @@ def linked_maps(
     Returns:
         ipywidget: A GridspecLayout widget.
     """
-    grid = widgets.GridspecLayout(rows, cols, grid_gap="0px")
+    grid = ipywidgets.GridspecLayout(rows, cols, grid_gap="0px")
     count = rows * cols
 
     maps = []
@@ -4915,7 +5068,7 @@ def linked_maps(
                 height=height,
                 lite_mode=True,
                 add_google_map=False,
-                layout=widgets.Layout(margin="0px", padding="0px"),
+                layout=ipywidgets.Layout(margin="0px", padding="0px"),
                 **kwargs,
             )
 
@@ -4923,8 +5076,8 @@ def linked_maps(
                 m.addLayer(ee_objects[index], vis_params[index], labels[index])
 
             if len(labels) > 0:
-                label = widgets.Label(
-                    labels[index], layout=widgets.Layout(padding="0px 5px 0px 5px")
+                label = ipywidgets.Label(
+                    labels[index], layout=ipywidgets.Layout(padding="0px 5px 0px 5px")
                 )
                 control = ipyleaflet.WidgetControl(
                     widget=label, position=label_position
@@ -4932,10 +5085,10 @@ def linked_maps(
                 m.add(control)
 
             maps.append(m)
-            widgets.jslink((maps[0], "center"), (m, "center"))
-            widgets.jslink((maps[0], "zoom"), (m, "zoom"))
+            ipywidgets.jslink((maps[0], "center"), (m, "center"))
+            ipywidgets.jslink((maps[0], "zoom"), (m, "zoom"))
 
-            output = widgets.Output()
+            output = ipywidgets.Output()
             with output:
                 display(m)
             grid[i, j] = output
@@ -5006,15 +5159,15 @@ def ts_inspector(
     control = ipyleaflet.SplitMapControl(left_layer=left_layer, right_layer=right_layer)
     m.add(control)
 
-    left_dropdown = widgets.Dropdown(
-        options=keys, value=left_name, layout=widgets.Layout(width=width)
+    left_dropdown = ipywidgets.Dropdown(
+        options=keys, value=left_name, layout=ipywidgets.Layout(width=width)
     )
 
     left_control = ipyleaflet.WidgetControl(widget=left_dropdown, position="topleft")
     m.add(left_control)
 
-    right_dropdown = widgets.Dropdown(
-        options=keys, value=right_name, layout=widgets.Layout(width=width)
+    right_dropdown = ipywidgets.Dropdown(
+        options=keys, value=right_name, layout=ipywidgets.Layout(width=width)
     )
 
     right_control = ipyleaflet.WidgetControl(widget=right_dropdown, position="topright")
@@ -5032,6 +5185,7 @@ def ts_inspector(
             break
 
     def left_change(change):
+        del change  # Unused.
         # pytype: disable=attribute-error
         split_control.left_layer.url = layers_dict[left_dropdown.value].url
         # pytype: enable=attribute-error
@@ -5039,6 +5193,7 @@ def ts_inspector(
     left_dropdown.observe(left_change, "value")
 
     def right_change(change):
+        del change  # Unused.
         # pytype: disable=attribute-error
         split_control.right_layer.url = layers_dict[right_dropdown.value].url
         # pytype: enable=attribute-error
@@ -5074,11 +5229,11 @@ def get_basemap(name: str) -> ipyleaflet.TileLayer | ipyleaflet.WMSLayer:
                     transparent=basemap["transparent"],
                 )
             return layer
-        else:
-            raise ValueError(
-                "Basemap must be a string. Please choose from: "
-                + str(list(basemaps.keys()))
-            )
+
+        raise ValueError(
+            "Basemap must be a string. Please choose from: "
+            + str(list(basemaps.keys()))
+        )
     else:
         raise ValueError(
             "Basemap must be a string. Please choose from: "

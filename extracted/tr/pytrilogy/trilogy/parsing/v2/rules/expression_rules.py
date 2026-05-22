@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from trilogy.constants import NULL_VALUE
-from trilogy.core.enums import BooleanOperator, ComparisonOperator, FunctionType
+from trilogy.core.enums import ComparisonOperator, FunctionType
 from trilogy.core.exceptions import InvalidSyntaxException
 from trilogy.core.models.author import (
+    Between,
     Comparison,
     ConceptRef,
-    Conditional,
     Parenthetical,
     SubselectComparison,
 )
@@ -155,12 +155,23 @@ def sum_operator(
     for i in range(1, len(values), 2):
         op = str(values[i]).lower()
         right = values[i + 1]
+        # LIKE / ILIKE are binary boolean predicates — emit them as
+        # ``Comparison`` so they slot into the proof and pushdown machinery
+        # the same way other null-propagating comparisons do.
+        if op == "like":
+            result = Comparison(
+                left=result, right=right, operator=ComparisonOperator.LIKE
+            )
+            continue
+        if op == "ilike":
+            result = Comparison(
+                left=result, right=right, operator=ComparisonOperator.ILIKE
+            )
+            continue
         operator = {
             "+": FunctionType.ADD,
             "-": FunctionType.SUBTRACT,
             "||": FunctionType.CONCAT,
-            "like": FunctionType.LIKE,
-            "ilike": FunctionType.ILIKE,
         }.get(op)
         if operator is None:
             raise fail(node, f"Unknown operator: {op}")
@@ -204,17 +215,9 @@ def between_comparison(
     node: SyntaxNode,
     context: RuleContext,
     hydrate: HydrateFunction,
-) -> Conditional:
+) -> Between:
     values = hydrated_children(node, hydrate)
-    return Conditional(
-        left=Comparison(
-            left=values[0], right=values[1], operator=ComparisonOperator.GTE
-        ),
-        right=Comparison(
-            left=values[0], right=values[2], operator=ComparisonOperator.LTE
-        ),
-        operator=BooleanOperator.AND,
-    )
+    return Between(left=values[0], low=values[1], high=values[2])
 
 
 def parenthetical(

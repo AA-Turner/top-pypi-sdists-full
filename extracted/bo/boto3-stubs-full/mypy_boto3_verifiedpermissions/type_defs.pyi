@@ -26,6 +26,7 @@ from .literals import (
     BatchGetPolicyErrorCodeType,
     CedarVersionType,
     DecisionType,
+    DeletionModeType,
     DeletionProtectionType,
     PolicyEffectType,
     PolicyTypeType,
@@ -256,6 +257,7 @@ class DeletePolicyInputTypeDef(TypedDict):
 
 class DeletePolicyStoreAliasInputTypeDef(TypedDict):
     aliasName: str
+    deletionMode: NotRequired[DeletionModeType]
 
 class DeletePolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str

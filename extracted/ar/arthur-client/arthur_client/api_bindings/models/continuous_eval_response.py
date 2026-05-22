@@ -35,11 +35,12 @@ class ContinuousEvalResponse(BaseModel):
     llm_eval_name: StrictStr = Field(description="Name of the llm eval.")
     llm_eval_version: StrictInt = Field(description="Version of the llm eval.")
     transform_id: StrictStr = Field(description="ID of the transform.")
+    transform_version_id: Optional[StrictStr] = None
     transform_variable_mapping: Optional[List[ContinuousEvalTransformVariableMappingResponse]] = Field(default=None, description="Mapping of transform variables to eval variables.")
     enabled: Optional[StrictBool] = Field(default=True, description="Whether the continuous eval is enabled.")
     created_at: datetime = Field(description="Timestamp representing the time the transform was added to the llm eval.")
     updated_at: datetime = Field(description="Timestamp representing the time the continuous eval was last updated.")
-    __properties: ClassVar[List[str]] = ["id", "name", "description", "task_id", "llm_eval_name", "llm_eval_version", "transform_id", "transform_variable_mapping", "enabled", "created_at", "updated_at"]
+    __properties: ClassVar[List[str]] = ["id", "name", "description", "task_id", "llm_eval_name", "llm_eval_version", "transform_id", "transform_version_id", "transform_variable_mapping", "enabled", "created_at", "updated_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +93,11 @@ class ContinuousEvalResponse(BaseModel):
         if self.description is None and "description" in self.model_fields_set:
             _dict['description'] = None
 
+        # set to None if transform_version_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.transform_version_id is None and "transform_version_id" in self.model_fields_set:
+            _dict['transform_version_id'] = None
+
         return _dict
 
     @classmethod
@@ -111,6 +117,7 @@ class ContinuousEvalResponse(BaseModel):
             "llm_eval_name": obj.get("llm_eval_name"),
             "llm_eval_version": obj.get("llm_eval_version"),
             "transform_id": obj.get("transform_id"),
+            "transform_version_id": obj.get("transform_version_id"),
             "transform_variable_mapping": [ContinuousEvalTransformVariableMappingResponse.from_dict(_item) for _item in obj["transform_variable_mapping"]] if obj.get("transform_variable_mapping") is not None else None,
             "enabled": obj.get("enabled") if obj.get("enabled") is not None else True,
             "created_at": obj.get("created_at"),

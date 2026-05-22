@@ -1,14 +1,15 @@
 Metadata-Version: 2.4
 Name: nominal
-Version: 1.144.0
+Version: 1.144.1
 Summary: Automate Nominal workflows in Python
 Project-URL: Homepage, https://nominal.io
 Project-URL: Documentation, https://docs.nominal.io
 Project-URL: Repository, https://github.com/nominal-io/nominal-client
 Author-email: Alexander Reynolds <alex.reynolds@nominal.io>, Alexander Hill <alex.hill@nominal.io>, JP <jack@nominal.io>, Michael Bauer <michael@nominal.io>, Drake Eidukas <drake@nominal.io>
-License-Expression: MIT
+License-Expression: Apache-2.0
 License-File: LICENSE
-Classifier: License :: OSI Approved :: MIT License
+License-File: NOTICE
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

@@ -1,17 +1,18 @@
 from io import StringIO
 from unittest.mock import patch
 
+import pook
 from django.core.management import call_command
+from django.test import TestCase
 from django.test.utils import override_settings
 
-from eveuniverse.models import EveCategory, EveGroup, EveType
-from eveuniverse.utils import NoSocketsTestCase
-
-from .testdata.esi import EsiClientStub
-from .testdata.factories_2 import (
-    EveMoonFactory,
-    EvePlanetFactory,
-    EveSolarSystemFactory,
+from eveuniverse.models import EveType
+from eveuniverse.tests.helpers import TestCaseWithClearCache
+from eveuniverse.tests.testdata.factories_2 import (
+    EveDogmaAttributeFactory,
+    EveDogmaEffectFactory,
+    EveGroupFactory,
+    make_esi_url,
 )
 
 MODELS_PATH = "eveuniverse.models.base"
@@ -21,7 +22,7 @@ PACKAGE_PATH = "eveuniverse.management.commands"
 @patch(PACKAGE_PATH + ".eveuniverse_load_data.is_esi_online", lambda: True)
 @patch(PACKAGE_PATH + ".eveuniverse_load_data.get_input")
 @patch(PACKAGE_PATH + ".eveuniverse_load_data.chain")
-class TestLoadDataCommand(NoSocketsTestCase):
+class TestLoadDataCommand(TestCase):
     def test_load_data_map(self, mock_chain, mock_get_input):
         # given
         mock_get_input.return_value = "y"
@@ -66,22 +67,17 @@ class TestLoadDataCommand(NoSocketsTestCase):
         # given
         mock_get_input.return_value = "y"
         # when
-        with patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_ASTEROID_BELTS", False), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_DOGMAS", False
-        ), patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_GRAPHICS", False), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_MARKET_GROUPS", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_MOONS", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_PLANETS", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_STARGATES", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_STARS", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_STATIONS", False
-        ), patch(
-            MODELS_PATH + ".EVEUNIVERSE_LOAD_TYPE_MATERIALS", False
+        with (
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_ASTEROID_BELTS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_DOGMAS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_GRAPHICS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_MARKET_GROUPS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_MOONS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_PLANETS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_STARGATES", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_STARS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_STATIONS", False),
+            patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_TYPE_MATERIALS", False),
         ):
             call_command(
                 "eveuniverse_load_data",
@@ -136,212 +132,351 @@ class TestLoadDataCommand(NoSocketsTestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch("eveuniverse.managers.universe.esi")
 @patch(PACKAGE_PATH + ".eveuniverse_load_types.is_esi_online", lambda: True)
-@patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input")
-class TestLoadTypes(NoSocketsTestCase):
-    def test_load_one_type(self, mock_get_input, mock_esi):
+class TestLoadTypes(TestCaseWithClearCache):
+    @pook.on
+    def test_load_one_type(self):
         # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
-        # when
-        call_command(
-            "eveuniverse_load_types", "dummy_app", "--type_id", "603", stdout=StringIO()
+        type_id = 603
+        eg = EveGroupFactory()
+        pook.get(
+            make_esi_url(f"universe/types/{type_id}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Merlin",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id,
+                "volume": 16500,
+            },
         )
-        # then
-        obj = EveType.objects.get(id=603)
-        self.assertEqual(obj.dogma_attributes.count(), 0)
-        self.assertEqual(obj.dogma_effects.count(), 0)
 
-    def test_load_multiple_types(self, mock_get_input, mock_esi):
-        # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
         # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "1529",
-            "--type_id",
-            "35825",
-            stdout=StringIO(),
-        )
-        # then
-        self.assertTrue(EveType.objects.filter(id=1529).exists())
-        self.assertTrue(EveType.objects.filter(id=35825).exists())
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
 
-    def test_load_multiple_combined(self, mock_get_input, mock_esi):
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id",
+                f"{type_id}",
+                stdout=StringIO(),
+            )
+
+        # then
+        self.assertTrue(EveType.objects.filter(id=type_id).exists())
+
+    @pook.on
+    def test_load_multiple_types(self):
         # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
+        type_id_1 = 603
+        type_id_2 = 605
+        eg = EveGroupFactory()
+        pook.get(
+            make_esi_url(f"universe/types/{type_id_1}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Merlin",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id_1,
+                "volume": 16500,
+            },
+        )
+        pook.get(
+            make_esi_url(f"universe/types/{type_id_2}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Heron",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id_2,
+                "volume": 16500,
+            },
+        )
+
         # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--category_id",
-            "65",
-            stdout=StringIO(),
-        )
-        # then
-        self.assertTrue(EveCategory.objects.filter(id=65).exists())
-        self.assertTrue(EveGroup.objects.filter(id=1404).exists())
-        self.assertTrue(EveType.objects.filter(id=35825).exists())
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
 
-    def test_can_handle_no_params(self, mock_get_input, mock_esi):
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id",
+                f"{type_id_1}",
+                "--type_id",
+                f"{type_id_2}",
+                stdout=StringIO(),
+            )
+
+        # then
+        self.assertTrue(EveType.objects.filter(id=type_id_1).exists())
+        self.assertTrue(EveType.objects.filter(id=type_id_2).exists())
+
+    @pook.on
+    def test_should_load_category_with_all_children(self):
         # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
+        category_id = 65
+        category_name = "Structure"
+        group_id = 1406
+        group_name = "Refinery"
+        type_id = 35835
+        type_name = "Athanor"
+        pook.get(
+            make_esi_url(f"universe/categories/{category_id}"),
+            reply=200,
+            response_json={
+                "category_id": category_id,
+                "groups": [group_id],
+                "name": category_name,
+                "published": True,
+            },
+        )
+        pook.get(
+            make_esi_url(f"universe/groups/{group_id}"),
+            reply=200,
+            response_json={
+                "category_id": category_id,
+                "group_id": group_id,
+                "name": group_name,
+                "published": True,
+                "types": [type_id],
+            },
+        )
+        pook.get(
+            make_esi_url(f"universe/types/{type_id}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": group_id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": type_name,
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id,
+                "volume": 16500,
+            },
+        )
+
+        # when
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
+
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--category_id",
+                f"{category_id}",
+                stdout=StringIO(),
+            )
+
+        # then
+        self.assertTrue(EveType.objects.filter(id=type_id).exists())
+
+    @pook.on
+    def test_can_handle_no_params(self):
         # when/then
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            stdout=StringIO(),
-        )
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
 
-    def test_can_abort(self, mock_get_input, mock_esi):
-        # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "n"
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                stdout=StringIO(),
+            )
+
+    @pook.on
+    def test_can_abort(self):
         # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "35825",
-            stdout=StringIO(),
-        )
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "n"
+
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id",
+                "35825",
+                stdout=StringIO(),
+            )
+
         # then
         self.assertFalse(EveType.objects.filter(id=35825).exists())
 
-    def test_load_one_type_with_dogma(self, mock_get_input, mock_esi):
+    @pook.on
+    def test_load_one_type_with_dogma(self):
         # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
-        # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id_with_dogma",
-            "603",
-            stdout=StringIO(),
+        type_id = 603
+        eg = EveGroupFactory()
+        da = EveDogmaAttributeFactory()
+        de = EveDogmaEffectFactory()
+        pook.get(
+            make_esi_url(f"universe/types/{type_id}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [
+                    {"attribute_id": da.id, "value": 5},
+                ],
+                "dogma_effects": [
+                    {"effect_id": de.id, "is_default": True},
+                ],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Merlin",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id,
+                "volume": 16500,
+            },
         )
-        # then
-        obj = EveType.objects.get(id=603)
-        self.assertEqual(obj.dogma_attributes.count(), 2)
-        self.assertEqual(obj.dogma_effects.count(), 2)
 
-    def test_should_understand_no_input_1(self, mock_get_input, mock_esi):
-        # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.side_effect = RuntimeError
         # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "35825",
-            "--noinput",
-            stdout=StringIO(),
-        )
-        # then
-        self.assertTrue(EveType.objects.filter(id=35825).exists())
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
 
-    def test_should_understand_no_input_2(self, mock_get_input, mock_esi):
-        # given
-        mock_esi.client = EsiClientStub()
-        mock_get_input.side_effect = RuntimeError
-        # when
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "35825",
-            "--no-input",
-            stdout=StringIO(),
-        )
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id_with_dogma",
+                f"{type_id}",
+                stdout=StringIO(),
+            )
+
         # then
-        self.assertTrue(EveType.objects.filter(id=35825).exists())
+        obj = EveType.objects.get(id=type_id)
+        self.assertEqual(obj.dogma_attributes.count(), 1)
+        self.assertEqual(obj.dogma_effects.count(), 1)
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch("eveuniverse.managers.universe.esi")
-@patch(PACKAGE_PATH + ".eveuniverse_load_types.is_esi_online")
-@patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input")
-class TestLoadTypesEsiCheck(NoSocketsTestCase):
-    def test_checks_esi_by_default(self, mock_get_input, mock_is_esi_online, mock_esi):
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
-
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "603",
-            stdout=StringIO(),
+class TestLoadTypes_EsiCheck(TestCaseWithClearCache):
+    @patch(PACKAGE_PATH + ".eveuniverse_load_types.is_esi_online")
+    @pook.on
+    def test_checks_esi_by_default(self, mock_is_esi_online):
+        # given
+        type_id = 603
+        eg = EveGroupFactory()
+        pook.get(
+            make_esi_url(f"universe/types/{type_id}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Merlin",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id,
+                "volume": 16500,
+            },
         )
-        self.assertTrue(EveType.objects.filter(id=603).exists())
+
+        # when
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
+
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id",
+                f"{type_id}",
+                stdout=StringIO(),
+            )
+
+        # then
+        self.assertTrue(EveType.objects.filter(id=type_id).exists())
         self.assertTrue(mock_is_esi_online.called)
 
-    def test_can_disable_esi_check(self, mock_get_input, mock_is_esi_online, mock_esi):
-        mock_esi.client = EsiClientStub()
-        mock_get_input.return_value = "y"
-
-        call_command(
-            "eveuniverse_load_types",
-            "dummy_app",
-            "--type_id",
-            "603",
-            "--disable_esi_check",
-            stdout=StringIO(),
+    @patch(PACKAGE_PATH + ".eveuniverse_load_types.is_esi_online")
+    @pook.on
+    def test_can_disable_esi_check(self, mock_is_esi_online):
+        # given
+        type_id = 603
+        eg = EveGroupFactory()
+        pook.get(
+            make_esi_url(f"universe/types/{type_id}"),
+            reply=200,
+            response_json={
+                "capacity": 150,
+                "description": "",
+                "dogma_attributes": [],
+                "dogma_effects": [],
+                "graphic_id": 42,
+                "group_id": eg.id,
+                "market_group_id": 666,
+                "mass": 997000,
+                "name": "Merlin",
+                "packaged_volume": 2500,
+                "portion_size": 1,
+                "published": True,
+                "radius": 39,
+                "type_id": type_id,
+                "volume": 16500,
+            },
         )
-        self.assertTrue(EveType.objects.filter(id=603).exists())
+
+        # when
+        with patch(PACKAGE_PATH + ".eveuniverse_load_types.get_input") as m:
+            m.return_value = "y"
+
+            call_command(
+                "eveuniverse_load_types",
+                "dummy_app",
+                "--type_id",
+                f"{type_id}",
+                "--disable_esi_check",
+                stdout=StringIO(),
+            )
+
+        # then
+        self.assertTrue(EveType.objects.filter(id=type_id).exists())
         self.assertFalse(mock_is_esi_online.called)
-
-
-class TestFixSections(NoSocketsTestCase):
-    def test_should_remove_planets_flag_when_no_planet(self):
-        # given
-        obj = EveSolarSystemFactory()
-        obj.enabled_sections.planets = True
-        obj.save()
-        # when
-        call_command("eveuniverse_fix_section_flags", stdout=StringIO())
-        # then
-        obj.refresh_from_db()
-        self.assertFalse(obj.enabled_sections.planets)
-
-    def test_should_not_remove_planets_flag_when_planets_exist(self):
-        # given
-        obj = EveSolarSystemFactory()
-        obj.enabled_sections.planets = True
-        obj.save()
-        EvePlanetFactory(eve_solar_system=obj)
-        # when
-        call_command("eveuniverse_fix_section_flags", stdout=StringIO())
-        # then
-        obj.refresh_from_db()
-        self.assertTrue(obj.enabled_sections.planets)
-
-    def test_should_remove_moons_flag_when_no_moons(self):
-        # given
-        obj = EvePlanetFactory()
-        obj.enabled_sections.moons = True
-        obj.save()
-        # when
-        call_command("eveuniverse_fix_section_flags", stdout=StringIO())
-        # then
-        obj.refresh_from_db()
-        self.assertFalse(obj.enabled_sections.moons)
-
-    def test_should_not_remove_moons_flag_when_moons_exist(self):
-        # given
-        obj = EvePlanetFactory()
-        obj.enabled_sections.moons = True
-        obj.save()
-        EveMoonFactory(eve_planet=obj)
-        # when
-        call_command("eveuniverse_fix_section_flags", stdout=StringIO())
-        # then
-        obj.refresh_from_db()
-        self.assertTrue(obj.enabled_sections.moons)

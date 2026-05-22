@@ -1881,21 +1881,135 @@ class SAGEMessageBridge:
             "Android: install KDE Connect on this Mac and on your phone, then pair them."
         )
 
-    def _announce_online(self) -> None:
-        """Notify all linked accounts that the bridge is online via the SAGE
-        email bridge — replies always come from messages@sageworksai.com so the
-        user sees a single canonical sender regardless of how they opened the
-        thread (Gmail, Mail.app, SMS gateway).
+    def _handle_imessage_to_apple_id(self, msg: dict) -> None:
+        """Send an iMessage directly to an Apple ID email address via Messages.app.
+
+        Called when the backend dispatches `type: imessage_to_apple_id`. This
+        bypasses the SMTP / Apple Private Email Relay path which requires the
+        sending domain to be registered with Apple. Messages.app can send to any
+        valid Apple ID email (including @privaterelay.appleid.com addresses) as
+        long as this Mac is signed into iCloud with iMessage enabled.
         """
+        apple_email  = (msg.get("apple_email") or "").strip()
+        text         = (msg.get("text") or "").strip()
+        computer_name = (msg.get("computer_name") or self.cfg.computer_name or "SAGE").strip()
+        if not apple_email or not text:
+            return
+
+        body = f"[SAGE — {computer_name}] {text}"
+
+        if sys.platform != "darwin":
+            self._log(
+                f"⚠ iMessage to Apple ID {apple_email} skipped — "
+                "only supported on macOS with Messages.app"
+            )
+            return
+
+        if _send_imessage(apple_email, body):
+            self._log(f"→ iMessage delivered to Apple ID {apple_email}")
+        else:
+            self._log(
+                f"⚠ iMessage to Apple ID {apple_email} failed — "
+                "ensure Messages.app is open and signed into iCloud with iMessage enabled"
+            )
+
+    # Known Apple ID email domains that are valid iMessage addresses
+    _APPLE_ID_DOMAINS = {"icloud.com", "me.com", "mac.com"}
+
+    def _announce_online(self) -> None:
+        """Notify all linked accounts that the bridge is online.
+
+        Two delivery paths:
+          1. SAGE email bridge (backend POST /sms/announce) — handles Gmail, SMTP,
+             phone-gateway iMessage/KDE-Connect.
+          2. Direct iMessage from this Mac — handles Apple ID emails (@icloud.com,
+             @me.com, @mac.com) and contacts that have an imessage_address stored.
+             Done here on the CLI so we don't need a WebSocket roundtrip.
+        """
+        be = SAGEBackend(self._token, self._api_base)
+
+        # 1. Sync provider emails as contacts (idempotent)
         try:
-            be = SAGEBackend(self._token, self._api_base)
-            # Auto-register linked provider emails as contacts (idempotent)
             be.sync_provider_contacts()
-            # Send via SAGE email bridge — backend skips phone-only contacts
-            be.announce(self.cfg.computer_name)
-            self._log("Announced online to contacts")
         except Exception as exc:
-            self._log(f"Announce failed (non-fatal): {exc}")
+            self._log(f"Contact sync failed (non-fatal): {exc}")
+
+        # 2. SAGE email bridge — email + phone contacts
+        try:
+            be.announce(self.cfg.computer_name)
+            self._log("Announced online to contacts (email bridge)")
+        except Exception as exc:
+            self._log(f"Email bridge announce failed (non-fatal): {exc}")
+
+        # 3. Direct iMessage from this Mac for Apple ID email contacts.
+        #    No WebSocket roundtrip needed — we have Messages.app right here.
+        if sys.platform != "darwin":
+            return
+        try:
+            providers = be.get_linked_providers()
+            contacts = be.list_contacts()
+        except Exception as exc:
+            self._log(f"Could not fetch contacts for direct iMessage (non-fatal): {exc}")
+            return
+
+        computer_name = self.cfg.computer_name or "SAGE"
+        announce_text = (
+            f"✅ [{computer_name}] SAGE is online and ready.\n"
+            f"Send me any task and I'll run it on your computer.\n"
+            f"Reply @help to see available commands."
+        )
+
+        sent_to: set[str] = set()
+
+        # Send to contacts with a stored imessage_address
+        for c in contacts:
+            if not isinstance(c, dict):
+                continue
+            imsg_addr = (c.get("imessage_address") or "").strip()
+            if not imsg_addr or imsg_addr in sent_to:
+                continue
+            body = f"[SAGE — {computer_name}] {announce_text}"
+            if _send_imessage(imsg_addr, body):
+                self._log(f"→ Direct iMessage via imessage_address: {imsg_addr}")
+                sent_to.add(imsg_addr)
+            else:
+                self._log(f"⚠ Direct iMessage failed for {imsg_addr} — check Messages.app")
+
+        # Send to contacts whose email IS a valid iMessage address (@icloud.com etc.)
+        for c in contacts:
+            if not isinstance(c, dict):
+                continue
+            email = (c.get("email") or "").lower().strip()
+            if not email or email in sent_to:
+                continue
+            domain = email.split("@")[-1] if "@" in email else ""
+            if domain not in self._APPLE_ID_DOMAINS:
+                continue
+            body = f"[SAGE — {computer_name}] {announce_text}"
+            if _send_imessage(email, body):
+                self._log(f"→ Direct iMessage to Apple ID: {email}")
+                sent_to.add(email)
+            else:
+                self._log(
+                    f"⚠ iMessage to {email} failed — ensure the recipient has this "
+                    f"email enabled as an iMessage handle on their device"
+                )
+
+        # Also try Apple provider emails from linked providers
+        for p in providers:
+            if not isinstance(p, dict):
+                continue
+            if p.get("provider_id") != "apple.com":
+                continue
+            email = (p.get("email") or "").lower().strip()
+            if not email or email in sent_to:
+                continue
+            domain = email.split("@")[-1] if "@" in email else ""
+            if domain in self._APPLE_ID_DOMAINS:
+                body = f"[SAGE — {computer_name}] {announce_text}"
+                if _send_imessage(email, body):
+                    self._log(f"→ Direct iMessage to linked Apple provider: {email}")
+                    sent_to.add(email)
 
     def run(self) -> None:
         """Main loop: connect to backend WebSocket, process tasks until stopped."""
@@ -2009,6 +2123,17 @@ class SAGEMessageBridge:
                             # recipient — send the original reply via iMessage.
                             threading.Thread(
                                 target=self._handle_imessage_fallback,
+                                args=(msg,),
+                                daemon=True,
+                            ).start()
+
+                        elif msg_type == "imessage_to_apple_id":
+                            # Direct iMessage to an Apple ID email address.
+                            # Used when the contact's email is an Apple provider
+                            # address (including private-relay @privaterelay.appleid.com)
+                            # and the SMTP path can't reach it (Apple relay not configured).
+                            threading.Thread(
+                                target=self._handle_imessage_to_apple_id,
                                 args=(msg,),
                                 daemon=True,
                             ).start()

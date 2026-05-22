@@ -832,7 +832,7 @@ class CfnContactFlow(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnContactFlow",
 ):
-    '''Specifies a flow for an Amazon Connect instance.
+    '''Specifies a flow for an Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflow.html
     :cloudformationResource: AWS::Connect::ContactFlow
@@ -878,8 +878,8 @@ class CfnContactFlow(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param content: The content of the flow. For more information, see `Amazon Connect Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Amazon Connect Administrator Guide* .
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param content: The content of the flow. For more information, see `Connect Customer Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Connect Customer Administrator Guide* .
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param name: The name of the flow.
         :param type: The type of the flow. For descriptions of the available types, see `Choose a flow type <https://docs.aws.amazon.com/connect/latest/adminguide/create-contact-flow.html#contact-flow-types>`_ in the *Amazon Connect Administrator Guide* .
         :param description: The description of the flow.
@@ -1005,7 +1005,7 @@ class CfnContactFlow(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -1087,7 +1087,7 @@ class CfnContactFlowModule(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModule",
 ):
-    '''Specifies a flow module for an Amazon Connect instance.
+    '''Specifies a flow module for an Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodule.html
     :cloudformationResource: AWS::Connect::ContactFlowModule
@@ -1138,7 +1138,7 @@ class CfnContactFlowModule(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param content: The content of the flow module.
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param name: The name of the flow module.
         :param description: The description of the flow module.
         :param external_invocation_configuration: The external invocation configuration for the flow module.
@@ -1275,7 +1275,7 @@ class CfnContactFlowModule(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -1771,7 +1771,7 @@ class CfnContactFlowModuleProps:
         '''Properties for defining a ``CfnContactFlowModule``.
 
         :param content: The content of the flow module.
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param name: The name of the flow module.
         :param description: The description of the flow module.
         :param external_invocation_configuration: The external invocation configuration for the flow module.
@@ -1845,7 +1845,7 @@ class CfnContactFlowModuleProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodule.html#cfn-connect-contactflowmodule-instancearn
         '''
@@ -2207,8 +2207,8 @@ class CfnContactFlowProps:
     ) -> None:
         '''Properties for defining a ``CfnContactFlow``.
 
-        :param content: The content of the flow. For more information, see `Amazon Connect Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Amazon Connect Administrator Guide* .
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param content: The content of the flow. For more information, see `Connect Customer Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Connect Customer Administrator Guide* .
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param name: The name of the flow.
         :param type: The type of the flow. For descriptions of the available types, see `Choose a flow type <https://docs.aws.amazon.com/connect/latest/adminguide/create-contact-flow.html#contact-flow-types>`_ in the *Amazon Connect Administrator Guide* .
         :param description: The description of the flow.
@@ -2266,7 +2266,7 @@ class CfnContactFlowProps:
     def content(self) -> builtins.str:
         '''The content of the flow.
 
-        For more information, see `Amazon Connect Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Amazon Connect Administrator Guide* .
+        For more information, see `Connect Customer Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Connect Customer Administrator Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflow.html#cfn-connect-contactflow-content
         '''
@@ -2276,7 +2276,7 @@ class CfnContactFlowProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflow.html#cfn-connect-contactflow-instancearn
         '''
@@ -4815,7 +4815,7 @@ class CfnEvaluationForm(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm",
 ):
-    '''Creates an evaluation form for the specified Amazon Connect instance.
+    '''Creates an evaluation form for the specified Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html
     :cloudformationResource: AWS::Connect::EvaluationForm
@@ -4883,19 +4883,17 @@ class CfnEvaluationForm(
         
                                     # the properties below are optional
                                     automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                            source_type="sourceType"
+                                        ),
+                                        default_option_ref_ids=["defaultOptionRefIds"],
                                         options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                             rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                                 category="category",
                                                 condition="condition",
                                                 option_ref_ids=["optionRefIds"]
                                             )
-                                        )],
-        
-                                        # the properties below are optional
-                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                            source_type="sourceType"
-                                        ),
-                                        default_option_ref_ids=["defaultOptionRefIds"]
+                                        )]
                                     ),
                                     display_as="displayAs"
                                 ),
@@ -4939,19 +4937,17 @@ class CfnEvaluationForm(
         
                                     # the properties below are optional
                                     automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                            source_type="sourceType"
+                                        ),
+                                        default_option_ref_id="defaultOptionRefId",
                                         options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                             rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                                 category="category",
                                                 condition="condition",
                                                 option_ref_id="optionRefId"
                                             )
-                                        )],
-        
-                                        # the properties below are optional
-                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                            source_type="sourceType"
-                                        ),
-                                        default_option_ref_id="defaultOptionRefId"
+                                        )]
                                     ),
                                     display_as="displayAs"
                                 ),
@@ -5509,19 +5505,17 @@ class CfnEvaluationForm(
                 
                                         # the properties below are optional
                                         automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                                source_type="sourceType"
+                                            ),
+                                            default_option_ref_ids=["defaultOptionRefIds"],
                                             options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                                 rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                                     category="category",
                                                     condition="condition",
                                                     option_ref_ids=["optionRefIds"]
                                                 )
-                                            )],
-                
-                                            # the properties below are optional
-                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                                source_type="sourceType"
-                                            ),
-                                            default_option_ref_ids=["defaultOptionRefIds"]
+                                            )]
                                         ),
                                         display_as="displayAs"
                                     ),
@@ -5565,19 +5559,17 @@ class CfnEvaluationForm(
                 
                                         # the properties below are optional
                                         automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                                source_type="sourceType"
+                                            ),
+                                            default_option_ref_id="defaultOptionRefId",
                                             options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                                 rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                                     category="category",
                                                     condition="condition",
                                                     option_ref_id="optionRefId"
                                                 )
-                                            )],
-                
-                                            # the properties below are optional
-                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                                source_type="sourceType"
-                                            ),
-                                            default_option_ref_id="defaultOptionRefId"
+                                            )]
                                         ),
                                         display_as="displayAs"
                                     ),
@@ -6217,19 +6209,17 @@ class CfnEvaluationForm(
                 
                                 # the properties below are optional
                                 automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                        source_type="sourceType"
+                                    ),
+                                    default_option_ref_ids=["defaultOptionRefIds"],
                                     options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                         rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                             category="category",
                                             condition="condition",
                                             option_ref_ids=["optionRefIds"]
                                         )
-                                    )],
-                
-                                    # the properties below are optional
-                                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                        source_type="sourceType"
-                                    ),
-                                    default_option_ref_ids=["defaultOptionRefIds"]
+                                    )]
                                 ),
                                 display_as="displayAs"
                             ),
@@ -6273,19 +6263,17 @@ class CfnEvaluationForm(
                 
                                 # the properties below are optional
                                 automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                        source_type="sourceType"
+                                    ),
+                                    default_option_ref_id="defaultOptionRefId",
                                     options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                         rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                             category="category",
                                             condition="condition",
                                             option_ref_id="optionRefId"
                                         )
-                                    )],
-                
-                                    # the properties below are optional
-                                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                        source_type="sourceType"
-                                    ),
-                                    default_option_ref_id="defaultOptionRefId"
+                                    )]
                                 ),
                                 display_as="displayAs"
                             ),
@@ -6474,24 +6462,24 @@ class CfnEvaluationForm(
         jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "options": "options",
             "answer_source": "answerSource",
             "default_option_ref_ids": "defaultOptionRefIds",
+            "options": "options",
         },
     )
     class EvaluationFormMultiSelectQuestionAutomationProperty:
         def __init__(
             self,
             *,
-            options: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             answer_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_option_ref_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Automation configuration for multi-select questions.
 
-            :param options: Automation options for the multi-select question.
             :param answer_source: A question automation answer.
             :param default_option_ref_ids: Reference IDs of default options.
+            :param options: Automation options for the multi-select question.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionautomation.html
             :exampleMetadata: fixture=_generated
@@ -6503,45 +6491,31 @@ class CfnEvaluationForm(
                 from aws_cdk import aws_connect as connect
                 
                 evaluation_form_multi_select_question_automation_property = connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                        source_type="sourceType"
+                    ),
+                    default_option_ref_ids=["defaultOptionRefIds"],
                     options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                         rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                             category="category",
                             condition="condition",
                             option_ref_ids=["optionRefIds"]
                         )
-                    )],
-                
-                    # the properties below are optional
-                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                        source_type="sourceType"
-                    ),
-                    default_option_ref_ids=["defaultOptionRefIds"]
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__597b6f67b4c7001b0aa56e6d7f1b39161a3e4d93e2232ca7c28a31c123d81de0)
-                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
                 check_type(argname="argument answer_source", value=answer_source, expected_type=type_hints["answer_source"])
                 check_type(argname="argument default_option_ref_ids", value=default_option_ref_ids, expected_type=type_hints["default_option_ref_ids"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "options": options,
-            }
+                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if answer_source is not None:
                 self._values["answer_source"] = answer_source
             if default_option_ref_ids is not None:
                 self._values["default_option_ref_ids"] = default_option_ref_ids
-
-        @builtins.property
-        def options(
-            self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty"]]]:
-            '''Automation options for the multi-select question.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionautomation.html#cfn-connect-evaluationform-evaluationformmultiselectquestionautomation-options
-            '''
-            result = self._values.get("options")
-            assert result is not None, "Required property 'options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty"]]], result)
+            if options is not None:
+                self._values["options"] = options
 
         @builtins.property
         def answer_source(
@@ -6562,6 +6536,17 @@ class CfnEvaluationForm(
             '''
             result = self._values.get("default_option_ref_ids")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def options(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty"]]]]:
+            '''Automation options for the multi-select question.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionautomation.html#cfn-connect-evaluationform-evaluationformmultiselectquestionautomation-options
+            '''
+            result = self._values.get("options")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6680,19 +6665,17 @@ class CfnEvaluationForm(
                 
                     # the properties below are optional
                     automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                            source_type="sourceType"
+                        ),
+                        default_option_ref_ids=["defaultOptionRefIds"],
                         options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                             rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                 category="category",
                                 condition="condition",
                                 option_ref_ids=["optionRefIds"]
                             )
-                        )],
-                
-                        # the properties below are optional
-                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                            source_type="sourceType"
-                        ),
-                        default_option_ref_ids=["defaultOptionRefIds"]
+                        )]
                     ),
                     display_as="displayAs"
                 )
@@ -7241,19 +7224,17 @@ class CfnEvaluationForm(
                 
                             # the properties below are optional
                             automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                    source_type="sourceType"
+                                ),
+                                default_option_ref_ids=["defaultOptionRefIds"],
                                 options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                     rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                         category="category",
                                         condition="condition",
                                         option_ref_ids=["optionRefIds"]
                                     )
-                                )],
-                
-                                # the properties below are optional
-                                answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                    source_type="sourceType"
-                                ),
-                                default_option_ref_ids=["defaultOptionRefIds"]
+                                )]
                             ),
                             display_as="displayAs"
                         ),
@@ -7297,19 +7278,17 @@ class CfnEvaluationForm(
                 
                             # the properties below are optional
                             automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                    source_type="sourceType"
+                                ),
+                                default_option_ref_id="defaultOptionRefId",
                                 options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                     rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                         category="category",
                                         condition="condition",
                                         option_ref_id="optionRefId"
                                     )
-                                )],
-                
-                                # the properties below are optional
-                                answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                    source_type="sourceType"
-                                ),
-                                default_option_ref_id="defaultOptionRefId"
+                                )]
                             ),
                             display_as="displayAs"
                         ),
@@ -7502,19 +7481,17 @@ class CfnEvaluationForm(
                 
                         # the properties below are optional
                         automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                source_type="sourceType"
+                            ),
+                            default_option_ref_ids=["defaultOptionRefIds"],
                             options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                 rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                     category="category",
                                     condition="condition",
                                     option_ref_ids=["optionRefIds"]
                                 )
-                            )],
-                
-                            # the properties below are optional
-                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                source_type="sourceType"
-                            ),
-                            default_option_ref_ids=["defaultOptionRefIds"]
+                            )]
                         ),
                         display_as="displayAs"
                     ),
@@ -7558,19 +7535,17 @@ class CfnEvaluationForm(
                 
                         # the properties below are optional
                         automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                source_type="sourceType"
+                            ),
+                            default_option_ref_id="defaultOptionRefId",
                             options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                 rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                     category="category",
                                     condition="condition",
                                     option_ref_id="optionRefId"
                                 )
-                            )],
-                
-                            # the properties below are optional
-                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                source_type="sourceType"
-                            ),
-                            default_option_ref_id="defaultOptionRefId"
+                            )]
                         ),
                         display_as="displayAs"
                     ),
@@ -7746,19 +7721,17 @@ class CfnEvaluationForm(
                 
                                     # the properties below are optional
                                     automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                            source_type="sourceType"
+                                        ),
+                                        default_option_ref_ids=["defaultOptionRefIds"],
                                         options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                             rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                                 category="category",
                                                 condition="condition",
                                                 option_ref_ids=["optionRefIds"]
                                             )
-                                        )],
-                
-                                        # the properties below are optional
-                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                            source_type="sourceType"
-                                        ),
-                                        default_option_ref_ids=["defaultOptionRefIds"]
+                                        )]
                                     ),
                                     display_as="displayAs"
                                 ),
@@ -7802,19 +7775,17 @@ class CfnEvaluationForm(
                 
                                     # the properties below are optional
                                     automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                            source_type="sourceType"
+                                        ),
+                                        default_option_ref_id="defaultOptionRefId",
                                         options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                             rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                                 category="category",
                                                 condition="condition",
                                                 option_ref_id="optionRefId"
                                             )
-                                        )],
-                
-                                        # the properties below are optional
-                                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                            source_type="sourceType"
-                                        ),
-                                        default_option_ref_id="defaultOptionRefId"
+                                        )]
                                     ),
                                     display_as="displayAs"
                                 ),
@@ -7987,26 +7958,26 @@ class CfnEvaluationForm(
         jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "options": "options",
             "answer_source": "answerSource",
             "default_option_ref_id": "defaultOptionRefId",
+            "options": "options",
         },
     )
     class EvaluationFormSingleSelectQuestionAutomationProperty:
         def __init__(
             self,
             *,
-            options: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             answer_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             default_option_ref_id: typing.Optional[builtins.str] = None,
+            options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Information about the automation configuration in single select questions.
 
             Automation options are evaluated in order, and the first matched option is applied. If no automation option matches, and there is a default option, then the default option is applied.
 
-            :param options: The automation options of the single select question. *Minimum* : 1 *Maximum* : 20
             :param answer_source: Automation answer source.
             :param default_option_ref_id: The identifier of the default answer option, when none of the automation options match the criteria. *Length Constraints* : Minimum length of 1. Maximum length of 40.
+            :param options: The automation options of the single select question. *Minimum* : 1 *Maximum* : 20
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsingleselectquestionautomation.html
             :exampleMetadata: fixture=_generated
@@ -8018,49 +7989,31 @@ class CfnEvaluationForm(
                 from aws_cdk import aws_connect as connect
                 
                 evaluation_form_single_select_question_automation_property = connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                        source_type="sourceType"
+                    ),
+                    default_option_ref_id="defaultOptionRefId",
                     options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                         rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                             category="category",
                             condition="condition",
                             option_ref_id="optionRefId"
                         )
-                    )],
-                
-                    # the properties below are optional
-                    answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                        source_type="sourceType"
-                    ),
-                    default_option_ref_id="defaultOptionRefId"
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__fc97b2bfa6d5fb8da071bf0ca06feb3e4bb442b1422677cdb6c7ae776fc3629c)
-                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
                 check_type(argname="argument answer_source", value=answer_source, expected_type=type_hints["answer_source"])
                 check_type(argname="argument default_option_ref_id", value=default_option_ref_id, expected_type=type_hints["default_option_ref_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "options": options,
-            }
+                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if answer_source is not None:
                 self._values["answer_source"] = answer_source
             if default_option_ref_id is not None:
                 self._values["default_option_ref_id"] = default_option_ref_id
-
-        @builtins.property
-        def options(
-            self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty"]]]:
-            '''The automation options of the single select question.
-
-            *Minimum* : 1
-
-            *Maximum* : 20
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsingleselectquestionautomation.html#cfn-connect-evaluationform-evaluationformsingleselectquestionautomation-options
-            '''
-            result = self._values.get("options")
-            assert result is not None, "Required property 'options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty"]]], result)
+            if options is not None:
+                self._values["options"] = options
 
         @builtins.property
         def answer_source(
@@ -8083,6 +8036,21 @@ class CfnEvaluationForm(
             '''
             result = self._values.get("default_option_ref_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def options(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty"]]]]:
+            '''The automation options of the single select question.
+
+            *Minimum* : 1
+
+            *Maximum* : 20
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsingleselectquestionautomation.html#cfn-connect-evaluationform-evaluationformsingleselectquestionautomation-options
+            '''
+            result = self._values.get("options")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8282,19 +8250,17 @@ class CfnEvaluationForm(
                 
                     # the properties below are optional
                     automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                            source_type="sourceType"
+                        ),
+                        default_option_ref_id="defaultOptionRefId",
                         options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                             rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                 category="category",
                                 condition="condition",
                                 option_ref_id="optionRefId"
                             )
-                        )],
-                
-                        # the properties below are optional
-                        answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                            source_type="sourceType"
-                        ),
-                        default_option_ref_id="defaultOptionRefId"
+                        )]
                     ),
                     display_as="displayAs"
                 )
@@ -9171,19 +9137,17 @@ class CfnEvaluationFormProps:
             
                                         # the properties below are optional
                                         automation=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationProperty(
+                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                                source_type="sourceType"
+                                            ),
+                                            default_option_ref_ids=["defaultOptionRefIds"],
                                             options=[connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty(
                                                 rule_category=connect.CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty(
                                                     category="category",
                                                     condition="condition",
                                                     option_ref_ids=["optionRefIds"]
                                                 )
-                                            )],
-            
-                                            # the properties below are optional
-                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                                source_type="sourceType"
-                                            ),
-                                            default_option_ref_ids=["defaultOptionRefIds"]
+                                            )]
                                         ),
                                         display_as="displayAs"
                                     ),
@@ -9227,19 +9191,17 @@ class CfnEvaluationFormProps:
             
                                         # the properties below are optional
                                         automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
+                                                source_type="sourceType"
+                                            ),
+                                            default_option_ref_id="defaultOptionRefId",
                                             options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
                                                 rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
                                                     category="category",
                                                     condition="condition",
                                                     option_ref_id="optionRefId"
                                                 )
-                                            )],
-            
-                                            # the properties below are optional
-                                            answer_source=connect.CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty(
-                                                source_type="sourceType"
-                                            ),
-                                            default_option_ref_id="defaultOptionRefId"
+                                            )]
                                         ),
                                         display_as="displayAs"
                                     ),
@@ -10864,11 +10826,11 @@ class CfnInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnInstance",
 ):
-    '''*This is a preview release for Amazon Connect . It is subject to change.*.
+    '''*This is a preview release for Connect Customer . It is subject to change.*.
 
-    Initiates an Amazon Connect instance with all the supported channels enabled. It does not attach any storage, such as Amazon Simple Storage Service (Amazon S3) or Amazon Kinesis.
+    Initiates an Connect Customer instance with all the supported channels enabled. It does not attach any storage, such as Amazon Simple Storage Service (Amazon S3) or Amazon Kinesis.
 
-    Amazon Connect enforces a limit on the total number of instances that you can create or delete in 30 days. If you exceed this limit, you will get an error message indicating there has been an excessive number of attempts at creating or deleting instances. You must wait 30 days before you can restart creating and deleting instances in your account.
+    Connect Customer enforces a limit on the total number of instances that you can create or delete in 30 days. If you exceed this limit, you will get an error message indicating there has been an excessive number of attempts at creating or deleting instances. You must wait 30 days before you can restart creating and deleting instances in your account.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html
     :cloudformationResource: AWS::Connect::Instance
@@ -11020,7 +10982,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
+        '''The identifier of the Connect Customer instance.
 
         You can find the instanceId in the ARN of the instance.
 
@@ -11175,7 +11137,7 @@ class CfnInstance(
             multi_party_conference: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             use_custom_tts_voices: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
-            '''*This is a preview release for Amazon Connect .
+            '''*This is a preview release for Connect Customer .
 
             It is subject to change.*
 
@@ -12401,13 +12363,13 @@ class CfnInstanceStorageConfigProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIntegrationAssociationRef_c3543e75)
+@jsii.implements(_IInspectable_c2943556, _IIntegrationAssociationRef_c3543e75, _ITaggableV2_4e6798f8)
 class CfnIntegrationAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnIntegrationAssociation",
 ):
-    '''Specifies the association of an AWS resource such as Lex bot (both v1 and v2) and Lambda function with an Amazon Connect instance.
+    '''Specifies the association of an AWS resource such as Lex bot (both v1 and v2) and Lambda function with an Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html
     :cloudformationResource: AWS::Connect::IntegrationAssociation
@@ -12415,6 +12377,7 @@ class CfnIntegrationAssociation(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_connect as connect
@@ -12422,7 +12385,13 @@ class CfnIntegrationAssociation(
         cfn_integration_association = connect.CfnIntegrationAssociation(self, "MyCfnIntegrationAssociation",
             instance_id="instanceId",
             integration_arn="integrationArn",
-            integration_type="integrationType"
+            integration_type="integrationType",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -12434,6 +12403,7 @@ class CfnIntegrationAssociation(
         instance_id: typing.Union[builtins.str, "_IInstanceRef_b6835093"],
         integration_arn: builtins.str,
         integration_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::IntegrationAssociation``.
 
@@ -12442,6 +12412,7 @@ class CfnIntegrationAssociation(
         :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
         :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
         :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+        :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0623057688349069456f9eae4995faa9cd189f98024c1f76262706d5734b311e)
@@ -12451,6 +12422,7 @@ class CfnIntegrationAssociation(
             instance_id=instance_id,
             integration_arn=integration_arn,
             integration_type=integration_type,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -12505,6 +12477,12 @@ class CfnIntegrationAssociation(
         :cloudformationAttribute: IntegrationAssociationId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrIntegrationAssociationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -12563,6 +12541,19 @@ class CfnIntegrationAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27eda511931a7dda33640ac4d6f54a3c08de77926ff2f3617f018a1bdeb5d670)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_connect.CfnIntegrationAssociationProps",
@@ -12571,6 +12562,7 @@ class CfnIntegrationAssociation(
         "instance_id": "instanceId",
         "integration_arn": "integrationArn",
         "integration_type": "integrationType",
+        "tags": "tags",
     },
 )
 class CfnIntegrationAssociationProps:
@@ -12580,18 +12572,21 @@ class CfnIntegrationAssociationProps:
         instance_id: typing.Union[builtins.str, "_IInstanceRef_b6835093"],
         integration_arn: builtins.str,
         integration_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIntegrationAssociation``.
 
         :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
         :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
         :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+        :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_connect as connect
@@ -12599,7 +12594,13 @@ class CfnIntegrationAssociationProps:
             cfn_integration_association_props = connect.CfnIntegrationAssociationProps(
                 instance_id="instanceId",
                 integration_arn="integrationArn",
-                integration_type="integrationType"
+                integration_type="integrationType",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -12607,11 +12608,14 @@ class CfnIntegrationAssociationProps:
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
             check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
             "integration_arn": integration_arn,
             "integration_type": integration_type,
         }
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def instance_id(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
@@ -12652,6 +12656,15 @@ class CfnIntegrationAssociationProps:
         result = self._values.get("integration_type")
         assert result is not None, "Required property 'integration_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13322,7 +13335,7 @@ class CfnPhoneNumber(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnPhoneNumber",
 ):
-    '''Claims a phone number to the specified Amazon Connect instance or traffic distribution group.
+    '''Claims a phone number to the specified Connect Customer instance or traffic distribution group.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html
     :cloudformationResource: AWS::Connect::PhoneNumber
@@ -13368,7 +13381,7 @@ class CfnPhoneNumber(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param target_arn: The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
+        :param target_arn: The Amazon Resource Name (ARN) for Connect Customer instances or traffic distribution group that phone numbers are claimed to.
         :param country_code: The ISO country code.
         :param description: The description of the phone number.
         :param prefix: The prefix of the phone number. If provided, it must contain ``+`` as part of the country code. *Pattern* : ``^\\\\+[0-9]{1,15}``
@@ -13491,7 +13504,7 @@ class CfnPhoneNumber(
     @builtins.property
     @jsii.member(jsii_name="targetArn")
     def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.'''
+        '''The Amazon Resource Name (ARN) for Connect Customer instances or traffic distribution group that phone numbers are claimed to.'''
         return typing.cast(builtins.str, jsii.get(self, "targetArn"))
 
     @target_arn.setter
@@ -13610,7 +13623,7 @@ class CfnPhoneNumberProps:
     ) -> None:
         '''Properties for defining a ``CfnPhoneNumber``.
 
-        :param target_arn: The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
+        :param target_arn: The Amazon Resource Name (ARN) for Connect Customer instances or traffic distribution group that phone numbers are claimed to.
         :param country_code: The ISO country code.
         :param description: The description of the phone number.
         :param prefix: The prefix of the phone number. If provided, it must contain ``+`` as part of the country code. *Pattern* : ``^\\\\+[0-9]{1,15}``
@@ -13670,7 +13683,7 @@ class CfnPhoneNumberProps:
 
     @builtins.property
     def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
+        '''The Amazon Resource Name (ARN) for Connect Customer instances or traffic distribution group that phone numbers are claimed to.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-targetarn
         '''
@@ -14245,7 +14258,7 @@ class CfnPrompt(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnPrompt",
 ):
-    '''Creates a prompt for the specified Amazon Connect instance.
+    '''Creates a prompt for the specified Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html
     :cloudformationResource: AWS::Connect::Prompt
@@ -14287,7 +14300,7 @@ class CfnPrompt(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param name: The name of the prompt.
         :param description: The description of the prompt.
         :param s3_uri: The URI for the S3 bucket where the prompt is stored. This property is required when you create a prompt.
@@ -14394,7 +14407,7 @@ class CfnPrompt(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.'''
+        '''The identifier of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -14480,7 +14493,7 @@ class CfnPromptProps:
     ) -> None:
         '''Properties for defining a ``CfnPrompt``.
 
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param name: The name of the prompt.
         :param description: The description of the prompt.
         :param s3_uri: The URI for the S3 bucket where the prompt is stored. This property is required when you create a prompt.
@@ -14529,7 +14542,7 @@ class CfnPromptProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The identifier of the Amazon Connect instance.
+        '''The identifier of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-instancearn
         '''
@@ -14659,7 +14672,7 @@ class CfnQueue(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param name: The name of the queue.
         :param additional_email_addresses: The email addresses that agents can use when replying to or initiating email contacts.
         :param description: The description of the queue.
@@ -14799,7 +14812,7 @@ class CfnQueue(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.'''
+        '''The identifier of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -15181,7 +15194,7 @@ class CfnQueueProps:
         '''Properties for defining a ``CfnQueue``.
 
         :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param name: The name of the queue.
         :param additional_email_addresses: The email addresses that agents can use when replying to or initiating email contacts.
         :param description: The description of the queue.
@@ -15276,7 +15289,7 @@ class CfnQueueProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The identifier of the Amazon Connect instance.
+        '''The identifier of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-instancearn
         '''
@@ -15392,7 +15405,7 @@ class CfnQuickConnect(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnQuickConnect",
 ):
-    '''Specifies a quick connect for an Amazon Connect instance.
+    '''Specifies a quick connect for an Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html
     :cloudformationResource: AWS::Connect::QuickConnect
@@ -15783,7 +15796,7 @@ class CfnQuickConnect(
         ) -> None:
             '''Contains configuration settings for a quick connect.
 
-            :param quick_connect_type: The type of quick connect. In the Amazon Connect console, when you create a quick connect, you are prompted to assign one of the following types: Agent (USER), External (PHONE_NUMBER), or Queue (QUEUE).
+            :param quick_connect_type: The type of quick connect. In the Connect Customer console, when you create a quick connect, you are prompted to assign one of the following types: Agent (USER), External (PHONE_NUMBER), or Queue (QUEUE).
             :param phone_config: The phone configuration. This is required only if QuickConnectType is PHONE_NUMBER.
             :param queue_config: The queue configuration. This is required only if QuickConnectType is QUEUE.
             :param user_config: The user configuration. This is required only if QuickConnectType is USER.
@@ -15834,7 +15847,7 @@ class CfnQuickConnect(
         def quick_connect_type(self) -> builtins.str:
             '''The type of quick connect.
 
-            In the Amazon Connect console, when you create a quick connect, you are prompted to assign one of the following types: Agent (USER), External (PHONE_NUMBER), or Queue (QUEUE).
+            In the Connect Customer console, when you create a quick connect, you are prompted to assign one of the following types: Agent (USER), External (PHONE_NUMBER), or Queue (QUEUE).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-quickconnect-quickconnectconfig.html#cfn-connect-quickconnect-quickconnectconfig-quickconnecttype
             '''
@@ -16192,7 +16205,7 @@ class CfnRoutingProfile(
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_outbound_queue_arn: The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
         :param description: The description of the routing profile.
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param media_concurrencies: The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
         :param name: The name of the routing profile.
         :param agent_availability_timer: Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
@@ -16334,7 +16347,7 @@ class CfnRoutingProfile(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.'''
+        '''The identifier of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -16853,7 +16866,7 @@ class CfnRoutingProfileProps:
 
         :param default_outbound_queue_arn: The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
         :param description: The description of the routing profile.
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param media_concurrencies: The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
         :param name: The name of the routing profile.
         :param agent_availability_timer: Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
@@ -16957,7 +16970,7 @@ class CfnRoutingProfileProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The identifier of the Amazon Connect instance.
+        '''The identifier of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-instancearn
         '''
@@ -17049,7 +17062,7 @@ class CfnRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnRule",
 ):
-    '''Creates a rule for the specified Amazon Connect instance.
+    '''Creates a rule for the specified Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html
     :cloudformationResource: AWS::Connect::Rule
@@ -17946,7 +17959,7 @@ class CfnRule(
             '''The type of notification recipient.
 
             :param user_arns: The Amazon Resource Name (ARN) of the user account.
-            :param user_tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }. Amazon Connect users with the specified tags will be notified.
+            :param user_tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }. Connect Customer users with the specified tags will be notified.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-notificationrecipienttype.html
             :exampleMetadata: fixture=_generated
@@ -17989,7 +18002,7 @@ class CfnRule(
         ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''The tags used to organize, track, or control access for this resource.
 
-            For example, { "tags": {"key1":"value1", "key2":"value2"} }. Amazon Connect users with the specified tags will be notified.
+            For example, { "tags": {"key1":"value1", "key2":"value2"} }. Connect Customer users with the specified tags will be notified.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-notificationrecipienttype.html#cfn-connect-rule-notificationrecipienttype-usertags
             '''
@@ -18180,11 +18193,11 @@ class CfnRule(
         ) -> None:
             '''Information about the send notification action.
 
-            :param content: Notification content. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            :param content: Notification content. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
             :param content_type: Content type format. *Allowed value* : ``PLAIN_TEXT``
             :param delivery_method: Notification delivery method. *Allowed value* : ``EMAIL``
             :param recipient: Notification recipient.
-            :param subject: The subject of the email if the delivery method is ``EMAIL`` . Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            :param subject: The subject of the email if the delivery method is ``EMAIL`` . Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-sendnotificationaction.html
             :exampleMetadata: fixture=_generated
@@ -18230,7 +18243,7 @@ class CfnRule(
         def content(self) -> builtins.str:
             '''Notification content.
 
-            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-sendnotificationaction.html#cfn-connect-rule-sendnotificationaction-content
             '''
@@ -18278,7 +18291,7 @@ class CfnRule(
         def subject(self) -> typing.Optional[builtins.str]:
             '''The subject of the email if the delivery method is ``EMAIL`` .
 
-            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-sendnotificationaction.html#cfn-connect-rule-sendnotificationaction-subject
             '''
@@ -18370,8 +18383,8 @@ class CfnRule(
             This field is required if ``TriggerEventSource`` is one of the following values: ``OnZendeskTicketCreate`` | ``OnZendeskTicketStatusUpdate`` | ``OnSalesforceCaseCreate``
 
             :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow.
-            :param name: The name. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
-            :param description: The description. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            :param name: The name. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
+            :param description: The description. Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
             :param references: Information about the reference when the ``referenceType`` is ``URL`` . Otherwise, null. ``URL`` is the only accepted type. (Supports variable injection in the ``Value`` field.)
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-taskaction.html
@@ -18426,7 +18439,7 @@ class CfnRule(
         def name(self) -> builtins.str:
             '''The name.
 
-            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-taskaction.html#cfn-connect-rule-taskaction-name
             '''
@@ -18438,7 +18451,7 @@ class CfnRule(
         def description(self) -> typing.Optional[builtins.str]:
             '''The description.
 
-            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Amazon Connect Administrators Guide* .
+            Supports variable injection. For more information, see `JSONPath reference <https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html>`_ in the *Connect Customer Administrators Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-taskaction.html#cfn-connect-rule-taskaction-description
             '''
@@ -18784,7 +18797,7 @@ class CfnSecurityKey(
 
     .. epigraph::
 
-       Only two security keys are allowed per Amazon Connect instance.
+       Only two security keys are allowed per Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html
     :cloudformationResource: AWS::Connect::SecurityKey
@@ -19090,7 +19103,7 @@ class CfnSecurityProfile(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param security_profile_name: The name for the security profile.
         :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
         :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
@@ -19232,7 +19245,7 @@ class CfnSecurityProfile(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.'''
+        '''The identifier of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -19902,7 +19915,7 @@ class CfnSecurityProfileProps:
     ) -> None:
         '''Properties for defining a ``CfnSecurityProfile``.
 
-        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param instance_arn: The identifier of the Connect Customer instance.
         :param security_profile_name: The name for the security profile.
         :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
         :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
@@ -20008,7 +20021,7 @@ class CfnSecurityProfileProps:
 
     @builtins.property
     def instance_arn(self) -> typing.Union[builtins.str, "_IInstanceRef_b6835093"]:
-        '''The identifier of the Amazon Connect instance.
+        '''The identifier of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-instancearn
         '''
@@ -20152,7 +20165,7 @@ class CfnTaskTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnTaskTemplate",
 ):
-    '''Specifies a task template for a Amazon Connect instance.
+    '''Specifies a task template for a Connect Customer instance.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html
     :cloudformationResource: AWS::Connect::TaskTemplate
@@ -20222,7 +20235,7 @@ class CfnTaskTemplate(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
         :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
@@ -20357,7 +20370,7 @@ class CfnTaskTemplate(
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.'''
         return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
@@ -21061,7 +21074,7 @@ class CfnTaskTemplateProps:
     ) -> None:
         '''Properties for defining a ``CfnTaskTemplate``.
 
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Connect Customer instance.
         :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
         :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
@@ -21157,7 +21170,7 @@ class CfnTaskTemplateProps:
 
     @builtins.property
     def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        '''The Amazon Resource Name (ARN) of the Connect Customer instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-instancearn
         '''
@@ -21619,9 +21632,9 @@ class CfnUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_connect.CfnUser",
 ):
-    '''Specifies a user account for an Amazon Connect instance.
+    '''Specifies a user account for an Connect Customer instance.
 
-    For information about how to create user accounts using the Amazon Connect console, see `Add Users <https://docs.aws.amazon.com/connect/latest/adminguide/user-management.html>`_ in the *Amazon Connect Administrator Guide* .
+    For information about how to create user accounts using the Connect Customer console, see `Add Users <https://docs.aws.amazon.com/connect/latest/adminguide/user-management.html>`_ in the *Connect Customer Administrator Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html
     :cloudformationResource: AWS::Connect::User
@@ -28284,9 +28297,9 @@ def _typecheckingstub__518dbaa317199e863790cbfe686adc7f0551b2069e11b9e6bb1e59f0a
 
 def _typecheckingstub__597b6f67b4c7001b0aa56e6d7f1b39161a3e4d93e2232ca7c28a31c123d81de0(
     *,
-    options: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     answer_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_option_ref_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormMultiSelectQuestionAutomationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28388,9 +28401,9 @@ def _typecheckingstub__e3628da3194346fb903c2da16aee6a4931544b13dac0a74d2857ffd14
 
 def _typecheckingstub__fc97b2bfa6d5fb8da071bf0ca06feb3e4bb442b1422677cdb6c7ae776fc3629c(
     *,
-    options: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     answer_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormQuestionAutomationAnswerSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_option_ref_id: typing.Optional[builtins.str] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28925,6 +28938,7 @@ def _typecheckingstub__0623057688349069456f9eae4995faa9cd189f98024c1f76262706d57
     instance_id: typing.Union[builtins.str, _IInstanceRef_b6835093],
     integration_arn: builtins.str,
     integration_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28965,11 +28979,18 @@ def _typecheckingstub__beb9a11163321e5e540a87e2baf965475a45e960cf9aa4a424acc86dc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27eda511931a7dda33640ac4d6f54a3c08de77926ff2f3617f018a1bdeb5d670(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3d412d21(
     *,
     instance_id: typing.Union[builtins.str, _IInstanceRef_b6835093],
     integration_arn: builtins.str,
     integration_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

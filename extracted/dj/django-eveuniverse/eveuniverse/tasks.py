@@ -4,13 +4,12 @@ import datetime as dt
 import logging
 from typing import Iterable, List, Optional
 
-from bravado.exception import HTTPError
 from celery import chain, shared_task
 from celery_once import QueueOnce as BaseQueueOnce
 from django.db.utils import OperationalError
 from django.utils.timezone import now
+from esi.exceptions import HTTPServerError
 
-from . import __title__
 from .app_settings import (
     EVEUNIVERSE_LOAD_TASKS_PRIORITY,
     EVEUNIVERSE_NAMES_EXPIRATION_TIME,
@@ -18,12 +17,12 @@ from .app_settings import (
 )
 from .constants import POST_UNIVERSE_NAMES_MAX_ITEMS, EveCategoryId
 from .core.esitools import is_esi_online
-from .models import EveCategory, EveEntity, EveMarketPrice, EveRegion, EveType
+from .models import EveCategory, EveEntity, EveMarketPrice, EveType
 from .models.base import EveUniverseEntityModel, determine_effective_sections
 from .providers import esi
-from .utils import LoggerAddTag, chunks
+from .utils import chunks
 
-logger = LoggerAddTag(logging.getLogger(__name__), __title__)
+logger = logging.getLogger(__name__)
 # logging.getLogger("esi").setLevel(logging.INFO)
 
 
@@ -173,9 +172,8 @@ def load_map(enabled_sections: Optional[List[str]] = None) -> None:
         "and the following additional entities if related to the map: %s",
         ", ".join(determine_effective_sections(enabled_sections)),
     )
-    category, method = EveRegion._esi_path_list()
-    all_ids = getattr(getattr(esi.client, category), method)().results()
-    for id in all_ids:
+    region_ids = esi.client.Universe.GetUniverseRegions().result(use_etag=False)
+    for id in region_ids:
         update_or_create_eve_object.delay(
             model_name="EveRegion",
             id=id,
@@ -198,7 +196,7 @@ def load_all_types(enabled_sections: Optional[List[str]] = None) -> None:
         ", ".join(determine_effective_sections(enabled_sections)),
     )
     category, method = EveCategory._esi_path_list()
-    result = getattr(getattr(esi.client, category), method)().results()
+    result = getattr(getattr(esi.client, category), method)().result(use_etag=False)
     if not result:
         raise ValueError("Did not receive category IDs from ESI.")
     category_ids = sorted(result)
@@ -380,7 +378,7 @@ def update_stale_entities(
 
 
 @shared_task(
-    autoretry_for=(HTTPError,),
+    autoretry_for=(HTTPServerError,),
     retry_kwargs={"max_retries": 3},
     retry_backoff=True,
 )

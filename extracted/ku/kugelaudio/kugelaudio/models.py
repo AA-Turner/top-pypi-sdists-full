@@ -189,6 +189,96 @@ class VoiceReference:
 
 
 @dataclass
+class Dictionary:
+    """A per-project pronunciation dictionary."""
+
+    id: int
+    project_id: int
+    name: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Dictionary":
+        return cls(
+            id=data["id"],
+            project_id=data["project_id"],
+            name=data["name"],
+            description=data.get("description"),
+            language=data.get("language"),
+            is_active=data.get("is_active", True),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class DictionaryEntry:
+    """A single word → replacement / IPA mapping within a dictionary."""
+
+    id: int
+    dictionary_id: int
+    word: str
+    replacement: str
+    ipa: Optional[str] = None
+    case_sensitive: bool = False
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DictionaryEntry":
+        return cls(
+            id=data["id"],
+            dictionary_id=data["dictionary_id"],
+            word=data["word"],
+            replacement=data["replacement"],
+            ipa=data.get("ipa"),
+            case_sensitive=data.get("case_sensitive", False),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class DictionaryEntryList:
+    """Paginated response from the entries list endpoint."""
+
+    entries: List[DictionaryEntry]
+    total: int
+    limit: int
+    offset: int
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DictionaryEntryList":
+        return cls(
+            entries=[DictionaryEntry.from_dict(e) for e in data.get("entries", [])],
+            total=data["total"],
+            limit=data["limit"],
+            offset=data["offset"],
+        )
+
+
+@dataclass
+class BulkReplaceResult:
+    """Counts returned by ``dictionaries.entries.replace_all``."""
+
+    upserted: int
+    deleted: int
+    total: int
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "BulkReplaceResult":
+        return cls(
+            upserted=data["upserted"],
+            deleted=data["deleted"],
+            total=data["total"],
+        )
+
+
+@dataclass
 class WordTimestamp:
     """A single word with its time boundaries within an audio chunk.
 

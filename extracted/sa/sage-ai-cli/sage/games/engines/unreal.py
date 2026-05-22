@@ -74,10 +74,16 @@ class UnrealAdapter:
         (out_dir / "Content" / "Audio").mkdir(parents=True, exist_ok=True)
         (out_dir / "Content" / "Meshes").mkdir(parents=True, exist_ok=True)
 
+        # Bind to whatever UE version is actually installed so .uproject
+        # doesn't try to associate with a missing engine. Falls back to a
+        # pinned LTS-ish version for users scaffolding without UE5 on the
+        # box (a teammate will hydrate it later).
+        engine_assoc = _detect_ue_version() or "5.4"
+
         # .uproject manifest — Unreal reads this to find the project.
         (out_dir / f"{project_name}.uproject").write_text(json.dumps({
             "FileVersion": 3,
-            "EngineAssociation": "5.4",
+            "EngineAssociation": engine_assoc,
             "Category": "",
             "Description": plan.description,
             "Modules": [{
@@ -120,7 +126,50 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, {project_name}, "{project_
             encoding="utf-8",
         )
 
-        log(f"  [unreal] scaffolded {project_name} (.uproject + module)")
+        # Source/<Name>.Target.cs + <Name>Editor.Target.cs — UE5 REQUIRES
+        # these next to the module folder. Without them, UAT prints the
+        # cryptic "looks like a uproject file but no targets have been
+        # found" and aborts. The Target file tells UE what kind of binary
+        # to build (Game / Editor / Server) and which ExtraModuleNames to
+        # include. Without one Target.cs per target type, BuildCookRun
+        # can't even find a starting point.
+        (out_dir / "Source" / f"{project_name}.Target.cs").write_text(
+            f"""using UnrealBuildTool;
+using System.Collections.Generic;
+
+public class {project_name}Target : TargetRules
+{{
+    public {project_name}Target(TargetInfo Target) : base(Target)
+    {{
+        Type = TargetType.Game;
+        DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+        ExtraModuleNames.Add("{project_name}");
+    }}
+}}
+""",
+            encoding="utf-8",
+        )
+        (out_dir / "Source" / f"{project_name}Editor.Target.cs").write_text(
+            f"""using UnrealBuildTool;
+using System.Collections.Generic;
+
+public class {project_name}EditorTarget : TargetRules
+{{
+    public {project_name}EditorTarget(TargetInfo Target) : base(Target)
+    {{
+        Type = TargetType.Editor;
+        DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+        ExtraModuleNames.Add("{project_name}");
+    }}
+}}
+""",
+            encoding="utf-8",
+        )
+
+        log(f"  [unreal] scaffolded {project_name} (.uproject + module + "
+            f"Target.cs pair, engine={engine_assoc})")
 
     def emit_scripts(
         self,
@@ -145,10 +194,11 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, {project_name}, "{project_
 
         scripts = _parse_cpp_blocks(raw)
         if not scripts:
-            scripts = {
-                f"{project_name}GameMode.h": _DEFAULT_GM_H.format(project_name=project_name),
-                f"{project_name}GameMode.cpp": _DEFAULT_GM_CPP.format(project_name=project_name),
-            }
+            # No fallback template — pipeline heals on RuntimeError.
+            raise RuntimeError(
+                "unreal: LLM response had no parseable ```Name.cpp``` "
+                f"or ```Name.h``` blocks. Raw response head:\n{raw[:600]!r}"
+            )
 
         written: list[Path] = []
         for name, body in scripts.items():
@@ -166,14 +216,22 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, {project_name}, "{project_
         *,
         log: ProgressFn,
     ) -> None:
+        # Unreal: sprite/audio/mesh assets land under Content/<Type>/ for the
+        # Content Browser to auto-import. Sprite-anim strips ride alongside
+        # static sprites; UE's Flipbook can slice frames at edit time. Mesh
+        # animation tracks travel inside the GLB and import as AnimationSequence
+        # sub-assets automatically.
         copied = 0
         for src in manifest.sprites.values():
+            shutil.copy2(src, out_dir / "Content" / "Sprites" / src.name); copied += 1
+        for src in manifest.sprite_animations.values():
             shutil.copy2(src, out_dir / "Content" / "Sprites" / src.name); copied += 1
         for src in manifest.audio.values():
             shutil.copy2(src, out_dir / "Content" / "Audio" / src.name); copied += 1
         for src in manifest.meshes.values():
             shutil.copy2(src, out_dir / "Content" / "Meshes" / src.name); copied += 1
-        log(f"  [unreal] consumed {copied} asset(s)")
+        log(f"  [unreal] consumed {copied} asset(s) "
+            f"({len(manifest.sprite_animations)} anim strips)")
 
     def build(
         self,
@@ -201,14 +259,65 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, {project_name}, "{project_
                 "Use Godot or Phaser for web builds, or build a desktop "
                 "target instead (windows/mac/linux).",
             )
-        platform = _TARGET_TO_PLATFORM.get(target, "Win64")
-        log(f"  [unreal] UAT BuildCookRun for {platform} (30–60 min first build)...")
+
+        # Cross-platform toolchain pre-flight. UAT itself takes 60+ sec to
+        # initialize before noticing a missing toolchain — that's a big
+        # tax to pay 4× per matrix run. Detect the obvious cases up front
+        # and raise BuildNotSupported so the heal loop doesn't try at all.
+        sysname = platform.system()
+        if target == "ios" and sysname != "Darwin":
+            raise BuildNotSupported(
+                "unreal",
+                "Unreal iOS builds require a macOS host (Xcode + provisioning). "
+                "Cross-build from Windows/Linux isn't supported by UE5.",
+            )
+        if target == "mac" and sysname != "Darwin":
+            raise BuildNotSupported(
+                "unreal",
+                "Unreal macOS builds require either a macOS host or a "
+                "configured Remote Build server in Editor Preferences. "
+                "Cross-build from a Windows host alone isn't supported.",
+            )
+        if target == "linux" and sysname == "Windows":
+            # UE5's Linux cross-compile needs the Linux clang toolchain
+            # ("v22_clang-..._centos7") under Engine/Extras/ThirdPartyNotUE.
+            # If the user didn't install it via the Epic Launcher's
+            # "Target Platforms" page, UAT prints a vague clang error 30s
+            # in. Fast-fail with the install pointer.
+            sdk_root = uat.parent.parent.parent / "Extras" / "ThirdPartyNotUE" / "SDKs"
+            linux_sdks = list(sdk_root.glob("HostWin64/Linux_x64/v*"))
+            if not linux_sdks:
+                raise BuildNotSupported(
+                    "unreal",
+                    "Unreal Linux cross-build needs the bundled Linux clang "
+                    "toolchain under Engine/Extras/ThirdPartyNotUE/SDKs/"
+                    "HostWin64/Linux_x64/. Install it via Epic Games Launcher "
+                    "→ UE5 install → Options → Target Platforms → Linux.",
+                )
+        if target == "android" and not (
+            os.environ.get("ANDROID_HOME")
+            or os.environ.get("ANDROID_SDK_ROOT")
+            or os.environ.get("NDKROOT")
+        ):
+            raise BuildNotSupported(
+                "unreal",
+                "Unreal Android build needs the Android SDK + NDK installed "
+                "and ANDROID_HOME / ANDROID_SDK_ROOT set. Run UE5's "
+                "Engine/Extras/Android/SetupAndroid.bat to set them up, "
+                "then re-run.",
+            )
+        # Renamed from `platform` to `ue_platform` so we don't shadow the
+        # `platform` stdlib module (the pre-flight checks above call
+        # `platform.system()`, and Python's local-variable hoisting turns
+        # any assignment-later-in-function into UnboundLocalError up top).
+        ue_platform = _TARGET_TO_PLATFORM.get(target, "Win64")
+        log(f"  [unreal] UAT BuildCookRun for {ue_platform} (30–60 min first build)...")
         start = time.monotonic()
         proc = subprocess.run(
             [str(uat), "BuildCookRun",
              f"-project={uproject}",
              "-clientconfig=Development",
-             f"-platform={platform}",
+             f"-platform={ue_platform}",
              "-build", "-cook", "-stage", "-package", "-pak", "-archive",
              f"-archivedirectory={out_dir / 'Build'}"],
             capture_output=True, text=True, timeout=5400, check=False,
@@ -216,9 +325,28 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, {project_name}, "{project_
         duration = time.monotonic() - start
 
         if proc.returncode != 0:
+            log_tail = proc.stdout or ""
+            # Visual Studio toolchain version mismatch is by far the most
+            # common UE5 build error on a clean Windows install — VS 2022
+            # ships a "14.44.x" MSVC that UE5 explicitly bans, and the
+            # actual fix is one GUI click in VS Installer (Individual
+            # Components → MSVC v143). Surface that as BuildNotSupported
+            # so the heal loop doesn't burn another 30-min cook, and
+            # surface the exact component name the user needs.
+            if ("UnrealBuildTool has banned" in log_tail
+                or "missing a valid C++ toolchain" in log_tail):
+                raise BuildNotSupported(
+                    "unreal",
+                    "Unreal Windows build needs a compatible MSVC toolchain. "
+                    "Your installed version is on UBT's banned list. Open "
+                    "Visual Studio Installer → Modify VS 2022 → Individual "
+                    "Components, tick the latest 'MSVC v143 - VS 2022 C++ "
+                    "x64/x86 build tools (Spectre-mitigated)' (not v14.44.0-"
+                    "14.44.35210, which is banned). Then re-run sage.",
+                )
             raise RuntimeError(
                 f"unreal UAT failed (rc={proc.returncode}):\n"
-                f"{(proc.stdout or '')[-1200:]}"
+                f"{log_tail[-1200:]}"
             )
 
         build_root = out_dir / "Build"
@@ -243,6 +371,24 @@ _TARGET_TO_PLATFORM = {
     "android": "Android",
     "ios": "IOS",
 }
+
+
+def _detect_ue_version() -> Optional[str]:
+    """Read the installed UE major.minor from the Epic Games install path.
+
+    `UE_5.7\\Engine\\Build\\BatchFiles\\RunUAT.bat` → "5.7". Used to fill
+    .uproject's `EngineAssociation` so the project binds to whatever the
+    user actually has installed instead of a hardcoded "5.4" that might
+    not even exist on their machine."""
+    adapter = UnrealAdapter()
+    uat = adapter.detect()
+    if uat is None:
+        return None
+    # uat path looks like .../UE_<X.Y>/Engine/Build/BatchFiles/RunUAT.bat
+    for part in uat.parts:
+        if part.startswith("UE_"):
+            return part[3:]
+    return None
 
 
 def _sanitize_name(title: str) -> str:
@@ -295,27 +441,6 @@ Output format — one fenced block per file:
 ```
 
 Output ONLY the code blocks. No prose."""
-
-
-_DEFAULT_GM_H = """#pragma once
-#include "CoreMinimal.h"
-#include "GameFramework/GameModeBase.h"
-#include "{project_name}GameMode.generated.h"
-
-UCLASS()
-class A{project_name}GameMode : public AGameModeBase {{
-    GENERATED_BODY()
-public:
-    A{project_name}GameMode();
-}};
-"""
-
-_DEFAULT_GM_CPP = """#include "{project_name}GameMode.h"
-
-A{project_name}GameMode::A{project_name}GameMode() {{
-    // Placeholder game mode — LLM didn't produce parseable scripts.
-}}
-"""
 
 
 _BLOCK_RE = __import__("re").compile(

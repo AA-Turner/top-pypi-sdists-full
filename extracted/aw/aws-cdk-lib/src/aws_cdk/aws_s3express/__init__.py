@@ -1234,8 +1234,10 @@ class CfnDirectoryBucket(
                 )]
             ),
             metrics_configurations=[s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
-                access_point_arn="accessPointArn",
                 id="id",
+        
+                # the properties below are optional
+                access_point_arn="accessPointArn",
                 prefix="prefix"
             )],
             tags=[CfnTag(
@@ -2036,8 +2038,8 @@ class CfnDirectoryBucket(
         jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucket.MetricsConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "access_point_arn": "accessPointArn",
             "id": "id",
+            "access_point_arn": "accessPointArn",
             "prefix": "prefix",
         },
     )
@@ -2045,14 +2047,14 @@ class CfnDirectoryBucket(
         def __init__(
             self,
             *,
+            id: builtins.str,
             access_point_arn: typing.Optional[builtins.str] = None,
-            id: typing.Optional[builtins.str] = None,
             prefix: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies a metrics configuration for the CloudWatch request metrics from an Amazon S3 Express bucket.
 
-            :param access_point_arn: The access point ARN used when evaluating a metrics filter.
             :param id: The ID used to identify the metrics configuration.
+            :param access_point_arn: The access point ARN used when evaluating a metrics filter.
             :param prefix: The prefix used when evaluating a metrics filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html
@@ -2065,23 +2067,35 @@ class CfnDirectoryBucket(
                 from aws_cdk import aws_s3express as s3express
                 
                 metrics_configuration_property = s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
-                    access_point_arn="accessPointArn",
                     id="id",
+                
+                    # the properties below are optional
+                    access_point_arn="accessPointArn",
                     prefix="prefix"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f500bdbd729365c6884a89d6ef69cff946ab0d910060ab228d55308fcc623b82)
-                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
             if access_point_arn is not None:
                 self._values["access_point_arn"] = access_point_arn
-            if id is not None:
-                self._values["id"] = id
             if prefix is not None:
                 self._values["prefix"] = prefix
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The ID used to identify the metrics configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
 
         @builtins.property
         def access_point_arn(self) -> typing.Optional[builtins.str]:
@@ -2090,15 +2104,6 @@ class CfnDirectoryBucket(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-accesspointarn
             '''
             result = self._values.get("access_point_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def id(self) -> typing.Optional[builtins.str]:
-            '''The ID used to identify the metrics configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-metricsconfiguration.html#cfn-s3express-directorybucket-metricsconfiguration-id
-            '''
-            result = self._values.get("id")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -2583,8 +2588,10 @@ class CfnDirectoryBucketProps:
                     )]
                 ),
                 metrics_configurations=[s3express.CfnDirectoryBucket.MetricsConfigurationProperty(
-                    access_point_arn="accessPointArn",
                     id="id",
+            
+                    # the properties below are optional
+                    access_point_arn="accessPointArn",
                     prefix="prefix"
                 )],
                 tags=[CfnTag(
@@ -3079,8 +3086,8 @@ def _typecheckingstub__82d5e100390b1400bc989c8f7007f04e65bff5948bb5f68def580a838
 
 def _typecheckingstub__f500bdbd729365c6884a89d6ef69cff946ab0d910060ab228d55308fcc623b82(
     *,
+    id: builtins.str,
     access_point_arn: typing.Optional[builtins.str] = None,
-    id: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

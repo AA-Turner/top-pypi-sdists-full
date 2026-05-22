@@ -90,7 +90,7 @@ bool parseMaterial(Material &material, tinyxml2::XMLElement *config, bool only_n
       }
       catch (ParseError &e) {
         material.color.clear();
-        CONSOLE_BRIDGE_logError(std::string("Material [" + material.name + "] has malformed color rgba values: " + e.what()).c_str());
+        CONSOLE_BRIDGE_logError("Material [%s] has malformed color rgba values: %s", material.name.c_str(), e.what());
       }
     }
   }
@@ -98,8 +98,8 @@ bool parseMaterial(Material &material, tinyxml2::XMLElement *config, bool only_n
   if (!has_rgb && !has_filename) {
     if (!only_name_is_ok) // no need for an error if only name is ok
     {
-      CONSOLE_BRIDGE_logError(std::string("Material ["+material.name+"] color has no rgba").c_str());
-      CONSOLE_BRIDGE_logError(std::string("Material ["+material.name+"] not defined in file").c_str());
+      CONSOLE_BRIDGE_logError("Material [%s] color has no rgba", material.name.c_str());
+      CONSOLE_BRIDGE_logError("Material [%s] not defined in file", material.name.c_str());
     }
     return false;
   }
@@ -107,7 +107,8 @@ bool parseMaterial(Material &material, tinyxml2::XMLElement *config, bool only_n
 }
 
 
-bool parseSphere(Sphere &s, tinyxml2::XMLElement *c)
+bool parseSphere(Sphere &s, tinyxml2::XMLElement *c,
+                 const urdf_export_helpers::URDFVersion version)
 {
   s.clear();
 
@@ -123,14 +124,21 @@ bool parseSphere(Sphere &s, tinyxml2::XMLElement *c)
   } catch(std::runtime_error &) {
     std::stringstream stm;
     stm << "radius [" << c->Attribute("radius") << "] is not a valid float";
-    CONSOLE_BRIDGE_logError(stm.str().c_str());
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
+    return false;
+  }
+
+  if (version.at_least(1, 2) && (!std::isfinite(s.radius) || s.radius <= 0))
+  {
+    CONSOLE_BRIDGE_logError("Sphere radius must be a positive finite value");
     return false;
   }
 
   return true;
 }
 
-bool parseBox(Box &b, tinyxml2::XMLElement *c)
+bool parseBox(Box &b, tinyxml2::XMLElement *c,
+              const urdf_export_helpers::URDFVersion version)
 {
   b.clear();
 
@@ -147,13 +155,23 @@ bool parseBox(Box &b, tinyxml2::XMLElement *c)
   catch (ParseError &e)
   {
     b.dim.clear();
-    CONSOLE_BRIDGE_logError(e.what());
+    CONSOLE_BRIDGE_logError("%s", e.what());
     return false;
   }
+
+  const bool are_dim_finite = std::isfinite(b.dim.x) && std::isfinite(b.dim.y) && std::isfinite(b.dim.z);
+  const bool are_dim_positive = b.dim.x > 0 && b.dim.y > 0 && b.dim.z > 0;
+  if (version.at_least(1, 2) && (!are_dim_finite || !are_dim_positive))
+  {
+    CONSOLE_BRIDGE_logError("Box size must be positive finite values");
+    return false;
+  }
+
   return true;
 }
 
-bool parseCylinder(Cylinder &y, tinyxml2::XMLElement *c)
+bool parseCylinder(Cylinder &y, tinyxml2::XMLElement *c,
+                   const urdf_export_helpers::URDFVersion version)
 {
   y.clear();
 
@@ -170,7 +188,7 @@ bool parseCylinder(Cylinder &y, tinyxml2::XMLElement *c)
   } catch(std::runtime_error &) {
     std::stringstream stm;
     stm << "length [" << c->Attribute("length") << "] is not a valid float";
-    CONSOLE_BRIDGE_logError(stm.str().c_str());
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
     return false;
   }
 
@@ -179,7 +197,14 @@ bool parseCylinder(Cylinder &y, tinyxml2::XMLElement *c)
   } catch(std::runtime_error &) {
     std::stringstream stm;
     stm << "radius [" << c->Attribute("radius") << "] is not a valid float";
-    CONSOLE_BRIDGE_logError(stm.str().c_str());
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
+    return false;
+  }
+
+  if (version.at_least(1, 2) &&
+      (!std::isfinite(y.length) || !std::isfinite(y.radius) || y.length <= 0 || y.radius <= 0))
+  {
+    CONSOLE_BRIDGE_logError("Cylinder length and radius must be positive finite values");
     return false;
   }
 
@@ -216,7 +241,49 @@ bool parseMesh(Mesh &m, tinyxml2::XMLElement *c)
   return true;
 }
 
-GeometrySharedPtr parseGeometry(tinyxml2::XMLElement *g)
+bool parseCapsule(Capsule &c, tinyxml2::XMLElement *elem,
+                  const urdf_export_helpers::URDFVersion version)
+{
+  c.clear();
+
+  c.type = Geometry::CAPSULE;
+  if (!elem->Attribute("length") ||
+      !elem->Attribute("radius"))
+  {
+    CONSOLE_BRIDGE_logError("Capsule shape must have both length and radius attributes");
+    return false;
+  }
+
+  try {
+    c.length = strToDouble(elem->Attribute("length"));
+  } catch(std::runtime_error &) {
+    std::stringstream stm;
+    stm << "length [" << elem->Attribute("length") << "] is not a valid float";
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
+    return false;
+  }
+
+  try {
+    c.radius = strToDouble(elem->Attribute("radius"));
+  } catch(std::runtime_error &) {
+    std::stringstream stm;
+    stm << "radius [" << elem->Attribute("radius") << "] is not a valid float";
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
+    return false;
+  }
+
+  if (version.at_least(1, 2) &&
+      (!std::isfinite(c.length) || !std::isfinite(c.radius) || c.length <= 0 || c.radius <= 0))
+  {
+    CONSOLE_BRIDGE_logError("Capsule length and radius must be positive finite values");
+    return false;
+  }
+
+  return true;
+}
+
+GeometrySharedPtr parseGeometry(tinyxml2::XMLElement *g, 
+                                const urdf_export_helpers::URDFVersion version)
 {
   GeometrySharedPtr geom;
   if (!g) return geom;
@@ -233,21 +300,21 @@ GeometrySharedPtr parseGeometry(tinyxml2::XMLElement *g)
   {
     Sphere *s = new Sphere();
     geom.reset(s);
-    if (parseSphere(*s, shape))
+    if (parseSphere(*s, shape, version))
       return geom;
   }
   else if (type_name == "box")
   {
     Box *b = new Box();
     geom.reset(b);
-    if (parseBox(*b, shape))
+    if (parseBox(*b, shape, version))
       return geom;
   }
   else if (type_name == "cylinder")
   {
     Cylinder *c = new Cylinder();
     geom.reset(c);
-    if (parseCylinder(*c, shape))
+    if (parseCylinder(*c, shape, version))
       return geom;
   }
   else if (type_name == "mesh")
@@ -256,6 +323,19 @@ GeometrySharedPtr parseGeometry(tinyxml2::XMLElement *g)
     geom.reset(m);
     if (parseMesh(*m, shape))
       return geom;
+  }
+  else if (type_name == "capsule")
+  {
+    if (version.less_than(1, 1)) {
+      CONSOLE_BRIDGE_logWarn("Ignoring capsule attribute minimum required version URDF version 1.1 since specified version is 1.0.");
+      return GeometrySharedPtr();
+    }
+    else {
+      Capsule *c = new Capsule();
+      geom.reset(c);
+      if (parseCapsule(*c, shape, version))
+        return geom;
+    }
   }
   else
   {
@@ -266,7 +346,8 @@ GeometrySharedPtr parseGeometry(tinyxml2::XMLElement *g)
   return GeometrySharedPtr();
 }
 
-bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
+bool parseInertial(Inertial &i, tinyxml2::XMLElement *config,
+                   const urdf_export_helpers::URDFVersion version)
 {
   i.clear();
 
@@ -274,7 +355,7 @@ bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
   tinyxml2::XMLElement *o = config->FirstChildElement("origin");
   if (o)
   {
-    if (!parsePoseInternal(i.origin, o))
+    if (!parsePoseInternal(i.origin, o, version))
       return false;
   }
 
@@ -296,7 +377,7 @@ bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
     std::stringstream stm;
     stm << "Inertial: mass [" << mass_xml->Attribute("value")
         << "] is not a float";
-    CONSOLE_BRIDGE_logError(stm.str().c_str());
+    CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
     return false;
   }
 
@@ -322,7 +403,7 @@ bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
     {
       std::stringstream stm;
       stm << "Inertial: inertia element missing " << attr.first << " attribute";
-      CONSOLE_BRIDGE_logError(stm.str().c_str());
+      CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
       return false;
     }
 
@@ -331,7 +412,7 @@ bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
     } catch(std::runtime_error &) {
       std::stringstream stm;
       stm << "Inertial: inertia element " << attr.first << " is not a valid double";
-      CONSOLE_BRIDGE_logError(stm.str().c_str());
+      CONSOLE_BRIDGE_logError("%s", stm.str().c_str());
       return false;
     }
   }
@@ -346,20 +427,21 @@ bool parseInertial(Inertial &i, tinyxml2::XMLElement *config)
   return true;
 }
 
-bool parseVisual(Visual &vis, tinyxml2::XMLElement *config)
+bool parseVisual(Visual &vis, tinyxml2::XMLElement *config,
+                 const urdf_export_helpers::URDFVersion version)
 {
   vis.clear();
 
   // Origin
   tinyxml2::XMLElement *o = config->FirstChildElement("origin");
   if (o) {
-    if (!parsePoseInternal(vis.origin, o))
+    if (!parsePoseInternal(vis.origin, o, version))
       return false;
   }
 
   // Geometry
   tinyxml2::XMLElement *geom = config->FirstChildElement("geometry");
-  vis.geometry = parseGeometry(geom);
+  vis.geometry = parseGeometry(geom, version);
   if (!vis.geometry)
     return false;
 
@@ -388,20 +470,21 @@ bool parseVisual(Visual &vis, tinyxml2::XMLElement *config)
   return true;
 }
 
-bool parseCollision(Collision &col, tinyxml2::XMLElement* config)
+bool parseCollision(Collision &col, tinyxml2::XMLElement* config,
+                    const urdf_export_helpers::URDFVersion version)
 {
   col.clear();
 
   // Origin
   tinyxml2::XMLElement *o = config->FirstChildElement("origin");
   if (o) {
-    if (!parsePoseInternal(col.origin, o))
+    if (!parsePoseInternal(col.origin, o, version))
       return false;
   }
 
   // Geometry
   tinyxml2::XMLElement *geom = config->FirstChildElement("geometry");
-  col.geometry = parseGeometry(geom);
+  col.geometry = parseGeometry(geom, version);
   if (!col.geometry)
     return false;
 
@@ -412,7 +495,8 @@ bool parseCollision(Collision &col, tinyxml2::XMLElement* config)
   return true;
 }
 
-bool parseLink(Link &link, tinyxml2::XMLElement* config)
+bool parseLink(Link &link, tinyxml2::XMLElement* config,
+               const urdf_export_helpers::URDFVersion version)
 {
 
   link.clear();
@@ -430,7 +514,7 @@ bool parseLink(Link &link, tinyxml2::XMLElement* config)
   if (i)
   {
     link.inertial.reset(new Inertial());
-    if (!parseInertial(*link.inertial, i))
+    if (!parseInertial(*link.inertial, i, version))
     {
       CONSOLE_BRIDGE_logError("Could not parse inertial element for Link [%s]", link.name.c_str());
       return false;
@@ -443,7 +527,7 @@ bool parseLink(Link &link, tinyxml2::XMLElement* config)
 
     VisualSharedPtr vis;
     vis.reset(new Visual());
-    if (parseVisual(*vis, vis_xml))
+    if (parseVisual(*vis, vis_xml, version))
     {
       link.visual_array.push_back(vis);
     }
@@ -465,7 +549,7 @@ bool parseLink(Link &link, tinyxml2::XMLElement* config)
   {
     CollisionSharedPtr col;
     col.reset(new Collision());
-    if (parseCollision(*col, col_xml))
+    if (parseCollision(*col, col_xml, version))
     {
       link.collision_array.push_back(col);
     }

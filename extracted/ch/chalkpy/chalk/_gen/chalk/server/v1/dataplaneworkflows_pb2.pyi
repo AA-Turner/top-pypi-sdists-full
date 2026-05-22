@@ -119,7 +119,7 @@ class GetDataPlaneWorkflowResponse(_message.Message):
     def __init__(self, workflow: _Optional[_Union[WorkflowExecution, _Mapping]] = ...) -> None: ...
 
 class ListDataPlaneWorkflowsRequest(_message.Message):
-    __slots__ = ("environment_id", "deployment_id", "kind", "status", "limit", "offset", "id_filter")
+    __slots__ = ("environment_id", "deployment_id", "kind", "status", "limit", "offset", "id_filter", "tags_filter")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
@@ -127,6 +127,7 @@ class ListDataPlaneWorkflowsRequest(_message.Message):
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
     ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FILTER_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
     deployment_id: str
     kind: WorkflowKind
@@ -134,6 +135,7 @@ class ListDataPlaneWorkflowsRequest(_message.Message):
     limit: int
     offset: int
     id_filter: str
+    tags_filter: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         environment_id: _Optional[str] = ...,
@@ -143,6 +145,7 @@ class ListDataPlaneWorkflowsRequest(_message.Message):
         limit: _Optional[int] = ...,
         offset: _Optional[int] = ...,
         id_filter: _Optional[str] = ...,
+        tags_filter: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListDataPlaneWorkflowsResponse(_message.Message):

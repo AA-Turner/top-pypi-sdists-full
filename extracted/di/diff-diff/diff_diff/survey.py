@@ -266,6 +266,7 @@ class SurveyDesign:
                     else None
                 ),
                 mse=self.mse,
+                nest=self.nest,
             )
 
         # --- Strata ---
@@ -417,6 +418,7 @@ class SurveyDesign:
             n_strata=n_strata,
             n_psu=n_psu,
             lonely_psu=self.lonely_psu,
+            nest=self.nest,
         )
 
     def subpopulation(
@@ -580,6 +582,10 @@ class ResolvedSurveyDesign:
     replicate_scale: Optional[float] = None
     replicate_rscales: Optional[np.ndarray] = None  # (R,) per-replicate scales
     mse: bool = False
+    # Preserved from SurveyDesign for use by downstream helpers (e.g.
+    # `_inject_cluster_as_psu` honors `nest` when substituting cluster=<col>
+    # for an absent PSU column).
+    nest: bool = False
 
     @property
     def uses_replicate_variance(self) -> bool:
@@ -670,6 +676,7 @@ class ResolvedSurveyDesign:
             replicate_scale=self.replicate_scale,
             replicate_rscales=self.replicate_rscales,
             mse=self.mse,
+            nest=self.nest,
         )
 
     @property
@@ -1182,6 +1189,7 @@ def collapse_survey_to_unit_level(resolved_survey, df, unit_col, all_units):
         replicate_scale=resolved_survey.replicate_scale,
         replicate_rscales=resolved_survey.replicate_rscales,
         mse=resolved_survey.mse,
+        nest=resolved_survey.nest,
     )
 
 
@@ -1280,6 +1288,15 @@ def _inject_cluster_as_psu(resolved, cluster_ids):
     When survey design has no PSU but cluster_ids are provided,
     inject cluster_ids as the effective PSU for TSL variance estimation.
 
+    Honors ``resolved.nest`` matching the explicit-PSU resolver at
+    ``SurveyDesign.resolve()`` (L299-L318):
+      - ``nest=True`` (or no strata): nest cluster IDs within strata via
+        ``f"{s}_{c}"`` so repeated cluster labels across strata become
+        distinct PSUs.
+      - ``nest=False`` AND strata present: cluster labels must be
+        globally unique (no overlap across strata); raise if they
+        repeat, mirroring the explicit-PSU `nest=False` contract.
+
     Returns a new ResolvedSurveyDesign (no mutation) or the original unchanged.
     """
     if resolved is None or cluster_ids is None:
@@ -1295,11 +1312,31 @@ def _inject_cluster_as_psu(resolved, cluster_ids):
             "when used as effective PSUs for survey variance estimation."
         )
 
-    # When strata are present, make cluster IDs unique within strata
-    # (same nesting logic as SurveyDesign.resolve() with nest=True)
     if resolved.strata is not None:
-        combined = np.array([f"{s}_{c}" for s, c in zip(resolved.strata, cluster_ids)])
-        codes, uniques = pd.factorize(combined)
+        if resolved.nest:
+            # Nest cluster IDs within strata: combined `(stratum, cluster)`
+            # labels are globally unique by construction.
+            combined = np.array([f"{s}_{c}" for s, c in zip(resolved.strata, cluster_ids)])
+            codes, uniques = pd.factorize(combined)
+        else:
+            # nest=False contract: cluster labels must be globally unique
+            # across strata (same gate as `SurveyDesign.resolve()` L305-L316).
+            # Validate by checking that each cluster label appears in
+            # exactly one stratum.
+            df_check = pd.DataFrame({"stratum": resolved.strata, "cluster": cluster_ids})
+            overlap = df_check.groupby("cluster")["stratum"].nunique()
+            ambiguous = overlap[overlap > 1]
+            if len(ambiguous) > 0:
+                bad_examples = list(ambiguous.index[:5])
+                raise ValueError(
+                    f"Cluster IDs repeat across strata under nest=False: "
+                    f"{len(ambiguous)} cluster label(s) appear in multiple "
+                    f"strata (examples: {bad_examples}). Either set "
+                    f"nest=True in SurveyDesign so cluster IDs are made "
+                    f"unique within strata, or pass an explicit unique "
+                    f"`psu=<col>` to SurveyDesign."
+                )
+            codes, uniques = pd.factorize(cluster_ids)
     else:
         codes, uniques = pd.factorize(cluster_ids)
     n_clusters = len(uniques)
@@ -1856,6 +1893,160 @@ def _compute_stratified_meat_from_psu_scores(
         adjustment = (1.0 - f_h) * (n_psu_h / (n_psu_h - 1))
         with np.errstate(invalid="ignore", over="ignore"):
             meat += adjustment * (centered.T @ centered)
+        _variance_computed = True
+
+    return meat, _variance_computed, legitimate_zero_count
+
+
+def _compute_stratified_conley_meat_from_psu_scores(
+    psu_scores: np.ndarray,
+    psu_strata: np.ndarray,
+    psu_coords: np.ndarray,
+    *,
+    cutoff: float,
+    metric,
+    kernel: str,
+    fpc_per_psu: "Optional[np.ndarray]" = None,
+    lonely_psu: str = "remove",
+) -> Tuple[np.ndarray, bool, int]:
+    """Wave E.2 stratified-Conley meat on PSU-aggregated scores.
+
+    Composes Conley (1999) spatial-HAC with Gerber (2026, arXiv:2605.04124)
+    Proposition 1 Binder TSL (the Wave E.1 foundation) and the Wave D
+    Gardner GMM first-stage uncertainty correction (Butts 2021 ss3.1 +
+    Gardner 2022 ss4). Used by SpilloverDiD's Wave E.2 GMM sandwich when
+    ``vcov_type="conley"`` is combined with ``survey_design=``.
+
+    Per-stratum loop: demean PSU scores within the stratum, apply the
+    cross-sectional Conley kernel between PSU centroids in that stratum,
+    scale by the Binder finite-population correction
+    ``(1 - f_h) * n_h/(n_h-1)``. Cross-stratum kernel weights are zero by
+    sampling design (strata are exact independence partitions); total meat
+    is the sum across strata.
+
+    Parameters
+    ----------
+    psu_scores : np.ndarray
+        Score matrix of shape (G, k) — one row per PSU.
+    psu_strata : np.ndarray
+        Stratum assignment per PSU, shape (G,).
+    psu_coords : np.ndarray
+        Per-PSU spatial centroid coordinates, shape (G, 2). Typically the
+        mean of per-observation ``conley_coords`` within each PSU.
+    cutoff : float
+        Conley spatial-HAC bandwidth in the same units as ``psu_coords``
+        (km when ``metric="haversine"``).
+    metric : str or callable
+        Distance metric; ``"haversine"`` / ``"euclidean"`` / callable per
+        :mod:`diff_diff.conley` (``ConleyMetric``).
+    kernel : str
+        Spatial kernel: ``"bartlett"`` or ``"uniform"``.
+    fpc_per_psu : np.ndarray, optional
+        FPC population size per PSU, shape (G,). All PSUs in the same
+        stratum should share the same FPC value (first occurrence used).
+    lonely_psu : str
+        How to handle singleton strata: ``"remove"``, ``"certainty"``, or
+        ``"adjust"``. Matches the existing
+        :func:`_compute_stratified_meat_from_psu_scores` behaviour exactly,
+        including the ``"adjust"`` branch's ``continue`` that skips FPC
+        scaling (with ``n_h=1`` the scale ``n_h/(n_h-1)`` would divide by
+        zero).
+
+    Returns
+    -------
+    meat : np.ndarray
+        Meat matrix of shape (k, k).
+    variance_computed : bool
+        Whether any actual variance computation happened.
+    legitimate_zero_count : int
+        Number of strata that legitimately contribute zero variance.
+
+    Notes
+    -----
+    Reduction semantics (load-bearing for tests):
+
+    - bandwidth -> 0 (Bartlett: ``K(d/tiny) = 0`` for ``d > 0`` and
+      ``K(0) = 1`` on the diagonal so K is the identity matrix): the
+      within-stratum sandwich ``sum_{j,k} K_jk c_j c_k' = sum_j c_j c_j'
+      = centered.T @ centered``, which is precisely Binder's formula at
+      :func:`_compute_stratified_meat_from_psu_scores`.
+    - Single stratum (H = 1, FPC = inf): reduces to ordinary Conley
+      sandwich on PSU totals via :func:`diff_diff.conley._compute_conley_meat`.
+
+    No reference software combines all three ingredients (Conley
+    spatial-HAC + Binder TSL + Gardner GMM correction) on a two-stage
+    influence function.
+    """
+    from diff_diff.conley import _compute_conley_meat
+
+    if psu_scores.ndim == 1:
+        psu_scores = psu_scores[:, np.newaxis]
+    k = psu_scores.shape[1]
+    meat = np.zeros((k, k))
+
+    unique_strata = np.unique(psu_strata)
+    _variance_computed = False
+    legitimate_zero_count = 0
+
+    _global_psu_mean = None
+    if lonely_psu == "adjust":
+        _global_psu_mean = psu_scores.mean(axis=0, keepdims=True)
+
+    for h in unique_strata:
+        mask_h = psu_strata == h
+        scores_h = psu_scores[mask_h]
+        coords_h = psu_coords[mask_h]
+        n_psu_h = scores_h.shape[0]
+
+        if n_psu_h < 2:
+            if lonely_psu == "remove":
+                continue
+            elif lonely_psu == "certainty":
+                legitimate_zero_count += 1
+                continue
+            elif lonely_psu == "adjust":
+                # Degenerate one-PSU kernel K = [[K(0)]] = [[1.0]] for both
+                # Bartlett and uniform; equivalent to centered.T @ centered.
+                # MUST `continue` to skip the FPC block below — with n_h = 1
+                # the scale n_h/(n_h-1) divides by zero. Mirrors the Binder
+                # helper's singleton-adjust branch exactly.
+                centered = scores_h - _global_psu_mean
+                with np.errstate(invalid="ignore", over="ignore"):
+                    meat += centered.T @ centered
+                _variance_computed = True
+                continue
+
+        f_h = 0.0
+        if fpc_per_psu is not None:
+            N_h = fpc_per_psu[mask_h][0]
+            if N_h < n_psu_h:
+                raise ValueError(
+                    f"FPC ({N_h}) is less than the number of PSUs "
+                    f"({n_psu_h}) in stratum. FPC must be >= n_PSU."
+                )
+            f_h = n_psu_h / N_h
+            if f_h >= 1.0:
+                legitimate_zero_count += 1
+
+        psu_mean_h = scores_h.mean(axis=0, keepdims=True)
+        centered = scores_h - psu_mean_h
+
+        # Within-stratum Conley sandwich on PSU-centered scores. Pass
+        # ``cluster_ids=None`` explicitly: after PSU aggregation every PSU
+        # is its own cluster, so a cluster product kernel would zero all
+        # cross-PSU pairs. See Wave E.2 plan Chunk 3 step 4.
+        conley_meat_h = _compute_conley_meat(
+            centered,
+            coords_h,
+            cutoff,
+            metric,
+            kernel,
+            cluster_ids=None,
+        )
+
+        adjustment = (1.0 - f_h) * (n_psu_h / (n_psu_h - 1))
+        with np.errstate(invalid="ignore", over="ignore"):
+            meat += adjustment * conley_meat_h
         _variance_computed = True
 
     return meat, _variance_computed, legitimate_zero_count

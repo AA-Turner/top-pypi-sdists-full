@@ -14506,7 +14506,7 @@ class CfnDaemonTaskDefinition(
             :param capabilities: The Linux capabilities to add or remove from the default Docker configuration for a container defined in the task definition. For more detailed information about these Linux capabilities, see the `capabilities(7) <https://docs.aws.amazon.com/http://man7.org/linux/man-pages/man7/capabilities.7.html>`_ Linux manual page. The following describes how Docker processes the Linux capabilities specified in the ``add`` and ``drop`` request parameters. For information about the latest behavior, see `Docker Compose: order of cap_drop and cap_add <https://docs.aws.amazon.com/https://forums.docker.com/t/docker-compose-order-of-cap-drop-and-cap-add/97136/1>`_ in the Docker Community Forum. - When the container is a privleged container, the container capabilities are all of the default Docker capabilities. The capabilities specified in the ``add`` request parameter, and the ``drop`` request parameter are ignored. - When the ``add`` request parameter is set to ALL, the container capabilities are all of the default Docker capabilities, excluding those specified in the ``drop`` request parameter. - When the ``drop`` request parameter is set to ALL, the container capabilities are the capabilities specified in the ``add`` request parameter. - When the ``add`` request parameter and the ``drop`` request parameter are both empty, the capabilities the container capabilities are all of the default Docker capabilities. - The default is to first drop the capabilities specified in the ``drop`` request parameter, and then add the capabilities specified in the ``add`` request parameter.
             :param devices: Any host devices to expose to the container. This parameter maps to ``Devices`` in the docker container create command and the ``--device`` option to docker run. If you're using tasks that use the Fargate launch type, the ``devices`` parameter isn't supported.
             :param init_process_enabled: Run an ``init`` process inside the container that forwards signals and reaps processes. This parameter maps to the ``--init`` option to docker run. This parameter requires version 1.25 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
-            :param tmpfs: The container path, mount options, and size (in MiB) of the tmpfs mount. This parameter maps to the ``--tmpfs`` option to docker run. If you're using tasks that use the Fargate launch type, the ``tmpfs`` parameter isn't supported.
+            :param tmpfs: The container path, mount options, and size (in MiB) of the tmpfs mount. This parameter maps to the ``--tmpfs`` option to docker run.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html
             :exampleMetadata: fixture=_generated
@@ -14607,7 +14607,6 @@ class CfnDaemonTaskDefinition(
             '''The container path, mount options, and size (in MiB) of the tmpfs mount.
 
             This parameter maps to the ``--tmpfs`` option to docker run.
-            If you're using tasks that use the Fargate launch type, the ``tmpfs`` parameter isn't supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-tmpfs
             '''
@@ -15369,10 +15368,10 @@ class CfnDaemonTaskDefinition(
         ) -> None:
             '''The data volume configuration for tasks launched using this task definition.
 
-            Specifying a volume configuration in a task definition is optional. The volume configuration may contain multiple volumes but only one volume configured at launch is supported. Each volume defined in the volume configuration may only specify a ``name`` and one of either ``configuredAtLaunch``, ``dockerVolumeConfiguration``, ``efsVolumeConfiguration``, ``fsxWindowsFileServerVolumeConfiguration``, or ``host``. If an empty volume configuration is specified, by default Amazon ECS uses a host volume. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_.
+            Specifying a volume configuration in a task definition is optional. The volume configuration may contain multiple volumes but only one volume configured at launch is supported. Each volume defined in the volume configuration may only specify a ``name`` and one of either ``configuredAtLaunch``, ``dockerVolumeConfiguration``, ``efsVolumeConfiguration``, ``s3filesVolumeConfiguration``, ``fsxWindowsFileServerVolumeConfiguration``, or ``host``. If an empty volume configuration is specified, by default Amazon ECS uses a host volume. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_.
 
             :param host: Details on a container instance bind mount host volume.
-            :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration``, the name is required.
+            :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration``, the name is required. When a volume is using the ``s3filesVolumeConfiguration``, the name is required.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html
             :exampleMetadata: fixture=_generated
@@ -15419,6 +15418,7 @@ class CfnDaemonTaskDefinition(
             When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task.
             For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition.
             When a volume is using the ``efsVolumeConfiguration``, the name is required.
+            When a volume is using the ``s3filesVolumeConfiguration``, the name is required.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-name
             '''

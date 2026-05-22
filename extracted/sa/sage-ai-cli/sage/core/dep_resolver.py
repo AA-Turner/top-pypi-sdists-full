@@ -545,10 +545,87 @@ include = ["app*"]
     (backend_root / "pyproject.toml").write_text(pyproject, encoding="utf-8")
 
 
-def emit_node_package_json(
-    deps: DepSet, frontend_root: Path, *, framework: str | None, project_name: str
+def emit_pypi_pyproject(
+    deps: DepSet, backend_root: Path, *, package_name: str, project_name: str
 ) -> None:
-    """Write package.json with scripts the verify loop relies on."""
+    """Write pyproject.toml configured as a proper PyPI-distributable package.
+
+    Called when StackProfile.pypi_package=True. Creates a package that can be
+    installed via `pip install <package_name>` and published with `twine upload`.
+    """
+    backend_root.mkdir(parents=True, exist_ok=True)
+    runtime_sorted = sorted(set(deps.python_runtime))
+    dev_sorted = sorted(set(deps.python_dev))
+    runtime_list = ",\n    ".join(f'"{d}"' for d in runtime_sorted)
+    dev_list = ",\n    ".join(f'"{d}"' for d in dev_sorted)
+    # Normalize package name: use kebab-case for distribution, snake_case for import
+    dist_name = package_name.replace("_", "-")
+    import_name = package_name.replace("-", "_")
+    pyproject = f"""[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{dist_name}"
+version = "0.1.0"
+description = "FastAPI backend service — installable via pip"
+readme = "README.md"
+license = {{text = "MIT"}}
+requires-python = ">=3.11"
+keywords = ["fastapi", "api", "advertising"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    {runtime_list}
+]
+
+[project.optional-dependencies]
+dev = [
+    {dev_list},
+    "build>=1.0",
+    "twine>=4.0",
+]
+
+[project.scripts]
+{import_name} = "{import_name}.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["{import_name}"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# To publish: python -m build && twine upload dist/*
+# To install: pip install {dist_name}
+"""
+    (backend_root / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+
+    # Also write requirements.txt for Docker/non-pip workflows
+    req_path = backend_root / "requirements.txt"
+    req_path.write_text("\n".join(runtime_sorted) + "\n", encoding="utf-8")
+
+
+def emit_node_package_json(
+    deps: DepSet,
+    frontend_root: Path,
+    *,
+    framework: str | None,
+    project_name: str,
+    js_runtime: str = "node",
+) -> None:
+    """Write package.json with scripts the verify loop relies on.
+
+    When js_runtime='bun', scripts use `bun` instead of `npm`/`node`,
+    and the package manager is configured for Bun.
+    """
     frontend_root.mkdir(parents=True, exist_ok=True)
 
     def _split_dep(spec: str) -> tuple[str, str]:
@@ -573,9 +650,31 @@ def emit_node_package_json(
         n, v = _split_dep(spec)
         dev_map[n] = v
 
+    # Determine the correct command prefix based on JS runtime
+    _is_bun = js_runtime == "bun"
+    _run = "bun run" if _is_bun else "npx"
+    _install_note = "bun install" if _is_bun else "npm install"
+
     # Per-framework script set. install/test/typecheck/lint always present
     # so the verify loop can call them unconditionally.
-    if framework == "react-native-web":
+    if framework == "react-native-web" and _is_bun:
+        # Bun + React Native: use bun for JS but Expo CLI for native builds
+        scripts = {
+            "start": "expo start",
+            "android": "expo start --android",
+            "ios": "expo start --ios",
+            "web": "bun run web:ssr",        # Bun SSR server
+            "web:ssr": "bun run src/web/ssr.tsx",  # Bun SSR entry point
+            "build": "bun build src/web/ssr.tsx --outdir dist --target bun",
+            "build:web": "expo export --platform web",
+            "dev": "bun --watch run src/web/ssr.tsx",
+            "test": "bun test",
+            "typecheck": "tsc --noEmit",
+            "lint": "eslint . --ext .ts,.tsx --max-warnings=0 || true",
+            "worker": "bun run workers/",
+        }
+        extras = {"main": "expo-router/entry", "packageManager": "bun@1"}
+    elif framework == "react-native-web":
         scripts = {
             "start": "expo start",
             "android": "expo start --android",

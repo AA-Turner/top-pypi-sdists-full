@@ -12,6 +12,7 @@ from ._component import (
     SpriteRenderer,
     TextRenderer,
     Animator,
+    TrailRenderer,
     SoundEmitter,
     VideoPlayer,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "SpriteRenderer",
     "TextRenderer",
     "Animator",
+    "TrailRenderer",
     "SoundEmitter",
     "VideoPlayer",
 

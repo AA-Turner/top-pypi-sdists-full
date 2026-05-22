@@ -26,6 +26,7 @@ __all__ = (
     "BatchGetPolicyErrorCodeType",
     "CedarVersionType",
     "DecisionType",
+    "DeletionModeType",
     "DeletionProtectionType",
     "ListIdentitySourcesPaginatorName",
     "ListPoliciesPaginatorName",
@@ -49,6 +50,7 @@ BatchGetPolicyErrorCodeType = Literal[
 ]
 CedarVersionType = Literal["CEDAR_2", "CEDAR_4"]
 DecisionType = Literal["ALLOW", "DENY"]
+DeletionModeType = Literal["HardDelete", "SoftDelete"]
 DeletionProtectionType = Literal["DISABLED", "ENABLED"]
 ListIdentitySourcesPaginatorName = Literal["list_identity_sources"]
 ListPoliciesPaginatorName = Literal["list_policies"]

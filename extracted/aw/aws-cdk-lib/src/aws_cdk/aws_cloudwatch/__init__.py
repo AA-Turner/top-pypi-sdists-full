@@ -6576,7 +6576,7 @@ class CfnCompositeAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDashboardRef_3c35946b)
+@jsii.implements(_IInspectable_c2943556, _IDashboardRef_3c35946b, _ITaggableV2_4e6798f8)
 class CfnDashboard(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6594,6 +6594,7 @@ class CfnDashboard(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_cloudwatch as cloudwatch
@@ -6602,7 +6603,11 @@ class CfnDashboard(
             dashboard_body="dashboardBody",
         
             # the properties below are optional
-            dashboard_name="dashboardName"
+            dashboard_name="dashboardName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -6613,6 +6618,7 @@ class CfnDashboard(
         *,
         dashboard_body: builtins.str,
         dashboard_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::Dashboard``.
 
@@ -6620,13 +6626,14 @@ class CfnDashboard(
         :param id: Construct identifier for this resource (unique in its scope).
         :param dashboard_body: The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard. This parameter is required. For more information about the syntax, see `Dashboard Body Structure and Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html>`_ .
         :param dashboard_name: The name of the dashboard. The name must be between 1 and 255 characters. If you do not specify a name, one will be generated automatically.
+        :param tags: A list of key-value pairs to associate with the cloudwatch dashboard. You can associate up to 50 tags with a dashboard
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDashboardProps(
-            dashboard_body=dashboard_body, dashboard_name=dashboard_name
+            dashboard_body=dashboard_body, dashboard_name=dashboard_name, tags=tags
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -6706,6 +6713,12 @@ class CfnDashboard(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -6747,6 +6760,19 @@ class CfnDashboard(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashboardName", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of key-value pairs to associate with the cloudwatch dashboard.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDashboardProps",
@@ -6754,6 +6780,7 @@ class CfnDashboard(
     name_mapping={
         "dashboard_body": "dashboardBody",
         "dashboard_name": "dashboardName",
+        "tags": "tags",
     },
 )
 class CfnDashboardProps:
@@ -6762,17 +6789,20 @@ class CfnDashboardProps:
         *,
         dashboard_body: builtins.str,
         dashboard_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDashboard``.
 
         :param dashboard_body: The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard. This parameter is required. For more information about the syntax, see `Dashboard Body Structure and Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html>`_ .
         :param dashboard_name: The name of the dashboard. The name must be between 1 and 255 characters. If you do not specify a name, one will be generated automatically.
+        :param tags: A list of key-value pairs to associate with the cloudwatch dashboard. You can associate up to 50 tags with a dashboard
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_cloudwatch as cloudwatch
@@ -6781,18 +6811,25 @@ class CfnDashboardProps:
                 dashboard_body="dashboardBody",
             
                 # the properties below are optional
-                dashboard_name="dashboardName"
+                dashboard_name="dashboardName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47caee4ca)
             check_type(argname="argument dashboard_body", value=dashboard_body, expected_type=type_hints["dashboard_body"])
             check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dashboard_body": dashboard_body,
         }
         if dashboard_name is not None:
             self._values["dashboard_name"] = dashboard_name
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def dashboard_body(self) -> builtins.str:
@@ -6818,6 +6855,17 @@ class CfnDashboardProps:
         '''
         result = self._values.get("dashboard_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of key-value pairs to associate with the cloudwatch dashboard.
+
+        You can associate up to 50 tags with a dashboard
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html#cfn-cloudwatch-dashboard-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19553,6 +19601,7 @@ def _typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe52
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19601,10 +19650,17 @@ def _typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47caee4ca(
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

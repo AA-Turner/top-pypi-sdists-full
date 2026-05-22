@@ -687,10 +687,10 @@ class CfnGraphSnapshot(
         from aws_cdk import aws_neptunegraph as neptunegraph
         
         cfn_graph_snapshot = neptunegraph.CfnGraphSnapshot(self, "MyCfnGraphSnapshot",
+            graph_identifier="graphIdentifier",
             snapshot_name="snapshotName",
         
             # the properties below are optional
-            graph_identifier="graphIdentifier",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -703,16 +703,16 @@ class CfnGraphSnapshot(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        graph_identifier: builtins.str,
         snapshot_name: builtins.str,
-        graph_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::NeptuneGraph::GraphSnapshot``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param snapshot_name: The snapshot name.
         :param graph_identifier: The unique identifier of the Neptune Analytics graph to create the snapshot from.
+        :param snapshot_name: The snapshot name.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -720,7 +720,7 @@ class CfnGraphSnapshot(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGraphSnapshotProps(
-            snapshot_name=snapshot_name, graph_identifier=graph_identifier, tags=tags
+            graph_identifier=graph_identifier, snapshot_name=snapshot_name, tags=tags
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -849,6 +849,19 @@ class CfnGraphSnapshot(
         return typing.cast("_GraphSnapshotReference_e2527c22", jsii.get(self, "graphSnapshotRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="graphIdentifier")
+    def graph_identifier(self) -> builtins.str:
+        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.'''
+        return typing.cast(builtins.str, jsii.get(self, "graphIdentifier"))
+
+    @graph_identifier.setter
+    def graph_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="snapshotName")
     def snapshot_name(self) -> builtins.str:
         '''The snapshot name.'''
@@ -860,19 +873,6 @@ class CfnGraphSnapshot(
             type_hints = typing.get_type_hints(_typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="graphIdentifier")
-    def graph_identifier(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "graphIdentifier"))
-
-    @graph_identifier.setter
-    def graph_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -892,8 +892,8 @@ class CfnGraphSnapshot(
     jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphSnapshotProps",
     jsii_struct_bases=[],
     name_mapping={
-        "snapshot_name": "snapshotName",
         "graph_identifier": "graphIdentifier",
+        "snapshot_name": "snapshotName",
         "tags": "tags",
     },
 )
@@ -901,14 +901,14 @@ class CfnGraphSnapshotProps:
     def __init__(
         self,
         *,
+        graph_identifier: builtins.str,
         snapshot_name: builtins.str,
-        graph_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGraphSnapshot``.
 
-        :param snapshot_name: The snapshot name.
         :param graph_identifier: The unique identifier of the Neptune Analytics graph to create the snapshot from.
+        :param snapshot_name: The snapshot name.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html
@@ -922,10 +922,10 @@ class CfnGraphSnapshotProps:
             from aws_cdk import aws_neptunegraph as neptunegraph
             
             cfn_graph_snapshot_props = neptunegraph.CfnGraphSnapshotProps(
+                graph_identifier="graphIdentifier",
                 snapshot_name="snapshotName",
             
                 # the properties below are optional
-                graph_identifier="graphIdentifier",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -934,16 +934,25 @@ class CfnGraphSnapshotProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c)
-            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
             check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "graph_identifier": graph_identifier,
             "snapshot_name": snapshot_name,
         }
-        if graph_identifier is not None:
-            self._values["graph_identifier"] = graph_identifier
         if tags is not None:
             self._values["tags"] = tags
+
+    @builtins.property
+    def graph_identifier(self) -> builtins.str:
+        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-graphidentifier
+        '''
+        result = self._values.get("graph_identifier")
+        assert result is not None, "Required property 'graph_identifier' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def snapshot_name(self) -> builtins.str:
@@ -954,15 +963,6 @@ class CfnGraphSnapshotProps:
         result = self._values.get("snapshot_name")
         assert result is not None, "Required property 'snapshot_name' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def graph_identifier(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-graphidentifier
-        '''
-        result = self._values.get("graph_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -1419,8 +1419,8 @@ def _typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    graph_identifier: builtins.str,
     snapshot_name: builtins.str,
-    graph_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1450,14 +1450,14 @@ def _typecheckingstub__366a7e3e25a64a38592f5cf1a057d02a05e8a02c41172807c4bc20679
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd(
+def _typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1470,8 +1470,8 @@ def _typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf7299
 
 def _typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c(
     *,
+    graph_identifier: builtins.str,
     snapshot_name: builtins.str,
-    graph_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

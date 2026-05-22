@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, Required, Dict, Union, Any, List
+from typing import List, Union, Required, TypedDict, Dict, Literal, Any
 
 
 class BufferedSegment(TypedDict, total=False):

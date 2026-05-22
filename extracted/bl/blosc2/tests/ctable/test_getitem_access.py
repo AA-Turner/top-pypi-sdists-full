@@ -32,6 +32,73 @@ DATA = [
 ]
 
 
+def test_display_rows_printoption_truncates_to_five_head_and_tail_rows():
+    previous = blosc2.get_printoptions()
+    try:
+        t = CTable(AccessRow, new_data=[(i, float(i), True, str(i), [i]) for i in range(60)])
+        rendered = str(t)
+        assert "rows hidden" not in rendered
+
+        blosc2.set_printoptions(display_rows=20)
+        rendered = str(t)
+        assert "\n\n[60 rows x 5 columns]" in rendered
+        assert "rows hidden" not in rendered
+        assert "─" not in rendered
+        assert "int64" not in rendered
+        assert "float64" not in rendered
+        head_pos, tail_pos, hidden = t._display_positions()
+        assert head_pos.tolist() == [0, 1, 2, 3, 4]
+        assert tail_pos.tolist() == [55, 56, 57, 58, 59]
+        assert hidden == 50
+
+        blosc2.set_printoptions(fancy=True)
+        rendered = str(t)
+        assert "50 rows hidden" in rendered
+        assert "60 rows x 5 columns" not in rendered
+        assert "int64" in rendered
+        assert "float64" in rendered
+    finally:
+        blosc2.set_printoptions(
+            display_index=previous["display_index"],
+            display_rows=previous["display_rows"],
+            display_precision=previous["display_precision"],
+            fancy=previous["fancy"],
+        )
+
+
+def test_rename_column_recomputes_display_width_for_shorter_name():
+    @dataclass
+    class WidthRow:
+        very_long_temporary_name: float = blosc2.field(blosc2.float64())
+
+    t = CTable(WidthRow, new_data=[(1.0,)])
+    original_width = t._col_widths["very_long_temporary_name"]
+
+    t.rename_column("very_long_temporary_name", "x")
+
+    assert t._col_widths["x"] < original_width
+    assert t._col_widths["x"] == max(len("x"), t._schema.columns_by_name["x"].display_width)
+
+
+def test_display_precision_printoption_formats_float_values():
+    previous = blosc2.get_printoptions()
+    try:
+        t = CTable(AccessRow, new_data=[(1, 1.23456789, True, "x", [1])])
+        assert "1.234568" in str(t)
+
+        blosc2.set_printoptions(display_precision=2)
+        rendered = str(t)
+        assert "1.23" in rendered
+        assert "1.234568" not in rendered
+    finally:
+        blosc2.set_printoptions(
+            display_index=previous["display_index"],
+            display_rows=previous["display_rows"],
+            display_precision=previous["display_precision"],
+            fancy=previous["fancy"],
+        )
+
+
 def test_getitem_string_column():
     t = CTable(AccessRow, new_data=DATA)
     col = t["id"]

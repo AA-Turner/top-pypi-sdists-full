@@ -17,6 +17,8 @@ class SpecializedPostFxRenderer:
 
     _HANDLES: ClassVar[frozenset[Type[PostFxEffect]]]
 
+    _REQUIRES_TIME: ClassVar[bool] = False
+
     _POSTFX_RENDERER: Type[PostFxRenderer] = None
 
     @classmethod
@@ -31,7 +33,7 @@ class SpecializedPostFxRenderer:
         """S'enregistre en tant que renderer spécialisé"""
         super().__init_subclass__(**kwargs)
         if hasattr(cls, "_HANDLES"):
-            cls._get_postfx_renderer()._register(cls)
+            cls._get_postfx_renderer()._register(cls, requires_time=cls._REQUIRES_TIME)
 
     # ======================================== CONTRACT ========================================
     @classmethod

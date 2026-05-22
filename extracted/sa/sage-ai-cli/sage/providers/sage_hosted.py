@@ -257,9 +257,37 @@ class SageHostedProvider(ProviderBase):
         _BACKEND_MAX_TOKENS = 4096
         clamped_tokens = min(max_tokens, _BACKEND_MAX_TOKENS)
 
+        raw_messages = [{"role": m.role, "content": m.content} for m in messages]
+
+        # Large payloads (>12KB total) cause Cloud Run to buffer the full response
+        # before forwarding, resulting in "peer closed connection" errors with a
+        # non-zero Content-Length. Truncate oversized messages to stay under the
+        # backend's comfortable processing window.
+        _MAX_PAYLOAD_CHARS = 12_000
+        total_chars = sum(len(m["content"]) for m in raw_messages)
+        if total_chars > _MAX_PAYLOAD_CHARS:
+            # Keep system prompt + last user message in full; truncate older turns
+            trimmed: list[dict] = []
+            budget = _MAX_PAYLOAD_CHARS
+            for msg in reversed(raw_messages):
+                content = msg["content"]
+                if len(content) <= budget:
+                    trimmed.insert(0, msg)
+                    budget -= len(content)
+                elif budget > 200:
+                    # Keep a truncated version of oversized messages
+                    trimmed.insert(0, {
+                        "role": msg["role"],
+                        "content": content[:budget - 100] + "\n...[truncated for length]",
+                    })
+                    budget = 0
+                if budget <= 0:
+                    break
+            raw_messages = trimmed
+
         payload = {
             "model_id": full_id,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "messages": raw_messages,
             "temperature": temperature,
             "max_tokens": clamped_tokens,
             "stream": stream,
@@ -330,46 +358,82 @@ class SageHostedProvider(ProviderBase):
         temperature: float,
         max_tokens: int,
     ) -> str:
+        import time as _time
         auth = self._auth_or_raise()
         payload = self._build_request_payload(
             messages, model_name, temperature, max_tokens, stream=False,
         )
-        with httpx.Client(timeout=self._timeout) as client:
-            response = client.post(
-                f"{self._api_base}/chat",
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {auth.bearer}",
-                    "X-CLI": "true",
-                },
-            )
-            # Auto-refresh and retry once on 401 — happens when the 1-hour
-            # Firebase token expires during a long sage run session.
-            if response.status_code == 401:
-                auth = self._auth_or_raise()  # re-calls get_valid_token() → refreshes
-                response = client.post(
-                    f"{self._api_base}/chat",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"},
-                )
-            self._raise_for_status(response)
-            data = response.json()
+        # generate() uses stream=False → backend returns a JSON response with
+        # Content-Length. Large payloads cause "peer closed / server disconnected"
+        # when the backend drops the connection mid-response. Retry up to 3 times
+        # with backoff — same pattern as stream().
+        _MAX_RETRIES = 3
+        _last_exc: Exception | None = None
 
-        # Backend's non-streaming /chat returns: `{"ok": True, "output": "<text>"}`.
-        # Also handle OpenAI-shaped responses for forward-compat with future
-        # backend changes, and a few alternate keys we've seen in older revisions.
-        if isinstance(data, dict):
-            if data.get("ok") is True and "output" in data:
-                return data["output"]
-            if "choices" in data:
-                try:
-                    return data["choices"][0]["message"]["content"]
-                except (KeyError, IndexError):
-                    pass
-            for key in ("output", "response", "content"):
-                if key in data and isinstance(data[key], str):
-                    return data[key]
-        return str(data)
+        for _attempt in range(_MAX_RETRIES):
+            if _attempt > 0:
+                _delay = 5 * (2 ** (_attempt - 1))
+                import sys as _sys
+                _sys.stderr.write(
+                    f"  ↺ generate() retry {_attempt}/{_MAX_RETRIES - 1}, waiting {_delay}s...\n"
+                )
+                _sys.stderr.flush()
+                _time.sleep(_delay)
+                auth = self._auth_or_raise()
+
+            try:
+                # Generous timeout: connect=60s for cold pods, read=300s for large responses
+                _gen_timeout = httpx.Timeout(connect=60.0, read=300.0, write=120.0, pool=10.0)
+                with httpx.Client(timeout=_gen_timeout) as client:
+                    response = client.post(
+                        f"{self._api_base}/chat",
+                        json=payload,
+                        headers={
+                            "Authorization": f"Bearer {auth.bearer}",
+                            "X-CLI": "true",
+                        },
+                    )
+                    if response.status_code == 401:
+                        auth = self._auth_or_raise()
+                        response = client.post(
+                            f"{self._api_base}/chat",
+                            json=payload,
+                            headers={"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"},
+                        )
+                    self._raise_for_status(response)
+                    data = response.json()
+
+                # Backend's non-streaming /chat returns: `{"ok": True, "output": "<text>"}`.
+                if isinstance(data, dict):
+                    if data.get("ok") is True and "output" in data:
+                        return data["output"]
+                    if "choices" in data:
+                        try:
+                            return data["choices"][0]["message"]["content"]
+                        except (KeyError, IndexError):
+                            pass
+                    for key in ("output", "response", "content"):
+                        if key in data and isinstance(data[key], str):
+                            return data[key]
+                return str(data)
+
+            except (
+                httpx.RemoteProtocolError,
+                httpx.LocalProtocolError,
+                httpx.ReadError,
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+                httpx.WriteError,
+                httpx.WriteTimeout,
+            ) as exc:
+                _last_exc = exc
+                if _attempt < _MAX_RETRIES - 1:
+                    continue
+
+        raise RuntimeError(
+            f"Cloud model generate() failed after {_MAX_RETRIES} attempts. "
+            f"Last error: {_last_exc}"
+        ) from _last_exc
 
     def stream(
         self,
@@ -391,7 +455,9 @@ class SageHostedProvider(ProviderBase):
         # sending any response — happens when the GPU pod takes too long to
         # start generating on a large prompt), retry up to 3 times with
         # exponential backoff (5s, 10s, 20s).
-        _stream_timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=10.0)
+        # Large write timeout handles big request payloads; read=None allows
+        # long generation; connect=60s covers cold-start GPU pod boot.
+        _stream_timeout = httpx.Timeout(connect=60.0, read=None, write=120.0, pool=10.0)
         _MAX_STREAM_RETRIES = 3
         _last_exc: Exception | None = None
 
@@ -411,18 +477,29 @@ class SageHostedProvider(ProviderBase):
                 yield from self._stream_once(auth, payload, _stream_timeout)
                 return
             except (
-                httpx.RemoteProtocolError,
+                httpx.RemoteProtocolError,   # "peer closed connection" / "server disconnected"
+                httpx.LocalProtocolError,    # local protocol violation (connection reuse issue)
                 httpx.ReadError,
                 httpx.ConnectError,
                 httpx.ReadTimeout,
+                httpx.WriteError,
+                httpx.WriteTimeout,
             ) as exc:
                 _last_exc = exc
                 if _attempt < _MAX_STREAM_RETRIES - 1:
                     continue
+                exc_msg = str(exc)
+                if "peer closed" in exc_msg or "incomplete message" in exc_msg:
+                    detail = (
+                        "The backend dropped the connection mid-response. "
+                        "This can happen with very large prompts. "
+                        "Try breaking the task into smaller steps."
+                    )
+                else:
+                    detail = exc_msg
                 raise RuntimeError(
-                    f"Cloud model disconnected after {_MAX_STREAM_RETRIES} attempts. "
-                    f"The prompt may be too large or the model pod is unavailable. "
-                    f"Try a shorter prompt or switch models. (Detail: {exc})"
+                    f"Cloud model connection failed after {_MAX_STREAM_RETRIES} attempts. "
+                    f"{detail}"
                 ) from exc
 
     def _stream_once(

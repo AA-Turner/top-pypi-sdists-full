@@ -241,11 +241,16 @@ def baseline_command(
     if url:
         cfg.set_main_option("sqlalchemy.url", url)
 
-    # Validate that DSL metadata is loadable and non-empty
+    # Validate that DSL metadata is loadable and non-empty.
+    # NOTE: import the side-effect-free metadata_loader, NOT
+    # dazzle.back.alembic.env — that module executes
+    # ``config = context.config`` at import time, which raises
+    # AttributeError when alembic.context has no active config (i.e. any
+    # direct Python import outside an Alembic run).
     try:
-        from dazzle.back.alembic.env import _load_target_metadata
+        from dazzle.back.alembic.metadata_loader import load_target_metadata
 
-        metadata = _load_target_metadata()
+        metadata = load_target_metadata()
         table_count = len(metadata.tables)
         if table_count == 0:
             console.print(
@@ -255,8 +260,16 @@ def baseline_command(
             )
             raise typer.Exit(1)
         console.print(f"[dim]DSL declares {table_count} tables[/dim]")
-    except ImportError:
+    except typer.Exit:
+        raise
+    except (ImportError, AttributeError):
         console.print("[yellow]Could not validate DSL metadata — proceeding anyway[/yellow]")
+    except Exception as exc:
+        # A real ParseError / LinkError / FileNotFoundError must stop the
+        # command — proceeding would autogenerate against empty metadata
+        # and produce a migration that drops every table.
+        console.print(f"[red]DSL metadata load failed: {exc}[/red]")
+        raise typer.Exit(1)
 
     project_versions = str(_get_project_versions_dir())
 

@@ -78,6 +78,12 @@ logger = logging.getLogger(__name__)
 APIRouter = _APIRouter
 
 
+# Audit `policy_effect` sentinel for a read denied by a `scope:` row filter
+# rather than a Cedar permit/forbid policy — distinct from the standard
+# `permit`/`forbid` effects so audit consumers can grep scope denials (#1174).
+_SCOPE_DENY_EFFECT = "scope"
+
+
 # ---------------------------------------------------------------------------
 # HandlerConfig — stable contract for CRUD factory authorization context (#1011)
 # ---------------------------------------------------------------------------
@@ -1547,6 +1553,24 @@ def _build_cedar_handler(
                 admin_personas=admin_personas,
             )
             if existing is None:
+                # Scope filter hid the row (or it does not exist). Record the
+                # deny in the audit trail — a scope-denied UPDATE/DELETE is an
+                # access-control decision and `audit: all` entities must
+                # capture it, same as the scope-denied READ path — then 404
+                # (row-existence opaque to the caller).
+                if audit_logger:
+                    _u, _ = _build_access_context(auth_context)
+                    await _log_audit_decision(
+                        audit_logger,
+                        request,
+                        operation=operation,
+                        entity_name=entity_name,
+                        entity_id=str(id),
+                        decision="deny",
+                        matched_policy=_SCOPE_DENY_EFFECT,
+                        policy_effect=_SCOPE_DENY_EFFECT,
+                        user=_u,
+                    )
                 raise HTTPException(status_code=404, detail="Not found")
 
         user, ctx = _build_access_context(auth_context)
@@ -1609,6 +1633,11 @@ def _build_cedar_handler(
             existing=existing,
             user_roles=raw_roles,
             is_superuser=_is_su,
+            # The CREATE core handler needs the full auth context to resolve
+            # `current_user.<attr>` in `scope: create:` predicates (#1174):
+            # the attributes (`org`, `school`, ...) live in
+            # `auth_context.preferences`, not on the bare `user` record.
+            auth_context=auth_context,
         )
 
         # Post-operation audit (create already logged above)
@@ -1692,6 +1721,10 @@ def _build_auth_handler(
             existing=existing,
             user_roles=raw_roles,
             is_superuser=_is_su,
+            # See the CREATE-scope note in the cedar-path call site above —
+            # `auth_context` carries the preferences `scope: create:`
+            # predicates resolve `current_user.<attr>` against (#1174).
+            auth_context=auth_context,
         )
 
         _fc = None
@@ -2145,6 +2178,52 @@ async def _scoped_pre_read(
     return items[0] if items else None
 
 
+class _LazyUserAttrs(dict):  # type: ignore[type-arg]
+    """`current_user.<attr>` resolver for `scope: create:` enforcement.
+
+    A `dict` subclass so it satisfies the `user_attrs: dict[str, Any]`
+    contract of `check_create_predicate`, but resolves any requested
+    attribute name on demand via `_resolve_user_attribute` (built-in
+    UserRecord fields + `auth_context.preferences`). This is what makes
+    `current_user.org` — and any other DSL-chosen attribute — resolvable
+    in create-scope predicates without a hardcoded allowlist (#1174).
+
+    `__missing__` caches each resolved value so a repeated lookup of the
+    same attribute (e.g. in an AND/OR predicate) hits the cache. An
+    unresolvable attribute resolves to `None` (the `__RBAC_DENY__`
+    sentinel is translated away) so the walker's `_compare` rejects it
+    — fail-closed, matching the previous "missing key → None" semantics.
+    """
+
+    def __init__(self, auth_context: "AuthContext | None") -> None:
+        super().__init__()
+        self._auth_context = auth_context
+
+    def __missing__(self, key: str) -> Any:
+        resolved = _resolve_user_attribute(key, self._auth_context)
+        value = None if resolved == "__RBAC_DENY__" else resolved
+        self[key] = value  # cache for repeated lookups within one predicate
+        return value
+
+    def get(self, key: str, default: Any = None) -> Any:
+        # `dict.get` does NOT trigger `__missing__` — only subscripting does.
+        # The create-scope walker (`scope_create_eval._walk`) resolves
+        # attributes via `user_attrs.get(...)`, so `get` must route through
+        # `__getitem__` for lazy resolution to fire. A resolved-but-None
+        # attribute is returned as-is (not replaced by `default`) so a
+        # genuinely-missing attr still fails the predicate closed.
+        return self[key]
+
+    def __bool__(self) -> bool:
+        # A lazy resolver is NEVER "empty" — it can resolve any attribute on
+        # demand. It must report truthy even before the first lookup caches
+        # an entry: `check_create_predicate` does `user_attrs = user_attrs
+        # or {}`, and a still-empty `_LazyUserAttrs` (the common case — the
+        # cache is only populated lazily) would be falsy and silently
+        # replaced by a plain empty dict, dropping the resolver entirely.
+        return True
+
+
 def _enforce_create_scope(
     *,
     cedar_access_spec: "EntityAccessSpec | None",
@@ -2152,7 +2231,7 @@ def _enforce_create_scope(
     user_id: str | None,
     user_roles: list[str],
     entity_name: str,
-    request: "Request",
+    auth_context: "AuthContext | None",
 ) -> None:
     """`scope: create:` enforcement (#1124, v0.71.22).
 
@@ -2225,22 +2304,23 @@ def _enforce_create_scope(
         if getattr(r, "predicate", None) is None and getattr(r, "condition", None) is None:
             return
 
-    # Build the user-attr resolver from the auth context. The auth
-    # context carries `current_user.school` / etc. on the User entity;
-    # we pull them off `request.state.auth_context.user` (set by the
-    # _build_cedar_handler upstream).
-    user_attrs: dict[str, Any] = {}
-    auth_ctx = getattr(request.state, "auth_context", None) if hasattr(request, "state") else None
-    auth_user = getattr(auth_ctx, "user", None) if auth_ctx is not None else None
-    if auth_user is not None:
-        # Common cross-tenant attribute names; the framework's auth
-        # user model doesn't expose a generic .attrs dict so we copy
-        # known shapes. Any missing key resolves to None and the
-        # predicate naturally rejects.
-        for attr_name in ("school", "school_id", "org_id", "tenant_id", "team_id"):
-            val = getattr(auth_user, attr_name, None)
-            if val is not None:
-                user_attrs[attr_name] = val
+    # Build the user-attr resolver from the auth context. A `scope: create:`
+    # predicate may reference `current_user.<attr>` for ANY attribute the DSL
+    # author chose (`org`, `school`, `team`, ...) — there is no fixed set. So
+    # rather than copy a hardcoded allowlist of attribute names (which silently
+    # over-denies for any attr not on the list — e.g. acme_billing's
+    # `current_user.org`, #1174), resolve every requested attribute lazily
+    # through `_resolve_user_attribute` — the same canonical resolver the
+    # read/list scope path uses. It reads built-in UserRecord fields *and*
+    # `auth_context.preferences` (where domain attributes like `org` are
+    # merged from the DSL User entity by `_load_domain_user_attributes`).
+    # `_resolve_user_attribute` returns the `__RBAC_DENY__` sentinel for an
+    # unresolvable attribute; we translate that to None so the create-scope
+    # walker's `_compare` rejects it (fail-closed), identical to the previous
+    # "missing key → None" behaviour. `auth_context` is threaded in from the
+    # CREATE handler — `request.state.auth_context` was never set, so the old
+    # code's resolver was always empty regardless of the attribute name.
+    user_attrs = _LazyUserAttrs(auth_context)
 
     # Run the v1-supported walker against the predicate. Any matched
     # rule passing the walker is enough to allow the insert (OR of
@@ -2906,6 +2986,8 @@ def create_read_handler(spec: RouteSpec) -> Callable[..., Any]:
     # double-fetch.  So for Cedar-READ we inline a lightweight wrapper that
     # fetches once, evaluates, then returns.
     _use_cedar = cedar_access_spec is not None and optional_auth_dep is not None
+    fk_graph = spec.handler.fk_graph
+    admin_personas = spec.handler.admin_personas
     if _use_cedar:
 
         async def _read_cedar(
@@ -2915,9 +2997,54 @@ def create_read_handler(spec: RouteSpec) -> Callable[..., Any]:
             from dazzle.core.access import AccessDecision, AccessOperationKind
             from dazzle.render.access_evaluator import evaluate_permission
 
-            result = await service.execute(operation="read", id=id, include=auto_include)
+            # Apply `scope: read:` row-level enforcement (#1174). Before this,
+            # the single-id READ path fetched the row unscoped and only ran the
+            # Cedar permit/forbid evaluator — so a role holding `permit: read`
+            # plus a `scope: read:` row-filter (e.g. `project.org =
+            # current_user.org`) could IDOR-fetch *any* row by id, cross-tenant.
+            # `_scoped_pre_read` re-queries through the scope predicate (the
+            # same path UPDATE/DELETE use) and returns None — yielding a 404 —
+            # when the row is outside the caller's scope.
+            assert cedar_access_spec is not None
+            result = await _scoped_pre_read(
+                service=service,
+                operation="read",
+                id=id,
+                cedar_access_spec=cedar_access_spec,
+                auth_context=auth_context,
+                entity_name=entity_name,
+                fk_graph=fk_graph,
+                admin_personas=admin_personas,
+            )
             if result is None:
+                # Scope filter hid the row (or it does not exist). Record the
+                # deny in the audit trail — a scope-denied read is an
+                # access-control decision and `audit: all` entities must
+                # capture it — then 404 (row-existence opaque to the caller).
+                if audit_logger:
+                    _u, _ = _build_access_context(auth_context)
+                    await _log_audit_decision(
+                        audit_logger,
+                        request,
+                        operation="read",
+                        entity_name=entity_name,
+                        entity_id=str(id),
+                        decision="deny",
+                        matched_policy=_SCOPE_DENY_EFFECT,
+                        policy_effect=_SCOPE_DENY_EFFECT,
+                        user=_u,
+                    )
                 raise HTTPException(status_code=404, detail="Not found")
+            # `_scoped_pre_read` may return a row fetched via the list path,
+            # which does not carry `include=auto_include` relations. Re-fetch
+            # through the read path so the response shape is unchanged when a
+            # scope filter was applied. The re-fetch is intentionally unscoped:
+            # scope has already passed for this id above — this only restores
+            # the relation hydration the list-path row lacks.
+            if auto_include:
+                hydrated = await service.execute(operation="read", id=id, include=auto_include)
+                if hydrated is not None:
+                    result = hydrated
 
             user, ctx = _build_access_context(auth_context)
             assert cedar_access_spec is not None
@@ -3231,13 +3358,19 @@ def create_create_handler(
         # rejected at link time by the linker. See
         # docs/reference/rbac-scope.md.
         _scope_user_roles = list(_extra.get("user_roles") or [])
+        # `mode="json"` so UUID / datetime payload fields are normalised to
+        # their string form. The create-scope walker compares them against
+        # `current_user.<attr>` values, which `_resolve_user_attribute`
+        # always returns as `str` — a bare `model_dump()` would leave a
+        # `ref` field as a `UUID` object, and `UUID(...) == "..."` is always
+        # False, so an own-org create would 403 on a pure type mismatch (#1174).
         _enforce_create_scope(
             cedar_access_spec=cedar_access_spec,
-            payload=data.model_dump(),
+            payload=data.model_dump(mode="json"),
             user_id=current_user,
             user_roles=_scope_user_roles,
             entity_name=entity_name,
-            request=request,
+            auth_context=_extra.get("auth_context"),
         )
 
         # Handle idempotent duplicate: unique constraint on idempotency_key
@@ -3376,7 +3509,13 @@ def create_delete_handler(spec: RouteSpec) -> Callable[..., Any]:
         existing: Any = None,
         **_extra: Any,
     ) -> Any:
-        result = await service.execute(operation="delete", id=id)
+        try:
+            result = await service.execute(operation="delete", id=id)
+        except ValueError as exc:
+            # FK constraint violation — entity is referenced by child records.
+            # `Repository.delete()` re-raises the psycopg IntegrityError as a
+            # ValueError; without this guard it surfaces as an unhandled 500.
+            raise HTTPException(status_code=409, detail=str(exc))
         if not result:
             raise HTTPException(status_code=404, detail="Not found")
         return _with_htmx_triggers(

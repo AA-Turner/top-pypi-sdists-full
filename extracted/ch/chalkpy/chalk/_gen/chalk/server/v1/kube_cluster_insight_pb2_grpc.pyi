@@ -10,8 +10,12 @@ from abc import (
 from chalk._gen.chalk.server.v1.kube_cluster_insight_pb2 import (
     GetKubeClusterMetricsRequest,
     GetKubeClusterMetricsResponse,
+    GetKubeClusterRequest,
+    GetKubeClusterResponse,
     ListKubeClustersRequest,
     ListKubeClustersResponse,
+    UpdateKubeClusterRequest,
+    UpdateKubeClusterResponse,
 )
 from grpc import (
     Channel,
@@ -26,6 +30,14 @@ class KubeClusterInsightServiceStub:
         ListKubeClustersRequest,
         ListKubeClustersResponse,
     ]
+    GetKubeCluster: UnaryUnaryMultiCallable[
+        GetKubeClusterRequest,
+        GetKubeClusterResponse,
+    ]
+    UpdateKubeCluster: UnaryUnaryMultiCallable[
+        UpdateKubeClusterRequest,
+        UpdateKubeClusterResponse,
+    ]
     GetKubeClusterMetrics: UnaryUnaryMultiCallable[
         GetKubeClusterMetricsRequest,
         GetKubeClusterMetricsResponse,
@@ -38,6 +50,18 @@ class KubeClusterInsightServiceServicer(metaclass=ABCMeta):
         request: ListKubeClustersRequest,
         context: ServicerContext,
     ) -> ListKubeClustersResponse: ...
+    @abstractmethod
+    def GetKubeCluster(
+        self,
+        request: GetKubeClusterRequest,
+        context: ServicerContext,
+    ) -> GetKubeClusterResponse: ...
+    @abstractmethod
+    def UpdateKubeCluster(
+        self,
+        request: UpdateKubeClusterRequest,
+        context: ServicerContext,
+    ) -> UpdateKubeClusterResponse: ...
     @abstractmethod
     def GetKubeClusterMetrics(
         self,

@@ -526,6 +526,14 @@ class CfnFirewallRuleGroup(
                 dns_threat_protection="dnsThreatProtection",
                 firewall_domain_list_id="firewallDomainListId",
                 firewall_domain_redirection_action="firewallDomainRedirectionAction",
+                firewall_rule_type=route53resolver.CfnFirewallRuleGroup.FirewallRuleTypeProperty(
+                    firewall_advanced_content_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty(
+                        category="category"
+                    ),
+                    firewall_advanced_threat_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty(
+                        category="category"
+                    )
+                ),
                 firewall_threat_protection_id="firewallThreatProtectionId",
                 qtype="qtype"
             )],
@@ -783,6 +791,110 @@ class CfnFirewallRuleGroup(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"category": "category"},
+    )
+    class FirewallAdvancedContentCategoryConfigProperty:
+        def __init__(self, *, category: builtins.str) -> None:
+            '''Configuration for an advanced content category rule type.
+
+            :param category: The content category value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewalladvancedcontentcategoryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_route53resolver as route53resolver
+                
+                firewall_advanced_content_category_config_property = route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty(
+                    category="category"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d09c00093935b0e4a2fe4d1358fe35df76c0be403a82b5f387761620f95c00ea)
+                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "category": category,
+            }
+
+        @builtins.property
+        def category(self) -> builtins.str:
+            '''The content category value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewalladvancedcontentcategoryconfig.html#cfn-route53resolver-firewallrulegroup-firewalladvancedcontentcategoryconfig-category
+            '''
+            result = self._values.get("category")
+            assert result is not None, "Required property 'category' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirewallAdvancedContentCategoryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"category": "category"},
+    )
+    class FirewallAdvancedThreatCategoryConfigProperty:
+        def __init__(self, *, category: builtins.str) -> None:
+            '''Configuration for an advanced threat category rule type.
+
+            :param category: The threat category value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewalladvancedthreatcategoryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_route53resolver as route53resolver
+                
+                firewall_advanced_threat_category_config_property = route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty(
+                    category="category"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__65a0236589be3f986e7903f871f120a0a747ac018ae33408fde8dab7922bd91d)
+                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "category": category,
+            }
+
+        @builtins.property
+        def category(self) -> builtins.str:
+            '''The threat category value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewalladvancedthreatcategoryconfig.html#cfn-route53resolver-firewallrulegroup-firewalladvancedthreatcategoryconfig-category
+            '''
+            result = self._values.get("category")
+            assert result is not None, "Required property 'category' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirewallAdvancedThreatCategoryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroup.FirewallRuleProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -796,6 +908,7 @@ class CfnFirewallRuleGroup(
             "dns_threat_protection": "dnsThreatProtection",
             "firewall_domain_list_id": "firewallDomainListId",
             "firewall_domain_redirection_action": "firewallDomainRedirectionAction",
+            "firewall_rule_type": "firewallRuleType",
             "firewall_threat_protection_id": "firewallThreatProtectionId",
             "qtype": "qtype",
         },
@@ -814,6 +927,7 @@ class CfnFirewallRuleGroup(
             dns_threat_protection: typing.Optional[builtins.str] = None,
             firewall_domain_list_id: typing.Optional[builtins.str] = None,
             firewall_domain_redirection_action: typing.Optional[builtins.str] = None,
+            firewall_rule_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallRuleGroup.FirewallRuleTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             firewall_threat_protection_id: typing.Optional[builtins.str] = None,
             qtype: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -829,6 +943,7 @@ class CfnFirewallRuleGroup(
             :param dns_threat_protection: The type of the DNS Firewall Advanced rule. Valid values are:. - ``DGA`` : Domain generation algorithms detection. DGAs are used by attackers to generate a large number of domains to to launch malware attacks. - ``DNS_TUNNELING`` : DNS tunneling detection. DNS tunneling is used by attackers to exfiltrate data from the client by using the DNS tunnel without making a network connection to the client.
             :param firewall_domain_list_id: The ID of the domain list that's used in the rule.
             :param firewall_domain_redirection_action: How you want the the rule to evaluate DNS redirection in the DNS redirection chain, such as CNAME, or DNAME. ``Inspect_Redirection_Domain`` (Default) inspects all domains in the redirection chain. The individual domains in the redirection chain must be added to the domain list. ``Trust_Redirection_Domain`` inspects only the first domain in the redirection chain. You don't need to add the subsequent domains in the domain in the redirection list to the domain list.
+            :param firewall_rule_type: Firewall rule type union. Exactly one member must be set. Mutually exclusive with FirewallDomainListId and DnsThreatProtection/ConfidenceThreshold.
             :param firewall_threat_protection_id: ID of the DNS Firewall Advanced rule.
             :param qtype: The DNS query type you want the rule to evaluate. Allowed values are; - A: Returns an IPv4 address. - AAAA: Returns an Ipv6 address. - CAA: Restricts CAs that can create SSL/TLS certifications for the domain. - CNAME: Returns another domain name. - DS: Record that identifies the DNSSEC signing key of a delegated zone. - MX: Specifies mail servers. - NAPTR: Regular-expression-based rewriting of domain names. - NS: Authoritative name servers. - PTR: Maps an IP address to a domain name. - SOA: Start of authority record for the zone. - SPF: Lists the servers authorized to send emails from a domain. - SRV: Application specific values that identify servers. - TXT: Verifies email senders and application-specific values. - A query type you define by using the DNS type ID, for example 28 for AAAA. The values must be defined as TYPE NUMBER , where the NUMBER can be 1-65334, for example, TYPE28. For more information, see `List of DNS record types <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/List_of_DNS_record_types>`_ .
 
@@ -854,6 +969,14 @@ class CfnFirewallRuleGroup(
                     dns_threat_protection="dnsThreatProtection",
                     firewall_domain_list_id="firewallDomainListId",
                     firewall_domain_redirection_action="firewallDomainRedirectionAction",
+                    firewall_rule_type=route53resolver.CfnFirewallRuleGroup.FirewallRuleTypeProperty(
+                        firewall_advanced_content_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty(
+                            category="category"
+                        ),
+                        firewall_advanced_threat_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty(
+                            category="category"
+                        )
+                    ),
                     firewall_threat_protection_id="firewallThreatProtectionId",
                     qtype="qtype"
                 )
@@ -870,6 +993,7 @@ class CfnFirewallRuleGroup(
                 check_type(argname="argument dns_threat_protection", value=dns_threat_protection, expected_type=type_hints["dns_threat_protection"])
                 check_type(argname="argument firewall_domain_list_id", value=firewall_domain_list_id, expected_type=type_hints["firewall_domain_list_id"])
                 check_type(argname="argument firewall_domain_redirection_action", value=firewall_domain_redirection_action, expected_type=type_hints["firewall_domain_redirection_action"])
+                check_type(argname="argument firewall_rule_type", value=firewall_rule_type, expected_type=type_hints["firewall_rule_type"])
                 check_type(argname="argument firewall_threat_protection_id", value=firewall_threat_protection_id, expected_type=type_hints["firewall_threat_protection_id"])
                 check_type(argname="argument qtype", value=qtype, expected_type=type_hints["qtype"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -892,6 +1016,8 @@ class CfnFirewallRuleGroup(
                 self._values["firewall_domain_list_id"] = firewall_domain_list_id
             if firewall_domain_redirection_action is not None:
                 self._values["firewall_domain_redirection_action"] = firewall_domain_redirection_action
+            if firewall_rule_type is not None:
+                self._values["firewall_rule_type"] = firewall_rule_type
             if firewall_threat_protection_id is not None:
                 self._values["firewall_threat_protection_id"] = firewall_threat_protection_id
             if qtype is not None:
@@ -1026,6 +1152,19 @@ class CfnFirewallRuleGroup(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def firewall_rule_type(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallRuleTypeProperty"]]:
+            '''Firewall rule type union.
+
+            Exactly one member must be set. Mutually exclusive with FirewallDomainListId and DnsThreatProtection/ConfidenceThreshold.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewallrule.html#cfn-route53resolver-firewallrulegroup-firewallrule-firewallruletype
+            '''
+            result = self._values.get("firewall_rule_type")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallRuleTypeProperty"]], result)
+
+        @builtins.property
         def firewall_threat_protection_id(self) -> typing.Optional[builtins.str]:
             '''ID of the DNS Firewall Advanced rule.
 
@@ -1066,6 +1205,89 @@ class CfnFirewallRuleGroup(
 
         def __repr__(self) -> str:
             return "FirewallRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroup.FirewallRuleTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "firewall_advanced_content_category": "firewallAdvancedContentCategory",
+            "firewall_advanced_threat_category": "firewallAdvancedThreatCategory",
+        },
+    )
+    class FirewallRuleTypeProperty:
+        def __init__(
+            self,
+            *,
+            firewall_advanced_content_category: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firewall_advanced_threat_category: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Firewall rule type union.
+
+            Exactly one member must be set. Mutually exclusive with FirewallDomainListId and DnsThreatProtection/ConfidenceThreshold.
+
+            :param firewall_advanced_content_category: Configuration for an advanced content category rule type.
+            :param firewall_advanced_threat_category: Configuration for an advanced threat category rule type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewallruletype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_route53resolver as route53resolver
+                
+                firewall_rule_type_property = route53resolver.CfnFirewallRuleGroup.FirewallRuleTypeProperty(
+                    firewall_advanced_content_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty(
+                        category="category"
+                    ),
+                    firewall_advanced_threat_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty(
+                        category="category"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__daa59fd3a7b7730c2aa00a634abfd5603a9a38b15538e870e3a72bbc11ca32ef)
+                check_type(argname="argument firewall_advanced_content_category", value=firewall_advanced_content_category, expected_type=type_hints["firewall_advanced_content_category"])
+                check_type(argname="argument firewall_advanced_threat_category", value=firewall_advanced_threat_category, expected_type=type_hints["firewall_advanced_threat_category"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if firewall_advanced_content_category is not None:
+                self._values["firewall_advanced_content_category"] = firewall_advanced_content_category
+            if firewall_advanced_threat_category is not None:
+                self._values["firewall_advanced_threat_category"] = firewall_advanced_threat_category
+
+        @builtins.property
+        def firewall_advanced_content_category(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty"]]:
+            '''Configuration for an advanced content category rule type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewallruletype.html#cfn-route53resolver-firewallrulegroup-firewallruletype-firewalladvancedcontentcategory
+            '''
+            result = self._values.get("firewall_advanced_content_category")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty"]], result)
+
+        @builtins.property
+        def firewall_advanced_threat_category(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty"]]:
+            '''Configuration for an advanced threat category rule type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53resolver-firewallrulegroup-firewallruletype.html#cfn-route53resolver-firewallrulegroup-firewallruletype-firewalladvancedthreatcategory
+            '''
+            result = self._values.get("firewall_advanced_threat_category")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirewallRuleTypeProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1573,6 +1795,14 @@ class CfnFirewallRuleGroupProps:
                     dns_threat_protection="dnsThreatProtection",
                     firewall_domain_list_id="firewallDomainListId",
                     firewall_domain_redirection_action="firewallDomainRedirectionAction",
+                    firewall_rule_type=route53resolver.CfnFirewallRuleGroup.FirewallRuleTypeProperty(
+                        firewall_advanced_content_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty(
+                            category="category"
+                        ),
+                        firewall_advanced_threat_category=route53resolver.CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty(
+                            category="category"
+                        )
+                    ),
                     firewall_threat_protection_id="firewallThreatProtectionId",
                     qtype="qtype"
                 )],
@@ -5086,6 +5316,20 @@ def _typecheckingstub__68e88161bfa870a62d2b106ff0d76bb87c2d573da805d7d6852d0dff9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d09c00093935b0e4a2fe4d1358fe35df76c0be403a82b5f387761620f95c00ea(
+    *,
+    category: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65a0236589be3f986e7903f871f120a0a747ac018ae33408fde8dab7922bd91d(
+    *,
+    category: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61f0f7aa6db62533b4486bd58a4692d76a133c14cd2281a8ea8e083c9d952e92(
     *,
     action: builtins.str,
@@ -5098,8 +5342,17 @@ def _typecheckingstub__61f0f7aa6db62533b4486bd58a4692d76a133c14cd2281a8ea8e083c9
     dns_threat_protection: typing.Optional[builtins.str] = None,
     firewall_domain_list_id: typing.Optional[builtins.str] = None,
     firewall_domain_redirection_action: typing.Optional[builtins.str] = None,
+    firewall_rule_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallRuleTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     firewall_threat_protection_id: typing.Optional[builtins.str] = None,
     qtype: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__daa59fd3a7b7730c2aa00a634abfd5603a9a38b15538e870e3a72bbc11ca32ef(
+    *,
+    firewall_advanced_content_category: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallAdvancedContentCategoryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firewall_advanced_threat_category: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallAdvancedThreatCategoryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

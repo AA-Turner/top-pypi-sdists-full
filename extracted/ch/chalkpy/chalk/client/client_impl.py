@@ -206,7 +206,7 @@ from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration, tr
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
-from chalk.utils.notebook import resolve_train_script
+from chalk.utils.notebook import resolve_script_entrypoint, resolve_train_script, validate_train_script
 from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
@@ -6317,7 +6317,7 @@ https://docs.chalk.ai/cli/apply
     def train_model(
         self,
         experiment_name: str,
-        train_fn: Callable[[], None],
+        train_fn: Optional[Callable[[], None]] = None,
         config: Optional[Mapping[str, Any]] = None,
         branch: Optional[Union[BranchId, ellipsis]] = ...,
         resources: Optional[ResourceRequests] = None,
@@ -6325,36 +6325,55 @@ https://docs.chalk.ai/cli/apply
         enable_profiling: bool = False,
         max_retries: int = 0,
         train_script: Optional[str] = None,
+        entrypoint: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> CreateModelTrainingJobResponse:
         if branch is ...:
             branch = self._branch
 
-        if not callable(train_fn):
-            raise ValueError("train_fn must be a callable function.")
+        if train_fn is None and train_script is None:
+            raise ValueError("One of train_fn or train_script must be provided.")
+        if entrypoint is not None and train_fn is not None:
+            raise ValueError("'entrypoint' is only valid with 'train_script', not 'train_fn'.")
 
-        nargs = len(inspect.signature(train_fn).parameters)
+        takes_argument = config is not None
+
+        if train_fn is not None:
+            if not callable(train_fn):
+                raise ValueError("train_fn must be a callable function.")
+            fn_name = train_fn.__name__
+            nargs = len(inspect.signature(train_fn).parameters)
+        else:
+            assert train_script is not None
+            fn_name = resolve_script_entrypoint(train_script, entrypoint)
+            validate_train_script(train_script, fn_name, takes_argument)
+            nargs = int(takes_argument)
 
         if nargs == 0:
             if config is not None:
-                raise ValueError("train_fn must accept a 'config' parameter to use the provided config.")
+                raise ValueError("train function must accept a 'config' parameter to use the provided config.")
             config_str = None
-
-        if nargs == 1:
+        elif nargs == 1:
             if config is None:
-                raise ValueError("train_fn must not accept a 'config' parameter when no config is provided.")
+                raise ValueError("train function must not accept a 'config' parameter when no config is provided.")
             try:
                 config_str = json.dumps({"kwargs": {"config": config}})
             except TypeError as e:
                 raise ValueError("config must be JSON serializable.") from e
+        else:
+            raise ValueError(f"train function must take 0 or 1 parameters, got {nargs}.")
 
-        script = resolve_train_script(train_fn, train_script, takes_argument=config is not None)
+        if train_fn is not None:
+            script = resolve_train_script(train_fn, train_script, takes_argument=takes_argument)
+        else:
+            assert train_script is not None
+            script = train_script
 
         client_grpc = self._get_grpc_client(environment=environment)
 
         task_response = client_grpc.create_model_training_job(
             script=script,
-            function_name=train_fn.__name__,
+            function_name=fn_name,
             experiment_name=experiment_name,
             config=config_str,
             branch=branch,
@@ -6365,7 +6384,7 @@ https://docs.chalk.ai/cli/apply
 
         client_grpc.follow_model_training_job(operation_id=task_response.task_id)
 
-        return CreateModelTrainingJobResponse(success=True)
+        return CreateModelTrainingJobResponse(success=True, task_id=task_response.task_id)
 
     def trigger_aggregate_backfill(
         self,
@@ -6375,7 +6394,11 @@ https://docs.chalk.ai/cli/apply
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
-    ):
+        allow_empty_tiles: bool | None = None,
+        exact: bool = False,
+        enable_profiling: bool = False,
+        resource_group: str | None = None,
+    ) -> list[Any]:
         return self._grpc_client.trigger_aggregate_backfill(
             features=features,
             lower_bound=lower_bound,
@@ -6383,6 +6406,10 @@ https://docs.chalk.ai/cli/apply
             resolver=resolver,
             query_tags=query_tags,
             store_offline=store_offline,
+            allow_empty_tiles=allow_empty_tiles,
+            exact=exact,
+            enable_profiling=enable_profiling,
+            resource_group=resource_group,
         )
 
 

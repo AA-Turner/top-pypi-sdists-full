@@ -147,7 +147,7 @@ class OverloadMixin(_OverloadMixinBase):
 
 		# Size varies depending on docutils config
 		output.indent_type = ' '
-		output.indent_size = self.env.app.config.docutils_tab_width
+		output.indent_size = self.env.config.docutils_tab_width
 
 		if self.analyzer and '.'.join(self.objpath) in self.analyzer.overloads:
 
@@ -290,11 +290,12 @@ class OverloadMixin(_OverloadMixinBase):
 						lines.extend(self.create_body_overloads())
 						lines.append('')
 
-			listener_id = self.env.app.connect("autodoc-process-docstring", process_docstring, priority=600)
+			app = self.env.app
+			listener_id = app.connect("autodoc-process-docstring", process_docstring, priority=600)
 			try:
 				_documenter_add_content(self, more_content, no_docstring)
 			finally:
-				self.env.app.disconnect(listener_id)
+				app.disconnect(listener_id)
 
 		else:
 			_documenter_add_content(self, more_content, no_docstring)
@@ -454,6 +455,11 @@ class MethodDocumenter(OverloadMixin, autodoc.MethodDocumenter):  # type: ignore
 		return super().process_overload_signature(overload)
 
 
+def _after_config_inited(app: Sphinx, config: Any) -> None:
+	app.add_autodocumenter(FunctionDocumenter, override=True)
+	app.add_autodocumenter(MethodDocumenter, override=True)
+
+
 @metadata_add_version
 def setup(app: Sphinx) -> SphinxExtMetadata:
 	"""
@@ -462,8 +468,9 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	:param app: The Sphinx application.
 	"""
 
-	app.add_autodocumenter(FunctionDocumenter, override=True)
-	app.add_autodocumenter(MethodDocumenter, override=True)
+	# Run after sphinx.ext.autodoc._register_directives()
+	app.connect("config-inited", _after_config_inited, priority=650)
+
 	app.add_config_value(
 			"overloads_location",
 			"signature",

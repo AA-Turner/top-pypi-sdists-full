@@ -1,6 +1,6 @@
 [package]
 name = "uv-build-backend"
-version = "0.0.48"
+version = "0.0.49"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -15,6 +15,7 @@ doctest = false
 
 [dependencies]
 uv-distribution-filename = { workspace = true }
+uv-errors = { workspace = true }
 uv-fs = { workspace = true }
 uv-globfilter = { workspace = true }
 uv-macros = { workspace = true }
@@ -66,6 +67,7 @@ schemars = ["dep:schemars", "uv-pypi-types/schemars"]
 [dev-dependencies]
 uv-preview = { workspace = true, features = ["testing"] }
 
+anstream = { workspace = true }
 indoc = { workspace = true }
 insta = { workspace = true }
 regex = { workspace = true }

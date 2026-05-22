@@ -4,7 +4,7 @@ from __future__ import annotations
 from .._internal import expect, profile_section, over
 from .._rendering import Pipeline, Camera
 from ..abc import Layer, ParticleEmitter, ParticleModifier
-from ..fx import ParticleRenderer
+from ..fx.particle import ParticleRenderer
 
 from typing import Type, ClassVar
 from numbers import Real

@@ -190,6 +190,16 @@ def get_organization_address(address_id: Optional[_builtins.str] = None,
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
 
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_address(organization_id="org1a23f456789",
+        address_id="foo")
+    ```
+
 
     :param _builtins.str address_id: Address ID.
     :param _builtins.str organization_id: ID of an organization.
@@ -214,15 +224,25 @@ def get_organization_address(address_id: Optional[_builtins.str] = None,
         timeouts=pulumi.get(__ret__, 'timeouts'),
         update_time=pulumi.get(__ret__, 'update_time'),
         zip_code=pulumi.get(__ret__, 'zip_code'))
-def get_organization_address_output(address_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                    organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                    timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationAddressTimeoutsArgs', 'GetOrganizationAddressTimeoutsArgsDict']]]] = None,
+def get_organization_address_output(address_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                    organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                    timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationAddressTimeoutsArgs', 'GetOrganizationAddressTimeoutsArgsDict']]]] = None,
                                     opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationAddressResult]:
     """
     Gets information about an organization address.
 
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
+
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_address(organization_id="org1a23f456789",
+        address_id="foo")
+    ```
 
 
     :param _builtins.str address_id: Address ID.

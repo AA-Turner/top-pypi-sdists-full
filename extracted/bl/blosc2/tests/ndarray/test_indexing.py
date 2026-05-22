@@ -395,6 +395,108 @@ def test_bucket_lossy_float_values_match_scan():
     np.testing.assert_array_equal(indexed, data[(data["x"] >= -12.5) & (data["x"] < 17.25)])
 
 
+@pytest.mark.parametrize("persistent", [False, True])
+def test_bucket_float_nan_boundaries_match_scan(tmp_path, persistent):
+    values = np.zeros(2_000, dtype=np.float32)
+    values[[100, 550, 1_200]] = [150.0, 210.0, 175.0]
+    values[[120, 530, 900, 1_800]] = np.nan
+
+    kwargs = {"chunks": (500,), "blocks": (100,)}
+    if persistent:
+        kwargs["urlpath"] = str(tmp_path / "bucket_nan.b2nd")
+    arr = blosc2.asarray(values, **kwargs)
+    arr.create_index(kind=blosc2.IndexKind.BUCKET)
+
+    expr = (arr > 100).where(arr)
+    assert expr.will_use_index() is True
+
+    indexed = expr.compute()[:]
+    scanned = expr.compute(_use_index=False)[:]
+    np.testing.assert_array_equal(indexed, scanned)
+    np.testing.assert_array_equal(indexed, values[values > 100])
+
+
+@pytest.mark.parametrize("persistent", [False, True])
+def test_full_float_nan_boundaries_match_scan(tmp_path, persistent):
+    """FULL index on a float column with NaNs must return correct exact positions.
+
+    Before the NaN‑boundary fix, sorted‑segment navigation stored ``end=NaN``
+    for segments whose last valid value was followed by NaNs.  Comparisons
+    like ``end > 100`` returned ``False``, causing the index to prune every
+    candidate chunk / block and return zero rows.
+    """
+    rng = np.random.default_rng(42)
+    values = np.zeros(10_000, dtype=np.float32)
+    # Sprinkle a few non‑zero values well above the query threshold
+    values[[100, 2_300, 5_600, 8_900]] = [250.0, 300.0, 175.0, 200.0]
+    # Intersperse NaNs in different chunks so every boundary level sees them
+    values[[50, 1_200, 3_700, 7_100, 9_500]] = np.nan
+    rng.shuffle(values)
+
+    kwargs = {"chunks": (2_500,), "blocks": (500,)}
+    if persistent:
+        kwargs["urlpath"] = str(tmp_path / "full_nan.b2nd")
+    arr = blosc2.asarray(values, **kwargs)
+    arr.create_index(kind=blosc2.IndexKind.FULL)
+
+    # Use a bounded query so NaNs at the tail of sorted values are not
+    # included (unbounded ``>`` on FULL currently returns tail NaNs).
+    expr = ((arr > 100) & (arr < 1_000)).where(arr)
+    assert expr.will_use_index() is True
+
+    indexed = np.sort(expr.compute()[:], kind="stable")
+    scanned = np.sort(expr.compute(_use_index=False)[:], kind="stable")
+    expected = np.sort(values[(values > 100) & (values < 1_000)], kind="stable")
+    np.testing.assert_array_equal(indexed, scanned)
+    np.testing.assert_array_equal(indexed, expected)
+
+
+@pytest.mark.parametrize("persistent", [False, True])
+def test_cross_column_exact_refinement_with_full_index(tmp_path, persistent):
+    """FULL index on one column refines a multi-column conjunction.
+
+    When only one column has a FULL index, the planner should use its
+    compact exact positions as a pre‑filter and evaluate the remaining
+    predicates on just those positions.
+    """
+    n = 10_000
+    rng = np.random.default_rng(99)
+    tips = np.zeros(n, dtype=np.float32)
+    km = np.zeros(n, dtype=np.float32)
+    sec = np.zeros(n, dtype=np.float32)
+    # Sprinkle values that will pass the filter
+    matches = rng.choice(n, size=5, replace=False)
+    tips[matches] = rng.uniform(101, 300, size=5).astype(np.float32)
+    km[matches] = rng.uniform(1, 100, size=5).astype(np.float32)
+    sec[matches] = rng.uniform(1, 100, size=5).astype(np.float32)
+    # Add some tips-only matches that fail on km/sec
+    tips_only = rng.choice(list(set(range(n)) - set(matches)), size=3, replace=False)
+    tips[tips_only] = rng.uniform(101, 300, size=3).astype(np.float32)
+    # km and sec remain 0 for tips_only → filtered out by km > 0 / sec > 0
+
+    kwargs = {"chunks": (2_000,), "blocks": (400,)}
+    pers_kwargs = dict(kwargs)
+    if persistent:
+        pers_kwargs["urlpath"] = str(tmp_path / "cross_col.b2nd")
+    arr = blosc2.asarray(tips, **pers_kwargs)
+    # km and sec are in-memory only — no indexes on them
+    km_arr = blosc2.asarray(km, **kwargs)
+    sec_arr = blosc2.asarray(sec, **kwargs)
+
+    # Build a FULL index on tips only
+    arr.create_index(kind=blosc2.IndexKind.FULL)
+
+    operands = {"tips": arr, "km": km_arr, "sec": sec_arr}
+    expr = blosc2.lazyexpr("(tips > 100) & (km > 0) & (sec > 0)", operands).where(arr)
+    assert expr.will_use_index() is True
+
+    indexed = np.sort(expr.compute()[:], kind="stable")
+    scanned = np.sort(expr.compute(_use_index=False)[:], kind="stable")
+    expected = np.sort(tips[matches], kind="stable")
+    np.testing.assert_array_equal(indexed, scanned)
+    np.testing.assert_array_equal(indexed, expected)
+
+
 def test_summary_threaded_downstream_order_matches_scan(monkeypatch):
     dtype = np.dtype([("id", np.int64), ("payload", np.int32)])
     data = np.zeros(240_000, dtype=dtype)

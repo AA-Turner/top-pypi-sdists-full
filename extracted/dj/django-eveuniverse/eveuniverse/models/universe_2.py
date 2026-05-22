@@ -6,11 +6,13 @@ import logging
 import math
 import re
 from collections import namedtuple
+from http import HTTPStatus
 from typing import Iterable, List, Optional, Set
 
 from bitfield import BitField
 from django.db import models
 from django.utils.functional import cached_property
+from esi.exceptions import HTTPClientError
 
 from eveuniverse.constants import EveGroupId, EveRegionId
 from eveuniverse.core import dotlan, evesdeapi
@@ -49,7 +51,7 @@ class EveAsteroidBelt(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "asteroid_belt_id"
-        esi_path_object = "Universe.get_universe_asteroid_belts_asteroid_belt_id"
+        esi_path_object = "Universe.GetUniverseAsteroidBeltsAsteroidBeltId"
         field_mappings = {
             "eve_planet": "planet_id",
             "position_x": ("position", "x"),
@@ -77,8 +79,8 @@ class EveConstellation(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "constellation_id"
-        esi_path_list = "Universe.get_universe_constellations"
-        esi_path_object = "Universe.get_universe_constellations_constellation_id"
+        esi_path_list = "Universe.GetUniverseConstellations"
+        esi_path_object = "Universe.GetUniverseConstellationsConstellationId"
         field_mappings = {
             "eve_region": "region_id",
             "position_x": ("position", "x"),
@@ -113,7 +115,7 @@ class EveMoon(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "moon_id"
-        esi_path_object = "Universe.get_universe_moons_moon_id"
+        esi_path_object = "Universe.GetUniverseMoonsMoonId"
         field_mappings = {
             "eve_planet": "planet_id",
             "position_x": ("position", "x"),
@@ -158,7 +160,7 @@ class EvePlanet(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "planet_id"
-        esi_path_object = "Universe.get_universe_planets_planet_id"
+        esi_path_object = "Universe.GetUniversePlanetsPlanetId"
         field_mappings = {
             "eve_solar_system": "system_id",
             "eve_type": "type_id",
@@ -195,8 +197,8 @@ class EveRegion(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "region_id"
-        esi_path_list = "Universe.get_universe_regions"
-        esi_path_object = "Universe.get_universe_regions_region_id"
+        esi_path_list = "Universe.GetUniverseRegions"
+        esi_path_object = "Universe.GetUniverseRegionsRegionId"
         children = {"constellations": "EveConstellation"}
         load_order = 190
 
@@ -250,8 +252,8 @@ class EveSolarSystem(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "system_id"
-        esi_path_list = "Universe.get_universe_systems"
-        esi_path_object = "Universe.get_universe_systems_system_id"
+        esi_path_list = "Universe.GetUniverseSystems"
+        esi_path_object = "Universe.GetUniverseSystemsSystemId"
         field_mappings = {
             "eve_constellation": "constellation_id",
             "eve_star": "star_id",
@@ -396,7 +398,10 @@ class EveSolarSystem(EveUniverseEntityModel):
             return None
 
         path_ids = self._calc_route_esi(self.id, destination.id)
-        return len(path_ids) - 1 if path_ids is not None else None
+        if not path_ids:
+            return None
+
+        return len(path_ids) - 1
 
     @staticmethod
     def _calc_route_esi(origin_id: int, destination_id: int) -> Optional[List[int]]:
@@ -411,14 +416,17 @@ class EveSolarSystem(EveUniverseEntityModel):
             List of solar system IDs incl. origin and destination
             or None if no route can be found (e.g. if one system is in WH space)
         """
-
         try:
-            return esi.client.Routes.get_route_origin_destination(
-                origin=origin_id, destination=destination_id
-            ).results()
-        except OSError:  # FIXME: ESI is supposed to return 404,
-            # but django-esi is actually returning an OSError
-            return None
+            response = esi.client.Routes.PostRoute(
+                body={},
+                origin_system_id=origin_id,
+                destination_system_id=destination_id,
+            ).result(use_etag=False)
+            return response.route
+        except HTTPClientError as ex:
+            if ex.status_code == HTTPStatus.NOT_FOUND:
+                return None  # no route found
+            raise ex
 
     def nearest_celestial(
         self, x: int, y: int, z: int, group_id: Optional[int] = None
@@ -504,7 +512,7 @@ class EveStar(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "star_id"
-        esi_path_object = "Universe.get_universe_stars_star_id"
+        esi_path_object = "Universe.GetUniverseStarsStarId"
         field_mappings = {"eve_type": "type_id"}
         load_order = 222
 
@@ -543,7 +551,7 @@ class EveStargate(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "stargate_id"
-        esi_path_object = "Universe.get_universe_stargates_stargate_id"
+        esi_path_object = "Universe.GetUniverseStargatesStargateId"
         field_mappings = {
             "destination_eve_stargate": ("destination", "stargate_id"),
             "destination_eve_solar_system": ("destination", "system_id"),
@@ -598,7 +606,7 @@ class EveStation(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "station_id"
-        esi_path_object = "Universe.get_universe_stations_station_id"
+        esi_path_object = "Universe.GetUniverseStationsStationId"
         field_mappings = {
             "eve_race": "race_id",
             "eve_solar_system": "system_id",

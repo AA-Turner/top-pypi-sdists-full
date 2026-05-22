@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, List, Optional, Type, TypeVar
+from typing import ClassVar, Dict, List, Optional, Type, TypeVar
 
 from pydicom.dataset import Dataset
 from pydicom.sequence import Sequence as DicomSequence
@@ -41,7 +41,7 @@ class ConceptCode:
             (self.value, self.scheme_designator, self.meaning, self.scheme_version)
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Code):
             return self.code == other
         if isinstance(other, ConceptCode):

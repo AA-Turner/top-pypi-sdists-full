@@ -42,6 +42,7 @@ class TestContinuousEvalResponse(unittest.TestCase):
                 llm_eval_name = '',
                 llm_eval_version = 56,
                 transform_id = '',
+                transform_version_id = '',
                 transform_variable_mapping = [
                     arthur_client.api_bindings.models.continuous_eval_transform_variable_mapping_response.ContinuousEvalTransformVariableMappingResponse(
                         transform_variable = '', 

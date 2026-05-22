@@ -21,8 +21,19 @@ from .engines.base import GameRequest
 GenerateFn = Callable[[str], str]
 
 
-# Engine names — first match wins. We list aliases each engine uses
-# colloquially so "UE5", "Unreal Engine 5", "Unreal" all map together.
+# Engine names. We list aliases each engine uses colloquially so "UE5",
+# "Unreal Engine 5", "Unreal" all map together.
+#
+# Resolution order (see `_pick_engine`):
+#   1. Explicit instruction phrases ("make ... with X", "use X", "build
+#      in X") — these always win even if another engine is mentioned
+#      more times in a copy-pasted spec body.
+#   2. Highest mention count wins.
+#   3. First-occurrence wins as a tiebreak.
+#
+# The previous behavior (first pattern in this list wins) made Godot
+# beat Unity for a prompt like "...Godot‑AI... Make this video game
+# with Unity" — even though the user's actual instruction was Unity.
 _ENGINE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(godot\s*4?|godot\s*engine)\b", re.I), "godot"),
     (re.compile(r"\b(unreal(\s+engine)?\s*(5|4)?|ue\s*5|ue\s*4|uat)\b", re.I), "unreal"),
@@ -36,14 +47,42 @@ _ENGINE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\brpg\s*maker(\s*mv|\s*mz)?\b", re.I), "rpgmaker"),
 )
 
+# Explicit-instruction phrase that names an engine. When the user writes
+# "Make this game with Unity" / "build in Godot" / "using Phaser", that's
+# unambiguous intent. We extract the engine word after the instruction
+# verb and resolve it against `_ENGINE_PATTERNS` to canonicalize.
+_EXPLICIT_ENGINE_PHRASE = re.compile(
+    r"\b(?:make|build|create|use|using|with|in|export\s+to|target(?:ing)?)"
+    r"\s+(?:(?:this|the|a|an|my)\s+(?:video\s+)?game\s+(?:with|using|in)\s+)?"
+    r"(godot(?:\s*4)?|unreal(?:\s+engine)?(?:\s*[45])?|ue\s*[45]|"
+    r"unity(?:\s*[23]d)?|bevy|phaser(?:\s*3)?|love\s*2?d|löve|pygame|"
+    r"gamemaker(?:\s+studio)?|gms\s*2|construct\s*3|rpg\s*maker)\b",
+    re.I,
+)
+
 
 # Genre vocabulary — strong signal that the prompt is asking for a game
 # even if no engine is named. Order matters: more specific genres first.
+#
+# `fps` is tricky because it also stands for "frames per second" — a perf
+# metric, not a genre. The pattern uses a negative lookahead to reject
+# any `fps` immediately followed by comparison operators or numeric perf
+# context (e.g. "FPS ≥ 60", "60 fps", "at 30fps").
 _GENRE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(metroidvania|soulslike|roguelite|roguelike)\b", re.I), "roguelike"),
     (re.compile(r"\b(platformer|jump\s+and\s+run)\b", re.I), "platformer"),
     (re.compile(r"\b(rpg|jrpg|crpg|role[\s-]?playing)\b", re.I), "rpg"),
-    (re.compile(r"\b(fps|first[\s-]?person\s+shooter)\b", re.I), "fps"),
+    # FPS genre — explicitly NOT the perf metric. We reject `fps` when:
+    #  - immediately preceded by a digit ("60 fps", "30fps")
+    #  - immediately followed by punctuation/operator/digit/perf words
+    #    ("FPS ≥ 60", "FPS: 60", "FPS > 30", "fps target", "fps on mid-range")
+    # The first-person-shooter long-form pattern always matches as a genre.
+    (re.compile(
+        r"(?<!\d\s)(?<!\d)\b(?:"
+        r"fps(?!\s*[<>=:≥≤]|\s*\d|\s+(?:on|target|at|under|over|>=|<=|≥|≤))"
+        r"|first[\s-]?person\s+shooter"
+        r")\b", re.I,
+    ), "fps"),
     (re.compile(r"\b(tower\s*defense|td\s+game)\b", re.I), "tower-defense"),
     (re.compile(r"\b(racing|kart\s*racer)\b", re.I), "racing"),
     (re.compile(r"\b(puzzle|match[\s-]?3|tetris[\s-]?like)\b", re.I), "puzzle"),
@@ -64,14 +103,33 @@ _GAME_NOUN = re.compile(
     re.I,
 )
 
+# Match any common hyphen/dash between digit and D — including the
+# Unicode non-breaking hyphen U+2011 ("2‑D") and en/em dashes, which
+# users hit by accident when pasting from Word, Slack, or AI tools.
+_HYPHENS = r"[\s\-‐‑‒–—]?"
 _PERSPECTIVE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bfirst[\s-]?person\b", re.I), "first-person"),
     (re.compile(r"\bthird[\s-]?person\b", re.I), "third-person"),
     (re.compile(r"\bisometric\b", re.I), "isometric"),
     (re.compile(r"\btop[\s-]?down\b", re.I), "top-down"),
     (re.compile(r"\bside[\s-]?(scroller|view)\b", re.I), "side-scroller"),
-    (re.compile(r"\b3d\b", re.I), "3d"),
-    (re.compile(r"\b2d\b", re.I), "2d"),
+    (re.compile(rf"\b3{_HYPHENS}d\b", re.I), "3d"),
+    (re.compile(rf"\b2{_HYPHENS}d\b", re.I), "2d"),
+)
+
+
+# Build-target detection — what platform(s) the user wants. Users often
+# say "mobile and web" or "Android + iOS" rather than naming a single
+# target. `_pick_targets` returns the priority pick (mobile-first, since
+# every desktop/web user can also play mobile builds via cloud streaming).
+_TARGET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b(android(\s+app)?|google\s*play(\s+store)?|play\s+store)\b", re.I), "android"),
+    (re.compile(r"\b(ios(\s+app)?|ipad|iphone|app\s*store|testflight)\b", re.I), "ios"),
+    (re.compile(r"\b(mobile(\s+app)?s?|smartphone|phone\s+game)\b", re.I), "android"),
+    (re.compile(r"\b(web(\s*gl|\s+browser)?|browser\s+game|html5|itch\.io)\b", re.I), "web"),
+    (re.compile(r"\b(windows(\s+desktop)?|win64|steam(\s+desktop)?|\.exe)\b", re.I), "windows"),
+    (re.compile(r"\b(macos|mac\s+os|osx)\b", re.I), "mac"),
+    (re.compile(r"\b(linux(\s+desktop)?|\.x86_64)\b", re.I), "linux"),
 )
 
 _ART_STYLE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -93,6 +151,8 @@ class _RegexHit:
     genre: Optional[str] = None
     perspective: Optional[str] = None
     art_style: Optional[str] = None
+    target: Optional[str] = None     # build target — web|windows|mac|linux|android|ios
+    targets: tuple[str, ...] = ()    # full set when user names multiple
     has_game_noun: bool = False
 
     def confidence(self) -> float:
@@ -120,12 +180,76 @@ class _RegexHit:
         return min(score, 1.0)
 
 
+def _canonicalize_engine(token: str) -> Optional[str]:
+    """Map a free-form engine word (extracted from an instruction phrase)
+    to a canonical engine name, by matching against `_ENGINE_PATTERNS`."""
+    for pat, label in _ENGINE_PATTERNS:
+        if pat.search(token):
+            return label
+    return None
+
+
+def _pick_engine(prompt: str) -> Optional[str]:
+    """Choose ONE engine for the prompt using a 3-tier priority.
+
+    Tier 1 — explicit-instruction phrase ("Make this video game with X").
+    Tier 2 — highest count of mentions across the prompt.
+    Tier 3 — first occurrence wins as a tiebreak.
+
+    The old "first pattern in `_ENGINE_PATTERNS` wins" rule meant Godot
+    beat Unity on prompts where Godot was only mentioned in passing —
+    e.g. "...Godot‑AI... Make this video game with Unity". This bug
+    cost a real user a working build; this is the fix.
+    """
+    # Tier 1: explicit instruction overrides everything else
+    for m in _EXPLICIT_ENGINE_PHRASE.finditer(prompt):
+        canonical = _canonicalize_engine(m.group(1))
+        if canonical:
+            return canonical
+
+    # Tier 2: count mentions. Skip engines never mentioned.
+    best: Optional[tuple[int, int, str]] = None   # (-count, first_offset, name)
+    for pat, label in _ENGINE_PATTERNS:
+        matches = list(pat.finditer(prompt))
+        if not matches:
+            continue
+        # Pack as (-count, first_offset, label) so sorting picks max count,
+        # earliest occurrence on tie, deterministic tie order on duplicates.
+        key = (-len(matches), matches[0].start(), label)
+        if best is None or key < best:
+            best = key
+    return best[2] if best else None
+
+
+def _pick_targets(prompt: str) -> tuple[Optional[str], tuple[str, ...]]:
+    """Return (primary_target, full_target_set).
+
+    Mobile beats web beats desktop in priority when the user names
+    multiple (e.g. "mobile and web" → primary=android, set={android,web}).
+    Returns (None, ()) when no target is named so callers fall back to
+    the existing default (`web`)."""
+    found: list[tuple[int, str]] = []   # (priority_score, target_name)
+    seen: set[str] = set()
+    priorities = {
+        "android": 0, "ios": 1,    # mobile first
+        "web": 2,                   # then web (most-shared default)
+        "windows": 3, "mac": 4, "linux": 5,
+    }
+    for pat, label in _TARGET_PATTERNS:
+        if pat.search(prompt) and label not in seen:
+            seen.add(label)
+            found.append((priorities.get(label, 99), label))
+    if not found:
+        return None, ()
+    found.sort()
+    primary = found[0][1]
+    full = tuple(label for _, label in found)
+    return primary, full
+
+
 def _scan(prompt: str) -> _RegexHit:
     hit = _RegexHit(has_game_noun=bool(_GAME_NOUN.search(prompt)))
-    for pat, label in _ENGINE_PATTERNS:
-        if pat.search(prompt):
-            hit.engine = label
-            break
+    hit.engine = _pick_engine(prompt)
     for pat, label in _GENRE_PATTERNS:
         if pat.search(prompt):
             hit.genre = label
@@ -138,6 +262,7 @@ def _scan(prompt: str) -> _RegexHit:
         if pat.search(prompt):
             hit.art_style = label
             break
+    hit.target, hit.targets = _pick_targets(prompt)
     return hit
 
 
@@ -190,6 +315,11 @@ def classify_prompt(
     hit = _scan(prompt)
     conf = hit.confidence()
 
+    # Default target is "web" (the engines' historical default). The
+    # detector now also returns the FULL set of named targets so the
+    # pipeline can emit per-target build configs.
+    detected_target = hit.target or "web"
+
     if conf >= confidence_threshold:
         return "game", GameRequest(
             task_type="game",
@@ -197,6 +327,7 @@ def classify_prompt(
             genre=hit.genre,
             perspective=hit.perspective,
             art_style=hit.art_style,
+            target=detected_target,
             raw_prompt=prompt,
         )
 
@@ -210,6 +341,7 @@ def classify_prompt(
             genre=hit.genre,
             perspective=hit.perspective,
             art_style=hit.art_style,
+            target=detected_target,
             raw_prompt=prompt,
         )
 
@@ -223,6 +355,7 @@ def classify_prompt(
                 genre=result.get("genre"),
                 perspective=result.get("perspective"),
                 art_style=result.get("art_style"),
+                target=detected_target,
                 raw_prompt=prompt,
             )
 

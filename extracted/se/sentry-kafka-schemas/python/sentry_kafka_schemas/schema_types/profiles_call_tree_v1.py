@@ -1,4 +1,4 @@
-from typing import Required, List, TypedDict
+from typing import Required, TypedDict, List
 
 
 class _FunctionItem(TypedDict, total=False):

@@ -260,6 +260,7 @@ class Client(Methods):
 
     INVITE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$")
     UPGRADED_GIFT_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:nft/|\+))([\w-]+)$")
+    CHATLIST_INVITE_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:addlist/|\+))([\w-]+)$")
     SAVED_GIFT_RE = re.compile(r"^(-\d+)_(\d+)$")
     CHANNEL_MESSAGE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
     WORKERS = min(32, (os.cpu_count() or 0) + 4)  # os.cpu_count() can be None
@@ -1094,13 +1095,10 @@ class Client(Methods):
                 file.close()
                 os.remove(temp_file_path)
 
-            if isinstance(e, asyncio.CancelledError):
-                raise e
+            if isinstance(e, pyrogram.StopTransmission):
+                return None
 
-            if isinstance(e, (FloodWait, FloodPremiumWait)):
-                raise e
-
-            return None
+            raise e
         else:
             if in_memory:
                 file.name = file_name
@@ -1295,12 +1293,8 @@ class Client(Methods):
                         raise e
                     finally:
                         await cdn_session.stop()
-            except pyrogram.StopTransmission:
-                raise
-            except (FloodWait, FloodPremiumWait):
-                raise
             except Exception as e:
-                log.exception(e)
+                raise e
 
     async def get_session(
         self,

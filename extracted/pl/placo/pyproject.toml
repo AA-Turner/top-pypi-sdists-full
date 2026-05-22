@@ -6,6 +6,8 @@ requires = [
   "pin[build]==3.8.0",
   "rhoban-cmeel-jsoncpp",
   "doxystub >= 0.1.7",
+  "cmeel-urdfdom==4.0.1",
+  "cmeel-tinyxml2==10.0.0",
   "cmake<4"
 ]
 
@@ -16,14 +18,16 @@ dependencies = [
   "eiquadprog >= 1.2.6, < 2",
   "pin==3.8.0",
   "rhoban-cmeel-jsoncpp",
+  "cmeel-urdfdom==4.0.1",
+  "cmeel-tinyxml2==10.0.0",
   "meshcat",
   "ischedule"
 ]
 description = "PlaCo: Rhoban Planning and Control"
 license = "MIT"
 name = "placo"
-requires-python = ">= 3.9"
-version = "0.9.20"
+requires-python = ">= 3.10"
+version = "0.9.23"
 
 [project.urls]
 changelog = "https://github.com/rhoban/placo/blob/main/CHANGELOG.md"

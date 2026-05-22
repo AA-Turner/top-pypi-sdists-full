@@ -17,7 +17,6 @@ test = ["pytest", "pytest-asyncio", "flaky"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-profile = "release"
 manifest-path = "kcl-python-bindings/Cargo.toml"
 
 [tool.setuptools]

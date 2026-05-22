@@ -6,10 +6,11 @@ import sqlalchemy as sa
 from packaging import version
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import Index
-from sqlalchemy.testing import is_false
+from sqlalchemy.testing import config, is_false
 from sqlalchemy.testing.suite import *  # noqa: F401, F403
 
 from sqlalchemy.testing.suite import (
+    BizarroCharacterTest as _BizarroCharacterTest,
     CTETest as _CTETest,
     ComponentReflectionTest as _ComponentReflectionTest,
     ComponentReflectionTestExtra as _ComponentReflectionTestExtra,
@@ -21,13 +22,38 @@ from sqlalchemy.testing.suite import (
     InsertBehaviorTest as _InsertBehaviorTest,
     RowCountTest as _RowCountTest,
     SimpleUpdateDeleteTest as _SimpleUpdateDeleteTest,
+    TempTableElementsTest as _TempTableElementsTest,
+    WindowFunctionTest as _WindowFunctionTest,
 )
+
+# TableViaSelectTest only exists in SQLAlchemy 2.1+; skip-shim it for 2.0.
+try:
+    from sqlalchemy.testing.suite import (
+        TableViaSelectTest as _TableViaSelectTest,
+    )
+except ImportError:
+    _TableViaSelectTest = None
+
+
+@pytest.mark.skipif(
+    config.db.dialect.server_version_info < (4,),
+    reason="These tests rely on correct identity semantics, which were only fixed starting from Firebird 4.0.",
+)
+class BizarroCharacterTest(_BizarroCharacterTest):
+    pass
 
 
 @pytest.mark.skip(
     reason="These tests fails in Firebird because a DELETE FROM <table> with self-referencing FK raises integrity errors."
 )
 class CTETest(_CTETest):
+    pass
+
+
+@pytest.mark.skip(
+    reason="Firebird requires UNION ORDER BY at the outer level; the deprecated SQLAlchemy 1.x patterns these tests exercise generate ORDER BY in non-final unions."
+)
+class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
     pass
 
 
@@ -267,20 +293,6 @@ class CompoundSelectTest(_CompoundSelectTest):
         super().test_plain_union()
 
 
-class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
-    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
-    def test_distinct_selectable_in_unions(self):
-        super().test_distinct_selectable_in_unions()
-
-    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
-    def test_limit_offset_aliased_selectable_in_unions(self):
-        super().test_limit_offset_aliased_selectable_in_unions()
-
-    @pytest.mark.skip(reason="Firebird does not support ORDER BY alias")
-    def test_plain_union(self):
-        super().test_plain_union()
-
-
 class IdentityColumnTest(_IdentityColumnTest):
     @testing.requires.firebird_4_or_higher
     def test_select_all(self, connection):
@@ -392,10 +404,6 @@ class StringTest(_StringTest):
 
 
 class InsertBehaviorTest(_InsertBehaviorTest):
-    @testing.skip_if(
-        lambda config: config.db.dialect.driver == "fdb",
-        "Driver fdb returns erroneous 'returns_rows = True'.",
-    )
     @testing.variation("style", ["plain", "return_defaults"])
     @testing.variation("executemany", [True, False])
     def test_no_results_for_non_returning_insert(
@@ -440,3 +448,45 @@ class SimpleUpdateDeleteTest(_SimpleUpdateDeleteTest):
     @testing.requires.delete_returning
     def test_delete_returning(self, connection, criteria):
         super().test_delete_returning(connection, criteria)
+
+
+class TempTableElementsTest(_TempTableElementsTest):
+    @testing.requires.identity_columns
+    def test_reflect_identity(self, tablename, connection, metadata):
+        Table(
+            tablename,
+            metadata,
+            Column("id", Integer, Identity(), primary_key=True),
+        )
+        metadata.create_all(connection)
+        insp = inspect(connection)
+
+        # Fix this test to work with Firebird 3 identity semantics.
+        firebird_4_or_higher = config.db.dialect.server_version_info >= (4, 0)
+
+        expected = 1 if firebird_4_or_higher else 0
+        eq_(insp.get_columns(tablename)[0]["identity"]["start"], expected)
+
+
+if _TableViaSelectTest is not None:
+
+    @pytest.mark.skip(
+        reason="Firebird does not support CREATE TABLE AS SELECT, and requires a COMMIT between DDL and DML referencing the new object in the same transaction."
+    )
+    class TableViaSelectTest(_TableViaSelectTest):
+        pass
+
+
+class WindowFunctionTest(_WindowFunctionTest):
+    # ROWS BETWEEN window framing is unsupported on Firebird 3.
+
+    @testing.requires.firebird_4_or_higher
+    def test_window_rows_between(self, connection):
+        super().test_window_rows_between(connection)
+
+    # test_window_rows_between_w_caching only exists in SQLAlchemy 2.1+.
+    if hasattr(_WindowFunctionTest, "test_window_rows_between_w_caching"):
+
+        @testing.requires.firebird_4_or_higher
+        def test_window_rows_between_w_caching(self, connection):
+            super().test_window_rows_between_w_caching(connection)

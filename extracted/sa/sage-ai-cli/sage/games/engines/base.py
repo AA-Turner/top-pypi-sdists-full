@@ -58,7 +58,13 @@ class GamePlan:
     title: str
     description: str
     features: list[str] = field(default_factory=list)
-    sprite_roles: list[tuple[str, str]] = field(default_factory=list)   # (role, prompt)
+    # (role, prompt) — single-frame static sprite
+    sprite_roles: list[tuple[str, str]] = field(default_factory=list)
+    # (role, prompt, [states]) — animated sprite. States default to
+    # ("idle", "walk") if the caller wants animation without naming
+    # specific states. Passing [] explicitly disables animation for the
+    # role (the pipeline emits only the static sprite).
+    animated_sprite_roles: list[tuple[str, str, list[str]]] = field(default_factory=list)
     mesh_roles: list[tuple[str, str]] = field(default_factory=list)
     audio_roles: list[tuple[str, str, str]] = field(default_factory=list)  # (role, prompt, kind)
     target: str = "web"

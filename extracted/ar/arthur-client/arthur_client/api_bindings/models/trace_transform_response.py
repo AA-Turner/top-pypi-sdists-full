@@ -32,7 +32,7 @@ class TraceTransformResponse(BaseModel):
     task_id: StrictStr = Field(description="ID of the parent task.")
     name: StrictStr = Field(description="Name of the transform.")
     description: Optional[StrictStr] = None
-    definition: TraceTransformDefinition = Field(description="Transform definition specifying extraction rules.")
+    definition: TraceTransformDefinition = Field(description="Latest version of the transform definition.")
     created_at: datetime = Field(description="Timestamp representing the time of transform creation")
     updated_at: datetime = Field(description="Timestamp representing the time of the last transform update")
     __properties: ClassVar[List[str]] = ["id", "task_id", "name", "description", "definition", "created_at", "updated_at"]

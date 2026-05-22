@@ -8,7 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict
 
 from metaflow.exception import MetaflowException
-from metaflow.metaflow_config import FAST_BAKERY_URL, get_pinned_conda_libs
+from metaflow.metaflow_config import (
+    FAST_BAKERY_URL,
+    FAST_BAKERY_INDEX_STRATEGY,
+    get_pinned_conda_libs,
+)
 from metaflow.metaflow_environment import MetaflowEnvironment
 from metaflow.plugins.aws.batch.batch_decorator import BatchDecorator
 from metaflow.plugins.kubernetes.kubernetes_decorator import KubernetesDecorator
@@ -229,6 +233,9 @@ class DockerEnvironment(MetaflowEnvironment):
             conda_packages=None,
             base_image=None,
             channels=None,
+            target_os=None,
+            target_arch=None,
+            index_strategy=None,
         ):
             try:
                 bakery = FastBakery(url=FAST_BAKERY_URL)
@@ -240,8 +247,13 @@ class DockerEnvironment(MetaflowEnvironment):
                     bakery.default_conda_channel(channels[0])
                     bakery.conda_channels(channels)
                 bakery.base_image(base_image)
+                bakery.platform(target_os, target_arch)
+
                 if self._force_rebuild:
                     bakery.ignore_cache()
+
+                if index_strategy is not None:
+                    bakery.index_strategy(index_strategy)
 
                 with logger_lock:
                     self.logger(f"🍳 Baking [{ref}] ...")
@@ -256,6 +268,13 @@ class DockerEnvironment(MetaflowEnvironment):
                         self.logger(f"     📦 Conda packages:")
                         for package, version in conda_packages.items():
                             self.logger(f"        🔧 {package}: {version}")
+
+                    if target_os is not None or target_arch is not None:
+                        self.logger(
+                            f'     🏛️ Architecture: {target_os or ""}{"-" if (target_arch and target_os) else ""}{target_arch or ""}'
+                        )
+                    if index_strategy:
+                        self.logger(f"     ⚙️ Pip index strategy: {index_strategy}")
 
                     self.logger(f"     🏗️  Base image: {base_image}")
 
@@ -272,14 +291,36 @@ class DockerEnvironment(MetaflowEnvironment):
                 raise DockerEnvironmentException(f"Bake [{ref}] failed: {str(ex)}")
 
         def prepare_step(step):
-            base_image = next(
-                (
-                    d.attributes.get("image")
-                    for d in step.decorators
-                    if isinstance(d, (KubernetesDecorator))
-                ),
-                None,
+            kube_deco = next(
+                deco
+                for deco in step.decorators
+                if isinstance(deco, KubernetesDecorator)
             )
+            base_image = kube_deco.attributes.get("image")
+
+            # NOTE: For deciding the target architecture, the order of precedence is
+            # 1. Kubernetes node-selector os and arch labels
+            # 2. the default Conda target-platform from the Kubernetes decorator. This can be controlled by an environment variable or Metaflow config
+            # We do not send any target-arch in case of the default linux-64
+            # NOTE: This implementation assumes that if a user has specified node_selectors,
+            # then they are targeting a specific architecture of a Kubernetes node.
+            # The inverse is not currently possible, where during flow deployment we would have any prior knowledge on
+            # which os/architecture the step would get scheduled on. This is why we simply default to linux-64
+
+            # node_selector defaults to None
+            node_selector = kube_deco.attributes.get("node_selector") or {}
+            target_os = node_selector.get("kubernetes.io/os")
+            target_arch = node_selector.get("kubernetes.io/arch")
+
+            # Fallback to reading default through kube deco
+            if target_os is None and target_arch is None:
+                target_platform = kube_deco.target_platform
+                # skip for default value
+                if not target_platform == "linux-64":
+                    target_os, target_arch = _map_conda_platform_to_docker_platform(
+                        target_platform
+                    )
+
             dependencies = next(
                 (d for d in step.decorators if _is_env_deco(d)),
                 None,
@@ -303,6 +344,12 @@ class DockerEnvironment(MetaflowEnvironment):
                     if pypi_deco.is_attribute_user_defined("python")
                     else None
                 )
+                # These are simple string values specific to UV index-strategy.
+                # An unsupported value should not lead to an error.
+                # Fall back to environment/Metaflow config if no strategy is set through the decorator.
+                index_strategy = pypi_deco.attributes.get(
+                    "index_strategy", FAST_BAKERY_INDEX_STRATEGY
+                )
 
             packages = get_pinned_conda_libs(python, self.datastore_type)
             packages.update(dependencies.attributes["packages"] if dependencies else {})
@@ -323,7 +370,13 @@ class DockerEnvironment(MetaflowEnvironment):
                 ),
                 "base_image": base_image,
                 "channels": channels,
+                "target_os": target_os,
+                "target_arch": target_arch,
             }
+
+            if index_strategy is not None:
+                requested["index_strategy"] = index_strategy
+
             dedup_key = hashlib.sha256(
                 json.dumps(requested).encode("utf-8")
             ).hexdigest()
@@ -431,3 +484,21 @@ def _get_conda_deco_name(flow):
     """Return 'anaconda' if flow uses @anaconda_base, else 'conda'."""
     flow_deco_names = [d for d in flow._flow_decorators]
     return "anaconda" if "anaconda_base" in flow_deco_names else "conda"
+
+
+def _map_conda_platform_to_docker_platform(conda_platform):
+    os_map = {"osx": "darwin", "linux": "linux", "win": "windows"}
+
+    arch_map = {"aarch64": "arm64", "arm64": "arm64", "64": "amd64", "32": "386"}
+
+    plat_os, plat_arch = conda_platform.split("-")
+
+    if plat_os not in os_map:
+        raise DockerEnvironmentException("Unsupported target platform: %s" % plat_os)
+
+    if plat_arch not in arch_map:
+        raise DockerEnvironmentException(
+            "Unsupported target architecture: %s" % plat_arch
+        )
+
+    return os_map[plat_os], arch_map[plat_arch]

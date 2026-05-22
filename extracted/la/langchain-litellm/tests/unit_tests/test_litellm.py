@@ -1,20 +1,25 @@
 """Test chat model integration."""
 
+# stdlib
 import logging
-from typing import Any, Type
+from typing import Any
+from unittest.mock import patch
 
+# third-party
+import litellm
 import pytest
 from langchain_core.exceptions import OutputParserException
-from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableLambda
-from langchain_tests.unit_tests import ChatModelUnitTests
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, Function
 from pydantic import BaseModel
 
+# first-party
 from langchain_litellm.chat_models import ChatLiteLLM
 from langchain_litellm.chat_models.litellm import (
     _convert_delta_to_message_chunk,
     _convert_dict_to_message,
+    _convert_message_to_dict,
     _create_usage_metadata,
     _inject_reasoning_content_into_content,
 )
@@ -67,8 +72,6 @@ def test_convert_dict_to_tool_message() -> None:
     """Ensure tool role dicts convert to ToolMessage."""
     mock_dict = {"role": "tool", "content": "result", "tool_call_id": "123"}
     message = _convert_dict_to_message(mock_dict)
-    from langchain_core.messages import ToolMessage
-
     assert isinstance(message, ToolMessage)
     assert message.content == "result"
     assert message.tool_call_id == "123"
@@ -273,6 +276,21 @@ def test_inject_reasoning_content_does_not_duplicate_existing_thinking() -> None
     assert result == content
 
 
+# ── credential forwarding ─────────────────────────────────────────────────────
+
+
+def test_client_params_forwards_api_key() -> None:
+    """api_key must be forwarded as an explicit kwarg so providers can prefer it
+    instead of using the environment variables."""
+    llm = ChatLiteLLM(
+        model="openrouter/anthropic/claude-sonnet-4-5",
+        api_base="https://openrouter.ai/api/v1",
+        api_key="my-explicit-token",
+    )
+    params = llm._client_params
+    assert params.get("api_key") == "my-explicit-token"
+
+
 # ── stream_options ─────────────────────────────────────────────────────────────
 
 
@@ -470,3 +488,93 @@ def test_with_structured_output_include_raw_preserves_raw_for_claude_thinking() 
     assert result["raw"].content == "plain text"
     assert result["parsed"] is None
     assert isinstance(result["parsing_error"], OutputParserException)
+
+def test_create_chat_result_sets_model_provider() -> None:
+    """Non-streaming path must set model_provider. Fixes #152."""
+    llm = ChatLiteLLM(model="gpt-4", api_key="fake")
+    mock_response = {
+        "choices": [{"message": {"role": "assistant", "content": "hi"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    result = llm._create_chat_result(mock_response)
+    msg = result.generations[0].message
+    assert isinstance(msg, AIMessage)
+    assert msg.response_metadata.get("model_provider") == "litellm"
+
+
+def test_stream_sets_model_provider_in_response_metadata() -> None:
+    """First streaming chunk must carry model_provider. Fixes #152."""
+
+    llm = ChatLiteLLM(model="gpt-4", api_key="fake")
+    fake_chunks = [
+        {"choices": [{"delta": {"role": "assistant", "content": "hel"}}], "usage": None},
+        {"choices": [{"delta": {"content": "lo"}}], "usage": None},
+        {"choices": [], "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7}},
+    ]
+
+    with patch.object(ChatLiteLLM, "completion_with_retry", return_value=iter(fake_chunks)):
+        chunks = list(llm._stream([]))
+
+    assert chunks[0].message.response_metadata.get("model_provider") == "litellm"
+    assert chunks[1].message.response_metadata == {}
+
+
+def test_get_ls_params_sets_ls_provider() -> None:
+    """ls_provider must match model_provider so SummarizationMiddleware's equality check passes."""
+    llm = ChatLiteLLM(model="gpt-4", api_key="fake")
+    params = llm._get_ls_params()
+    assert params["ls_provider"] == "litellm"
+    assert params["ls_model_name"] == "gpt-4"
+
+    # model_name takes precedence over model when set
+    llm_with_name = ChatLiteLLM(model="gpt-4", model_name="my-deployment", api_key="fake")
+    params = llm_with_name._get_ls_params()
+    assert params["ls_model_name"] == "my-deployment"
+
+def test_convert_message_to_dict_strips_thinking_blocks() -> None:
+    """thinking/redacted_thinking blocks must not reach non-Anthropic providers."""
+
+    msg = AIMessage(
+        content=[
+            {"type": "thinking", "thinking": "internal reasoning"},
+            {"type": "redacted_thinking", "data": "encrypted"},
+            {"type": "text", "text": "hello"},
+        ],
+        additional_kwargs={"reasoning_content": "internal reasoning"},
+    )
+    d = _convert_message_to_dict(msg)
+
+    types = [block.get("type") for block in d["content"]]
+    assert "thinking" not in types
+    assert "redacted_thinking" not in types
+    assert {"type": "text", "text": "hello"} in d["content"]
+    assert d["reasoning_content"] == "internal reasoning"
+
+def test_client_params_does_not_mutate_litellm_globals() -> None:
+    """_client_params must not write instance config to litellm module globals. Fixes #132."""
+    before = {
+        "api_base": litellm.api_base,
+        "api_key": litellm.api_key,
+        "organization": getattr(litellm, "organization", None),
+    }
+
+    llm = ChatLiteLLM(
+        model="azure/gpt-4o",
+        api_base="https://my-azure.openai.azure.com",
+        api_key="azure-key",
+        organization="my-org",
+        extra_headers={"X-Custom": "value"},
+    )
+    params = llm._client_params
+
+    # globals must be untouched
+    assert litellm.api_base == before["api_base"]
+    assert litellm.api_key == before["api_key"]
+    assert getattr(litellm, "organization", None) == before["organization"]
+    assert getattr(litellm, "extra_headers", None) != {"X-Custom": "value"}
+
+    # values must be present in the returned per-call params instead
+    assert params["api_base"] == "https://my-azure.openai.azure.com"
+    assert params["api_key"] == "azure-key"
+    assert params["organization"] == "my-org"
+    assert params["extra_headers"] == {"X-Custom": "value"}

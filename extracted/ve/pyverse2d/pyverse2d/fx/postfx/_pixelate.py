@@ -50,7 +50,7 @@ class Pixelate(PostFxEffect):
     """Effet post-processing: pixelisation
 
     Args:
-        block_size: taille d'un bloc en pixels *(> 0)*
+        block_size: taille d'un bloc en unités mondes *(> 0)*
     """
     block_size: Real = 8.0
 
@@ -58,6 +58,7 @@ class Pixelate(PostFxEffect):
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "block_size", float(self.block_size))
+        
         if __debug__:
             over(self.block_size, 0, include=False)
 
@@ -90,9 +91,9 @@ class PixelatePostFxRenderer(SpecializedPostFxRenderer):
             effect: paramètres de la pixelisation
             mask: données de masque spatial
         """
-        fbo = pipeline.fbo
-        bx = effect.block_size / fbo.width
-        by = effect.block_size / fbo.height
+        bx = by = pipeline.scale_to_framebuffer(effect.block_size)
+        bx /= pipeline.fbo.width
+        by /= pipeline.fbo.height
 
         pipeline.apply_shader(
             self._get_program(),

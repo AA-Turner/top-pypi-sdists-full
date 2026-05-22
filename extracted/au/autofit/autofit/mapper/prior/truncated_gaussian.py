@@ -1,5 +1,7 @@
 from typing import Optional, Tuple
 
+import numpy as np
+
 from autofit.messages.truncated_normal import TruncatedNormalMessage
 from .abstract import Prior
 
@@ -130,3 +132,23 @@ class TruncatedGaussianPrior(Prior):
                 f"lower_limit = {self.lower_limit}, "
                 f"upper_limit = {self.upper_limit}"
                 )
+
+    def value_for(self, unit, xp=np):
+        """
+        Map a unit value in [0, 1] to a physical value drawn from this truncated Gaussian prior.
+
+        Parameters
+        ----------
+        unit
+            A unit value between 0 and 1.
+        xp
+            Array-module to dispatch on (``numpy`` or ``jax.numpy``). Default ``numpy``.
+            Delegates to ``_erf_helpers.truncated_normal_value_for``, which uses
+            ``scipy.special.erf`` / ``erfinv`` (or the ``jax.scipy.special``
+            equivalents) directly — skipping the ``scipy.stats`` wrapper that
+            previously dominated this hot path.
+        """
+        from autofit.mapper.prior._erf_helpers import truncated_normal_value_for
+        return truncated_normal_value_for(
+            unit, self.mean, self.sigma, self.lower_limit, self.upper_limit, xp,
+        )

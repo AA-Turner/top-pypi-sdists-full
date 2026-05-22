@@ -412,6 +412,276 @@ class VoicesResource:
         return VoiceDetail.from_dict(response)
 
 
+class DictionaryEntriesResource:
+    """Resource for managing entries within a single dictionary.
+
+    Accessed via ``client.dictionaries.entries`` and parametrized with
+    ``dictionary_id`` on each call.
+    """
+
+    def __init__(self, client: KugelAudio):
+        self._client = client
+
+    def list(
+        self,
+        dictionary_id: int,
+        *,
+        search: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+        project_id: Optional[int] = None,
+    ) -> "DictionaryEntryList":
+        """List entries in a dictionary, optionally filtered by *search*.
+
+        Args:
+            dictionary_id: Dictionary ID.
+            search: Case-insensitive substring filter on ``word``.
+            limit: Page size, 1-500. Defaults to 100.
+            offset: Pagination offset.
+            project_id: Required only for master-key callers.
+        """
+        from kugelaudio.models import DictionaryEntryList
+
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if search is not None:
+            params["search"] = search
+        if project_id is not None:
+            params["project_id"] = project_id
+        response = self._client._request(
+            "GET",
+            f"/v1/dictionaries/{dictionary_id}/entries",
+            params=params,
+        )
+        return DictionaryEntryList.from_dict(response)
+
+    def add(
+        self,
+        dictionary_id: int,
+        *,
+        word: str,
+        replacement: str,
+        ipa: Optional[str] = None,
+        case_sensitive: bool = False,
+        project_id: Optional[int] = None,
+    ) -> "DictionaryEntry":
+        """Add a single entry to a dictionary."""
+        from kugelaudio.models import DictionaryEntry
+
+        payload: Dict[str, Any] = {
+            "word": word,
+            "replacement": replacement,
+            "case_sensitive": case_sensitive,
+        }
+        if ipa is not None:
+            payload["ipa"] = ipa
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "POST",
+            f"/v1/dictionaries/{dictionary_id}/entries",
+            params=params,
+            json_data=payload,
+        )
+        return DictionaryEntry.from_dict(response)
+
+    def update(
+        self,
+        dictionary_id: int,
+        entry_id: int,
+        *,
+        word: Optional[str] = None,
+        replacement: Optional[str] = None,
+        ipa: Optional[str] = None,
+        case_sensitive: Optional[bool] = None,
+        project_id: Optional[int] = None,
+    ) -> "DictionaryEntry":
+        """Update an existing entry. Only provided fields are changed."""
+        from kugelaudio.models import DictionaryEntry
+
+        payload: Dict[str, Any] = {}
+        if word is not None:
+            payload["word"] = word
+        if replacement is not None:
+            payload["replacement"] = replacement
+        if ipa is not None:
+            payload["ipa"] = ipa
+        if case_sensitive is not None:
+            payload["case_sensitive"] = case_sensitive
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "PATCH",
+            f"/v1/dictionaries/{dictionary_id}/entries/{entry_id}",
+            params=params,
+            json_data=payload,
+        )
+        return DictionaryEntry.from_dict(response)
+
+    def delete(
+        self,
+        dictionary_id: int,
+        entry_id: int,
+        *,
+        project_id: Optional[int] = None,
+    ) -> None:
+        """Delete a single entry."""
+        params = {"project_id": project_id} if project_id is not None else None
+        self._client._request(
+            "DELETE",
+            f"/v1/dictionaries/{dictionary_id}/entries/{entry_id}",
+            params=params,
+        )
+
+    def replace_all(
+        self,
+        dictionary_id: int,
+        entries: List[Dict[str, Any]],
+        *,
+        project_id: Optional[int] = None,
+    ) -> "BulkReplaceResult":
+        """Atomically replace every entry in the dictionary with *entries*.
+
+        Each item in *entries* must contain ``word`` and ``replacement``,
+        optionally ``ipa`` and ``case_sensitive``. Entries currently in
+        the dictionary whose ``word`` is not in the supplied list are
+        deleted. Idempotent — useful for syncing from an external source.
+
+        Returns counts of what changed (upserted, deleted, total).
+        """
+        from kugelaudio.models import BulkReplaceResult
+
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "PUT",
+            f"/v1/dictionaries/{dictionary_id}/entries",
+            params=params,
+            json_data={"entries": entries},
+        )
+        return BulkReplaceResult.from_dict(response)
+
+
+class DictionariesResource:
+    """Resource for managing per-project custom dictionaries.
+
+    Customers use this to sync pronunciation/replacement dictionaries
+    programmatically. The TTS-side cache is invalidated automatically
+    after every mutation, so the next synthesis request picks up the
+    change immediately.
+
+    Example::
+
+        # Create a dictionary and add a few words
+        d = client.dictionaries.create(name="Brand names")
+        client.dictionaries.entries.add(d.id, word="Postgres", replacement="post-gres")
+        client.dictionaries.entries.add(d.id, word="K8s", replacement="kubernetes")
+
+        # Sync from an external source — idempotent
+        client.dictionaries.entries.replace_all(d.id, entries=[
+            {"word": "Postgres", "replacement": "post-gres"},
+            {"word": "Kubernetes", "replacement": "koo-ber-net-eez"},
+        ])
+    """
+
+    def __init__(self, client: KugelAudio):
+        self._client = client
+        self.entries = DictionaryEntriesResource(client)
+
+    def list(self, *, project_id: Optional[int] = None) -> List["Dictionary"]:
+        """List every dictionary in the caller's project.
+
+        Args:
+            project_id: Required only for master-key callers.
+        """
+        from kugelaudio.models import Dictionary
+
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "GET", "/v1/dictionaries", params=params
+        )
+        return [Dictionary.from_dict(d) for d in response.get("dictionaries", [])]
+
+    def create(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        language: Optional[str] = None,
+        project_id: Optional[int] = None,
+    ) -> "Dictionary":
+        """Create a new dictionary."""
+        from kugelaudio.models import Dictionary
+
+        payload: Dict[str, Any] = {"name": name}
+        if description is not None:
+            payload["description"] = description
+        if language is not None:
+            payload["language"] = language
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "POST", "/v1/dictionaries", params=params, json_data=payload
+        )
+        return Dictionary.from_dict(response)
+
+    def get(
+        self,
+        dictionary_id: int,
+        *,
+        project_id: Optional[int] = None,
+    ) -> "Dictionary":
+        """Fetch a single dictionary by ID."""
+        from kugelaudio.models import Dictionary
+
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "GET", f"/v1/dictionaries/{dictionary_id}", params=params
+        )
+        return Dictionary.from_dict(response)
+
+    def update(
+        self,
+        dictionary_id: int,
+        *,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        language: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        project_id: Optional[int] = None,
+    ) -> "Dictionary":
+        """Update name / description / language / is_active.
+
+        Only provided fields are changed.
+        """
+        from kugelaudio.models import Dictionary
+
+        payload: Dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if language is not None:
+            payload["language"] = language
+        if is_active is not None:
+            payload["is_active"] = is_active
+        params = {"project_id": project_id} if project_id is not None else None
+        response = self._client._request(
+            "PATCH",
+            f"/v1/dictionaries/{dictionary_id}",
+            params=params,
+            json_data=payload,
+        )
+        return Dictionary.from_dict(response)
+
+    def delete(
+        self,
+        dictionary_id: int,
+        *,
+        project_id: Optional[int] = None,
+    ) -> None:
+        """Delete a dictionary (cascades to its entries)."""
+        params = {"project_id": project_id} if project_id is not None else None
+        self._client._request(
+            "DELETE", f"/v1/dictionaries/{dictionary_id}", params=params
+        )
+
+
 class TTSResource:
     """Resource for text-to-speech generation."""
 
@@ -1292,6 +1562,7 @@ class KugelAudio:
         # Initialize resources
         self.models = ModelsResource(self)
         self.voices = VoicesResource(self)
+        self.dictionaries = DictionariesResource(self)
         self.tts = TTSResource(self)
 
         from kugelaudio import __version__

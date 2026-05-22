@@ -15,8 +15,10 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetActiveScheduledQueriesRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
 
 class ScheduledQueryRunInfo(_message.Message):
     __slots__ = ("id", "offline_query_id", "workflow_execution_id", "status", "has_errors")

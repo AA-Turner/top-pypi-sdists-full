@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.12.0
+Version: 0.13.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -145,6 +145,9 @@ Requires-Dist: inspect_cyber; extra == "theagentcompany"
 Requires-Dist: pandas; extra == "theagentcompany"
 Requires-Dist: openpyxl; extra == "theagentcompany"
 Requires-Dist: odfpy>=1.4.1; extra == "theagentcompany"
+Requires-Dist: pypdf; extra == "theagentcompany"
+Requires-Dist: python-pptx; extra == "theagentcompany"
+Requires-Dist: scikit-learn; extra == "theagentcompany"
 Provides-Extra: novelty-bench
 Requires-Dist: transformers>=4.57.1; extra == "novelty-bench"
 Requires-Dist: torch>=2.9.1; extra == "novelty-bench"
@@ -822,6 +825,18 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
 
   ```bash
   uv run inspect eval inspect_evals/abstention_bench
+  ```
+
+- ### ![external](https://img.shields.io/badge/external-orange) [Adversarial Humanities Benchmark](https://github.com/icaro-lab/ahb)
+
+  A text-only safety benchmark for evaluating whether language models maintain refusal behavior under humanities-style adversarial reformulations of harmful prompts.
+  <sub><sup>Maintained upstream by: [@emmepra](https://github.com/emmepra) • Listed in inspect_evals by: [@emmepra](https://github.com/emmepra)</sub></sup>
+
+  ```bash
+  git clone https://github.com/icaro-lab/ahb
+  cd ahb && git checkout 4b7b631245fa300df98d2c310e83273ed0d4a207
+  uv sync
+  uv run inspect eval src/ahb_inspect/tasks.py@ahb
   ```
 
 - ### [AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents](src/inspect_evals/agentdojo)

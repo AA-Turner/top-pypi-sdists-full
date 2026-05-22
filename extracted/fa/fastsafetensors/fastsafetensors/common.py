@@ -51,6 +51,110 @@ def get_device_numa_node(device: Optional[int]) -> Optional[int]:
         return int(f.read().strip())
 
 
+def _normalize_windows_dll_path(path: str, source: str) -> str:
+    """Return a normalized absolute DLL path on Windows.
+
+    We intentionally reject relative paths and bare DLL names here so callers do
+    not fall back to the Windows DLL search order, which is susceptible to DLL
+    planting / search-order hijacking.
+    """
+    expanded = os.path.expandvars(os.path.expanduser(path))
+    if not os.path.isabs(expanded):
+        raise ValueError(f"{source} must be an absolute path on Windows: {path!r}")
+    normalized = os.path.abspath(expanded)
+    if not os.path.isfile(normalized):
+        raise FileNotFoundError(
+            f"{source} points to a missing DLL on Windows: {normalized}"
+        )
+    return normalized
+
+
+def resolve_cudart_lib_name() -> str:
+    """Resolve the CUDA runtime library name for the current platform.
+
+    Returns:
+        On Windows, an absolute DLL path string. On other platforms, "" to use
+        the compiled-in default.
+    """
+    if sys.platform != "win32":
+        return ""  # Non-Windows: use auto-detection (CUDA first, then ROCm)
+
+    # Allow explicit override via environment variable
+    override = os.environ.get("FASTSAFETENSORS_CUDART_LIB", "").strip()
+    if override:
+        return _normalize_windows_dll_path(override, "FASTSAFETENSORS_CUDART_LIB")
+
+    import glob
+
+    def _find_cudart_in_dir(d: str) -> str:
+        """Scan a trusted directory for cudart64_*.dll files."""
+        if not d:
+            return ""
+        expanded = os.path.expandvars(os.path.expanduser(d))
+        if not os.path.isabs(expanded):
+            return ""
+        d = os.path.abspath(expanded)
+        if not os.path.isdir(d):
+            return ""
+        matches = glob.glob(os.path.join(d, "cudart64_*.dll"))
+        if matches:
+            matches.sort(reverse=True)
+            return os.path.abspath(matches[0])
+        return ""
+
+    def _detect_from_nvcc(cuda_home: str) -> str:
+        """Try to detect the CUDA major version from nvcc -V output."""
+        expanded = os.path.expandvars(os.path.expanduser(cuda_home))
+        if not os.path.isabs(expanded):
+            return ""
+        cuda_home = os.path.abspath(expanded)
+        nvcc = os.path.join(cuda_home, "bin", "nvcc.exe")
+        if not os.path.isfile(nvcc):
+            return ""
+        try:
+            import subprocess
+
+            output = subprocess.check_output(
+                [nvcc, "-V"], universal_newlines=True, stderr=subprocess.STDOUT
+            )
+            tokens = output.split()
+            release_idx = tokens.index("release") + 1
+            version_str = tokens[release_idx].rstrip(",")
+            cuda_major = version_str.split(".")[0]
+            candidate = os.path.join(cuda_home, "bin", f"cudart64_{cuda_major}.dll")
+            if os.path.isfile(candidate):
+                return os.path.abspath(candidate)
+            return ""
+        except Exception:
+            return ""
+
+    # Try to detect from CUDA_HOME / CUDA_PATH
+    cuda_home = os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH")
+    if cuda_home:
+        result = _detect_from_nvcc(cuda_home)
+        if result:
+            return result
+        result = _find_cudart_in_dir(os.path.join(cuda_home, "bin"))
+        if result:
+            return result
+
+    # Scan common NVIDIA install locations
+    program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+    nvidia_base = os.path.join(program_files, "NVIDIA GPU Computing Toolkit", "CUDA")
+    if os.path.isdir(nvidia_base):
+        # List version directories (e.g. v12.6, v11.8), newest first
+        try:
+            versions = sorted(os.listdir(nvidia_base), reverse=True)
+        except OSError:
+            versions = []
+        for ver_dir in versions:
+            result = _find_cudart_in_dir(os.path.join(nvidia_base, ver_dir, "bin"))
+            if result:
+                return result
+
+    return ""  # fall back to compiled-in default
+
+
 # keep this for compatibility
 class SingleGroup:
     def size(self):
@@ -100,15 +204,26 @@ class SafeTensorsMetadata:
             nelements = 1
             for sh in t.shape:
                 nelements *= sh
-            nbytes = nelements * framework.get_dtype_size(t.dtype)
+            nbytes = int(nelements * framework.get_dtype_size(t.dtype))
             if (e - s) != nbytes:
                 raise Exception(
                     f"validate(tensor {k}): TensorInvalidInfo, e-s={e-s}, nbytes={nbytes}, src={src}"
                 )
         self.size_bytes = size_bytes
-        if start + header_length != size_bytes:
+        if start + header_length > size_bytes:
             raise Exception(
                 f"MetadataIncompleteBuffer, src={src}, start={start}, header_length={header_length}, size_bytes={size_bytes}"
+            )
+        if start + header_length < size_bytes:
+            # Trailing padding bytes after tensor data are allowed.
+            # This occurs with sub-byte dtypes (FP4, NF4) where alignment
+            # padding is added, or when the header is padded for page alignment.
+            trailing = size_bytes - (start + header_length)
+            logger = init_logger(__name__)
+            logger.debug(
+                "trailing %d bytes after tensor data in %s (alignment padding)",
+                trailing,
+                src,
             )
 
     @classmethod
@@ -174,7 +289,12 @@ class SafeTensorsMetadata:
 
     @classmethod
     def from_file(self, filename: str, framework: FrameworkOpBase):
-        fd = os.open(filename, os.O_RDONLY, 0o644)
+        flags = os.O_RDONLY
+        # On Windows, O_RDONLY defaults to text mode which translates \r\n -> \n,
+        # corrupting binary data and causing size mismatches on large files.
+        if sys.platform == "win32" and hasattr(os, "O_BINARY"):
+            flags |= os.O_BINARY
+        fd = os.open(filename, flags, 0o644)
         ret = self.from_fd(fd, filename, framework=framework, keep_orig_dict=False)
         os.close(fd)
         return ret
@@ -195,16 +315,25 @@ class SafeTensorsMetadata:
                 - copy_start_offset
             )
             disk_dtype = self.framework.as_workaround_dtype(t.dtype)
+            dl_shape, dl_strides = self.framework.get_storage_shape(
+                t.dtype, t.shape, t.strides
+            )
             dl_tensor = from_cuda_buffer(
                 dst_dev_ptr,
-                t.shape,
-                t.strides,
+                dl_shape,
+                dl_strides,
                 disk_dtype,
                 device,
             )
             t2 = self.framework.from_dlpack(dl_tensor, device, disk_dtype)
             if disk_dtype != t.dtype:
                 t2 = t2.view(t.dtype)
+            # For packed sub-byte dtypes, reshape to the framework-native shape.
+            # e.g. F4 (float4_e2m1fn_x2): safetensors shape counts FP4 values,
+            # but PyTorch shape counts packed pairs (2 FP4 per byte).
+            native_shape = self.framework.get_native_shape(t.dtype, t.shape)
+            if native_shape != t.shape:
+                t2 = t2.reshape(native_shape)
 
             if dtype != DType.AUTO and dtype != t.dtype:
                 if self.framework.get_dtype_size(dtype) > self.framework.get_dtype_size(

@@ -23,7 +23,7 @@ def _build_url(category: _Category, name: str) -> str:
         _Category.ALLIANCE: "alliance",
         _Category.CORPORATION: "corp",
         _Category.FACTION: "factionwarfare",
-        _Category.REGION: "map",
+        _Category.REGION: "region",
         _Category.SOLARSYSTEM: "system",
         _Category.STATION: "station",
     }

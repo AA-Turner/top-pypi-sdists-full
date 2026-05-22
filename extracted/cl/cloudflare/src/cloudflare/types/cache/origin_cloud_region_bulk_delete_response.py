@@ -1,20 +1,16 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Optional
-from datetime import datetime
-from typing_extensions import Literal
-
-from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
 
-__all__ = ["OriginCloudRegionBulkDeleteResponse", "Value", "ValueFailed", "ValueSucceeded"]
+__all__ = ["OriginCloudRegionBulkDeleteResponse", "Failed", "Succeeded"]
 
 
-class ValueFailed(BaseModel):
+class Failed(BaseModel):
     """Result for a single item in a batch operation."""
 
-    origin_ip: str = FieldInfo(alias="origin-ip")
+    origin_ip: str
     """The origin IP address for this item."""
 
     error: Optional[str] = None
@@ -23,17 +19,22 @@ class ValueFailed(BaseModel):
     region: Optional[str] = None
     """Cloud vendor region identifier.
 
-    Present on succeeded items for patch operations.
+    Present on succeeded items (the new value for upsert, the deleted value for
+    delete).
     """
 
     vendor: Optional[str] = None
-    """Cloud vendor identifier. Present on succeeded items for patch operations."""
+    """Cloud vendor identifier.
+
+    Present on succeeded items (the new value for upsert, the deleted value for
+    delete).
+    """
 
 
-class ValueSucceeded(BaseModel):
+class Succeeded(BaseModel):
     """Result for a single item in a batch operation."""
 
-    origin_ip: str = FieldInfo(alias="origin-ip")
+    origin_ip: str
     """The origin IP address for this item."""
 
     error: Optional[str] = None
@@ -42,33 +43,23 @@ class ValueSucceeded(BaseModel):
     region: Optional[str] = None
     """Cloud vendor region identifier.
 
-    Present on succeeded items for patch operations.
+    Present on succeeded items (the new value for upsert, the deleted value for
+    delete).
     """
 
     vendor: Optional[str] = None
-    """Cloud vendor identifier. Present on succeeded items for patch operations."""
+    """Cloud vendor identifier.
 
-
-class Value(BaseModel):
-    failed: List[ValueFailed]
-    """Items that could not be applied, with error details."""
-
-    succeeded: List[ValueSucceeded]
-    """Items that were successfully applied."""
+    Present on succeeded items (the new value for upsert, the deleted value for
+    delete).
+    """
 
 
 class OriginCloudRegionBulkDeleteResponse(BaseModel):
     """Response result for a batch origin cloud region operation."""
 
-    id: Literal["origin_public_cloud_region"]
+    failed: List[Failed]
+    """Items that could not be applied, with error details."""
 
-    editable: bool
-    """Whether the setting can be modified by the current user."""
-
-    value: Value
-
-    modified_on: Optional[datetime] = None
-    """Time the mapping set was last modified.
-
-    Null when no items were successfully applied.
-    """
+    succeeded: List[Succeeded]
+    """Items that were successfully applied."""

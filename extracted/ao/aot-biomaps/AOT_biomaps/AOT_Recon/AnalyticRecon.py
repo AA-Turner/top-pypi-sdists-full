@@ -5,10 +5,16 @@ from .ReconTools import fourierz_gpu, EvalDelayLawOS_center, ifourierx_gpu, rota
 
 import numpy as np
 from tqdm import trange
-import cupy as cp
 import os
 from datetime import datetime
 
+# Check for CuPy availability
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    cp = None
+    CUPY_AVAILABLE = False
 
 class AnalyticRecon(Recon):
     def __init__(self, analyticType, Lc = None,**kwargs):
@@ -61,7 +67,6 @@ class AnalyticRecon(Recon):
         # Sinon, retourne False
         return (False, results_dir)
 
-
     def _analyticReconPython(self,withTumor):
         """
         This method is a placeholder for the analytic reconstruction process in Python.
@@ -70,8 +75,6 @@ class AnalyticRecon(Recon):
         Parameters:
             analyticType: The type of analytic reconstruction to perform (default is iFOURIER).
         """
-
-
 
         if withTumor:
             AOsignal = self.experiment.AOsignal_withTumor
@@ -156,7 +159,7 @@ class AnalyticRecon(Recon):
         withTumor,
     ):
         """
-        Reconstruction d'image utilisant la méthode iFourier (GPU).
+    Reconstruction d'image utilisant la méthode iFourier (GPU).
         Normalisation physique complète incluse.
         """
 
@@ -296,7 +299,7 @@ class AnalyticRecon(Recon):
         withTumor,
     ):
         """
-        Reconstruction d'image utilisant la méthode iRadon.
+    Reconstruction d'image utilisant la méthode iRadon.
         Normalisation physique correcte (phases, angles, dz).
         """
 

@@ -42,6 +42,28 @@ class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: _ClassVar[DeploymentBuildProfile]
 
+class DiscoveredBucketSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: _ClassVar[DiscoveredBucketSource]
+    DISCOVERED_BUCKET_SOURCE_ENGINE: _ClassVar[DiscoveredBucketSource]
+    DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: _ClassVar[DiscoveredBucketSource]
+    DISCOVERED_BUCKET_SOURCE_CLUSTER_MANAGER: _ClassVar[DiscoveredBucketSource]
+
+class DiscoveredBucketRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DISCOVERED_BUCKET_ROLE_UNSPECIFIED: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_DATASET: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_PLAN_STAGES: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_DEBUG: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_DATA_TRANSFER: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_SNOWFLAKE_UNLOAD: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_VOLUME: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_SOURCE_BUNDLE: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_MODEL_REGISTRY: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_INGESTER_SNAPSHOT: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_STREAMING_LOG: _ClassVar[DiscoveredBucketRole]
+    DISCOVERED_BUCKET_ROLE_OTHER: _ClassVar[DiscoveredBucketRole]
+
 CLOUD_PROVIDER_KIND_UNSPECIFIED: CloudProviderKind
 CLOUD_PROVIDER_KIND_UNKNOWN: CloudProviderKind
 CLOUD_PROVIDER_KIND_GCP: CloudProviderKind
@@ -56,6 +78,22 @@ DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: DeploymentBuildProfile
+DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: DiscoveredBucketSource
+DISCOVERED_BUCKET_SOURCE_ENGINE: DiscoveredBucketSource
+DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: DiscoveredBucketSource
+DISCOVERED_BUCKET_SOURCE_CLUSTER_MANAGER: DiscoveredBucketSource
+DISCOVERED_BUCKET_ROLE_UNSPECIFIED: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_DATASET: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_PLAN_STAGES: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_DEBUG: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_DATA_TRANSFER: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_SNOWFLAKE_UNLOAD: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_VOLUME: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_SOURCE_BUNDLE: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_MODEL_REGISTRY: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_INGESTER_SNAPSHOT: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_STREAMING_LOG: DiscoveredBucketRole
+DISCOVERED_BUCKET_ROLE_OTHER: DiscoveredBucketRole
 
 class AWSCloudWatchConfig(_message.Message):
     __slots__ = ("log_group_path", "log_group_paths")
@@ -701,3 +739,52 @@ class SetDefaultEnvironmentRequest(_message.Message):
 class SetDefaultEnvironmentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class DiscoveredBucketProbe(_message.Message):
+    __slots__ = ("ok", "error", "skipped")
+    OK_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    SKIPPED_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    error: str
+    skipped: bool
+    def __init__(self, ok: bool = ..., error: _Optional[str] = ..., skipped: bool = ...) -> None: ...
+
+class DiscoveredBucket(_message.Message):
+    __slots__ = ("name", "role", "role_label", "source", "config_key", "read", "write")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    ROLE_LABEL_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_KEY_FIELD_NUMBER: _ClassVar[int]
+    READ_FIELD_NUMBER: _ClassVar[int]
+    WRITE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    role: DiscoveredBucketRole
+    role_label: str
+    source: DiscoveredBucketSource
+    config_key: str
+    read: DiscoveredBucketProbe
+    write: DiscoveredBucketProbe
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        role: _Optional[_Union[DiscoveredBucketRole, str]] = ...,
+        role_label: _Optional[str] = ...,
+        source: _Optional[_Union[DiscoveredBucketSource, str]] = ...,
+        config_key: _Optional[str] = ...,
+        read: _Optional[_Union[DiscoveredBucketProbe, _Mapping]] = ...,
+        write: _Optional[_Union[DiscoveredBucketProbe, _Mapping]] = ...,
+    ) -> None: ...
+
+class DiscoverEnvironmentBucketsRequest(_message.Message):
+    __slots__ = ("skip_probes",)
+    SKIP_PROBES_FIELD_NUMBER: _ClassVar[int]
+    skip_probes: bool
+    def __init__(self, skip_probes: bool = ...) -> None: ...
+
+class DiscoverEnvironmentBucketsResponse(_message.Message):
+    __slots__ = ("buckets",)
+    BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    buckets: _containers.RepeatedCompositeFieldContainer[DiscoveredBucket]
+    def __init__(self, buckets: _Optional[_Iterable[_Union[DiscoveredBucket, _Mapping]]] = ...) -> None: ...

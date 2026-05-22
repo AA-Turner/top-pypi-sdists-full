@@ -1,5 +1,5 @@
 # Copyright 2026 Marimo. All rights reserved.
-"""Workspace for a fixed list of notebooks (``marimo run a.py b.py``)."""
+"""Workspace for a fixed list of notebooks (`marimo run a.py b.py`)."""
 
 from __future__ import annotations
 
@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING
 
 from marimo._server.models.files import FileInfo
 from marimo._server.workspace._base import (
-    NEW_FILE,
-    MarimoFileKey,
     NotebookWorkspace,
     file_not_found,
     normalize_allowlist_entry,
+)
+from marimo._server.workspace._keys import (
+    FileKey,
+    NewFileKey,
 )
 from marimo._utils.paths import normalize_path
 
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
 class FixedFilesWorkspace(NotebookWorkspace):
     """A workspace pointing at a fixed allowlist of notebooks.
 
-    Used by ``marimo run a.py b.py`` and ``marimo run dir/`` snapshots. The
+    Used by `marimo run a.py b.py` and `marimo run dir/` snapshots. The
     allowlist is set at construction time and never grows.
     """
 
@@ -59,14 +61,14 @@ class FixedFilesWorkspace(NotebookWorkspace):
     def single_file(self) -> MarimoFile | None:
         return None
 
-    def get_unique_file_key(self) -> MarimoFileKey | None:
+    def get_unique_file_key(self) -> FileKey | None:
         return None
 
-    def resolve(self, key: MarimoFileKey) -> str | None:
-        if key.startswith(NEW_FILE):
+    def resolve(self, key: FileKey) -> str | None:
+        if isinstance(key, NewFileKey):
             raise file_not_found(key)
 
-        filepath = Path(key)
+        filepath = Path(key.path)
         if not filepath.is_absolute() and self._directory:
             filepath = Path(self._directory) / filepath
         normalized_path = normalize_path(filepath)

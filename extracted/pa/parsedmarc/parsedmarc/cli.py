@@ -34,6 +34,7 @@ from parsedmarc import (
     loganalytics,
     opensearch,
     parse_report_file,
+    postgres,
     s3,
     save_output,
     splunk,
@@ -74,6 +75,12 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
+class ConfigurationError(Exception):
+    """Raised when a configuration file has missing or invalid settings."""
+
+    pass
+
+
 def _str_to_list(s):
     """Converts a comma separated string to a list"""
     _list = s.split(",")
@@ -83,6 +90,28 @@ def _str_to_list(s):
 def _expand_path(p: str) -> str:
     """Expand ``~`` and ``$VAR`` references in a file path."""
     return os.path.expanduser(os.path.expandvars(p))
+
+
+def _expand_file_path_args(paths: list[str]) -> list[str]:
+    """Expand CLI file-path arguments into a flat list of file paths.
+
+    A path that already exists on disk is taken literally; only a
+    non-existent path is treated as a glob pattern. This preserves
+    shell-style wildcard expansion (e.g. a quoted ``samples/*.xml``) while
+    ensuring that literal filenames containing glob metacharacters
+    (``[``, ``]``, ``*``, ``?``) are not silently dropped. Emailed DMARC
+    failure reports are frequently named like
+    ``[Provider DMARC Failure Report] Subject.eml``; ``glob()`` treats the
+    brackets as a character class, matches nothing, and drops the file
+    (see <https://docs.python.org/3/library/glob.html>).
+    """
+    expanded: list[str] = []
+    for path in paths:
+        if os.path.exists(path):
+            expanded.append(path)
+        else:
+            expanded += glob(path)
+    return expanded
 
 
 # All known INI config section names, used for env var resolution.
@@ -98,6 +127,7 @@ _KNOWN_SECTIONS = frozenset(
         "kafka",
         "smtp",
         "s3",
+        "postgresql",
         "syslog",
         "gmail_api",
         "maildir",
@@ -105,6 +135,26 @@ _KNOWN_SECTIONS = frozenset(
         "gelf",
         "webhook",
     }
+)
+
+
+# Short aliases that don't follow the PARSEDMARC_{SECTION}_{KEY} pattern.
+_ENV_ALIASES: dict[str, tuple[str, str]] = {
+    "DEBUG": ("general", "debug"),
+    "PARSEDMARC_DEBUG": ("general", "debug"),
+}
+
+# Real config keys whose own names end in ``_file``. For these the
+# ``PARSEDMARC_..._FILE`` env var is the direct value (a path string),
+# not a Docker-secret file reference. Keep in sync with ``_parse_config``
+# whenever a new ``*_file`` config key is added.
+_DIRECT_FILE_KEYS = frozenset(
+    [
+        "GENERAL_LOG_FILE",
+        "MSGRAPH_TOKEN_FILE",
+        "GMAIL_API_CREDENTIALS_FILE",
+        "GMAIL_API_TOKEN_FILE",
+    ]
 )
 
 
@@ -131,38 +181,76 @@ def _resolve_section_key(suffix: str) -> tuple:
     return best_section, best_key
 
 
+def _read_secret_file(env_key: str, raw_path: str) -> str:
+    """Read a Docker-secret file referenced by a ``PARSEDMARC_..._FILE`` env var.
+
+    Strips any trailing CR/LF from the file contents. Raises
+    ``ConfigurationError`` (not a silent fallback) when the file is missing,
+    unreadable, or not valid UTF-8.
+    """
+    path = _expand_path(raw_path)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().rstrip("\r\n")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigurationError(
+            "Cannot read secret file for {0}: {1} ({2})".format(
+                env_key, path, exc.__class__.__name__
+            )
+        ) from exc
+
+
 def _apply_env_overrides(config: ConfigParser) -> None:
     """Inject ``PARSEDMARC_*`` environment variables into *config*.
 
     Environment variables matching ``PARSEDMARC_{SECTION}_{KEY}`` override
-    (or create) the corresponding config-file values.  Sections are created
+    (or create) the corresponding config-file values. Sections are created
     automatically when they do not yet exist.
+
+    A ``PARSEDMARC_{SECTION}_{KEY}_FILE`` variant reads the value from the
+    referenced file (Docker / Kubernetes secret convention). When both the
+    direct variable and its ``_FILE`` companion are set, the file wins. The
+    handful of real config keys whose own names end in ``_file`` (see
+    ``_DIRECT_FILE_KEYS``) keep their pre-existing direct-value semantics
+    and are not eligible for the secret-file wrap.
     """
     prefix = "PARSEDMARC_"
+    file_suffix = "_FILE"
 
-    # Short aliases that don't follow the PARSEDMARC_{SECTION}_{KEY} pattern.
-    _ENV_ALIASES = {
-        "DEBUG": ("general", "debug"),
-        "PARSEDMARC_DEBUG": ("general", "debug"),
-    }
+    direct: dict[tuple[str, str], str] = {}
+    secrets: dict[tuple[str, str], str] = {}
 
-    for env_key, env_value in os.environ.items():
-        if env_key in _ENV_ALIASES:
-            section, key = _ENV_ALIASES[env_key]
-        elif env_key.startswith(prefix) and env_key != "PARSEDMARC_CONFIG_FILE":
-            suffix = env_key[len(prefix) :]
-            section, key = _resolve_section_key(suffix)
-        else:
+    for env_key, value in os.environ.items():
+        if env_key == "PARSEDMARC_CONFIG_FILE":
             continue
+        if env_key in _ENV_ALIASES:
+            direct[_ENV_ALIASES[env_key]] = value
+            continue
+        if not env_key.startswith(prefix):
+            continue
+
+        key_body = env_key[len(prefix) :]
+        is_secret = key_body.endswith(file_suffix) and key_body not in _DIRECT_FILE_KEYS
+
+        if is_secret:
+            section, key = _resolve_section_key(key_body[: -len(file_suffix)])
+        else:
+            section, key = _resolve_section_key(key_body)
 
         if section is None:
             logger.debug("Ignoring unrecognized env var: %s", env_key)
             continue
+        if is_secret:
+            value = _read_secret_file(env_key, value)
+            secrets[(section, key)] = value
+        else:
+            direct[(section, key)] = value
 
+    # _FILE entries win over direct ones: dict-unpack lets later mappings overwrite.
+    for (section, key), value in {**direct, **secrets}.items():
         if not config.has_section(section):
             config.add_section(section)
-
-        config.set(section, key, env_value)
+        config.set(section, key, value)
         logger.debug("Config override from env: [%s] %s", section, key)
 
 
@@ -266,12 +354,6 @@ def cli_parse(
         conn.close()
 
 
-class ConfigurationError(Exception):
-    """Raised when a configuration file has missing or invalid settings."""
-
-    pass
-
-
 def _load_config(config_file: str | None = None) -> ConfigParser:
     """Load configuration from an INI file and/or environment variables.
 
@@ -335,14 +417,18 @@ def _parse_config(config: ConfigParser, opts):
             opts.output = _expand_path(general_config["output"])
         if "aggregate_json_filename" in general_config:
             opts.aggregate_json_filename = general_config["aggregate_json_filename"]
-        if "forensic_json_filename" in general_config:
-            opts.forensic_json_filename = general_config["forensic_json_filename"]
+        if "failure_json_filename" in general_config:
+            opts.failure_json_filename = general_config["failure_json_filename"]
+        elif "forensic_json_filename" in general_config:
+            opts.failure_json_filename = general_config["forensic_json_filename"]
         if "smtp_tls_json_filename" in general_config:
             opts.smtp_tls_json_filename = general_config["smtp_tls_json_filename"]
         if "aggregate_csv_filename" in general_config:
             opts.aggregate_csv_filename = general_config["aggregate_csv_filename"]
-        if "forensic_csv_filename" in general_config:
-            opts.forensic_csv_filename = general_config["forensic_csv_filename"]
+        if "failure_csv_filename" in general_config:
+            opts.failure_csv_filename = general_config["failure_csv_filename"]
+        elif "forensic_csv_filename" in general_config:
+            opts.failure_csv_filename = general_config["forensic_csv_filename"]
         if "smtp_tls_csv_filename" in general_config:
             opts.smtp_tls_csv_filename = general_config["smtp_tls_csv_filename"]
         if "dns_timeout" in general_config:
@@ -377,8 +463,10 @@ def _parse_config(config: ConfigParser, opts):
                 )
         if "save_aggregate" in general_config:
             opts.save_aggregate = bool(general_config.getboolean("save_aggregate"))
-        if "save_forensic" in general_config:
-            opts.save_forensic = bool(general_config.getboolean("save_forensic"))
+        if "save_failure" in general_config:
+            opts.save_failure = bool(general_config.getboolean("save_failure"))
+        elif "save_forensic" in general_config:
+            opts.save_failure = bool(general_config.getboolean("save_forensic"))
         if "save_smtp_tls" in general_config:
             opts.save_smtp_tls = bool(general_config.getboolean("save_smtp_tls"))
         if "debug" in general_config:
@@ -668,6 +756,10 @@ def _parse_config(config: ConfigParser, opts):
         # Since 8.20
         if "api_key" in elasticsearch_config:
             opts.elasticsearch_api_key = elasticsearch_config["api_key"]
+        if "serverless" in elasticsearch_config:
+            opts.elasticsearch_serverless = elasticsearch_config.getboolean(
+                "serverless"
+            )
 
     if "opensearch" in config:
         opensearch_config = config["opensearch"]
@@ -772,11 +864,13 @@ def _parse_config(config: ConfigParser, opts):
             raise ConfigurationError(
                 "aggregate_topic setting missing from the kafka config section"
             )
-        if "forensic_topic" in kafka_config:
-            opts.kafka_forensic_topic = kafka_config["forensic_topic"]
+        if "failure_topic" in kafka_config:
+            opts.kafka_failure_topic = kafka_config["failure_topic"]
+        elif "forensic_topic" in kafka_config:
+            opts.kafka_failure_topic = kafka_config["forensic_topic"]
         else:
             raise ConfigurationError(
-                "forensic_topic setting missing from the kafka config section"
+                "failure_topic setting missing from the kafka config section"
             )
         if "smtp_tls_topic" in kafka_config:
             opts.kafka_smtp_tls_topic = kafka_config["smtp_tls_topic"]
@@ -852,6 +946,26 @@ def _parse_config(config: ConfigParser, opts):
             opts.s3_access_key_id = s3_config["access_key_id"]
         if "secret_access_key" in s3_config:
             opts.s3_secret_access_key = s3_config["secret_access_key"]
+
+    if "postgresql" in config.sections():
+        pg_config = config["postgresql"]
+        if "connection_string" in pg_config:
+            opts.postgresql_connection_string = pg_config["connection_string"]
+        elif "host" in pg_config:
+            opts.postgresql_host = pg_config["host"]
+            if "port" in pg_config:
+                opts.postgresql_port = pg_config.getint("port")
+            if "user" in pg_config:
+                opts.postgresql_user = pg_config["user"]
+            if "password" in pg_config:
+                opts.postgresql_password = pg_config["password"]
+            if "database" in pg_config:
+                opts.postgresql_database = pg_config["database"]
+        else:
+            raise ConfigurationError(
+                "host (or connection_string) setting missing from the "
+                "postgresql config section"
+            )
 
     if "syslog" in config.sections():
         syslog_config = config["syslog"]
@@ -940,7 +1054,9 @@ def _parse_config(config: ConfigParser, opts):
         opts.la_dce = log_analytics_config.get("dce")
         opts.la_dcr_immutable_id = log_analytics_config.get("dcr_immutable_id")
         opts.la_dcr_aggregate_stream = log_analytics_config.get("dcr_aggregate_stream")
-        opts.la_dcr_forensic_stream = log_analytics_config.get("dcr_forensic_stream")
+        opts.la_dcr_failure_stream = log_analytics_config.get(
+            "dcr_failure_stream"
+        ) or log_analytics_config.get("dcr_forensic_stream")
         opts.la_dcr_smtp_tls_stream = log_analytics_config.get("dcr_smtp_tls_stream")
 
     if "gelf" in config.sections():
@@ -968,8 +1084,10 @@ def _parse_config(config: ConfigParser, opts):
         webhook_config = config["webhook"]
         if "aggregate_url" in webhook_config:
             opts.webhook_aggregate_url = webhook_config["aggregate_url"]
-        if "forensic_url" in webhook_config:
-            opts.webhook_forensic_url = webhook_config["forensic_url"]
+        if "failure_url" in webhook_config:
+            opts.webhook_failure_url = webhook_config["failure_url"]
+        elif "forensic_url" in webhook_config:
+            opts.webhook_failure_url = webhook_config["forensic_url"]
         if "smtp_tls_url" in webhook_config:
             opts.webhook_smtp_tls_url = webhook_config["smtp_tls_url"]
         if "timeout" in webhook_config:
@@ -1034,6 +1152,22 @@ def _init_output_clients(opts):
             )
     except Exception as e:
         raise RuntimeError(f"S3: {e}") from e
+
+    try:
+        if opts.postgresql_host or opts.postgresql_connection_string:
+            logger.debug("Initializing PostgreSQL client")
+            pg_client = postgres.PostgreSQLClient(
+                connection_string=opts.postgresql_connection_string,
+                host=opts.postgresql_host,
+                port=int(opts.postgresql_port or 5432),
+                user=opts.postgresql_user,
+                password=opts.postgresql_password,
+                database=opts.postgresql_database,
+            )
+            pg_client.create_tables()
+            clients["postgresql_client"] = pg_client
+    except Exception as e:
+        raise RuntimeError(f"PostgreSQL: {e}") from e
 
     try:
         if opts.syslog_server:
@@ -1112,13 +1246,13 @@ def _init_output_clients(opts):
     try:
         if (
             opts.webhook_aggregate_url
-            or opts.webhook_forensic_url
+            or opts.webhook_failure_url
             or opts.webhook_smtp_tls_url
         ):
             logger.debug("Initializing webhook client")
             clients["webhook_client"] = webhook.WebhookClient(
                 aggregate_url=opts.webhook_aggregate_url,
-                forensic_url=opts.webhook_forensic_url,
+                failure_url=opts.webhook_failure_url,
                 smtp_tls_url=opts.webhook_smtp_tls_url,
                 timeout=opts.webhook_timeout,
             )
@@ -1130,7 +1264,7 @@ def _init_output_clients(opts):
     # step fails.  Initialise them last so that all other clients are created
     # successfully first; this minimizes the window for partial-init problems
     # during config reload.
-    if opts.save_aggregate or opts.save_forensic or opts.save_smtp_tls:
+    if opts.save_aggregate or opts.save_failure or opts.save_smtp_tls:
         try:
             if opts.elasticsearch_hosts:
                 logger.debug(
@@ -1139,17 +1273,17 @@ def _init_output_clients(opts):
                     opts.elasticsearch_ssl,
                 )
                 es_aggregate_index = "dmarc_aggregate"
-                es_forensic_index = "dmarc_forensic"
+                es_failure_index = "dmarc_failure"
                 es_smtp_tls_index = "smtp_tls"
                 if opts.elasticsearch_index_suffix:
                     suffix = opts.elasticsearch_index_suffix
                     es_aggregate_index = "{0}_{1}".format(es_aggregate_index, suffix)
-                    es_forensic_index = "{0}_{1}".format(es_forensic_index, suffix)
+                    es_failure_index = "{0}_{1}".format(es_failure_index, suffix)
                     es_smtp_tls_index = "{0}_{1}".format(es_smtp_tls_index, suffix)
                 if opts.elasticsearch_index_prefix:
                     prefix = opts.elasticsearch_index_prefix
                     es_aggregate_index = "{0}{1}".format(prefix, es_aggregate_index)
-                    es_forensic_index = "{0}{1}".format(prefix, es_forensic_index)
+                    es_failure_index = "{0}{1}".format(prefix, es_failure_index)
                     es_smtp_tls_index = "{0}{1}".format(prefix, es_smtp_tls_index)
                 elastic_timeout_value = (
                     float(opts.elasticsearch_timeout)
@@ -1165,10 +1299,11 @@ def _init_output_clients(opts):
                     password=opts.elasticsearch_password,
                     api_key=opts.elasticsearch_api_key,
                     timeout=elastic_timeout_value,
+                    serverless=opts.elasticsearch_serverless,
                 )
                 elastic.migrate_indexes(
                     aggregate_indexes=[es_aggregate_index],
-                    forensic_indexes=[es_forensic_index],
+                    failure_indexes=[es_failure_index],
                 )
                 clients["elasticsearch"] = _ElasticsearchHandle()
         except Exception as e:
@@ -1182,17 +1317,17 @@ def _init_output_clients(opts):
                     opts.opensearch_ssl,
                 )
                 os_aggregate_index = "dmarc_aggregate"
-                os_forensic_index = "dmarc_forensic"
+                os_failure_index = "dmarc_failure"
                 os_smtp_tls_index = "smtp_tls"
                 if opts.opensearch_index_suffix:
                     suffix = opts.opensearch_index_suffix
                     os_aggregate_index = "{0}_{1}".format(os_aggregate_index, suffix)
-                    os_forensic_index = "{0}_{1}".format(os_forensic_index, suffix)
+                    os_failure_index = "{0}_{1}".format(os_failure_index, suffix)
                     os_smtp_tls_index = "{0}_{1}".format(os_smtp_tls_index, suffix)
                 if opts.opensearch_index_prefix:
                     prefix = opts.opensearch_index_prefix
                     os_aggregate_index = "{0}{1}".format(prefix, os_aggregate_index)
-                    os_forensic_index = "{0}{1}".format(prefix, os_forensic_index)
+                    os_failure_index = "{0}{1}".format(prefix, os_failure_index)
                     os_smtp_tls_index = "{0}{1}".format(prefix, os_smtp_tls_index)
                 opensearch_timeout_value = (
                     float(opts.opensearch_timeout)
@@ -1214,7 +1349,7 @@ def _init_output_clients(opts):
                 )
                 opensearch.migrate_indexes(
                     aggregate_indexes=[os_aggregate_index],
-                    forensic_indexes=[os_forensic_index],
+                    failure_indexes=[os_failure_index],
                 )
                 clients["opensearch"] = _OpenSearchHandle()
         except Exception as e:
@@ -1306,10 +1441,10 @@ def _main():
                 reports_,
                 output_directory=opts.output,
                 aggregate_json_filename=opts.aggregate_json_filename,
-                forensic_json_filename=opts.forensic_json_filename,
+                failure_json_filename=opts.failure_json_filename,
                 smtp_tls_json_filename=opts.smtp_tls_json_filename,
                 aggregate_csv_filename=opts.aggregate_csv_filename,
-                forensic_csv_filename=opts.forensic_csv_filename,
+                failure_csv_filename=opts.failure_csv_filename,
                 smtp_tls_csv_filename=opts.smtp_tls_csv_filename,
             )
 
@@ -1319,9 +1454,10 @@ def _main():
         hec_client = clients.get("hec_client")
         gelf_client = clients.get("gelf_client")
         webhook_client = clients.get("webhook_client")
+        pg_client = clients.get("postgresql_client")
 
         kafka_aggregate_topic = opts.kafka_aggregate_topic
-        kafka_forensic_topic = opts.kafka_forensic_topic
+        kafka_failure_topic = opts.kafka_failure_topic
         kafka_smtp_tls_topic = opts.kafka_smtp_tls_topic
 
         if opts.save_aggregate:
@@ -1381,6 +1517,14 @@ def _main():
                     log_output_error("S3", error_.__str__())
 
                 try:
+                    if pg_client:
+                        pg_client.save_aggregate_report_to_postgresql(report)
+                except postgres.AlreadySaved as warning:
+                    logger.warning(warning.__str__())
+                except postgres.PostgreSQLError as error_:
+                    log_output_error("PostgreSQL", error_.__str__())
+
+                try:
                     if syslog_client:
                         syslog_client.save_aggregate_report_to_syslog(report)
                 except Exception as error_:
@@ -1409,13 +1553,13 @@ def _main():
                 except splunk.SplunkError as e:
                     log_output_error("Splunk HEC", e.__str__())
 
-        if opts.save_forensic:
-            for report in reports_["forensic_reports"]:
+        if opts.save_failure:
+            for report in reports_["failure_reports"]:
                 try:
                     shards = opts.elasticsearch_number_of_shards
                     replicas = opts.elasticsearch_number_of_replicas
                     if opts.elasticsearch_hosts:
-                        elastic.save_forensic_report_to_elasticsearch(
+                        elastic.save_failure_report_to_elasticsearch(
                             report,
                             index_suffix=opts.elasticsearch_index_suffix,
                             index_prefix=opts.elasticsearch_index_prefix
@@ -1435,7 +1579,7 @@ def _main():
                     shards = opts.opensearch_number_of_shards
                     replicas = opts.opensearch_number_of_replicas
                     if opts.opensearch_hosts:
-                        opensearch.save_forensic_report_to_opensearch(
+                        opensearch.save_failure_report_to_opensearch(
                             report,
                             index_suffix=opts.opensearch_index_suffix,
                             index_prefix=opts.opensearch_index_prefix
@@ -1453,34 +1597,42 @@ def _main():
 
                 try:
                     if kafka_client:
-                        kafka_client.save_forensic_reports_to_kafka(
-                            report, kafka_forensic_topic
+                        kafka_client.save_failure_reports_to_kafka(
+                            report, kafka_failure_topic
                         )
                 except Exception as error_:
                     log_output_error("Kafka", error_.__str__())
 
                 try:
                     if s3_client:
-                        s3_client.save_forensic_report_to_s3(report)
+                        s3_client.save_failure_report_to_s3(report)
                 except Exception as error_:
                     log_output_error("S3", error_.__str__())
 
                 try:
+                    if pg_client:
+                        pg_client.save_failure_report_to_postgresql(report)
+                except postgres.AlreadySaved as warning:
+                    logger.warning(warning.__str__())
+                except postgres.PostgreSQLError as error_:
+                    log_output_error("PostgreSQL", error_.__str__())
+
+                try:
                     if syslog_client:
-                        syslog_client.save_forensic_report_to_syslog(report)
+                        syslog_client.save_failure_report_to_syslog(report)
                 except Exception as error_:
                     log_output_error("Syslog", error_.__str__())
 
                 try:
                     if gelf_client:
-                        gelf_client.save_forensic_report_to_gelf(report)
+                        gelf_client.save_failure_report_to_gelf(report)
                 except Exception as error_:
                     log_output_error("GELF", error_.__str__())
 
                 try:
-                    if opts.webhook_forensic_url and webhook_client:
+                    if opts.webhook_failure_url and webhook_client:
                         indent_value = 2 if opts.prettify_json else None
-                        webhook_client.save_forensic_report_to_webhook(
+                        webhook_client.save_failure_report_to_webhook(
                             json.dumps(report, ensure_ascii=False, indent=indent_value)
                         )
                 except Exception as error_:
@@ -1488,9 +1640,9 @@ def _main():
 
             if hec_client:
                 try:
-                    forensic_reports_ = reports_["forensic_reports"]
-                    if len(forensic_reports_) > 0:
-                        hec_client.save_forensic_reports_to_splunk(forensic_reports_)
+                    failure_reports_ = reports_["failure_reports"]
+                    if len(failure_reports_) > 0:
+                        hec_client.save_failure_reports_to_splunk(failure_reports_)
                 except splunk.SplunkError as e:
                     log_output_error("Splunk HEC", e.__str__())
 
@@ -1551,6 +1703,14 @@ def _main():
                     log_output_error("S3", error_.__str__())
 
                 try:
+                    if pg_client:
+                        pg_client.save_smtp_tls_report_to_postgresql(report)
+                except postgres.AlreadySaved as warning:
+                    logger.warning(warning.__str__())
+                except postgres.PostgreSQLError as error_:
+                    log_output_error("PostgreSQL", error_.__str__())
+
+                try:
                     if syslog_client:
                         syslog_client.save_smtp_tls_report_to_syslog(report)
                 except Exception as error_:
@@ -1588,13 +1748,13 @@ def _main():
                     dce=opts.la_dce,
                     dcr_immutable_id=opts.la_dcr_immutable_id,
                     dcr_aggregate_stream=opts.la_dcr_aggregate_stream,
-                    dcr_forensic_stream=opts.la_dcr_forensic_stream,
+                    dcr_failure_stream=opts.la_dcr_failure_stream,
                     dcr_smtp_tls_stream=opts.la_dcr_smtp_tls_stream,
                 )
                 la_client.publish_results(
                     reports_,
                     opts.save_aggregate,
-                    opts.save_forensic,
+                    opts.save_failure,
                     opts.save_smtp_tls,
                 )
             except loganalytics.LogAnalyticsException as e:
@@ -1618,10 +1778,10 @@ def _main():
     arg_parser.add_argument(
         "file_path",
         nargs="*",
-        help="one or more paths to aggregate or forensic "
+        help="one or more paths to aggregate or failure "
         "report files, emails, or mbox files'",
     )
-    strip_attachment_help = "remove attachment payloads from forensic report output"
+    strip_attachment_help = "remove attachment payloads from failure report output"
     arg_parser.add_argument(
         "--strip-attachment-payloads", help=strip_attachment_help, action="store_true"
     )
@@ -1634,9 +1794,9 @@ def _main():
         default="aggregate.json",
     )
     arg_parser.add_argument(
-        "--forensic-json-filename",
-        help="filename for the forensic JSON output file",
-        default="forensic.json",
+        "--failure-json-filename",
+        help="filename for the failure JSON output file",
+        default="failure.json",
     )
     arg_parser.add_argument(
         "--smtp-tls-json-filename",
@@ -1649,9 +1809,9 @@ def _main():
         default="aggregate.csv",
     )
     arg_parser.add_argument(
-        "--forensic-csv-filename",
-        help="filename for the forensic CSV output file",
-        default="forensic.csv",
+        "--failure-csv-filename",
+        help="filename for the failure CSV output file",
+        default="failure.csv",
     )
     arg_parser.add_argument(
         "--smtp-tls-csv-filename",
@@ -1706,7 +1866,7 @@ def _main():
     arg_parser.add_argument("-v", "--version", action="version", version=__version__)
 
     aggregate_reports = []
-    forensic_reports = []
+    failure_reports = []
     smtp_tls_reports = []
 
     args = arg_parser.parse_args()
@@ -1719,8 +1879,8 @@ def _main():
         output=args.output,
         aggregate_csv_filename=args.aggregate_csv_filename,
         aggregate_json_filename=args.aggregate_json_filename,
-        forensic_csv_filename=args.forensic_csv_filename,
-        forensic_json_filename=args.forensic_json_filename,
+        failure_csv_filename=args.failure_csv_filename,
+        failure_json_filename=args.failure_json_filename,
         smtp_tls_json_filename=args.smtp_tls_json_filename,
         smtp_tls_csv_filename=args.smtp_tls_csv_filename,
         nameservers=args.nameservers,
@@ -1733,7 +1893,7 @@ def _main():
         verbose=args.verbose,
         prettify_json=args.prettify_json,
         save_aggregate=False,
-        save_forensic=False,
+        save_failure=False,
         save_smtp_tls=False,
         mailbox_reports_folder="INBOX",
         mailbox_archive_folder="Archive",
@@ -1779,6 +1939,7 @@ def _main():
         elasticsearch_username=None,
         elasticsearch_password=None,
         elasticsearch_api_key=None,
+        elasticsearch_serverless=False,
         opensearch_hosts=None,
         opensearch_timeout=60,
         opensearch_number_of_shards=1,
@@ -1799,7 +1960,7 @@ def _main():
         kafka_username=None,
         kafka_password=None,
         kafka_aggregate_topic=None,
-        kafka_forensic_topic=None,
+        kafka_failure_topic=None,
         kafka_smtp_tls_topic=None,
         kafka_ssl=False,
         kafka_skip_certificate_verification=False,
@@ -1854,16 +2015,22 @@ def _main():
         la_dce=None,
         la_dcr_immutable_id=None,
         la_dcr_aggregate_stream=None,
-        la_dcr_forensic_stream=None,
+        la_dcr_failure_stream=None,
         la_dcr_smtp_tls_stream=None,
         gelf_host=None,
         gelf_port=None,
         gelf_mode=None,
         webhook_aggregate_url=None,
-        webhook_forensic_url=None,
+        webhook_failure_url=None,
         webhook_smtp_tls_url=None,
         webhook_timeout=60,
         normalize_timespan_threshold_hours=24.0,
+        postgresql_host=None,
+        postgresql_port=5432,
+        postgresql_user=None,
+        postgresql_password=None,
+        postgresql_database=None,
+        postgresql_connection_string=None,
         fail_on_output_error=False,
     )
 
@@ -1968,11 +2135,9 @@ def _main():
                 logger.error("Output client error: {0}".format(error_))
                 exit(1)
 
-    file_paths = []
+    file_paths = _expand_file_path_args(args.file_path)
     mbox_paths = []
 
-    for file_path in args.file_path:
-        file_paths += glob(file_path)
     for file_path in file_paths:
         if is_mbox(file_path):
             mbox_paths.append(file_path)
@@ -2062,8 +2227,8 @@ def _main():
                         "Skipping duplicate aggregate report "
                         f"from {report_org} with ID: {report_id}"
                     )
-            elif result[0]["report_type"] == "forensic":
-                forensic_reports.append(result[0]["report"])
+            elif result[0]["report_type"] == "failure":
+                failure_reports.append(result[0]["report"])
             elif result[0]["report_type"] == "smtp_tls":
                 smtp_tls_reports.append(result[0]["report"])
 
@@ -2088,7 +2253,7 @@ def _main():
             normalize_timespan_threshold_hours=normalize_timespan_threshold_hours_value,
         )
         aggregate_reports += reports["aggregate_reports"]
-        forensic_reports += reports["forensic_reports"]
+        failure_reports += reports["failure_reports"]
         smtp_tls_reports += reports["smtp_tls_reports"]
 
     mailbox_connection = None
@@ -2230,7 +2395,7 @@ def _main():
             )
 
             aggregate_reports += reports["aggregate_reports"]
-            forensic_reports += reports["forensic_reports"]
+            failure_reports += reports["failure_reports"]
             smtp_tls_reports += reports["smtp_tls_reports"]
 
         except Exception:
@@ -2239,7 +2404,7 @@ def _main():
 
     parsing_results: ParsingResults = {
         "aggregate_reports": aggregate_reports,
-        "forensic_reports": forensic_reports,
+        "failure_reports": failure_reports,
         "smtp_tls_reports": smtp_tls_reports,
     }
 

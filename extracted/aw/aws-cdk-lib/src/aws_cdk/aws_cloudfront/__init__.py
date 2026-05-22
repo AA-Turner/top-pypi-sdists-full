@@ -15318,7 +15318,7 @@ class CfnKeyValueStore(
         :param name: The name of the key value store.
         :param comment: A comment for the key value store.
         :param import_source: The import source for the key value store.
-        :param tags: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39a9c43a6e994ac270417da8b032b21384dbcc2f5eb680a69e9a420bb725c8a3)
@@ -15484,6 +15484,7 @@ class CfnKeyValueStore(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A complex type that contains zero or more ``Tag`` elements.'''
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -15589,7 +15590,7 @@ class CfnKeyValueStoreProps:
         :param name: The name of the key value store.
         :param comment: A comment for the key value store.
         :param import_source: The import source for the key value store.
-        :param tags: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-keyvaluestore.html
         :exampleMetadata: fixture=_generated
@@ -15664,7 +15665,8 @@ class CfnKeyValueStoreProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        '''
+        '''A complex type that contains zero or more ``Tag`` elements.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-keyvaluestore.html#cfn-cloudfront-keyvaluestore-tags
         '''
         result = self._values.get("tags")
@@ -20746,7 +20748,7 @@ class CfnTrustStore(
         :param name: The trust store's name.
         :param ca_certificates_bundle_source: A CA certificates bundle source.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
-        :param use_client_certificate_ocsp_endpoint: 
+        :param use_client_certificate_ocsp_endpoint: A boolean. When true, performs real-time certificate revocation checks by querying the OCSP endpoint specified within the client certificate.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__824ae12ab63f13e1c8bb7e88dd932be69b78f01ef525902840d651274bbde9e3)
@@ -20939,6 +20941,7 @@ class CfnTrustStore(
     def use_client_certificate_ocsp_endpoint(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A boolean.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useClientCertificateOcspEndpoint"))
 
     @use_client_certificate_ocsp_endpoint.setter
@@ -21151,7 +21154,7 @@ class CfnTrustStoreProps:
         :param name: The trust store's name.
         :param ca_certificates_bundle_source: A CA certificates bundle source.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
-        :param use_client_certificate_ocsp_endpoint: 
+        :param use_client_certificate_ocsp_endpoint: A boolean. When true, performs real-time certificate revocation checks by querying the OCSP endpoint specified within the client certificate.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-truststore.html
         :exampleMetadata: fixture=_generated
@@ -21234,7 +21237,10 @@ class CfnTrustStoreProps:
     def use_client_certificate_ocsp_endpoint(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''
+        '''A boolean.
+
+        When true, performs real-time certificate revocation checks by querying the OCSP endpoint specified within the client certificate.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-truststore.html#cfn-cloudfront-truststore-useclientcertificateocspendpoint
         '''
         result = self._values.get("use_client_certificate_ocsp_endpoint")

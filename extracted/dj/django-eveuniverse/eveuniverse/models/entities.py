@@ -58,7 +58,7 @@ class EveEntity(EveUniverseEntityModel):
 
     class _EveUniverseMeta:
         esi_pk = "ids"
-        esi_path_object = "Universe.post_universe_names"
+        esi_path_object = "Universe.PostUniverseNames"
         load_order = 110
 
     def __init__(self, *args, **kwargs) -> None:

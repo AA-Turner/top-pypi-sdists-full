@@ -2,30 +2,28 @@ import datetime as dt
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from django.utils.timezone import now, utc
+from django.test import TestCase
+from django.utils.timezone import now
 from esi.errors import TokenError
 from esi.models import Token
-from eveuniverse.models import EveSolarSystem
-
-from app_utils.testing import NoSocketsTestCase
 
 from structures.models import Owner, OwnerCharacter
 from structures.tests.testdata.factories import (
     EveAllianceInfoFactory,
     EveCharacterFactory,
     EveCorporationInfoFactory,
+    EveSolarSystemFactory,
     EveSovereigntyMapFactory,
     OwnerCharacterFactory,
     OwnerFactory,
     UserMainBasicFactory,
     UserMainDefaultOwnerFactory,
 )
-from structures.tests.testdata.load_eveuniverse import load_eveuniverse
 
 MODULE_PATH = "structures.models.owners"
 
 
-class TestOwner(NoSocketsTestCase):
+class TestOwner(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -123,7 +121,7 @@ class TestOwner(NoSocketsTestCase):
     @patch(MODULE_PATH + ".STRUCTURES_FEATURE_STARBASES", False)
     def test_get_esi_scopes_pocos_off(self):
         self.assertSetEqual(
-            set(Owner.get_esi_scopes()),
+            set(Owner.esi_scopes()),
             {
                 "esi-corporations.read_structures.v1",
                 "esi-universe.read_structures.v1",
@@ -136,7 +134,7 @@ class TestOwner(NoSocketsTestCase):
     @patch(MODULE_PATH + ".STRUCTURES_FEATURE_STARBASES", False)
     def test_get_esi_scopes_pocos_on(self):
         self.assertSetEqual(
-            set(Owner.get_esi_scopes()),
+            set(Owner.esi_scopes()),
             {
                 "esi-corporations.read_structures.v1",
                 "esi-universe.read_structures.v1",
@@ -150,7 +148,7 @@ class TestOwner(NoSocketsTestCase):
     @patch(MODULE_PATH + ".STRUCTURES_FEATURE_STARBASES", True)
     def test_get_esi_scopes_starbases_on(self):
         self.assertSetEqual(
-            set(Owner.get_esi_scopes()),
+            set(Owner.esi_scopes()),
             {
                 "esi-corporations.read_structures.v1",
                 "esi-universe.read_structures.v1",
@@ -164,7 +162,7 @@ class TestOwner(NoSocketsTestCase):
     @patch(MODULE_PATH + ".STRUCTURES_FEATURE_STARBASES", True)
     def test_get_esi_scopes_starbases_and_custom_offices(self):
         self.assertSetEqual(
-            set(Owner.get_esi_scopes()),
+            set(Owner.esi_scopes()),
             {
                 "esi-corporations.read_structures.v1",
                 "esi-universe.read_structures.v1",
@@ -242,38 +240,36 @@ class TestOwner(NoSocketsTestCase):
         self.assertTrue(owner_2.is_alliance_main)
 
 
-class TestOwnerHasSov(NoSocketsTestCase):
+class TestOwnerHasSov(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        load_eveuniverse()
         cls.owner = OwnerFactory()
+        cls.sov_solar_system = EveSolarSystemFactory(security_status=-1)
         EveSovereigntyMapFactory(
-            corporation=cls.owner.corporation, eve_solar_system_name="1-PGSG"
+            corporation=cls.owner.corporation, solar_system_id=cls.sov_solar_system.id
         )
 
     def test_should_return_true_when_owner_has_sov(self):
-        # given
-        system = EveSolarSystem.objects.get(name="1-PGSG")
         # when/then
-        self.assertTrue(self.owner.has_sov(system))
+        self.assertTrue(self.owner.has_sov(self.sov_solar_system))
 
     def test_should_return_false_when_owner_has_no_sov(self):
         # given
-        system = EveSolarSystem.objects.get(name="A-C5TC")
+        system = EveSolarSystemFactory()
         # when/then
         self.assertFalse(self.owner.has_sov(system))
 
     def test_should_return_false_when_owner_is_outside_nullsec(self):
         # given
-        system = EveSolarSystem.objects.get(name="Amamake")
+        system = EveSolarSystemFactory(security_status=2)
         # when/then
         self.assertFalse(self.owner.has_sov(system))
 
 
 @patch(MODULE_PATH + ".notify")
 @patch(MODULE_PATH + ".notify_admins")
-class TestOwnerFetchToken(NoSocketsTestCase):
+class TestOwnerFetchToken(TestCase):
     def test_should_return_correct_token(self, mock_notify_admins, mock_notify):
         # given
         character = EveCharacterFactory()
@@ -286,7 +282,7 @@ class TestOwnerFetchToken(NoSocketsTestCase):
         self.assertEqual(token.user, user)
         self.assertEqual(token.character_id, character.character_id)
         self.assertSetEqual(
-            set(Owner.get_esi_scopes()),
+            set(Owner.esi_scopes()),
             set(token.scopes.values_list("name", flat=True)),
         )
         self.assertFalse(mock_notify_admins.called)
@@ -359,15 +355,21 @@ class TestOwnerFetchToken(NoSocketsTestCase):
         owner = OwnerFactory(characters=False)
         character_1 = OwnerCharacterFactory(
             owner=owner,
-            notifications_last_used_at=dt.datetime(2021, 1, 1, 1, 0, tzinfo=utc),
+            notifications_last_used_at=dt.datetime(
+                2021, 1, 1, 1, 0, tzinfo=dt.timezone.utc
+            ),
         )
         character_2 = OwnerCharacterFactory(
             owner=owner,
-            notifications_last_used_at=dt.datetime(2021, 1, 1, 2, 0, tzinfo=utc),
+            notifications_last_used_at=dt.datetime(
+                2021, 1, 1, 2, 0, tzinfo=dt.timezone.utc
+            ),
         )
         character_3 = OwnerCharacterFactory(
             owner=owner,
-            notifications_last_used_at=dt.datetime(2021, 1, 1, 3, 0, tzinfo=utc),
+            notifications_last_used_at=dt.datetime(
+                2021, 1, 1, 3, 0, tzinfo=dt.timezone.utc
+            ),
         )
         OwnerCharacterFactory(
             owner=owner, is_enabled=False
@@ -418,15 +420,21 @@ class TestOwnerFetchToken(NoSocketsTestCase):
         owner = OwnerFactory(characters=False)
         character_1 = OwnerCharacterFactory(
             owner=owner,
-            structures_last_used_at=dt.datetime(2021, 1, 1, 3, 0, tzinfo=utc),
+            structures_last_used_at=dt.datetime(
+                2021, 1, 1, 3, 0, tzinfo=dt.timezone.utc
+            ),
         )
         character_2 = OwnerCharacterFactory(
             owner=owner,
-            structures_last_used_at=dt.datetime(2021, 1, 1, 1, 0, tzinfo=utc),
+            structures_last_used_at=dt.datetime(
+                2021, 1, 1, 1, 0, tzinfo=dt.timezone.utc
+            ),
         )
         character_3 = OwnerCharacterFactory(
             owner=owner,
-            structures_last_used_at=dt.datetime(2021, 1, 1, 2, 0, tzinfo=utc),
+            structures_last_used_at=dt.datetime(
+                2021, 1, 1, 2, 0, tzinfo=dt.timezone.utc
+            ),
         )
         tokens_received = []
 
@@ -477,14 +485,16 @@ class TestOwnerFetchToken(NoSocketsTestCase):
             user=user,
             characters=[character_1],
             characters__notifications_last_used_at=dt.datetime(
-                2021, 1, 1, 1, 2, tzinfo=utc
+                2021, 1, 1, 1, 2, tzinfo=dt.timezone.utc
             ),
         )
         character_2 = EveCharacterFactory()  # invalid, because of different corporation
         OwnerCharacterFactory(
             owner=owner,
             eve_character=character_2,
-            notifications_last_used_at=dt.datetime(2021, 1, 1, 1, 1, tzinfo=utc),
+            notifications_last_used_at=dt.datetime(
+                2021, 1, 1, 1, 1, tzinfo=dt.timezone.utc
+            ),
         )
 
         # when
@@ -498,7 +508,7 @@ class TestOwnerFetchToken(NoSocketsTestCase):
         self.assertEqual(owner.characters.count(), 1)
 
 
-class TestOwnerCharacters(NoSocketsTestCase):
+class TestOwnerCharacters(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -525,7 +535,7 @@ class TestOwnerCharacters(NoSocketsTestCase):
     def test_should_not_overwrite_existing_characters(self):
         # given
         character = self.owner.characters.first()
-        my_dt = datetime(year=2021, month=2, day=11, hour=12, tzinfo=utc)
+        my_dt = datetime(year=2021, month=2, day=11, hour=12, tzinfo=dt.timezone.utc)
         character.notifications_last_used_at = my_dt
         character.save()
         # when
@@ -576,7 +586,7 @@ class TestOwnerCharacters(NoSocketsTestCase):
 
 @patch(MODULE_PATH + ".notify", spec=True)
 @patch(MODULE_PATH + ".notify_admins", spec=True)
-class TestOwnerDeleteCharacter(NoSocketsTestCase):
+class TestOwnerDeleteCharacter(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -605,7 +615,7 @@ class TestOwnerDeleteCharacter(NoSocketsTestCase):
 
 @patch(MODULE_PATH + ".notify", spec=True)
 @patch(MODULE_PATH + ".notify_admins", spec=True)
-class TestOwnerDisableCharacters(NoSocketsTestCase):
+class TestOwnerDisableCharacters(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -617,7 +627,9 @@ class TestOwnerDisableCharacters(NoSocketsTestCase):
         user = character.character_ownership.user
 
         # when
-        self.owner.disable_character(character=character, reason="dummy error")
+        self.owner.disable_character_with_error_threshold(
+            character=character, reason="dummy error"
+        )
 
         # then
         character.refresh_from_db()
@@ -640,7 +652,7 @@ class TestOwnerDisableCharacters(NoSocketsTestCase):
         character = OwnerCharacterFactory(owner=self.owner)
 
         # when
-        self.owner.disable_character(
+        self.owner.disable_character_with_error_threshold(
             character=character, reason="dummy error", max_allowed_errors=1
         )
         # then

@@ -12,6 +12,7 @@ import argparse
 import contextlib
 import dataclasses as dc
 import importlib
+import importlib.metadata
 import itertools
 import os
 import pkgutil
@@ -28,7 +29,6 @@ from pdm import termui
 from pdm.__version__ import __version__
 from pdm.cli.options import ignore_python_option, no_cache_option, non_interactive_option, pep582_option, verbose_option
 from pdm.cli.utils import ArgumentParser, ErrorArgumentParser, format_similar_command
-from pdm.compat import importlib_metadata
 from pdm.exceptions import PdmArgumentError, PdmUsageError
 from pdm.installers import InstallManager
 from pdm.models.repositories import BaseRepository, PyPIRepository
@@ -37,7 +37,8 @@ from pdm.project.config import Config
 from pdm.utils import convert_to_datetime, is_in_zipapp
 
 if TYPE_CHECKING:
-    from typing import Any, Iterable
+    from collections.abc import Iterable
+    from typing import Any
 
     from pdm.cli.commands.base import BaseCommand
     from pdm.project.config import ConfigItem
@@ -177,6 +178,8 @@ class Core:
 
         self.state.build_isolation = project.config["build_isolation"]
 
+        if exclude_newer := project.config.get("strategy.exclude-newer"):
+            self.state.exclude_newer = exclude_newer
         if exclude_newer := project.pyproject.resolution.get("exclude-newer"):
             self.state.exclude_newer = convert_to_datetime(exclude_newer)
 
@@ -308,22 +311,20 @@ class Core:
         Config.add_config(name, config_item)
 
     def _add_project_plugins_library(self) -> None:
-        project = self.create_project(is_global=False)
-        if project.is_global or not project.root.joinpath(".pdm-plugins").exists():
+        project = self.create_project(is_global=False, global_config=os.getenv("PDM_CONFIG_FILE"))
+        plugin_root = project.project_plugins_dir
+        if project.is_global or not plugin_root.exists():
             return
 
         import site
         import sysconfig
 
-        base = str(project.root / ".pdm-plugins")
+        base = str(plugin_root)
         replace_vars = {"base": base, "platbase": base}
 
         scheme_names = sysconfig.get_scheme_names()
         if (sys.platform == "darwin" and "osx_framework_library" in scheme_names) or sys.platform == "linux":
             scheme = "posix_prefix"
-        # sysconfig._get_default_scheme is a private function in 3.8 & 3.9
-        elif sys.version_info < (3, 10):
-            scheme = "nt" if os.name == "nt" else "posix_prefix"
         else:
             scheme = sysconfig.get_default_scheme()
         purelib = sysconfig.get_path("purelib", scheme, replace_vars)
@@ -343,9 +344,9 @@ class Core:
             ```
         """
         self._add_project_plugins_library()
-        entry_points: Iterable[importlib_metadata.EntryPoint] = itertools.chain(
-            importlib_metadata.entry_points(group="pdm"),
-            importlib_metadata.entry_points(group="pdm.plugin"),
+        entry_points: Iterable[importlib.metadata.EntryPoint] = itertools.chain(
+            importlib.metadata.entry_points(group="pdm"),
+            importlib.metadata.entry_points(group="pdm.plugin"),
         )
         for plugin in entry_points:
             try:
@@ -357,12 +358,10 @@ class Core:
 
     @cached_property
     def uv_cmd(self) -> list[str]:
-        from pdm.compat import importlib_metadata
-
         self.ui.info("Using uv is experimental and might break due to uv updates.")
         # First, try to find uv in Python modules
         try:
-            importlib_metadata.distribution("uv")
+            importlib.metadata.distribution("uv")
         except ModuleNotFoundError:
             pass
         else:

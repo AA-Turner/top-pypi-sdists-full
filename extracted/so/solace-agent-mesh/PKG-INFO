@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: solace-agent-mesh
-Version: 1.25.1
+Version: 1.26.0
 Summary: Solace Agent Mesh is an open-source framework for building event-driven, multi-agent AI systems where specialized agents collaborate on complex tasks.
 Project-URL: Homepage, https://github.com/SolaceLabs/solace-agent-mesh
 Project-URL: Repository, https://github.com/SolaceLabs/solace-agent-mesh
@@ -270,13 +270,13 @@ Requires-Dist: python-docx==1.2.0
 Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: python-jwt==4.1.0
 Requires-Dist: python-liquid==2.1.0
-Requires-Dist: python-multipart==0.0.26
+Requires-Dist: python-multipart==0.0.27
 Requires-Dist: python-pptx==1.0.2
 Requires-Dist: pyyaml==6.0.2
 Requires-Dist: rich==13.9.4
 Requires-Dist: rouge==1.0.1
 Requires-Dist: setuptools==80.10.2
-Requires-Dist: solace-ai-connector==3.3.11
+Requires-Dist: solace-ai-connector==3.3.12
 Requires-Dist: sqlalchemy==2.0.40
 Requires-Dist: sse-starlette==3.0.2
 Requires-Dist: starlette==0.49.1

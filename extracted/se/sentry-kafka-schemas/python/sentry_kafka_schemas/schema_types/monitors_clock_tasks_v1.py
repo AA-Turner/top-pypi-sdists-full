@@ -1,4 +1,4 @@
-from typing import Required, Union, Literal, TypedDict
+from typing import Required, TypedDict, Union, Literal
 
 
 class MarkMissing(TypedDict, total=False):

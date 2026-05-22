@@ -777,7 +777,7 @@ def case_info_with_credentials() -> Case:
                             },
                             "ServiceAccountType": {
                                 "description": "ServiceAccountType",
-                                "enum": ["google_cloud", "google_drive", "aws"],
+                                "enum": ["google_cloud", "google_drive", "aws", "aws_role"],
                                 "title": "ServiceAccountType",
                                 "type": "string",
                             },

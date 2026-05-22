@@ -3,13 +3,11 @@
 # Copyright (c) 2025 Roboflow. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 # ------------------------------------------------------------------------
-
 """Shared logger factory for RF-DETR modules."""
 
 import logging
 import os
 import sys
-from typing import Optional
 
 
 class _RFDETRLogger(logging.Logger):
@@ -26,15 +24,14 @@ class _RFDETRLogger(logging.Logger):
             self.warning(msg, *args, **kwargs)
 
 
-def get_logger(name: str = "rf-detr", level: Optional[int] = None) -> _RFDETRLogger:
+def get_logger(name: str = "rf-detr", level: int | None = None) -> _RFDETRLogger:
     """Creates and configures a logger with stdout and stderr handlers.
 
-    This function creates a logger that sends INFO and DEBUG level logs to stdout,
-    and WARNING, ERROR, and CRITICAL level logs to stderr. If the logger already
-    has handlers, it returns the existing logger without adding new handlers.
+    This function creates a logger that sends INFO and DEBUG level logs to stdout, and WARNING, ERROR, and CRITICAL
+    level logs to stderr. If the logger already has handlers, it returns the existing logger without adding new
+    handlers.
 
-    The log level can be specified directly or through the LOG_LEVEL environment
-    variable.
+    The log level can be specified directly or through the LOG_LEVEL environment variable.
 
     Args:
         name: The name of the logger. Defaults to "rf-detr".

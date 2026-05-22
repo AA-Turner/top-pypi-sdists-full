@@ -396,9 +396,13 @@ class Cloud(Generic[IsAsynchronous]):
 
     @backoff.on_exception(
         backoff.expo,
-        # `aiohttp.client_exceptions.ClientOSError` is the same as `aiohttp.ClientOSError`
-        # except that pyright doesn't like the former
-        aiohttp.ClientOSError,
+        (
+            # `aiohttp.client_exceptions.ClientOSError` is the same as `aiohttp.ClientOSError`
+            # except that pyright doesn't like the former
+            aiohttp.ClientOSError,
+            # sibling of ClientOSError; covers transient TCP-connect timeouts
+            aiohttp.ConnectionTimeoutError,
+        ),
         logger=logger,
         max_time=5 * 60,
         **backoff_log_level_kwargs,

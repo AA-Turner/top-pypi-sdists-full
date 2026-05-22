@@ -57,10 +57,10 @@ def download_from_filestore_with_ui(fs, into=".", name_includes=None):
         size_scale = 1
 
         if total_bytes > 10_000_000:
-            size_label = "Mb"
+            size_label = "MB"
             size_scale = 1_000_000
         elif total_bytes > 10_000:
-            size_label = "Kb"
+            size_label = "KB"
             size_scale = 1_000
 
         def progress_title(f=None):
@@ -78,8 +78,8 @@ def download_from_filestore_with_ui(fs, into=".", name_includes=None):
                 {"label": "Files", "total": len(blobs), "completed": done_files},
                 {
                     "label": size_label,
-                    "total": total_bytes / size_scale if size_scale > 1 else total_bytes,
-                    "completed": done_bytes / size_scale if size_scale > 1 else done_bytes,
+                    "total": round(total_bytes / size_scale, 1) if size_scale > 1 else total_bytes,
+                    "completed": round(done_bytes / size_scale, 1) if size_scale > 1 else done_bytes,
                 },
             ])
 
@@ -138,10 +138,10 @@ def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None):
         size_scale = 1
 
         if total_bytes and total_bytes > 10_000_000:
-            size_label = "Mb"
+            size_label = "MB"
             size_scale = 1_000_000
         elif total_bytes and total_bytes > 10_000:
-            size_label = "Kb"
+            size_label = "KB"
             size_scale = 1_000
 
         with coiled.utils.SimpleRichProgressPanel.from_defaults(title=progress_title()) as progress:
@@ -195,8 +195,8 @@ def upload_to_filestore_with_ui(fs, local_dir, file_buffers=None):
                     {"label": "Files", "total": len(files), "completed": done_files},
                     {
                         "label": size_label,
-                        "total": total_bytes / size_scale if size_scale > 1 else total_bytes,
-                        "completed": done_bytes / size_scale if size_scale > 1 else done_bytes,
+                        "total": round(total_bytes / size_scale, 1) if size_scale > 1 else total_bytes,
+                        "completed": round(done_bytes / size_scale, 1) if size_scale > 1 else done_bytes,
                     }
                     if total_bytes
                     else {},

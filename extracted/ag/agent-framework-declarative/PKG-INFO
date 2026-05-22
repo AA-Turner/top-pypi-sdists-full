@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-declarative
-Version: 1.0.0b260519
+Version: 1.0.0b260521
 Summary: Declarative specification support for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.5.0,<2
+Requires-Dist: agent-framework-core>=1.6.0,<2
 Requires-Dist: httpx>=0.27,<1
 Requires-Dist: powerfx>=0.0.32,<0.0.35; python_version < '3.14'
 Requires-Dist: pyyaml>=6.0,<7.0

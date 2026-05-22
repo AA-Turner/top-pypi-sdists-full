@@ -53,10 +53,10 @@ class Chromatic(PostFxEffect):
     """Effet post-processing: aberration chromatique
 
     Args:
-        strength: intensité du décalage en fraction de la largeur d'écran *[0, 1]*
+        strength: intensité du décalage en unités mondes
         angle: angle du décalage en degrés *(0 = horizontal)*
     """
-    strength: Real = 0.005
+    strength: Real = 5
     angle: Real = 0.0
 
     _ID: ClassVar[str] = "chromatic"
@@ -101,6 +101,9 @@ class ChromaticPostFxRenderer(SpecializedPostFxRenderer):
         theta = math.radians(effect.angle)
         dx = effect.strength * math.cos(theta)
         dy = effect.strength * math.sin(theta)
+        dx, dy = pipeline.scale_to_framebuffer(dx, dy)
+        dx /= pipeline.fbo.width
+        dy /= pipeline.fbo.height
 
         pipeline.apply_shader(
             self._get_program(),

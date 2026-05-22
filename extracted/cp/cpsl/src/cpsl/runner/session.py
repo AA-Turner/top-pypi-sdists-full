@@ -477,12 +477,24 @@ class RunnerSessionMixin:
                     return
                 self._submit(str(uuid.uuid4()), m.text, done=True, session_id=sid)
 
+            stream_chunk_sent = False
+
             def _stream_write(text: str) -> None:
+                nonlocal streamed, stream_chunk_sent
+                streamed = True
+                stream_chunk_sent = True
                 self._submit(rid, text, done=False, session_id=sid)
+
+            def _stream_done() -> None:
+                nonlocal stream_chunk_sent
+                if stream_chunk_sent:
+                    self._submit(rid, "", done=True, session_id=sid)
+                    stream_chunk_sent = False
 
             session._reply_callback = _reply
             session._stream_callback = _stream
             session._stream_write_callback = _stream_write
+            session._stream_done_callback = _stream_done
             session._stream_reply_factory = None
             session._notify_callback = _notify
             session._block_callback = _block
@@ -512,19 +524,12 @@ class RunnerSessionMixin:
                         elif "key" in payload:
                             await session.data.set(str(payload["key"]), payload.get("value"))
                     else:
-                        handler = self._action_handlers.get(item.action_name)
-                        if handler is None:
-                            available = ", ".join(sorted(self._action_handlers))
-                            suffix = f" Available actions: {available}." if available else ""
-                            raise RuntimeError(f"Unknown action {item.action_name!r}.{suffix}")
                         payload = {}
                         if item.action_payload_json:
                             parsed = json.loads(item.action_payload_json)
                             if isinstance(parsed, dict):
                                 payload = parsed
-                        await _maybe_await(
-                            handler(session, Event(name=item.action_name, payload=payload))
-                        )
+                        await self._trigger_action(session, item.action_name, payload)
                 elif not await self._try_workflow_dispatch(
                     session, item.text, _reply, _stream, _block, _stream_write, rid, sid
                 ):
@@ -566,6 +571,7 @@ class RunnerSessionMixin:
             if session is not None:
                 session._data_change_callback = None
                 session._data_flush_callback = None
+                session._stream_done_callback = None
 
     def _parse_workflow_envelope(self, text: str) -> tuple[str, str, dict] | None:
         """Parse a workflow action envelope from message text.
@@ -624,3 +630,50 @@ class RunnerSessionMixin:
                 await _maybe_await(wf._message_handler(session, msg))
                 return True
         return False
+
+    async def _trigger_action(
+        self,
+        session: Session,
+        action_name: str,
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        """Dispatch a named action against the current live session.
+
+        This is the single action resolver for component clicks and
+        ``session.trigger_action``. A workflow-tagged session first tries
+        the active workflow's action map, passing ``WorkflowInput``. If no
+        workflow action matches, the app action map is tried with an
+        ``Event`` payload. That keeps button clicks and programmatic calls
+        on the same resolution path.
+        """
+        payload = dict(payload or {})
+        wf_name = session.data.get("__workflow__")
+        if wf_name and wf_name in self._workflows:
+            wf = self._workflows[wf_name]
+            handler = wf._action_handlers.get(action_name)
+            if handler:
+                return await _maybe_await(handler(session, WorkflowInput(payload)))
+
+        handler = self._action_handlers.get(action_name)
+        if handler:
+            return await _maybe_await(
+                handler(session, Event(name=action_name, payload=payload))
+            )
+
+        raise RuntimeError(self._unknown_action_message(session, action_name))
+
+    def _unknown_action_message(self, session: Session, action_name: str) -> str:
+        """Build an error that points at the action namespace actually in scope."""
+        parts: list[str] = []
+        wf_name = session.data.get("__workflow__")
+        if wf_name and wf_name in self._workflows:
+            wf_actions = sorted(self._workflows[wf_name]._action_handlers)
+            if wf_actions:
+                parts.append(
+                    f"Available workflow actions for {wf_name!r}: {', '.join(wf_actions)}"
+                )
+        app_actions = sorted(self._action_handlers)
+        if app_actions:
+            parts.append(f"Available app actions: {', '.join(app_actions)}")
+        suffix = f" {'; '.join(parts)}." if parts else ""
+        return f"Unknown action {action_name!r}.{suffix}"

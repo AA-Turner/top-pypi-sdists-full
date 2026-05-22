@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dash_enterprise_auth
-Version: 0.2.5
+Version: 0.2.6
 Summary: Authentication integrations for apps using Dash Enterprise
 Home-page: https://plotly.com/dash
 Author: Antoine Roy-Gobeil
 Author-email: antoine@plotly.com
 License: MIT
 Keywords: dash dash-enterprise dash-auth plotly
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Framework :: Dash
 Classifier: Programming Language :: Python
@@ -21,6 +20,25 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: dash
+Requires-Dist: Flask<3.2,>=1.0.4
+Requires-Dist: Werkzeug<3.2
+Requires-Dist: requests[security]
+Requires-Dist: PyJWT
+Requires-Dist: cryptography; python_version >= "3.7"
+Requires-Dist: cryptography<3.4; python_version < "3.7"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Dash Enterprise Auth
 
@@ -45,5 +63,3 @@ def private_data(...):
     else:
         return public_view()
 ```
-
-

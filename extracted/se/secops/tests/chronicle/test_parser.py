@@ -35,8 +35,9 @@ from secops.chronicle.parser import (
     get_parser,
     list_parsers,
     run_parser,
+    trigger_github_checks,
 )
-from secops.exceptions import APIError
+from secops.exceptions import APIError, SecOpsError
 
 
 @pytest.fixture
@@ -1312,3 +1313,153 @@ def test_run_parser_statedump_parsing_multiple_results(
         assert statedump_results[0]["statedumpResult"]["state"]["log"] == "1"
         assert isinstance(statedump_results[1]["statedumpResult"], dict)
         assert statedump_results[1]["statedumpResult"]["state"]["log"] == "2"
+
+
+# --- trigger_github_checks Tests ---
+
+def test_trigger_github_checks_no_parsers(chronicle_client):
+    """Test trigger_github_checks when no parsers are found (fallback to '-')."""
+    log_type = "MY_LOGTYPE"
+    associated_pr = "owner/repo/pull/123"
+
+    with patch("secops.chronicle.parser.list_parsers", return_value=[]) as mock_list:
+        with patch("secops.chronicle.parser.chronicle_request", return_value={"status": "success"}) as mock_req:
+            result = trigger_github_checks(chronicle_client, associated_pr, log_type)
+
+            mock_list.assert_called_once_with(chronicle_client, log_type=log_type)
+            mock_req.assert_called_once_with(
+                client=chronicle_client,
+                method="POST",
+                api_version="v1alpha",
+                endpoint_path=f"logTypes/{log_type}/parsers/-:runAnalysis",
+                json={"report_type": "GITHUB_PARSER_VALIDATION", "pull_request": associated_pr},
+                timeout=60,
+            )
+            assert result == {"status": "success"}
+
+
+def test_trigger_github_checks_one_parser(chronicle_client):
+    """Test trigger_github_checks when one parser is found."""
+    log_type = "MY_LOGTYPE"
+    associated_pr = "owner/repo/pull/123"
+    parser_name = "projects/P/locations/L/instances/I/logTypes/MY_LOGTYPE/parsers/pa_123"
+    parsers = [{"name": parser_name}]
+
+    with patch("secops.chronicle.parser.list_parsers", return_value=parsers) as mock_list:
+        with patch("secops.chronicle.parser.chronicle_request", return_value={"status": "success"}) as mock_req:
+            result = trigger_github_checks(chronicle_client, associated_pr, log_type)
+
+            mock_list.assert_called_once_with(chronicle_client, log_type=log_type)
+            mock_req.assert_called_once_with(
+                client=chronicle_client,
+                method="POST",
+                api_version="v1alpha",
+                endpoint_path=f"logTypes/{log_type}/parsers/pa_123:runAnalysis",
+                json={"report_type": "GITHUB_PARSER_VALIDATION", "pull_request": associated_pr},
+                timeout=60,
+            )
+            assert result == {"status": "success"}
+
+
+def test_trigger_github_checks_multiple_parsers(chronicle_client, caplog):
+    """Test trigger_github_checks when multiple parsers are found."""
+    log_type = "MY_LOGTYPE"
+    associated_pr = "owner/repo/pull/123"
+    parsers = [
+        {"name": "projects/P/locations/L/instances/I/logTypes/MY_LOGTYPE/parsers/pa_123"},
+        {"name": "projects/P/locations/L/instances/I/logTypes/MY_LOGTYPE/parsers/pa_456"},
+    ]
+
+    with patch("secops.chronicle.parser.list_parsers", return_value=parsers):
+        with patch("secops.chronicle.parser.chronicle_request", return_value={"status": "success"}) as mock_req:
+            import logging
+            with caplog.at_level(logging.WARNING):
+                result = trigger_github_checks(chronicle_client, associated_pr, log_type)
+
+                assert "Multiple parsers found" in caplog.text
+                mock_req.assert_called_once_with(
+                    client=chronicle_client,
+                    method="POST",
+                    api_version="v1alpha",
+                    endpoint_path=f"logTypes/{log_type}/parsers/pa_123:runAnalysis",
+                    json={"report_type": "GITHUB_PARSER_VALIDATION", "pull_request": associated_pr},
+                    timeout=60,
+                )
+                assert result == {"status": "success"}
+
+
+def test_trigger_github_checks_malformed_parser_name(chronicle_client, caplog):
+    """Test trigger_github_checks when parser name is malformed (fallback to '-')."""
+    log_type = "MY_LOGTYPE"
+    associated_pr = "owner/repo/pull/123"
+    parsers = [{"name": "invalid_name_format"}]
+
+    with patch("secops.chronicle.parser.list_parsers", return_value=parsers):
+        with patch("secops.chronicle.parser.chronicle_request", return_value={"status": "success"}) as mock_req:
+            import logging
+            with caplog.at_level(logging.WARNING):
+                result = trigger_github_checks(chronicle_client, associated_pr, log_type)
+
+                assert "Could not parse parser ID from resource name" in caplog.text
+                mock_req.assert_called_once_with(
+                    client=chronicle_client,
+                    method="POST",
+                    api_version="v1alpha",
+                    endpoint_path=f"logTypes/{log_type}/parsers/-:runAnalysis",
+                    json={"report_type": "GITHUB_PARSER_VALIDATION", "pull_request": associated_pr},
+                    timeout=60,
+                )
+                assert result == {"status": "success"}
+
+
+def test_trigger_github_checks_invalid_input(chronicle_client):
+    """Test trigger_github_checks raises SecOpsError for invalid input."""
+    with pytest.raises(SecOpsError) as exc_info:
+        trigger_github_checks(chronicle_client, "invalid_pr", "MY_LOGTYPE")
+    assert "associated_pr must be in the format" in str(exc_info.value)
+
+    with pytest.raises(SecOpsError) as exc_info:
+        trigger_github_checks(chronicle_client, "owner/repo/pull/123", "")
+    assert "log_type must be a valid string" in str(exc_info.value)
+
+
+def test_trigger_github_checks_regression_404(chronicle_client):
+    """Regression test for 404 error due to duplicated path segments.
+
+    Verifies that when list_parsers returns a parser with a full resource name,
+    only the parser ID is extracted and used in a relative endpoint path,
+    preventing the duplication of projects/locations/instances in the URL.
+    """
+    log_type = "DUMMY_LOGTYPE"
+    associated_pr = "owner/repo/pull/123"
+
+    # Exact values from the reported error
+    project_id = "478140460956"
+    instance_id = "ebdc4bb9-878b-11e7-8455-10604b7cb5c1"
+    parser_id = "3895599384024317953"
+
+    full_parser_name = (
+        f"projects/{project_id}/locations/us/instances/{instance_id}"
+        f"/logTypes/{log_type}/parsers/{parser_id}"
+    )
+    parsers = [{"name": full_parser_name}]
+
+    with patch("secops.chronicle.parser.list_parsers", return_value=parsers) as mock_list:
+        with patch("secops.chronicle.parser.chronicle_request", return_value={"status": "success"}) as mock_req:
+            result = trigger_github_checks(chronicle_client, associated_pr, log_type)
+
+            mock_list.assert_called_once_with(chronicle_client, log_type=log_type)
+
+            # The key assertion is that the endpoint_path is relative and only contains the parser_id,
+            # NOT the full resource name which would cause duplication in chronicle_request.
+            expected_endpoint_path = f"logTypes/{log_type}/parsers/{parser_id}:runAnalysis"
+
+            mock_req.assert_called_once_with(
+                client=chronicle_client,
+                method="POST",
+                api_version="v1alpha",
+                endpoint_path=expected_endpoint_path,
+                json={"report_type": "GITHUB_PARSER_VALIDATION", "pull_request": associated_pr},
+                timeout=60,
+            )
+            assert result == {"status": "success"}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 6.3.20
+Version: 6.4.0
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -133,6 +133,8 @@ Requires-Dist: claude-agent-sdk>=0.1.48; extra == "sdk"
 Provides-Extra: telegram
 Requires-Dist: python-telegram-bot>=20.0; extra == "telegram"
 Provides-Extra: google
+Provides-Extra: llmlingua
+Requires-Dist: llmlingua>=0.2.0; extra == "llmlingua"
 Dynamic: license-file
 
 # Claude MPM - Multi-Agent Project Manager

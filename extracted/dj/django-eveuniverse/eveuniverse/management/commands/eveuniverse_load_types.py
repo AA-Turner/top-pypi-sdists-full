@@ -4,14 +4,13 @@ import logging
 
 from django.core.management.base import BaseCommand
 
-from eveuniverse import __title__, tasks
+from eveuniverse import tasks
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.models.base import determine_effective_sections
-from eveuniverse.utils import LoggerAddTag
 
 from . import EXPECTATION_TEXT, get_input
 
-logger = LoggerAddTag(logging.getLogger(__name__), __title__)
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):

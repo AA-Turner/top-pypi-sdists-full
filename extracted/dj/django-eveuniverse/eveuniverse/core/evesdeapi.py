@@ -12,6 +12,7 @@ from eveuniverse.helpers import dict_hash
 
 _CACHE_TIMEOUT = 3_600 * 12
 _BASE_URL = "https://evesdeapi.kalkoken.net/latest"
+_CACHE_KEY_PREFIX = "eveuniverse_nearest_celestial_"
 
 logger = logging.getLogger(__name__)
 
@@ -70,21 +71,24 @@ def _fetch_items_from_endpoint_cached(
     params = {"x": x, "y": y, "z": z}
     if group_id is not None:
         params["group_id"] = int(group_id)
-    cache_key = f"eveuniverse_nearest_celestial_{dict_hash(params)}"
+
+    cache_key = f"{_CACHE_KEY_PREFIX}{dict_hash(params)}"
     result = cache.get(key=cache_key)
-    if not result:
-        url = f"{_BASE_URL}/universe/systems/{solar_system_id}/nearest_celestials"
-        response = requests.get(
-            url, params=params, timeout=EVEUNIVERSE_REQUESTS_DEFAULT_TIMEOUT
-        )
-        logger.debug(
-            "Response from evesdeapi: url %s, status %s, headers %s, content %s",
-            response.url,
-            response.status_code,
-            response.headers,
-            response.text,
-        )
-        response.raise_for_status()
-        result = response.json()
-        cache.set(key=cache_key, value=result, timeout=_CACHE_TIMEOUT)
+    if result:
+        return result
+
+    url = f"{_BASE_URL}/universe/systems/{solar_system_id}/nearest_celestials"
+    response = requests.get(
+        url, params=params, timeout=EVEUNIVERSE_REQUESTS_DEFAULT_TIMEOUT
+    )
+    logger.debug(
+        "Response from evesdeapi: url %s, status %s, headers %s, content %s",
+        response.url,
+        response.status_code,
+        response.headers,
+        response.text,
+    )
+    response.raise_for_status()
+    result = response.json()
+    cache.set(key=cache_key, value=result, timeout=_CACHE_TIMEOUT)
     return result

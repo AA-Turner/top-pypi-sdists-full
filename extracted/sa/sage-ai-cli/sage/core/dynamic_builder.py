@@ -73,9 +73,20 @@ ProgressFn = Callable[[str], None]
 _PROTECTED_TEMPLATE_PATHS: frozenset[str] = frozenset({
     "frontend/tsconfig.json",
     "frontend/.npmrc",
-    "frontend/package.json",      # owned by dep_resolver
-    "backend/requirements.txt",   # owned by dep_resolver
-    "backend/pyproject.toml",     # owned by dep_resolver
+    "frontend/package.json",         # owned by dep_resolver
+    "frontend/jest.config.js",       # LLM generates runaway transformIgnorePatterns
+    "frontend/babel.config.js",      # owned by dep_resolver
+    "frontend/metro.config.js",      # owned by dep_resolver
+    "frontend/app.json",             # owned by dep_resolver
+    # Firebase auth — LLM overwrites working auth with broken stubs
+    "frontend/src/firebase/auth.js",
+    "frontend/src/firebase/AuthContext.jsx",
+    "frontend/src/firebase/firebaseEnv.js",
+    "frontend/src/firebase/index.js",
+    "frontend/src/firebase/index.ts",
+    "backend/requirements.txt",      # owned by dep_resolver
+    "backend/pyproject.toml",        # owned by dep_resolver
+    "backend/tests/conftest.py",     # owned by architecture_modules
     ".gitignore",
     ".env.example",
     ".github/workflows/ci.yml",
@@ -234,19 +245,20 @@ def _verify_iterate_until_green(
     *,
     generate: GenerateFn,
     log: ProgressFn,
-    stuck_threshold: int = 3,
+    stuck_threshold: int = 2,  # exit faster when no progress — was 3
 ) -> list[VerifyReport]:
     """Run install+test on every discovered project; on failure regenerate
-    the offending files and re-run. No fixed cap (per user request) — uses
-    progress-stuck detection to prevent infinite loops.
+    the offending files and re-run. Uses progress-stuck detection to prevent
+    infinite loops. stuck_threshold=2 means exit after 2 rounds with no improvement.
     """
     rounds = 0
     last_fail_count: int | None = None
     flat_rounds = 0
+    _MAX_ROUNDS = 8  # hard safety cap — prevents truly infinite loops on cloud models
 
-    while True:
+    while rounds < _MAX_ROUNDS:
         rounds += 1
-        log(f"[verify] round {rounds}")
+        log(f"[verify] round {rounds}/{_MAX_ROUNDS}")
         reports = verify_all(out_dir)
         if all(r.all_ok for r in reports):
             return reports
@@ -255,14 +267,14 @@ def _verify_iterate_until_green(
         fail_count = sum(1 for r in reports for s in r.steps if not s.ok)
         log(f"[verify] round {rounds}: {fail_count} failing steps")
 
-        # Stuck detection
+        # Stuck detection: exit if no progress for stuck_threshold rounds
         if last_fail_count is not None:
             if fail_count >= last_fail_count:
                 flat_rounds += 1
                 if flat_rounds >= stuck_threshold:
                     log(
                         f"[verify] STUCK after {rounds} rounds ({fail_count} failures, "
-                        f"{flat_rounds} flat). Giving up on auto-repair."
+                        f"{flat_rounds} flat rounds without progress). Stopping auto-repair."
                     )
                     return reports
             else:
@@ -330,20 +342,22 @@ def _attempt_repair(
             except ValueError:
                 return p.name
 
+    # Cap context per file to 1500 chars to keep repair prompts fast
     context = "\n\n".join(
-        f"## {_safe_relative(p)}\n```\n{p.read_text('utf-8', errors='replace')[:3000]}\n```"
+        f"## {_safe_relative(p)}\n```\n{p.read_text('utf-8', errors='replace')[:1500]}\n```"
         for p in relevant_files
     )
 
+    # Shorter prompt = faster model response = faster overall build
+    # Keep the error tail tight (1500 chars) and rely on context for file details
     prompt = (
-        f"A '{step.name}' step failed in a {project.kind} project. Rewrite "
-        "or CREATE the file(s) needed to fix the failure.\n\n"
-        f"## Failure log (tail)\n```\n{step.log[-2500:]}\n```\n\n"
-        f"## Current file contents\n{context}\n"
+        f"Fix a '{step.name}' failure in a {project.kind} project.\n\n"
+        f"Error:\n```\n{step.log[-1500:]}\n```\n\n"
+        f"Files:\n{context}\n"
         f"{missing_hint}\n\n"
-        "Output a single JSON object mapping repo-relative file paths to the "
-        "full corrected content. Output ONLY the JSON. No prose.\n\n"
-        'Example: {"backend/app/main.py": "from fastapi import FastAPI\\n..."}'
+        "Return ONLY a JSON object: {{\"path\": \"full corrected content\", ...}}\n"
+        "No explanation. Fix only what the error says.\n"
+        'Example: {"backend/app/main.py": "from fastapi import FastAPI\\napp=FastAPI()"}'
     )
 
     try:

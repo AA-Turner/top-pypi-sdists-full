@@ -217,7 +217,11 @@ def when_run_dry_run(context):
 @then('I should see the following behavex console outputs and exit code "{expected_exit_code}"')
 def then_see_console_outputs(context, expected_exit_code=None):
     if expected_exit_code is not None:
-        assert int(context.result.returncode) == int(expected_exit_code), "Behavex exit code is not expected"
+        assert int(context.result.returncode) == int(expected_exit_code), (
+            f"Behavex exit code is not expected (got {context.result.returncode}, expected {expected_exit_code})\n"
+            f"STDOUT:\n{context.result.stdout}\n"
+            f"STDERR:\n{context.result.stderr}"
+        )
     for row in context.table:
         assert row['output_line'] in context.result.stdout, f"Unexpected output when checking console outputs: {context.result.stdout}\n\nOutput line not found: {row['output_line']}\n"
 
@@ -1244,3 +1248,80 @@ def then_json_count_matches_stored(context):
     assert stored is not None, "No stored scenario count — call 'I store the JSON report scenario count' first"
     assert current_count == stored, \
         f"JSON scenario count mismatch: single process had {stored}, parallel run had {current_count}"
+
+
+# ---------- Worker Hooks Steps ----------
+
+@when('I run the behavex command targeting the worker hooks feature with "{parallel_processes}" parallel processes')
+def when_run_worker_hooks_feature(context, parallel_processes):
+    context.output_path = os.path.join('output', 'output_{}'.format(get_random_number(6)))
+    execution_args = [
+        'behavex',
+        os.path.join(tests_features_path, 'worker_hooks_features'),
+        '-t', '@WORKER_HOOKS',
+        '-o', context.output_path,
+        '--parallel-processes', parallel_processes,
+    ]
+    execute_command(context, execution_args)
+
+
+@when('I run the behavex command targeting the invalid worker hooks feature')
+def when_run_invalid_worker_hooks_feature(context):
+    context.output_path = os.path.join('output', 'output_{}'.format(get_random_number(6)))
+    execution_args = [
+        'behavex',
+        os.path.join(tests_features_path, 'worker_hooks_invalid_features'),
+        '-o', context.output_path,
+    ]
+    execute_command(context, execution_args)
+
+
+# ---------- No-Report Steps ----------
+
+@when('I run the behavex command with --no-report flag using "{parallel_processes}" parallel processes')
+def when_run_with_no_report(context, parallel_processes):
+    context.output_path = os.path.join('output', 'output_{}'.format(get_random_number(6)))
+    execution_args = [
+        'behavex',
+        os.path.join(tests_features_path, 'secondary_features', 'passing_tests.feature'),
+        '-o', context.output_path,
+        '--no-report',
+        '--parallel-processes', parallel_processes,
+    ]
+    execute_command(context, execution_args)
+
+
+@when('I run the behavex command with --no-report flag and evidence attachments using "{parallel_processes}" parallel processes')
+def when_run_with_no_report_and_evidence(context, parallel_processes):
+    context.output_path = os.path.join('output', 'output_{}'.format(get_random_number(6)))
+    execution_args = [
+        'behavex',
+        os.path.join(tests_features_path, 'secondary_features', 'evidence_tests.feature'),
+        '-t', '@EVIDENCE_ATTACHMENT',
+        '-o', context.output_path,
+        '--no-report',
+        '--parallel-processes', parallel_processes,
+    ]
+    execute_command(context, execution_args)
+
+
+@when('I run the behavex command with --no-report flag and image attachments using "{parallel_processes}" parallel processes')
+def when_run_with_no_report_and_images(context, parallel_processes):
+    context.output_path = os.path.join('output', 'output_{}'.format(get_random_number(6)))
+    execution_args = [
+        'behavex',
+        os.path.join(tests_features_path, 'secondary_features', 'evidence_tests.feature'),
+        '-t', '@IMAGE_EVIDENCE_ATTACHMENT',
+        '-o', context.output_path,
+        '--no-report',
+        '--parallel-processes', parallel_processes,
+    ]
+    execute_command(context, execution_args)
+
+
+@then('the output folder should not exist')
+def then_output_folder_not_exist(context):
+    output_path = os.path.abspath(context.output_path)
+    assert not os.path.exists(output_path), \
+        f"Output folder should not exist but was found at: {output_path}"
+

@@ -45,3 +45,28 @@ class BuildNotSupported(Exception):
 
     def __str__(self) -> str:
         return f"{self.engine}: {self.reason}"
+
+
+@dataclass
+class ScaffoldPollution(Exception):
+    """The target directory already contains a scaffold for a DIFFERENT engine.
+
+    Real-world example: a user ran sage twice in the same dir — once with
+    Godot, then with Unity. The second run wrote Unity files into the same
+    directory, producing a hybrid Godot+Unity mess that neither editor
+    could open. We refuse instead of silently corrupting their project.
+
+    The CLI catches this and tells the user to clear the directory or
+    pass --force to overwrite the existing scaffold."""
+
+    requested_engine: str
+    existing_engine: str
+    out_dir: str
+
+    def __str__(self) -> str:
+        return (
+            f"{self.out_dir} already contains a {self.existing_engine} "
+            f"scaffold, but you requested {self.requested_engine}. "
+            f"Refusing to mix engines — clear the directory or use a "
+            f"different one. (Mixing causes both editors to break.)"
+        )

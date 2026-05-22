@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uritools
-Version: 6.1.1
+Version: 6.1.2
 Summary: URI parsing, classification and composition
 Author-email: Thomas Kemmer <tkemmer@computer.org>
 Maintainer-email: Thomas Kemmer <tkemmer@computer.org>
@@ -82,10 +82,10 @@ Internet standards.  As stated in `Lib/urllib/parse.py
 <https://github.com/python/cpython/blob/3.14/Lib/urllib/parse.py#L22>`_:
 
     RFC 3986 is considered the current standard and any future changes
-    to urlparse module should conform with it.  The urlparse module is
-    currently not entirely compliant with this RFC due to defacto
-    scenarios for parsing, and for backward compatibility purposes,
-    some parsing quirks from older RFCs are retained.
+    to urllib.parse module should conform with it.  The urllib.parse
+    module is currently not entirely compliant with this RFC due to
+    defacto scenarios for parsing, and for backward compatibility
+    purposes, some parsing quirks from older RFCs are retained.
 
 This module aims to provide fully RFC 3986 compliant replacements for
 the most commonly used functions found in ``urllib.parse``.  It also

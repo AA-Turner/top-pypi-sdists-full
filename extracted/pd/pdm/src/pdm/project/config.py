@@ -3,9 +3,10 @@ from __future__ import annotations
 import collections
 import dataclasses
 import os
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Iterator, Mapping, MutableMapping, cast
+from typing import Any, ClassVar, cast
 
 import platformdirs
 import rich.theme
@@ -14,6 +15,7 @@ from pdm import termui
 from pdm._types import RepositoryConfig
 from pdm.compat import tomllib
 from pdm.exceptions import NoConfigError, PdmUsageError
+from pdm.utils import convert_to_datetime, open_for_write_no_symlink
 
 REPOSITORY = "repository"
 SOURCE = "pypi"
@@ -168,6 +170,11 @@ class Config(MutableMapping[str, str]):
         "global_project.user_site": ConfigItem("Whether to install to user site", False, True, coerce=ensure_boolean),
         "strategy.update": ConfigItem("The default strategy for updating packages", "reuse", False),
         "strategy.save": ConfigItem("Specify how to save versions when a package is added", "minimum", False),
+        "strategy.exclude-newer": ConfigItem(
+            "Exclude packages newer than the given UTC date or relative duration",
+            global_only=False,
+            coerce=convert_to_datetime,
+        ),
         "strategy.resolve_max_rounds": ConfigItem(
             "Specify the max rounds of resolution process",
             10000,
@@ -302,7 +309,9 @@ class Config(MutableMapping[str, str]):
 
     def __init__(self, config_file: Path, is_global: bool = False):
         self.is_global = is_global
-        self.config_file = config_file.resolve()
+        # Keep the path as given (only made absolute) instead of resolving symlinks,
+        # so a symlinked destination can still be detected and refused on write.
+        self.config_file = config_file.absolute()
         self.deprecated = {v.replace: k for k, v in self._config_map.items() if v.replace}
         self._file_data = load_config(self.config_file)
         self._data = collections.ChainMap(
@@ -332,9 +341,9 @@ class Config(MutableMapping[str, str]):
                 yield RepositoryConfig(**data, name=name[len(SOURCE) + 1 :], config_prefix=SOURCE)
 
     def _save_config(self) -> None:
+        """Save the changes to the config file."""
         import tomlkit
 
-        """Save the changed to config file."""
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
         toml_data: dict[str, Any] = {}
         for key, value in self._file_data.items():
@@ -346,7 +355,15 @@ class Config(MutableMapping[str, str]):
                 temp = temp[part]
             temp[last] = value
 
-        with self.config_file.open("w", encoding="utf-8") as fp:
+        # A project-local pdm.toml may be planted as a symlink by an untrusted
+        # repository to clobber a file outside the project (GHSA-ghq2-5c67-fprm).
+        # The global config lives in the user's own config directory and is not
+        # attacker-controlled, so a user-managed symlink there is honored.
+        if self.is_global:
+            writer: Any = self.config_file.open("w", encoding="utf-8")
+        else:
+            writer = open_for_write_no_symlink(self.config_file)
+        with writer as fp:
             tomlkit.dump(toml_data, fp)
 
     def __getitem__(self, key: str) -> Any:
@@ -405,7 +422,7 @@ class Config(MutableMapping[str, str]):
         if not self.is_global and config.global_only:
             raise ValueError(f"Config item '{key}' is not allowed to set in project config.")
 
-        value = config.coerce(value)
+        config.coerce(value)
         if key in self.env_map:
             ui.warn(f"the config is shadowed by env var '{config.env_var}', the value set won't take effect.")
         self._file_data[config_key] = value

@@ -340,7 +340,7 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
                 # Skip tool_use / tool_call blocks — these are handled via
                 # message.tool_calls and must not leak into content sent to
                 # providers that don't understand them (e.g. OpenAI).
-                elif item.get("type") in ("tool_use", "tool_call"):
+                elif item.get("type") in ("tool_use", "tool_call", "thinking", "redacted_thinking"):
                     continue
 
                 # Pass through standard text blocks or other unrecognized dict formats unchanged
@@ -374,6 +374,10 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
             ]
         elif "tool_calls" in message.additional_kwargs:
             message_dict["tool_calls"] = message.additional_kwargs["tool_calls"]
+        # Forward reasoning_content so LiteLLM can inject thinking blocks for
+        # Anthropic while leaving OpenAI-bound messages clean.
+        if "reasoning_content" in message.additional_kwargs:
+            message_dict["reasoning_content"] = message.additional_kwargs["reasoning_content"]
     elif isinstance(message, SystemMessage):
         message_dict["role"] = "system"
     elif isinstance(message, FunctionMessage):
@@ -463,36 +467,14 @@ class ChatLiteLLM(BaseChatModel):
 
     @property
     def _client_params(self) -> Dict[str, Any]:
-        """Get the parameters used for the openai client."""
-        set_model_value = self.model
-        if self.model_name is not None:
-            set_model_value = self.model_name
-        self.client.api_base = self.api_base
-        self.client.api_key = self.api_key
-        for named_api_key in [
-            "openai_api_key",
-            "azure_api_key",
-            "anthropic_api_key",
-            "replicate_api_key",
-            "cohere_api_key",
-            "openrouter_api_key",
-        ]:
-            if api_key_value := getattr(self, named_api_key):
-                setattr(
-                    self.client,
-                    named_api_key.replace("_api_key", "_key"),
-                    api_key_value,
-                )
-        self.client.organization = self.organization
+        """Get the parameters used for the OpenAI client."""
         creds: Dict[str, Any] = {
-            "model": set_model_value,
             "timeout": self.request_timeout,
             "api_base": self.api_base,
+            "api_key": self.api_key,
+            "organization": self.organization,
         }
-        # Forward any extra headers to the client and include in params
         if self.extra_headers is not None:
-            # set attribute on client for runtime usage
-            setattr(self.client, "extra_headers", self.extra_headers)
             creds["extra_headers"] = self.extra_headers
         return {**self._default_params, **creds}
 
@@ -598,7 +580,8 @@ class ChatLiteLLM(BaseChatModel):
             message = _convert_dict_to_message(res["message"])
             if isinstance(message, AIMessage):
                 message.response_metadata = {
-                    "model_name": self.model_name or self.model
+                    "model_name": self.model_name or self.model,
+                    "model_provider": "litellm",
                 }
                 message.usage_metadata = usage_metadata
             gen = ChatGeneration(
@@ -692,7 +675,8 @@ class ChatLiteLLM(BaseChatModel):
             # Set response_metadata on the first chunk only
             if not first_chunk_yielded and isinstance(chunk, AIMessageChunk):
                 chunk.response_metadata = {
-                    "model_name": self.model_name or self.model
+                    "model_name": self.model_name or self.model,
+                    "model_provider": "litellm",
                 }
                 first_chunk_yielded = True
 
@@ -760,7 +744,8 @@ class ChatLiteLLM(BaseChatModel):
             # Set response_metadata on the first chunk only
             if not first_chunk_yielded and isinstance(chunk, AIMessageChunk):
                 chunk.response_metadata = {
-                    "model_name": self.model_name or self.model
+                    "model_name": self.model_name or self.model,
+                    "model_provider": "litellm",
                 }
                 first_chunk_yielded = True
 
@@ -1014,7 +999,27 @@ class ChatLiteLLM(BaseChatModel):
             "n": self.n,
             "num_ctx": self.num_ctx,
         }
+    
+    def _get_ls_params(
+        self,
+        stop: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Return LangSmith tracing parameters for this model.
 
+        Overrides the base implementation to set ``ls_provider`` to ``"litellm"``
+        and ``ls_model_name`` to the resolved model string. These values are used
+        by LangSmith for run tagging and by LangChain middleware such as
+        ``SummarizationMiddleware``, which compares ``response_metadata["model_provider"]``
+        against ``ls_provider`` to decide whether reported token counts should be
+        trusted. Without this override, ``ls_provider`` would be absent and that
+        middleware check would always short-circuit.
+        """
+        params = super()._get_ls_params(stop=stop, **kwargs)
+        params["ls_provider"] = "litellm"
+        params["ls_model_name"] = self.model_name or self.model
+        return params
+    
     @property
     def _llm_type(self) -> str:
         return "litellm-chat"

@@ -11,9 +11,7 @@
 # ------------------------------------------------------------------------------------------------
 # Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
 # ------------------------------------------------------------------------------------------------
-"""
-Multi-Scale Deformable Attention Module
-"""
+"""Multi-Scale Deformable Attention Module."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -21,7 +19,7 @@ import math
 import warnings
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from torch import nn
 from torch.nn.init import constant_, xavier_uniform_
 
@@ -35,16 +33,12 @@ def _is_power_of_2(n):
 
 
 class MSDeformAttn(nn.Module):
-    """Multi-Scale Deformable Attention Module"""
+    """Multi-Scale Deformable Attention Module."""
 
     def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
-        """
-        Multi-Scale Deformable Attention Module
-        :param d_model      hidden dimension
-        :param n_levels     number of feature levels
-        :param n_heads      number of attention heads
-        :param n_points     number of sampling points per attention head per feature level
-        """
+        """Multi-Scale Deformable Attention Module :param d_model      hidden dimension :param n_levels     number of
+        feature levels :param n_heads      number of attention heads :param n_points     number of sampling points per
+        attention head per feature level."""
         super().__init__()
         if d_model % n_heads != 0:
             raise ValueError("d_model must be divisible by n_heads, but got {} and {}".format(d_model, n_heads))
@@ -74,7 +68,7 @@ class MSDeformAttn(nn.Module):
         self._export = False
 
     def export(self):
-        """export mode"""
+        """Export mode."""
         self._export = True
 
     def _reset_parameters(self):
@@ -112,8 +106,8 @@ class MSDeformAttn(nn.Module):
         Args:
             query: (N, Length_{query}, C)
             reference_points: (N, Length_{query}, n_levels, 2) with range in [0, 1],
-                top-left (0,0), bottom-right (1, 1), including padding area; or
-                (N, Length_{query}, n_levels, 4) adding additional (w, h) to form reference boxes.
+                top-left (0,0), bottom-right (1, 1), including padding area; or (N, Length_{query}, n_levels, 4) adding
+                additional (w, h) to form reference boxes.
             input_flatten: (N, sum_{l=0}^{L-1} H_l * W_l, C)
             input_spatial_shapes: (n_levels, 2), [(H_0, W_0), (H_1, W_1), ..., (H_{L-1}, W_{L-1})]
             input_level_start_index: (n_levels,), [0, H_0*W_0, H_0*W_0+H_1*W_1, ...,
@@ -121,29 +115,32 @@ class MSDeformAttn(nn.Module):
             input_padding_mask: (N, sum_{l=0}^{L-1} H_l * W_l), True for padding elements,
                 False for non-padding elements.
             input_spatial_shapes_hw: List of (H, W) int pairs, same ordering as
-                input_spatial_shapes. When provided, these Python ints are used for tensor
-                split/view operations inside ms_deform_attn_core_pytorch so that the function
-                is compatible with torch.export.export (FakeTensor tracing cannot extract
-                concrete values from a tensor).
+                input_spatial_shapes. When provided, these Python ints are used for tensor split/view operations inside
+                ms_deform_attn_core_pytorch so that the function is compatible with torch.export.export (FakeTensor
+                tracing cannot extract concrete values from a tensor).
 
         Returns:
             Output tensor of shape (N, Length_{query}, C).
         """
-        N, Len_q, _ = query.shape
-        N, Len_in, _ = input_flatten.shape
+        batch_size, len_query, _ = query.shape
+        batch_size, len_input, _ = input_flatten.shape
         expected_len_in = (input_spatial_shapes[:, 0] * input_spatial_shapes[:, 1]).sum()
         error_msg = "input_spatial_shapes must match the flattened input length"
         if self._export:
-            torch._assert(expected_len_in == Len_in, error_msg)
+            torch._assert(expected_len_in == len_input, error_msg)
         else:
-            assert expected_len_in == Len_in, error_msg
+            assert expected_len_in == len_input, error_msg
 
         value = self.value_proj(input_flatten)
         if input_padding_mask is not None:
             value = value.masked_fill(input_padding_mask[..., None], float(0))
 
-        sampling_offsets = self.sampling_offsets(query).view(N, Len_q, self.n_heads, self.n_levels, self.n_points, 2)
-        attention_weights = self.attention_weights(query).view(N, Len_q, self.n_heads, self.n_levels * self.n_points)
+        sampling_offsets = self.sampling_offsets(query).view(
+            batch_size, len_query, self.n_heads, self.n_levels, self.n_points, 2
+        )
+        attention_weights = self.attention_weights(query).view(
+            batch_size, len_query, self.n_heads, self.n_levels * self.n_points
+        )
 
         # N, Len_q, n_heads, n_levels, n_points, 2
         if reference_points.shape[-1] == 2:
@@ -163,7 +160,9 @@ class MSDeformAttn(nn.Module):
             )
         attention_weights = F.softmax(attention_weights, -1)
 
-        value = value.transpose(1, 2).contiguous().view(N, self.n_heads, self.d_model // self.n_heads, Len_in)
+        value = (
+            value.transpose(1, 2).contiguous().view(batch_size, self.n_heads, self.d_model // self.n_heads, len_input)
+        )
         output = ms_deform_attn_core_pytorch(
             value,
             input_spatial_shapes,

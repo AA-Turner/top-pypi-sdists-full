@@ -74,7 +74,10 @@ _BACKEND_FILE_BLUEPRINTS: tuple[tuple[str, str, bool], ...] = (
         "backend/app/models/{module}.py",
         "SQLModel/SQLAlchemy domain entity for {feature}. Includes timestamps, "
         "soft-delete column, tenant_id FK for multi-tenancy, and indexes on "
-        "lookup columns. Use SQLModel.table=True. Inherit from Base in db/base.py.",
+        "lookup columns. Use SQLModel(table=True) with lowercase __tablename__. "
+        "CRITICAL: NEVER use Field(onupdate=...) — SQLModel does not support it. "
+        "NEVER import AsyncSession from sqlmodel — import it from sqlalchemy.ext.asyncio. "
+        "NEVER import create_async_engine from sqlmodel — use sqlalchemy.ext.asyncio.",
         False,
     ),
     (
@@ -87,7 +90,8 @@ _BACKEND_FILE_BLUEPRINTS: tuple[tuple[str, str, bool], ...] = (
     (
         "backend/app/repositories/{module}.py",
         "Async data-access layer for {feature}. Implements get_by_id, list_paginated, "
-        "create, update, soft_delete. Uses AsyncSession via Depends(get_session). "
+        "create, update, soft_delete. Uses AsyncSession via Depends(get_session) from app.api.deps. "
+        "Import AsyncSession from sqlalchemy.ext.asyncio, NOT from sqlmodel. "
         "Filters by current_tenant_id from request context. No FastAPI imports.",
         False,
     ),
@@ -99,31 +103,36 @@ _BACKEND_FILE_BLUEPRINTS: tuple[tuple[str, str, bool], ...] = (
         False,
     ),
     (
-        "backend/app/api/v1/{plural}.py",
-        "FastAPI router for /api/v1/{plural} with full CRUD + feature-specific actions. "
-        "Uses Depends(get_current_user) for auth, Depends({class}_service) for the "
-        "service layer, response_model on every endpoint. Maps typed exceptions to "
-        "HTTPException via the global exception handler.",
+        "backend/app/api/v1/{module}.py",
+        "FastAPI router for /api/v1/{plural}. "
+        "CRITICAL: Name the router object exactly `router = APIRouter()`. "
+        "Use the EXACT filename `{module}.py` — do not change the name. "
+        "Import AsyncSession from sqlalchemy.ext.asyncio, NOT from sqlmodel. "
+        "Use Depends(get_db) from app.api.deps. Full CRUD + feature actions.",
         False,
     ),
     (
         "backend/tests/unit/test_{module}_service.py",
         "pytest unit tests for {Class}Service. Mocks the repository + integrations. "
-        "Covers: happy path per public method, validation errors, NotFoundError on "
-        "missing IDs, tenant isolation enforcement.",
+        "CRITICAL: async test functions MUST be `async def test_...` with @pytest.mark.asyncio. "
+        "Do NOT put import statements inside function bodies. "
+        "All imports must be at the top of the file.",
         True,
     ),
     (
         "backend/tests/unit/test_{module}_repository.py",
         "pytest async tests for {Class}Repository using an in-memory SQLite session. "
-        "Covers: create + roundtrip, pagination, tenant isolation, soft-delete behaviour.",
+        "Covers: create + roundtrip, pagination, soft-delete behaviour. "
+        "CRITICAL: async test functions MUST be `async def test_...` with @pytest.mark.asyncio. "
+        "Do NOT put import statements inside function bodies.",
         True,
     ),
     (
         "backend/tests/integration/test_{plural}_api.py",
         "pytest integration tests against the FastAPI TestClient for /api/v1/{plural}. "
-        "Covers: 201 on POST, 200 on GET, 404 on missing, 401 unauthenticated, "
-        "422 on invalid body, pagination links, tenant isolation across users.",
+        "Covers: 201 on POST, 200 on GET, 404 on missing, 401 unauthenticated. "
+        "CRITICAL: async test functions MUST be `async def test_...` with @pytest.mark.asyncio. "
+        "Import from app.api.v1.{module} using the exact module name.",
         True,
     ),
 )

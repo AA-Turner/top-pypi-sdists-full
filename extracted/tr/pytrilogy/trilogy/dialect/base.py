@@ -44,7 +44,9 @@ from trilogy.core.enums import (
 from trilogy.core.internal import DEFAULT_CONCEPTS
 from trilogy.core.models.author import ArgBinding, arg_to_datatype
 from trilogy.core.models.build import (
+    BoolExpr,
     BuildAggregateWrapper,
+    BuildBetween,
     BuildCaseElse,
     BuildCaseSimpleWhen,
     BuildCaseWhen,
@@ -80,7 +82,12 @@ from trilogy.core.models.core import (
 )
 from trilogy.core.models.datasource import Address, Datasource, RawColumnExpr
 from trilogy.core.models.environment import Environment
-from trilogy.core.models.execute import CTE, CompiledCTE, RecursiveCTE, UnionCTE
+from trilogy.core.models.execute import (
+    CTE,
+    CompiledCTE,
+    RecursiveCTE,
+    UnionCTE,
+)
 from trilogy.core.processing.condition_utility import (
     condition_implies,
     decompose_condition,
@@ -199,6 +206,7 @@ SUBSELECT_COMPARISON_ITEMS = (BuildSubselectComparison,)
 SUBSELECT_ITEMS = (BuildSubselectItem,)
 COMPARISON_ITEMS = (BuildComparison,)
 CONDITIONAL_ITEMS = (BuildConditional,)
+BETWEEN_ITEMS = (BuildBetween,)
 
 
 def INVALID_REFERENCE_STRING(x: Any, callsite: str = ""):
@@ -394,8 +402,6 @@ FUNCTION_MAP = {
     FunctionType.BOOL_OR: lambda x, types: f"bool_or({x[0]})",
     FunctionType.BOOL_AND: lambda x, types: f"bool_and({x[0]})",
     # string types
-    FunctionType.LIKE: lambda x, types: f" {x[0]} like {x[1]} ",
-    FunctionType.ILIKE: lambda x, types: f" {x[0]} ilike {x[1]} ",
     FunctionType.UPPER: lambda x, types: f"UPPER({x[0]}) ",
     FunctionType.LOWER: lambda x, types: f"LOWER({x[0]}) ",
     FunctionType.SUBSTRING: lambda x, types: f"SUBSTRING({x[0]},{x[1]},{x[2]})",
@@ -514,15 +520,25 @@ def safe_get_cte_value(
     address = c.address
     raw = cte.source_map.get(address, None)
 
-    if not raw:
-        return None
-
     def _format(source: str, rendered) -> str:
         if isinstance(rendered, RawColumnExpr):
             return rendered.text
         if isinstance(rendered, FUNCTION_ITEMS):
             return f"{render_expr(rendered, cte=cte, raise_invalid=True)}"
-        return f"{quote_char}{source}{quote_char}.{safe_quote(rendered, quote_char)}"
+        # Translate the source_map token to the actual SQL alias: identity for
+        # a normal CTE, the raw-table alias for an inlined DatasourceCTE.
+        alias = cte.source_key_for(source) if isinstance(cte, CTE) else source
+        return f"{quote_char}{alias}{quote_char}.{safe_quote(rendered, quote_char)}"
+
+    if not raw:
+        # No explicit source, but an inlined datasource may still expose this
+        # concept as a raw column (not in its pruned projection).
+        if isinstance(cte, CTE):
+            inlined = cte.inlined_parent_providing(c)
+            if inlined is not None:
+                use_map[inlined.name].add(c.address)
+                return _format(inlined.name, inlined.consumer_column(c))
+        return None
 
     if isinstance(raw, str):
         rendered = cte.get_alias(c, raw)
@@ -966,9 +982,8 @@ class BaseDialect:
             isinstance(c.lineage, BuildAggregateWrapper)
             and c.lineage.function.operator == FunctionType.COUNT
             and not cte.group_to_grain
-            and any(
-                n.address == c.address for n in getattr(cte, "nullable_concepts", [])
-            )
+            and isinstance(cte, CTE)
+            and any(n.address == c.address for n in cte.nullable_concepts)
         ):
             rval = self.FUNCTION_MAP[FunctionType.COALESCE]([rval, "0"], [])
         assert rval is not None
@@ -1066,12 +1081,26 @@ class BaseDialect:
     ):
         return f"{self.render_expr(left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {operator.value} {self.render_expr(right, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)}"
 
+    def render_comparison(
+        self,
+        left,
+        right,
+        operator: ComparisonOperator,
+        cte: CTE | UnionCTE | None = None,
+        cte_map: Optional[Dict[str, CTE | UnionCTE]] = None,
+        raise_invalid: bool = False,
+    ) -> str:
+        """Default rendering for a binary comparison. Dialects override when an
+        operator needs translation (e.g. SQLite ``ILIKE``)."""
+        return f"{self.render_expr(left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {operator.value} {self.render_expr(right, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)}"
+
     def render_expr(
         self,
         e: Union[
             BuildConcept,
             BuildFunction,
             BuildConditional,
+            BuildBetween,
             BuildAggregateWrapper,
             BuildComparison,
             BuildCaseWhen,
@@ -1138,10 +1167,17 @@ class BaseDialect:
                         f"Missing source CTE for {right.address}"
                     )
                 assert cte, "CTE must be provided for inlined CTEs"
+                inlined_parent = (
+                    cte.inlined_parent_for_source(target)
+                    if isinstance(cte, CTE)
+                    else None
+                )
+                if inlined_parent is not None:
+                    target = cte.source_key_for(target)
+                    self.used_map[target].add(right.address)
+                    new_base = inlined_parent.datasource.safe_location
+                    return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} (select {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} from {new_base} as {target} where {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} is not null)"
                 self.used_map[target].add(right.address)
-                if target in cte.inlined_ctes:
-                    info = cte.inlined_ctes[target]
-                    return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} (select {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} from {info.new_base} as {target} where {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} is not null)"
                 return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} (select {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} from {target} where {target}.{self.QUOTE_CHARACTER}{right.safe_address}{self.QUOTE_CHARACTER} is not null)"
             elif isinstance(right, BuildParamaterizedConceptReference):
                 if isinstance(right.concept.lineage, BuildFunction) and isinstance(
@@ -1164,10 +1200,22 @@ class BaseDialect:
 
             return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} ({self.render_expr(right, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)})"
         elif isinstance(e, COMPARISON_ITEMS):
-            return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} {self.render_expr(e.right, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)}"
+            return self.render_comparison(
+                e.left,
+                e.right,
+                e.operator,
+                cte=cte,
+                cte_map=cte_map,
+                raise_invalid=raise_invalid,
+            )
         elif isinstance(e, CONDITIONAL_ITEMS):
-            # conditions need to be nested in parentheses
             return f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} {e.operator.value} {self.render_expr(e.right, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)}"
+        elif isinstance(e, BETWEEN_ITEMS):
+            return (
+                f"{self.render_expr(e.left, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} "
+                f"BETWEEN {self.render_expr(e.low, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)} "
+                f"AND {self.render_expr(e.high, cte=cte, cte_map=cte_map, raise_invalid=raise_invalid)}"
+            )
         elif isinstance(e, WINDOW_ITEMS):
             rendered_order_components = [
                 f"{self.render_expr(x.expr, cte, cte_map=cte_map, raise_invalid=raise_invalid)} {x.order.value}"
@@ -1584,6 +1632,9 @@ class BaseDialect:
             else:
                 source = None
         else:
+            # Inlined-datasource base is rendered via the consistent
+            # source_address / base_*_override path (set by inline) — the same
+            # path a non-inlined leaf datasource uses for its own FROM.
             addr = cte.source_address
             if isinstance(addr, Address):
                 source = self.render_source(addr)
@@ -1597,8 +1648,8 @@ class BaseDialect:
             final_joins = []
         else:
             final_joins = cte.joins or []
-        where: BuildConditional | BuildParenthetical | BuildComparison | None = None
-        having: BuildConditional | BuildParenthetical | BuildComparison | None = None
+        where: BoolExpr | None = None
+        having: BoolExpr | None = None
         materialized = {x for x, v in cte.source_map.items() if v}
         if cte.condition:
             if not cte.group_to_grain or is_scalar_condition(
@@ -1666,6 +1717,10 @@ class BaseDialect:
         self,
         query: ProcessedQuery,
     ) -> List[CompiledCTE]:
+        # Inlined datasources are folded onto consumers' ``inlined_parents``
+        # and thus unreachable via ``parent_ctes`` — they're already absent
+        # from ``query.ctes`` (no WITH entry), exactly as in the pre-refactor
+        # structural inline.
         return [self.render_cte(cte) for cte in query.ctes[:-1]] + [
             # last CTE needs to respect the user output order
             self.render_cte(sort_select_output(query.ctes[-1], query), auto_sort=False)

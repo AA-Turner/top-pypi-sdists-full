@@ -9,6 +9,7 @@ from htmltools import (
     Tag,
     TagAttrs,
     TagChild,
+    Tagified,
     TagList,
     TagNode,
     div,
@@ -20,7 +21,6 @@ tag_attr_obj: TagAttrs = {"test_key": "test_value"}
 
 
 class ReprClass:
-
     def _repr_html_(self) -> str:
         return "repr_html"
 
@@ -33,7 +33,7 @@ class OtherObj:
 
 
 class TagifiableClass:
-    def tagify(self) -> Tag:
+    def tagify(self) -> Tagified:
         return Tag("test_element").tagify()
 
 

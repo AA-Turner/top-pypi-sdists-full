@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shiny
-Version: 1.6.1
+Version: 1.6.2
 Summary: A web development framework for Python.
 Author-email: Winston Chang <winston@posit.co>
 License: MIT
@@ -24,7 +24,7 @@ Requires-Dist: typing-extensions>=4.10.0
 Requires-Dist: uvicorn>=0.16.0; platform_system != "Emscripten"
 Requires-Dist: starlette
 Requires-Dist: websockets>=13.0
-Requires-Dist: htmltools>=0.6.0
+Requires-Dist: htmltools>=0.7.0
 Requires-Dist: click>=8.1.4; platform_system != "Emscripten"
 Requires-Dist: markdown-it-py>=1.1.0
 Requires-Dist: mdit-py-plugins>=0.3.0
@@ -43,7 +43,7 @@ Requires-Dist: shinychat>=0.1.0
 Requires-Dist: opentelemetry-api>=1.20.0
 Provides-Extra: theme
 Requires-Dist: libsass>=0.23.0; extra == "theme"
-Requires-Dist: brand_yml>=0.1.0; extra == "theme"
+Requires-Dist: brand_yml>=0.2.0; extra == "theme"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Provides-Extra: test
@@ -95,7 +95,7 @@ Requires-Dist: flake8-bugbear>=23.2.13; extra == "dev"
 Requires-Dist: Flake8-pyproject>=1.2.3; extra == "dev"
 Requires-Dist: isort>=5.10.1; extra == "dev"
 Requires-Dist: libsass>=0.23.0; extra == "dev"
-Requires-Dist: brand_yml>=0.1.0; extra == "dev"
+Requires-Dist: brand_yml>=0.2.0; extra == "dev"
 Requires-Dist: pyright>=1.1.407; extra == "dev"
 Requires-Dist: pre-commit>=2.15.0; extra == "dev"
 Requires-Dist: wheel; extra == "dev"

@@ -7,6 +7,8 @@ from .._rendering import Pipeline, Camera, Viewport
 from .._managers import CoordinatesManager, MouseManager
 from ..abc import Layer
 
+from ._frame_context import FrameContext
+
 import bisect
 
 # ======================================== SCENE ========================================
@@ -24,6 +26,8 @@ class Scene:
         "_state",
         "_on_start", "_on_stop", "_on_update", "_on_draw",
     )
+
+    _FRAME_CONTEXT: FrameContext = FrameContext()
 
     def __init__(self, viewport: Viewport = None, camera: Camera = None, stack_mode: StackMode = StackMode.OVERLAY):
         # Transtypage et vérifications
@@ -174,7 +178,7 @@ class Scene:
         for layer in reversed(self._layers):
             if not layer.is_active():
                 continue
-            layer.update(dt)
+            layer.update(dt, context=self._FRAME_CONTEXT)
         if self._on_update:
             self._on_update.trigger()
         self._clear_context()
@@ -228,6 +232,7 @@ class Scene:
         mouse._clear_world_position()
         coord: CoordinatesManager = Pipeline.get_coord()
         coord.clear_context()
+        self._FRAME_CONTEXT.reset()
 
 # ======================================== EXPORTS ========================================
 __all__ = [

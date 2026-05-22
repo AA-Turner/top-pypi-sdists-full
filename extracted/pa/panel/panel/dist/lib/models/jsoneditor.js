@@ -1,6 +1,7 @@
 import { ImportedStyleSheet } from "@bokehjs/core/dom";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { HTMLBox, HTMLBoxView } from "./layout";
+import jsoneditor_css from "../styles/models/jsoneditor.css";
 export class JSONEditEvent extends ModelEvent {
     data;
     static __name__ = "JSONEditEvent";
@@ -42,6 +43,7 @@ export class JSONEditorView extends HTMLBoxView {
     }
     stylesheets() {
         const styles = super.stylesheets();
+        styles.push(jsoneditor_css);
         for (const css of this.model.css) {
             styles.push(new ImportedStyleSheet(css));
         }

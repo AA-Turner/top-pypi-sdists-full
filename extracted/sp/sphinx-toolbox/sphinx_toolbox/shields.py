@@ -362,20 +362,25 @@ from typing import List, Optional, Tuple
 from urllib.parse import quote
 
 # 3rd party
-import dict2css
 import docutils
 from apeye.url import URL
 from docutils import nodes
 from docutils.nodes import fully_normalize_name, whitespace_normalize_name
 from docutils.parsers.rst import directives
-from docutils.parsers.rst.roles import set_classes
 from domdf_python_tools.paths import PathPlus
 from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
 
 # this package
 from sphinx_toolbox import _css
-from sphinx_toolbox.utils import OptionSpec, SphinxExtMetadata, flag, make_github_url, metadata_add_version
+from sphinx_toolbox.utils import (
+		OptionSpec,
+		SphinxExtMetadata,
+		_set_classes,
+		flag,
+		make_github_url,
+		metadata_add_version
+		)
 
 __all__ = (
 		"SHIELDS_IO",
@@ -462,7 +467,7 @@ class Shield(SphinxDirective):
 
 			del self.options["target"]
 
-		set_classes(self.options)
+		_set_classes(self.options)
 		image_node = nodes.image(self.block_text, **self.options)
 		self.add_name(image_node)
 
@@ -859,7 +864,7 @@ def copy_asset_files(app: Sphinx, exception: Optional[Exception] = None) -> None
 
 	static_dir = PathPlus(app.outdir) / "_static"
 	static_dir.maybe_make(parents=True)
-	dict2css.dump(_css.shields_styles, static_dir / "toolbox-shields.css", minify=True)
+	_css.dump_css(_css.shields_styles, static_dir / "toolbox-shields.css", minify=True)
 
 
 @metadata_add_version

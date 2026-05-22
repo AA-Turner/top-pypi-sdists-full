@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: secops
-Version: 0.44.0
+Version: 0.44.1
 Summary: Python SDK for wrapping the Google SecOps API for common use cases
 Project-URL: Homepage, https://github.com/google/secops-wrapper
 Project-URL: Documentation, https://github.com/google/secops-wrapper#readme

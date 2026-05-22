@@ -7,10 +7,11 @@ import operator
 import os
 import shutil
 import sys
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from functools import cached_property, reduce
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import tomlkit
 from pbs_installer import PythonVersion
@@ -40,6 +41,7 @@ from pdm.utils import (
     is_conda_base_python,
     is_path_relative_to,
     normalize_name,
+    open_for_write_no_symlink,
 )
 
 if TYPE_CHECKING:
@@ -119,6 +121,12 @@ class Project:
         return Path(self.config.get("cache_dir", "")).expanduser()
 
     @cached_property
+    def project_plugins_dir(self) -> Path:
+        name = self.root.name or "project"
+        root_hash = hashlib.sha224(os.path.normcase(str(self.root)).encode("utf-8")).hexdigest()
+        return self.cache_dir / "plugins" / f"{name}-{root_hash[:12]}"
+
+    @cached_property
     def pyproject(self) -> PyProject:
         return PyProject(self.root / self.PYPROJECT_FILENAME, ui=self.core.ui)
 
@@ -126,7 +134,9 @@ class Project:
     def lockfile(self) -> Lockfile:
         if self._lockfile is None:
             enable_pylock = self.config["lock.format"] == "pylock"
-            if (path := self.root / "pylock.toml").exists() and enable_pylock:
+            if env_lockfile := os.getenv("PDM_LOCKFILE"):
+                self.set_lockfile(env_lockfile)
+            elif (path := self.root / "pylock.toml").exists() and enable_pylock:
                 self.set_lockfile(path)
             elif (path := self.root / "pdm.lock").exists():
                 if enable_pylock:  # pragma: no cover
@@ -214,7 +224,8 @@ class Project:
             with contextlib.suppress(FileNotFoundError):
                 python_file.unlink()
             return
-        python_file.write_text(value, "utf-8")
+        with open_for_write_no_symlink(python_file) as fp:
+            fp.write(value)
 
     def resolve_interpreter(self) -> PythonInfo:
         """Get the Python interpreter path."""

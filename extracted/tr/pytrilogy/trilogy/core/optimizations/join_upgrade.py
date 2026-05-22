@@ -39,8 +39,11 @@ from trilogy.core.enums import (
     Modifier,
 )
 from trilogy.core.models.build import (
+    BoolExpr,
+    BuildBetween,
     BuildComparison,
     BuildConditional,
+    BuildDatasource,
     BuildParenthetical,
 )
 from trilogy.core.models.execute import (
@@ -49,11 +52,14 @@ from trilogy.core.models.execute import (
     ConceptPair,
     CTEConceptPair,
     Join,
+    QueryDatasource,
     UnionCTE,
 )
 from trilogy.core.optimizations.base_optimization import MergedCTEMap, OptimizationRule
 from trilogy.core.processing.condition_utility import (
     NULL_PROPAGATING_OPS,
+    _coalesce_primary_proves_non_null,
+    _flip_op,
     concepts_implied_non_null,
     decompose_condition,
     is_null_literal,
@@ -63,6 +69,14 @@ from trilogy.core.processing.condition_utility import (
 # WHERE. INNER joins already drop both unmatched sides, so they're never
 # eligible to be downgraded further.
 _OUTER_JOIN_TYPES = (JoinType.FULL, JoinType.LEFT_OUTER, JoinType.RIGHT_OUTER)
+
+
+def _base_datasource(
+    datasource: BuildDatasource | QueryDatasource,
+) -> BuildDatasource | QueryDatasource | None:
+    if isinstance(datasource, QueryDatasource):
+        return datasource.base_datasource
+    return None
 
 
 @dataclass
@@ -88,21 +102,25 @@ class _ProofState:
     def proves_cte_key(self, cte: CTE | UnionCTE, address: str) -> bool:
         return address in self.direct or (cte.name, address) in self.cte_keys
 
-    def proves_datasource_key(self, datasource: object, address: str) -> bool:
-        identifier = getattr(datasource, "identifier")
-        return address in self.direct or (identifier, address) in self.datasource_keys
+    def proves_datasource_key(
+        self, datasource: BuildDatasource | QueryDatasource, address: str
+    ) -> bool:
+        return (
+            address in self.direct
+            or (datasource.identifier, address) in self.datasource_keys
+        )
 
     def proves_cte_present(self, cte: CTE | UnionCTE, addresses: set[str]) -> bool:
         return any((cte.name, address) in self.cte_keys for address in addresses)
 
     def proves_datasource_present(
         self,
-        datasource: object,
+        datasource: BuildDatasource | QueryDatasource,
         addresses: set[str],
     ) -> bool:
-        identifier = getattr(datasource, "identifier")
         return any(
-            (identifier, address) in self.datasource_keys for address in addresses
+            (datasource.identifier, address) in self.datasource_keys
+            for address in addresses
         )
 
     def add_cte_key(self, cte: CTE | UnionCTE, address: str) -> bool:
@@ -112,9 +130,10 @@ class _ProofState:
         self.cte_keys.add(key)
         return True
 
-    def add_datasource_key(self, datasource: object, address: str) -> bool:
-        identifier = getattr(datasource, "identifier")
-        key = (identifier, address)
+    def add_datasource_key(
+        self, datasource: BuildDatasource | QueryDatasource, address: str
+    ) -> bool:
+        key = (datasource.identifier, address)
         if key in self.datasource_keys:
             return False
         self.datasource_keys.add(key)
@@ -134,8 +153,8 @@ def _pair_can_match_nulls(
 
 
 def _or_disjuncts(
-    atom: BuildComparison | BuildConditional | BuildParenthetical,
-) -> list[BuildComparison | BuildConditional | BuildParenthetical]:
+    atom: BoolExpr,
+) -> list[BoolExpr]:
     """Flatten an OR tree (unwrapping parentheticals) into its disjuncts.
 
     A non-OR node returns ``[node]`` (a single "disjunct")."""
@@ -147,7 +166,7 @@ def _or_disjuncts(
 
 
 def _proves_non_null(
-    atom: BuildComparison | BuildConditional | BuildParenthetical,
+    atom: BoolExpr,
 ) -> set[str]:
     """Concept addresses that this AND-atom forces non-null in surviving rows."""
     if isinstance(atom, BuildParenthetical):
@@ -157,6 +176,21 @@ def _proves_non_null(
         # which — only concepts non-null under *every* disjunct are proven.
         sets = [_gather_proofs(d) for d in _or_disjuncts(atom)]
         return set.intersection(*sets) if sets else set()
+    if isinstance(atom, BuildConditional) and atom.operator == BooleanOperator.AND:
+        # ``decompose_condition`` returns the whole AND as one chunk when a
+        # child isn't in ``CONDITION_TYPES`` (e.g. a ``raw(...)`` predicate
+        # arrives as a bare ``BuildFunction``). Walk both sides ourselves so
+        # ordinary Comparison proofs sitting next to the opaque child still
+        # contribute (q64 ``is_returned`` + ``C_CURRENT_ADDR_SK is not null``).
+        return _proves_non_null(atom.left) | _proves_non_null(atom.right)  # type: ignore[arg-type]
+    if isinstance(atom, BuildBetween):
+        # `x BETWEEN low AND high` requires all three operands to be non-null
+        # for the row to survive.
+        return (
+            concepts_implied_non_null(atom.left)
+            | concepts_implied_non_null(atom.low)
+            | concepts_implied_non_null(atom.high)
+        )
     if not isinstance(atom, BuildComparison):
         return set()
 
@@ -176,13 +210,25 @@ def _proves_non_null(
         return set()
 
     if op in NULL_PROPAGATING_OPS:
-        return concepts_implied_non_null(left) | concepts_implied_non_null(right)
+        proofs = concepts_implied_non_null(left) | concepts_implied_non_null(right)
+        # Peer through a ``coalesce(PRIMARY, defaults...)`` wrapper when every
+        # default statically fails the comparison — surviving rows can only
+        # come from PRIMARY, so PRIMARY's concepts are non-null. The renderer
+        # wraps ``count(...)`` aggregates in ``coalesce(..., 0)`` to satisfy
+        # the "count-of-empty is 0, not NULL" convention; predicates like
+        # ``> 0`` on the wrapped column otherwise become opaque to us, which
+        # blocks the OUTER → INNER upgrade on the producing join.
+        proofs |= _coalesce_primary_proves_non_null(left, op, right)
+        flipped = _flip_op(op)
+        if flipped is not None:
+            proofs |= _coalesce_primary_proves_non_null(right, flipped, left)
+        return proofs
 
     return set()
 
 
 def _gather_proofs(
-    cond: BuildComparison | BuildConditional | BuildParenthetical,
+    cond: BoolExpr,
 ) -> set[str]:
     return {
         addr for atom in decompose_condition(cond) for addr in _proves_non_null(atom)
@@ -190,7 +236,7 @@ def _gather_proofs(
 
 
 def _gather_or_groups(
-    cond: BuildComparison | BuildConditional | BuildParenthetical,
+    cond: BoolExpr,
 ) -> list[list[set[str]]]:
     """Per-OR-atom disjunct proof sets, for side-level (not concept-level)
     proofs. ``(a.x = 1 OR a.y = 2)`` proves no single concept non-null, but
@@ -238,7 +284,7 @@ def _seed_addresses(cte: CTE | UnionCTE) -> set[str]:
     if first.left_cte is not None:
         return _cte_addresses(first.left_cte)
     right_names = {j.right_cte.name for j in cte.joins if isinstance(j, Join)}
-    for parent in cte.parent_ctes:
+    for parent in cte.dependency_nodes(include_inlined=True):
         if isinstance(parent, (CTE, UnionCTE)) and parent.name not in right_names:
             return _cte_addresses(parent)
     # Inlined-left case: a join carries its own left CTE on the joinkey_pairs.
@@ -265,7 +311,7 @@ def _seed_ctes(cte: CTE | UnionCTE) -> list[CTE | UnionCTE]:
     if first.left_cte is not None:
         return [first.left_cte]
     right_names = {j.right_cte.name for j in cte.joins if isinstance(j, Join)}
-    for parent in cte.parent_ctes:
+    for parent in cte.dependency_nodes(include_inlined=True):
         if isinstance(parent, (CTE, UnionCTE)) and parent.name not in right_names:
             return [parent]
     for j in cte.joins:
@@ -431,7 +477,7 @@ def _downgrade_base_join(
         return None
 
     right_ds = base_join.right_datasource
-    right_base = getattr(right_ds, "base_datasource", None)
+    right_base = _base_datasource(right_ds)
     right_all = {c.address for c in right_ds.output_concepts}
     if right_base is not None:
         right_all |= {c.address for c in right_base.output_concepts}

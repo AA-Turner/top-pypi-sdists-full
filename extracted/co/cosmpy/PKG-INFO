@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosmpy
-Version: 0.12.0
+Version: 0.12.1
 Summary: A library for interacting with the cosmos networks
 License: Apache-2.0
 License-File: AUTHORS.md
@@ -33,6 +33,7 @@ Requires-Dist: ecdsa
 Requires-Dist: googleapis-common-protos
 Requires-Dist: grpcio
 Requires-Dist: jsonschema (>=3.2.0,<5)
+Requires-Dist: packaging (>=23.0)
 Requires-Dist: protobuf (>=4.21.6,<6.0.dev0)
 Requires-Dist: pycryptodome (>=3.18.0,<4.0.0)
 Requires-Dist: pynacl (==1.6.0)

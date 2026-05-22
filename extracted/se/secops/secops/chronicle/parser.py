@@ -530,21 +530,39 @@ def trigger_github_checks(
             f"Failed to fetch parsers for log type {log_type}: {e}"
         ) from e
 
+    parser_id = "-"  # Default to '-' for the fallback case
     if not parsers:
         logging.info(
             "No parsers found for log type %s. Using fallback parser ID.",
             log_type,
         )
-        parser_name = f"logTypes/{log_type}/parsers/-"
+        # parser_id remains "-"
     else:
         if len(parsers) > 1:
             logging.warning(
                 "Multiple parsers found for log type %s. Using the first one.",
                 log_type,
             )
-        parser_name = parsers[0]["name"]
+        full_parser_resource_name = parsers[0]["name"]
+        # Expected format:
+        # projects/P/locations/L/instances/I/logTypes/LT/parsers/PA
+        parts = full_parser_resource_name.split("/")
+        if len(parts) == 10 and parts[8] == "parsers":
+            parser_id = parts[9]
+            logging.info(
+                "Using parser ID '%s' for log type %s.", parser_id, log_type
+            )
+        else:
+            logging.warning(
+                "Could not parse parser ID from resource name: %s. "
+                "Falling back to '-'.",
+                full_parser_resource_name,
+            )
+            # parser_id remains "-"
 
-    endpoint_path = f"{parser_name}:runAnalysis"
+    # Construct the endpoint_path using the derived parser_id
+    endpoint_path = f"logTypes/{log_type}/parsers/{parser_id}:runAnalysis"
+
     payload = {
         "report_type": "GITHUB_PARSER_VALIDATION",
         "pull_request": associated_pr,

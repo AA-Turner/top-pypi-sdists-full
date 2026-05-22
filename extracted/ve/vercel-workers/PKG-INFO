@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vercel-workers
-Version: 0.0.23
+Version: 0.0.24
 Summary: Python SDK for Vercel Workers
 License-Expression: MIT
 Requires-Python: >=3.12

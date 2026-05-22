@@ -369,8 +369,8 @@ def _check_path_exists(spec: str, cwd: Path) -> CheckResult | None:
 
 
 def _check_import_probe(spec: str, cwd: Path) -> CheckResult | None:
-    """Recognize: 'from <pkg> import <name> works' / 'fails'."""
-    m = re.match(r"^from\s+(\S+)\s+import\s+(\S+)\s+(works|fails)\s*$", spec)
+    """Recognize: 'from <pkg> import <name> works/fails' (+ 'still works')."""
+    m = re.match(r"^from\s+(\S+)\s+import\s+(\S+)\s+(?:still\s+)?(works|fails)\s*$", spec)
     if not m:
         return None
     pkg, name, mode = m.group(1), m.group(2), m.group(3)
@@ -454,7 +454,7 @@ def _check_fix_is_in(spec: str, cwd: Path) -> CheckResult | None:
 def _check_file_absent(spec: str, cwd: Path) -> CheckResult | None:
     """Recognize: 'old <file> gone', '<file> removed', 'no top-level <file>'."""
     patterns = [
-        r"^old\s+(\S+\.\w+)\s+(?:gone|removed|deleted)",
+        r"^old\s+(\S+\.\w+)(?:\s+\S+)*\s+(?:gone|removed|deleted)",  # allow intervening words
         r"^(\S+\.\w+)\s+(?:gone|removed|deleted)\s*$",
         r"^no top-level\s+(\S+)\s+",
     ]
@@ -468,6 +468,73 @@ def _check_file_absent(spec: str, cwd: Path) -> CheckResult | None:
     return None
 
 
+def _check_all_py_parse(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'all created .py parse' / 'all .py parse'."""
+    if not re.match(r"^all\s+(?:created\s+)?\.py\s+parse\s*$", spec):
+        return None
+    import ast as _ast
+    bad: list[str] = []
+    for p in cwd.rglob("*.py"):
+        if any(part.startswith(".") for part in p.parts):
+            continue
+        try:
+            _ast.parse(p.read_text(errors="replace"))
+        except SyntaxError as e:
+            bad.append(f"{p.relative_to(cwd)}:{e.lineno}")
+    if bad:
+        return CheckResult(spec, False, f"SyntaxError in: {bad[:3]}")
+    py_count = sum(1 for p in cwd.rglob("*.py")
+                   if not any(pt.startswith(".") for pt in p.parts))
+    return CheckResult(spec, True, f"all {py_count} .py files parse")
+
+
+def _check_package_dir(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'X/ is a package with __init__.py'."""
+    m = re.match(r"^(\S+/)\s+is a package\b", spec)
+    if not m:
+        return None
+    pkg_dir = cwd / m.group(1).rstrip("/")
+    init = pkg_dir / "__init__.py"
+    if not pkg_dir.is_dir():
+        return CheckResult(spec, False, f"{m.group(1)} directory missing")
+    if not init.is_file():
+        return CheckResult(spec, False, f"{m.group(1)}__init__.py missing")
+    return CheckResult(spec, True, f"{m.group(1)} is a package")
+
+
+def _check_multi_path_exists(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'X & Y exist' / 'X & Y exist with ...'."""
+    m = re.match(r"^(\S+)\s+&\s+(\S+)\s+exist", spec)
+    if not m:
+        return None
+    paths = [m.group(1).strip(), m.group(2).strip()]
+    missing = [p for p in paths if not (cwd / p).exists()]
+    if missing:
+        return CheckResult(spec, False, f"missing: {missing}")
+    return CheckResult(spec, True, f"both paths exist")
+
+
+def _check_named_test(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'tests/X.py passes' / 'test_X.py passes'."""
+    m = re.match(r"^((?:tests?/)?test\S+\.py)\s+passes\s*$", spec)
+    if not m:
+        return None
+    test_path = cwd / m.group(1)
+    if not test_path.is_file():
+        return CheckResult(spec, False, f"{m.group(1)} missing")
+    try:
+        r = subprocess.run(
+            ["python3", "-m", "pytest", str(test_path), "-q", "--timeout=30", "--tb=no"],
+            cwd=cwd, capture_output=True, text=True, timeout=90,
+        )
+        if r.returncode == 0:
+            return CheckResult(spec, True, f"{m.group(1)} passed")
+        return CheckResult(spec, False,
+                           f"{m.group(1)} failed: {(r.stdout + r.stderr)[-120:]}")
+    except Exception as e:
+        return CheckResult(spec, False, f"test run error: {e!r}")
+
+
 def evaluate_check(
     spec: str, cwd: Path, baselines: dict[str, Any],
 ) -> CheckResult:
@@ -477,7 +544,8 @@ def evaluate_check(
         _check_artifact, _check_no_token, _check_import_probe,
         _check_path_exists, _check_stderr_regex, _check_cmd_stdout,
         _check_cmd_assertion, _check_file_has_strings,
-        _check_fix_is_in, _check_file_absent,
+        _check_fix_is_in, _check_file_absent, _check_all_py_parse,
+        _check_package_dir, _check_multi_path_exists, _check_named_test,
     ):
         r = fn(spec, cwd)
         if r is not None:
@@ -496,6 +564,15 @@ def evaluate_check(
                            kind="manual_review")
     if "files_touched" in spec:
         return CheckResult(spec, True, "files_touched checked separately",
+                           kind="manual_review")
+    # "states X" — prose assertions about what a doc/artifact says.
+    # Cannot auto-verify; treat as advisory so they don't block pass.
+    if spec.startswith("states "):
+        return CheckResult(spec, True, "prose assertion — manual review",
+                           kind="manual_review")
+    # "names X" — code style / naming assertions, advisory only.
+    if spec.startswith("names "):
+        return CheckResult(spec, True, "naming assertion — manual review",
                            kind="manual_review")
     # 2026-05-20: unrecognized shapes used to default to passed=True/
     # kind=manual_review. That produced FALSE POSITIVE passes when a

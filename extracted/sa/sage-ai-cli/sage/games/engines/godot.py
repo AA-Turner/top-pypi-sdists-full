@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..assets.manifest import AssetManifest
-from ..exceptions import EngineNotInstalled
+from ..exceptions import BuildNotSupported, EngineNotInstalled
 from .base import (
     BuildArtifact,
     EngineAdapter,
@@ -115,6 +115,11 @@ class GodotAdapter:
         title = plan.title or "Sage Game"
 
         # project.godot — Godot's manifest. Format is INI-ish.
+        # textures/vram_compression/import_etc2_astc=true is REQUIRED for
+        # the universal-arch macOS preset and any iOS/Android export —
+        # without it the macOS export aborts with "Mac architecture must
+        # be universal or arm64 if ETC2 ASTC compression is used", which
+        # cost us a real user a working Mac build of HoleGame.
         (out_dir / "project.godot").write_text(
             f"""; sage-generated Godot 4 project — {title}
 config_version=5
@@ -129,6 +134,7 @@ config/icon="res://icon.svg"
 [rendering]
 
 renderer/rendering_method="forward_plus"
+textures/vram_compression/import_etc2_astc=true
 """,
             encoding="utf-8",
         )
@@ -174,42 +180,12 @@ script = ExtResource("1")
         # Export presets — Godot 4.6 requires every preset to declare
         # include_filter / exclude_filter / export_filter even when
         # empty, or `--export-release` fails with "no default was given".
+        # We emit a preset per supported target so `--export-release <name>`
+        # can find the right preset by name regardless of which platform
+        # the user asked for. The preset NAMES are case-sensitive and must
+        # match `_TARGET_TO_PRESET` exactly.
         (out_dir / "export_presets.cfg").write_text(
-            """[preset.0]
-
-name="Web"
-platform="Web"
-runnable=true
-advanced_options=false
-dedicated_server=false
-custom_features=""
-export_filter="all_resources"
-include_filter=""
-exclude_filter=""
-export_path="build/index.html"
-encryption_include_filters=""
-encryption_exclude_filters=""
-encrypt_pck=false
-encrypt_directory=false
-script_export_mode=2
-
-[preset.0.options]
-
-custom_template/debug=""
-custom_template/release=""
-variant/extensions_support=false
-variant/thread_support=false
-vram_texture_compression/for_desktop=true
-vram_texture_compression/for_mobile=false
-html/export_icon=true
-html/custom_html_shell=""
-html/head_include=""
-html/canvas_resize_policy=2
-html/focus_canvas_on_start=true
-html/experimental_virtual_keyboard=false
-progressive_web_app/enabled=false
-""",
-            encoding="utf-8",
+            _GODOT_EXPORT_PRESETS, encoding="utf-8",
         )
 
         log(f"  [godot] scaffolded {out_dir.name} ({len(list(out_dir.rglob('*')))} files)")
@@ -240,8 +216,15 @@ progressive_web_app/enabled=false
 
         scripts = _parse_gd_blocks(raw)
         if not scripts:
-            # Fallback: write a no-op Main.gd so the project at least opens.
-            scripts = {"Main.gd": _DEFAULT_MAIN_GD}
+            # No fallback template — sage relies on the LLM to produce
+            # working code. An empty/unparseable response means the heal
+            # loop should re-prompt with a clearer instruction (the
+            # pipeline handles that). Silently shipping a stub Main.gd
+            # would mask the failure and pretend the game built.
+            raise RuntimeError(
+                "godot: LLM response had no parseable ```Name.gd``` "
+                f"blocks. Raw response head:\n{raw[:600]!r}"
+            )
 
         written: list[Path] = []
         for name, body in scripts.items():
@@ -261,10 +244,21 @@ progressive_web_app/enabled=false
         *,
         log: ProgressFn,
     ) -> None:
-        """Copy generated assets into res://assets/."""
+        """Copy generated assets into res://assets/.
+
+        Animation strips go into assets/sprites/anim/ so the AnimatedSprite2D
+        node's SpriteFrames resource can pick them up via res://assets/
+        sprites/anim/<role>_<state>.png. Mesh GLBs ship with their
+        animation tracks embedded — no extra files needed.
+        """
+        (out_dir / "assets" / "sprites" / "anim").mkdir(parents=True, exist_ok=True)
         copied = 0
         for role, src in manifest.sprites.items():
             dst = out_dir / "assets" / "sprites" / src.name
+            shutil.copy2(src, dst)
+            copied += 1
+        for (role, state), src in manifest.sprite_animations.items():
+            dst = out_dir / "assets" / "sprites" / "anim" / src.name
             shutil.copy2(src, dst)
             copied += 1
         for role, src in manifest.audio.items():
@@ -275,7 +269,10 @@ progressive_web_app/enabled=false
             dst = out_dir / "assets" / "meshes" / src.name
             shutil.copy2(src, dst)
             copied += 1
-        log(f"  [godot] consumed {copied} asset(s) into res://assets/")
+        n_clips = sum(len(c) for c in manifest.mesh_animations.values())
+        log(f"  [godot] consumed {copied} asset(s) into res://assets/ "
+            f"({len(manifest.sprite_animations)} sprite-anim strips, "
+            f"{n_clips} mesh-anim clips embedded in GLBs)")
 
     # ── Build ─────────────────────────────────────────────────────────────
 
@@ -324,9 +321,31 @@ progressive_web_app/enabled=false
         duration = time.monotonic() - start
 
         if proc.returncode != 0 or not out_path.exists():
+            log_tail = (proc.stderr or proc.stdout or "")
+            # Mobile exports surface user-fixable SDK config errors rather
+            # than sage bugs — Android wants a JDK + Android SDK pointed at
+            # via Editor Settings, iOS wants an App Store team ID +
+            # provisioning. Treat both as BuildNotSupported so the heal
+            # loop doesn't burn rounds re-emitting scripts (they're fine).
+            if "Java SDK" in log_tail or "Android SDK" in log_tail \
+               or "android_keystore_debug" in log_tail:
+                raise BuildNotSupported(
+                    "godot",
+                    "Godot Android export needs a JDK + Android SDK "
+                    "configured in Editor Settings → Export → Android. "
+                    "Install Java JDK 17 and the Android command-line "
+                    "tools, then set both paths.",
+                )
+            if "App Store Team ID" in log_tail or "provisioning profile" in log_tail.lower():
+                raise BuildNotSupported(
+                    "godot",
+                    "Godot iOS export needs an Apple Developer team ID "
+                    "and provisioning profile set in the iOS preset "
+                    "(application/app_store_team_id, code_sign_identity).",
+                )
             raise RuntimeError(
                 f"godot --export-release failed (rc={proc.returncode}):\n"
-                f"{(proc.stderr or proc.stdout or '')[-800:]}"
+                f"{log_tail[-800:]}"
             )
 
         size = out_path.stat().st_size
@@ -436,14 +455,258 @@ _TARGET_TO_PRESET = {
     "web": "Web",
     "windows": "Windows Desktop",
     "mac": "macOS",
-    "linux": "Linux/X11",
+    "linux": "Linux",
+    "android": "Android",
+    "ios": "iOS",
 }
 _TARGET_TO_EXT = {
     "web": "html",
     "windows": "exe",
-    "mac": "app",
+    "mac": "zip",
     "linux": "x86_64",
+    "android": "apk",
+    "ios": "ipa",
 }
+
+
+# Each preset declares the bare minimum keys Godot 4.x requires for
+# headless export. Common knobs (export_filter/include/exclude/encrypt)
+# repeat across all six because Godot fails the export with a cryptic
+# "no default was given" if any are absent.
+_GODOT_EXPORT_PRESETS = """[preset.0]
+
+name="Web"
+platform="Web"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/index.html"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.0.options]
+
+custom_template/debug=""
+custom_template/release=""
+variant/extensions_support=false
+variant/thread_support=false
+vram_texture_compression/for_desktop=true
+vram_texture_compression/for_mobile=false
+html/export_icon=true
+html/custom_html_shell=""
+html/head_include=""
+html/canvas_resize_policy=2
+html/focus_canvas_on_start=true
+html/experimental_virtual_keyboard=false
+progressive_web_app/enabled=false
+
+[preset.1]
+
+name="Windows Desktop"
+platform="Windows Desktop"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/game.exe"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.1.options]
+
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/s3tc_bptc=true
+texture_format/etc2_astc=false
+binary_format/architecture="x86_64"
+codesign/enable=false
+application/modify_resources=true
+
+[preset.2]
+
+name="Linux"
+platform="Linux"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/game.x86_64"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.2.options]
+
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/s3tc_bptc=true
+texture_format/etc2_astc=false
+binary_format/architecture="x86_64"
+ssh_remote_deploy/enabled=false
+
+[preset.3]
+
+name="macOS"
+platform="macOS"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/game.zip"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.3.options]
+
+export/distribution_type=1
+binary_format/architecture="universal"
+codesign/codesign=0
+codesign/identity=""
+notarization/notarization=0
+privacy/microphone_usage_description=""
+privacy/camera_usage_description=""
+privacy/location_usage_description=""
+privacy/address_book_usage_description=""
+privacy/calendar_usage_description=""
+privacy/photos_library_usage_description=""
+privacy/desktop_folder_usage_description=""
+privacy/documents_folder_usage_description=""
+privacy/downloads_folder_usage_description=""
+privacy/network_volumes_usage_description=""
+privacy/removable_volumes_usage_description=""
+application/icon=""
+application/icon_interpolation=4
+application/bundle_identifier="org.sage.game"
+application/signature=""
+application/app_category="Games"
+application/short_version="1.0"
+application/version="1.0"
+application/copyright=""
+
+[preset.4]
+
+name="Android"
+platform="Android"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/game.apk"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.4.options]
+
+custom_template/debug=""
+custom_template/release=""
+gradle_build/use_gradle_build=false
+gradle_build/gradle_build_directory=""
+gradle_build/android_source_template=""
+gradle_build/compress_native_libraries=false
+gradle_build/export_format=0
+gradle_build/min_sdk=""
+gradle_build/target_sdk=""
+architectures/armeabi-v7a=true
+architectures/arm64-v8a=true
+architectures/x86=false
+architectures/x86_64=false
+package/unique_name="org.sage.game"
+package/name=""
+package/signed=true
+package/app_category=2
+package/retain_data_on_uninstall=false
+package/exclude_from_recents=false
+package/show_in_android_tv=false
+package/show_in_app_library=true
+package/show_as_launcher_app=false
+
+[preset.5]
+
+name="iOS"
+platform="iOS"
+runnable=true
+advanced_options=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/game.ipa"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+script_export_mode=2
+
+[preset.5.options]
+
+application/app_store_team_id=""
+application/code_sign_identity_debug=""
+application/code_sign_identity_release=""
+application/export_method_debug=1
+application/export_method_release=0
+application/targeted_device_family=2
+application/bundle_identifier="org.sage.game"
+application/signature=""
+application/short_version="1.0"
+application/version="1.0"
+application/min_ios_version="12.0"
+application/additional_plist_content=""
+capabilities/access_wifi=false
+capabilities/push_notifications=false
+user_data/accessible_from_files_app=false
+user_data/accessible_from_itunes_sharing=false
+privacy/camera_usage_description=""
+privacy/microphone_usage_description=""
+privacy/photolibrary_usage_description=""
+icons/iphone_120x120=""
+icons/iphone_180x180=""
+icons/ipad_76x76=""
+icons/ipad_152x152=""
+icons/app_store_1024x1024=""
+icons/spotlight_40x40=""
+icons/spotlight_80x80=""
+storyboard/use_launch_screen_storyboard=false
+storyboard/image_scale_mode=0
+storyboard/custom_image@2x=""
+storyboard/custom_image@3x=""
+storyboard/use_custom_bg_color=false
+storyboard/custom_bg_color=Color(0, 0, 0, 1)
+"""
 
 
 _GD_PROMPT = """You're writing Godot 4 GDScript for a small playable game.
@@ -480,15 +743,6 @@ extends CharacterBody2D
 ```
 
 Output ONLY the code blocks. No prose."""
-
-
-_DEFAULT_MAIN_GD = """extends Node2D
-
-# Placeholder Main scene. The LLM didn't produce parseable scripts,
-# so we wrote this so the project at least opens in the editor.
-func _ready():
-    print("sage: placeholder Main scene loaded")
-"""
 
 
 _BLOCK_RE = __import__("re").compile(

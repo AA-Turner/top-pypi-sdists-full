@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .._managers import CoordinatesManager, MouseManager
     from .._rendering import Pipeline
     from ..scene import Camera
+    from ..scene._frame_context import FrameContext
 
 # ======================================== ABSTRACT CLASS ========================================
 class Layer(ABC):
@@ -24,6 +25,7 @@ class Layer(ABC):
     )
 
     _IS_FX: ClassVar[bool] = False
+    _REQUIRES_CONTEXT: ClassVar[bool] = False
 
     _CAMERA_CLS: Type[Camera] = None
 
@@ -144,7 +146,7 @@ class Layer(ABC):
     @abstractmethod
     def _update(self, dt: float) -> None: ...
 
-    def update(self, dt: float):
+    def update(self, dt: float, context: FrameContext = None):
         """Actualisation
         
         Args:
@@ -153,7 +155,10 @@ class Layer(ABC):
         if self._camera is not None:
             self._camera.update(dt)
             self._apply_context()
-        self._update(dt)
+        if self._REQUIRES_CONTEXT:
+            self._update(dt, context=context)
+        else:
+            self._update(dt)
         self._clear_context()
 
     @abstractmethod

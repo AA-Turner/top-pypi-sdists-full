@@ -6,8 +6,18 @@
 
 from typing import ClassVar
 
-from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
+from dvsim.instrumentation.report.base import InstrumentationVisualizer
+from dvsim.instrumentation.report.breakdown import BlockVariantBreakdown, ToolBreakdown
+from dvsim.instrumentation.report.longest import (
+    LongestByBlockChart,
+    LongestByStatusChart,
+    LongestByToolChart,
+    LongestTestsByBlockChart,
+    LongestTestsByToolChart,
+)
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.instrumentation.report.timelines import ParallelismChart, TimelineBarChart
+from dvsim.instrumentation.report.usage import ToolUsageLineGraph
 
 __all__ = ("ReportVisualizationRegistry",)
 
@@ -49,5 +59,13 @@ class ReportVisualizationRegistry:
 
 
 # Register implemented / built-in instrumentation report visualizations
+ReportVisualizationRegistry.register(LongestByStatusChart)
+ReportVisualizationRegistry.register(LongestByBlockChart)
+ReportVisualizationRegistry.register(LongestTestsByBlockChart)
+ReportVisualizationRegistry.register(BlockVariantBreakdown)
+ReportVisualizationRegistry.register(LongestByToolChart)
+ReportVisualizationRegistry.register(LongestTestsByToolChart)
+ReportVisualizationRegistry.register(ToolBreakdown)
+ReportVisualizationRegistry.register(ToolUsageLineGraph)
 ReportVisualizationRegistry.register(TimelineBarChart)
 ReportVisualizationRegistry.register(ParallelismChart)

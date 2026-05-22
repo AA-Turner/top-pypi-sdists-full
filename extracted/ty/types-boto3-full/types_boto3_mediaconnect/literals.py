@@ -68,6 +68,7 @@ __all__ = (
     "MediaLiveInputPipelineIdType",
     "MediaLiveTransitEncryptionKeyTypeType",
     "MediaStreamTypeType",
+    "NdiOutputTimecodeSourceType",
     "NdiStateType",
     "NetworkInterfaceTypeType",
     "OutputActiveWaiterName",
@@ -174,6 +175,7 @@ MediaLiveChannelPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveInputPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MediaStreamTypeType = Literal["ancillary-data", "audio", "video"]
+NdiOutputTimecodeSourceType = Literal["EMBEDDED_TIMECODE", "UTC_SYSTEM_TIME"]
 NdiStateType = Literal["DISABLED", "ENABLED"]
 NetworkInterfaceTypeType = Literal["efa", "ena"]
 OutputActiveWaiterName = Literal["output_active"]

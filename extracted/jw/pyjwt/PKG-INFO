@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyJWT
-Version: 2.12.1
+Version: 2.13.0
 Summary: JSON Web Token implementation in Python
 Author-email: Jose Padilla <hello@jpadilla.com>
 License-Expression: MIT
@@ -26,21 +26,6 @@ License-File: AUTHORS.rst
 Requires-Dist: typing_extensions>=4.0; python_version < "3.11"
 Provides-Extra: crypto
 Requires-Dist: cryptography>=3.4.0; extra == "crypto"
-Provides-Extra: dev
-Requires-Dist: coverage[toml]==7.10.7; extra == "dev"
-Requires-Dist: cryptography>=3.4.0; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest<9.0.0,>=8.4.2; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinx-rtd-theme; extra == "dev"
-Requires-Dist: zope.interface; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
-Requires-Dist: zope.interface; extra == "docs"
-Provides-Extra: tests
-Requires-Dist: coverage[toml]==7.10.7; extra == "tests"
-Requires-Dist: pytest<9.0.0,>=8.4.2; extra == "tests"
 Dynamic: license-file
 
 PyJWT

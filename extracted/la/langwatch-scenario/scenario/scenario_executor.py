@@ -9,6 +9,7 @@ and judge agents to determine test success or failure.
 import json
 import sys
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -21,11 +22,17 @@ from typing import (
     TypedDict,
     cast,
 )
+
+if TYPE_CHECKING:
+    from .voice.playback import FfmpegPlayback
+import logging
 import time
 import warnings
 import termcolor
 import asyncio
 import concurrent.futures
+
+logger = logging.getLogger("scenario")
 
 from scenario.config import ScenarioConfig
 from langwatch.attributes import AttributeKey
@@ -119,6 +126,7 @@ class ScenarioExecutor:
     _agent_times: Dict[int, float] = {}
     _events: Subject
     _trace: LangWatchTrace
+    _ffmpeg_playback: Optional["FfmpegPlayback"] = None
 
     event_bus: ScenarioEventBus
 
@@ -139,6 +147,9 @@ class ScenarioExecutor:
         event_bus: Optional[ScenarioEventBus] = None,
         set_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        on_audio_chunk: Optional[Callable[[Any], None]] = None,
+        on_voice_event: Optional[Callable[[Any], None]] = None,
+        audio_playback: bool = False,
     ):
         """
         Initialize a scenario executor.
@@ -170,6 +181,9 @@ class ScenarioExecutor:
         self.agents = agents
         self.script = script or [proceed()]
         self.metadata = metadata
+        self._on_audio_chunk = on_audio_chunk
+        self._on_voice_event = on_voice_event
+        self._audio_playback = audio_playback
 
         config = ScenarioConfig(
             max_turns=max_turns,
@@ -538,6 +552,9 @@ class ScenarioExecutor:
         self._scenario_run_id = scenario_run_id
         _check_failure: Optional[BaseException] = None
 
+        # Connect all voice adapters before script runs; disconnect in finally.
+        await self._voice_connect_all()
+
         try:
             self._emit_run_started_event(scenario_run_id)
 
@@ -568,6 +585,7 @@ class ScenarioExecutor:
                         if result.success
                         else ScenarioRunFinishedEventStatus.FAILED
                     )
+                    result = self._attach_voice_output(result)
                     self._emit_run_finished_event(scenario_run_id, result, status)
                     return result
 
@@ -612,6 +630,7 @@ class ScenarioExecutor:
                     total_time=time.time() - self._total_start_time,
                     agent_time=agent_time,
                 )
+                result = self._attach_voice_output(result)
 
                 status = (
                     ScenarioRunFinishedEventStatus.SUCCESS
@@ -655,6 +674,98 @@ class ScenarioExecutor:
                 scenario_run_id, error_result, ScenarioRunFinishedEventStatus.ERROR
             )
             raise  # Re-raise the exception after cleanup
+        finally:
+            await self._voice_disconnect_all()
+
+    async def _voice_connect_all(self) -> None:
+        """Invoke ``connect()`` on every VoiceAgentAdapter in the scenario."""
+        from .voice.adapter import VoiceAgentAdapter
+        from .voice.recording import LatencyMetrics, VoiceRecording
+        from .voice.playback import FfmpegPlayback
+
+        self._voice_recording: VoiceRecording = VoiceRecording()
+        self._voice_timeline: list = []
+        self._voice_latency: LatencyMetrics = LatencyMetrics()
+        self._voice_recording_started_at: float = time.monotonic()
+        self._pending_agent_task = None
+        self._ffmpeg_playback = None
+
+        if self._audio_playback:
+            player = FfmpegPlayback()
+            player.start()
+            self._ffmpeg_playback = player
+            # Wrap the user-supplied on_audio_chunk so playback coexists with it.
+            user_callback = self._on_audio_chunk
+
+            def _playback_and_forward(chunk: Any) -> None:
+                player.feed(chunk)
+                if user_callback is not None:
+                    user_callback(chunk)
+
+            self._on_audio_chunk = _playback_and_forward
+
+        for agent in self.agents:
+            if isinstance(agent, VoiceAgentAdapter):
+                await agent.connect()
+
+    def _attach_voice_output(self, result: ScenarioResult) -> ScenarioResult:
+        """Populate result.audio/timeline/latency if any voice adapter ran."""
+        from .voice.adapter import VoiceAgentAdapter
+
+        has_voice = any(isinstance(a, VoiceAgentAdapter) for a in self.agents)
+        if not has_voice:
+            return result
+        recording = getattr(self, "_voice_recording", None)
+        timeline = getattr(self, "_voice_timeline", None)
+        latency = getattr(self, "_voice_latency", None)
+        if recording is not None and recording.segments:
+            result.audio = recording
+            # Pin the timeline onto the recording too so save_segments() can
+            # write events into the manifest. The result already exposes
+            # timeline directly; this just makes it accessible from the
+            # recording object for serialisation.
+            recording.timeline = list(timeline) if timeline else []
+            # Mark agent segments whose span contains a user_interrupt event:
+            # the chunk-level transcripts come from the AUT's API and reflect
+            # the agent's INTENDED reply, not what actually played to the user
+            # before the interrupt cut the audio. Flag these so consumers
+            # (manifest readers, judges) know to re-transcribe from bytes.
+            interrupts = [e for e in (timeline or []) if e.type == "user_interrupt"]
+            for seg in recording.segments:
+                if seg.speaker != "agent":
+                    continue
+                for evt in interrupts:
+                    if seg.start_time <= evt.time <= seg.end_time:
+                        seg.transcript_truncated = True
+                        break
+        if timeline:
+            result.timeline = list(timeline)
+        if latency is not None and latency.measurements:
+            result.latency = latency
+        return result
+
+    async def _voice_disconnect_all(self) -> None:
+        """Invoke ``disconnect()`` on every VoiceAgentAdapter.
+
+        Swallows exceptions so cleanup always completes — disconnect failures
+        are logged but do not mask the primary scenario result.
+        """
+        from .voice.adapter import VoiceAgentAdapter
+
+        for agent in self.agents:
+            if not isinstance(agent, VoiceAgentAdapter):
+                continue
+            try:
+                await agent.disconnect()
+            except Exception:  # pragma: no cover — defensive cleanup
+                pass
+
+        if self._ffmpeg_playback is not None:
+            try:
+                await asyncio.to_thread(self._ffmpeg_playback.stop)
+            except Exception:  # pragma: no cover — best-effort cleanup
+                pass
+            self._ffmpeg_playback = None
 
     async def _call_agent(
         self, idx: int, role: AgentRole, judgment_request: Optional[JudgmentRequest] = None
@@ -768,6 +879,14 @@ class ScenarioExecutor:
                         [m for m in messages if m["role"] != "system"],
                     )
 
+                # Voice path: if a wait=False (or interrupt-scheduled) agent
+                # turn is in flight when the user-sim produces its turn, fire
+                # the interrupt sequence so the new audio lands mid-response.
+                if role == AgentRole.USER and messages:
+                    pending = getattr(self, "_pending_agent_task", None)
+                    if pending is not None and not pending.done():
+                        await self._fire_user_interrupt(messages[-1])
+
                 return messages
         except Exception as e:
             agent_name = agent.__class__.__name__
@@ -790,14 +909,474 @@ class ScenarioExecutor:
             self.add_message(message)
 
     async def user(
-        self, content: Optional[Union[str, ChatCompletionMessageParam]] = None
+        self,
+        content: Optional[Union[str, ChatCompletionMessageParam]] = None,
+        *,
+        voice_style: Optional[str] = None,
+        audio_effects: Optional[List[Callable[[bytes], bytes]]] = None,
     ) -> None:
-        await self._script_call_agent(AgentRole.USER, content)
+        """Invoke the user simulator, optionally with per-step voice overrides.
+
+        ``voice_style`` and ``audio_effects`` override the simulator's
+        configured defaults for this step only. The simulator restores its
+        defaults on the next step — implemented via a context manager on the
+        UserSimulatorAgent (``_one_shot_override``).
+
+        When the user-role agent is an ``OpenAIRealtimeAgentAdapter`` and ``content``
+        is a plain string, route through the realtime session's text-input
+        channel instead of TTS (per §7.2 L1164-1171).
+        """
+        if isinstance(content, str):
+            realtime_user = self._find_realtime_user_agent()
+            if realtime_user is not None:
+                # Note: voice_style / audio_effects are no-ops on the realtime
+                # text-routing path — the realtime model generates audio
+                # natively, not via the simulator's TTS chain. Document + pass.
+                await realtime_user.send_text(content)
+                self.add_message(
+                    {"role": "user", "content": content}  # type: ignore[arg-type]
+                )
+                return
+            # If a voice-capable UserSimulatorAgent exists, TTS the scripted
+            # text through it so the agent adapter receives audio rather than
+            # a text-only message. Without this, voice agents under test
+            # (OpenAIRealtime, ElevenLabs hosted, Pipecat, etc.) see no audio
+            # when the scenario script emits `scenario.user("...")`.
+            sim = self._find_user_sim()
+            if sim is not None and getattr(sim, "voice", None):
+                # Apply per-step overrides if supplied — without this, callers
+                # using scenario.user("text", voice_style=..., audio_effects=...)
+                # would silently have those dropped on the voice-sim branch.
+                if voice_style is not None or audio_effects is not None:
+                    with sim._one_shot_override(
+                        voice_style=voice_style, audio_effects=audio_effects
+                    ):
+                        voiced = await sim._voiceify(
+                            {"role": "user", "content": content}
+                        )
+                else:
+                    voiced = await sim._voiceify(
+                        {"role": "user", "content": content}
+                    )
+                self.add_message(voiced)  # type: ignore[arg-type]
+                # Interruption path: when a wait=False agent turn is in flight,
+                # this user() call IS the interrupt. ``agent(wait=False) +
+                # user(...)`` reads as "agent starts replying; user
+                # interrupts" — no sleep needed. ``_fire_user_interrupt``
+                # handles the wait-for-speaking → adapter.interrupt() →
+                # send_audio → cancel sequence and emits the
+                # ``user_interrupt`` timeline event. Shared with the
+                # proceed-driven ``interrupt_probability`` path so the two
+                # interrupt code paths can't drift.
+                pending = getattr(self, "_pending_agent_task", None)
+                if pending is not None and not pending.done():
+                    await self._fire_user_interrupt(voiced)
+                return
+        sim = self._find_user_sim()
+        if sim is not None and (voice_style is not None or audio_effects is not None):
+            with sim._one_shot_override(voice_style=voice_style, audio_effects=audio_effects):
+                await self._script_call_agent(AgentRole.USER, content)
+        else:
+            await self._script_call_agent(AgentRole.USER, content)
+
+    def _find_user_sim(self):
+        from .user_simulator_agent import UserSimulatorAgent
+
+        for agent in self.agents:
+            if isinstance(agent, UserSimulatorAgent):
+                return agent
+        return None
+
+    def _find_realtime_user_agent(self):
+        """Return an OpenAIRealtimeAgentAdapter configured as role=USER, if any."""
+        try:
+            from .voice.adapters.openai_realtime import OpenAIRealtimeAgentAdapter
+        except ImportError:  # pragma: no cover — voice adapters always importable here
+            return None
+        for agent in self.agents:
+            if isinstance(agent, OpenAIRealtimeAgentAdapter) and agent.role == AgentRole.USER:
+                return agent
+        return None
+
+    def _find_voice_adapter(self):
+        """Return the first VoiceAgentAdapter in role=AGENT on the scenario, if any.
+
+        Used by the interruption path: when ``user(text)`` is called while a
+        ``wait=False`` agent turn is in flight, we push the synthesised audio
+        through this adapter directly so the bot actually hears it on the wire.
+        """
+        from .voice.adapter import VoiceAgentAdapter
+
+        for agent in self.agents:
+            if isinstance(agent, VoiceAgentAdapter):
+                return agent
+        return None
+
+    @staticmethod
+    def _extract_audio_from_message(message):
+        """Pull the AudioChunk out of a multi-part user audio message, if present.
+
+        Mirrors ``scenario.voice.messages.extract_audio`` but avoids importing
+        it eagerly (it lives in the voice subtree).
+        """
+        from .voice.messages import extract_audio
+
+        return extract_audio(message)
+
+    def _clear_adapter_pending_messages(self, adapter) -> None:
+        """Drop all queued ``new_messages`` for the adapter's idx.
+
+        Called from ``_fire_user_interrupt`` after we hand-deliver the
+        user interrupt audio to the adapter directly. Without this clear,
+        the recovery agent turn would re-send the original user audio
+        (the cancelled background ``_call_agent`` consumed it from
+        ``input.new_messages`` but never reached the post-call line that
+        empties the queue, so the message stays queued) AND/OR the
+        interrupt's user audio (which we already sent by hand). On
+        Gemini Live, replaying queued audio causes the SDK to emit
+        duplicate activity boundaries and produces garbled recovery.
+        """
+        try:
+            adapter_idx = self.agents.index(adapter)
+        except ValueError:
+            return
+        self._pending_messages[adapter_idx] = []
+
+    def _interrupt_rng(self):
+        """Lazy ``random.Random`` instance for sampling interrupt_probability.
+
+        Seeded from ``ScenarioConfig.cache_key`` when present so replay with
+        the same cache_key produces the same interruption schedule. When
+        cache_key is unset the RNG is unseeded — interruption decisions vary
+        between runs, matching the rest of the executor's non-cached path.
+        """
+        existing = getattr(self, "_interrupt_rng_instance", None)
+        if existing is not None:
+            return existing
+        import random as _random
+
+        seed = getattr(self.config, "cache_key", None)
+        rng = _random.Random(seed) if seed else _random.Random()
+        self._interrupt_rng_instance = rng
+        return rng
+
+    async def _fire_user_interrupt(self, voiced_message) -> None:
+        """Mid-stream interrupt: send the transport-native interrupt (if any)
+        and push the new user audio IMMEDIATELY — without waiting for the
+        agent to start speaking — then cancel the in-flight agent task and
+        record a ``user_interrupt`` timeline event.
+
+        The previous version waited for ``_agent_speaking_event`` before
+        barging in. That was wrong: if the bot is slow to start (LLM warm-up,
+        TTS warm-up), the wait blocks until the agent has nearly finished
+        replying, defeating the purpose of barge-in. Real production
+        providers (EL ConvAI, Gemini Live, OpenAI Realtime) expect the
+        client to push audio whenever the user speaks; their VADs handle
+        the rest. Our job is to be PROMPT, not POLITE.
+
+        ``metadata.outcome`` captures what actually happened:
+          - ``pending_done``: the agent task already completed before we got
+            here — nothing to interrupt
+          - ``no_adapter``: there's no voice adapter (text-only path)
+          - ``fired_after_speech``: the agent had started speaking when we
+            barged in (true mid-stream interrupt — manifest segment for
+            this turn will have ``transcript_truncated=True``)
+          - ``fired_before_speech``: the agent had not started speaking yet;
+            our barge-in landed in the bot's pre-reply window. Still
+            counted as ``fired`` from the script's perspective, but the
+            manifest will not flag a truncated segment for this turn.
+
+        Time of the event is captured at the START of the sequence so
+        cross-referencing with agent segments correctly flags segments
+        that were live when the interrupt was intended, not when the
+        cancel-sequence finished settling.
+        """
+        # ``interrupt_time`` is set at the actual barge-in point below —
+        # AFTER we wait for the agent to start speaking. Capturing it up
+        # front (as the earlier version did) misrepresented the event when
+        # the agent was still warming up: the event landed seconds before
+        # the agent_start_speaking event the script was trying to truncate
+        # (see issue #467).
+        anchor = getattr(self, "_voice_recording_started_at", None)
+        interrupt_time = (time.monotonic() - anchor) if anchor is not None else 0.0
+
+        pending = getattr(self, "_pending_agent_task", None)
+        adapter = self._find_voice_adapter()
+
+        outcome: str
+        native_interrupt_fired = False
+
+        if pending is None or pending.done():
+            outcome = "pending_done"
+        elif adapter is None:
+            outcome = "no_adapter"
+            pending.cancel()
+            try:
+                await pending
+            except (asyncio.CancelledError, Exception):
+                # Drain the cancellation — any exception from the cancelled
+                # task is expected and intentional. We're abandoning this
+                # agent turn because no adapter is available to barge in on.
+                pass
+            self._pending_agent_task = None
+        else:
+            # If the agent hasn't started speaking yet, wait briefly for
+            # them to start so the barge-in lands mid-utterance (the whole
+            # point of an interrupt). Bounded so a hung bot doesn't stall
+            # the script forever — callers using ``scenario.interrupt()``
+            # can override via ``wait_for_speech_timeout``.
+            speaking = adapter._agent_speaking_event
+            if not speaking.is_set():
+                try:
+                    await asyncio.wait_for(speaking.wait(), timeout=15.0)
+                except asyncio.TimeoutError:
+                    # Bounded wait: don't stall the script forever if a hung
+                    # bot never starts speaking. We proceed and fire the
+                    # interrupt anyway — the outcome label will be
+                    # "fired_before_speech" so callers can see what happened.
+                    pass
+
+            # Snapshot BEFORE we barge in so we can label the outcome
+            # accurately. (After we send the user audio, the agent may
+            # belatedly emit a frame that races our cancel; that frame
+            # should NOT count as "agent was speaking when we interrupted.")
+            agent_was_speaking = speaking.is_set()
+            outcome = "fired_after_speech" if agent_was_speaking else "fired_before_speech"
+
+            # Refresh interrupt_time so the timeline event lands at the
+            # actual barge-in point — inside the agent's speaking window
+            # when one exists, or at the give-up moment when the warm-up
+            # never produced audio (issue #467).
+            interrupt_time = (time.monotonic() - anchor) if anchor is not None else interrupt_time
+
+            # 1. Send native cancel signal first (if supported) — this drops
+            #    the bot's buffered outbound audio on transports that honor
+            #    it (Twilio ``clear``, OpenAI Realtime ``response.cancel``).
+            if adapter.capabilities.interruption:
+                try:
+                    await adapter.interrupt()
+                    native_interrupt_fired = True
+                except Exception:
+                    # Best-effort native cancel — adapters' interrupt() may
+                    # fail mid-flight (WS closed, transport error). Step 2
+                    # (push user audio) is the load-bearing barge-in path
+                    # and runs regardless; native_interrupt_fired stays
+                    # False so the outcome label reflects reality.
+                    pass
+
+            # 2. Push user audio — the bot's VAD detects the overlap and
+            #    triggers its own barge-in, regardless of whether it had
+            #    started speaking. This is what makes the interrupt actually
+            #    truncate the reply on adapters without a native cancel
+            #    (EL ConvAI, Gemini Live).
+            chunk = self._extract_audio_from_message(voiced_message)
+            audio_was_sent = False
+            if chunk is not None:
+                # Capture the user-segment timestamps around the send so
+                # the recording's manifest reflects the interrupting turn.
+                # Without this, transports like Gemini Live emit a
+                # user_interrupt event but no user segment — the recording
+                # only shows the original user turn (see issue #466).
+                user_start = (time.monotonic() - anchor) if anchor is not None else 0.0
+                try:
+                    await adapter.send_audio(chunk)
+                    audio_was_sent = True
+                except Exception:
+                    # Best-effort: send_audio may fail if the adapter just
+                    # tore down. The interrupt sequence still completes —
+                    # audio_was_sent stays False so the cleanup branch
+                    # below skips clearing pending messages (which would
+                    # otherwise drop the unsent user turn on the floor).
+                    pass
+                if audio_was_sent:
+                    self._record_interrupt_user_segment(chunk, user_start)
+
+            # 3. Cancel scenario-side awaiter and let any in-flight agent
+            #    audio drain. The recorder will close out the partial agent
+            #    segment with whatever bytes landed before the cancel.
+            pending.cancel()
+            try:
+                await pending
+            except (asyncio.CancelledError, Exception):
+                # Drain the cancellation — CancelledError is expected; any
+                # other exception thrown by the agent task at cancel time
+                # is also intentional (we're tearing the turn down). The
+                # recorder closes out the partial segment from already-
+                # received bytes.
+                pass
+            self._pending_agent_task = None
+
+            # Mark the interrupt's user audio (and any other queued
+            # messages — including the original user turn the cancelled
+            # task was processing) as already consumed by this adapter.
+            # Without this, the next agent() call (the recovery turn)
+            # re-sends queued audio via adapter.call()'s
+            # extract-from-new-messages path, which on Gemini Live causes
+            # the SDK to emit duplicate activity boundaries and produces
+            # an empty/garbled recovery reply.
+            if audio_was_sent:
+                self._clear_adapter_pending_messages(adapter)
+
+        timeline = getattr(self, "_voice_timeline", None)
+        if timeline is not None:
+            try:
+                from .voice.recording import VoiceEvent
+
+                metadata = {
+                    "adapter": type(adapter).__name__ if adapter is not None else None,
+                    "native": native_interrupt_fired,
+                    "outcome": outcome,
+                }
+                event = VoiceEvent(
+                    time=interrupt_time,
+                    type="user_interrupt",
+                    metadata=metadata,
+                )
+                timeline.append(event)
+                hook = getattr(self, "_on_voice_event", None)
+                if hook is not None:
+                    try:
+                        hook(event)
+                    except Exception:
+                        # User-supplied hook — swallow exceptions so a
+                        # buggy observer can't break the scenario. The
+                        # event is still recorded on the timeline above.
+                        pass
+            except Exception:
+                # Timeline append is observability, not control flow. If
+                # construction or recording fails, the scenario should
+                # still complete — surfacing here would mask the actual
+                # scenario outcome behind a recorder bug.
+                pass
+
+    def _record_interrupt_user_segment(self, chunk, user_start: float) -> None:
+        """Append a user segment + start/stop events for an interrupt's audio.
+
+        The default ``VoiceAgentAdapter.call`` path records user segments
+        via ``_AdapterRecorder.record_user``. ``_fire_user_interrupt``
+        calls ``adapter.send_audio`` directly, bypassing that recorder —
+        so without this helper, transports like Gemini Live emit a
+        ``user_interrupt`` event but no corresponding user segment.
+
+        Both this path and ``_AdapterRecorder.record_user`` delegate to
+        the shared ``voice.adapter.write_user_segment`` writer so the
+        timing model lives in one place.
+        """
+        anchor = getattr(self, "_voice_recording_started_at", None)
+        user_end = (time.monotonic() - anchor) if anchor is not None else user_start
+        try:
+            from .voice.adapter import write_user_segment
+
+            write_user_segment(self, chunk, user_start, user_end)
+        except Exception:
+            # Recording is observability; if append fails the scenario
+            # should still run. The interrupt itself already landed via
+            # adapter.send_audio above. Log so a buggy recorder is
+            # visible in CI/logs rather than silently degrading the
+            # manifest — matches the _append_event pattern.
+            logger.warning(
+                "_record_interrupt_user_segment failed; manifest may "
+                "omit the interrupt user turn — interrupt itself fired.",
+                exc_info=True,
+            )
+
+    async def _maybe_schedule_interrupted_agent_turn(self) -> bool:
+        """If a UserSimulatorAgent has ``interrupt_probability > 0`` and the
+        next pending role with a still-unconsumed agent is AGENT, sample the
+        probability and — when it lands — dispatch the agent turn as a
+        background task so the next user-sim turn fires the interrupt path
+        mid-response.
+
+        Returns ``True`` if an interruption was scheduled (so the caller can
+        skip the normal step for AGENT this iteration).
+        """
+        # ``_step`` only pops a role from ``_pending_roles_on_turn`` lazily
+        # on the call after the role's agent was consumed, so the front of
+        # the list can still name a "spent" role. Walk past those to find
+        # the next role that will actually run.
+        next_role: Optional[AgentRole] = None
+        for r in self._pending_roles_on_turn:
+            _idx, _agent = self._next_agent_for_role(r)
+            if _agent is not None:
+                next_role = r
+                break
+        if next_role != AgentRole.AGENT:
+            return False
+        sim = self._find_user_sim()
+        prob = float(getattr(sim, "interrupt_probability", 0.0) or 0.0) if sim else 0.0
+        if prob <= 0.0:
+            return False
+        if self._find_voice_adapter() is None:
+            return False
+        pending = getattr(self, "_pending_agent_task", None)
+        if pending is not None and not pending.done():
+            return False
+        if self._interrupt_rng().random() >= prob:
+            return False
+        idx, agent = self._next_agent_for_role(AgentRole.AGENT)
+        if agent is None:
+            return False
+        self._pending_agents_on_turn.remove(agent)
+        # Consume spent roles up to (and including) AGENT so the proceed
+        # loop's next ``_step`` call advances to JUDGE / new turn cleanly.
+        while self._pending_roles_on_turn and self._pending_roles_on_turn[0] != AgentRole.AGENT:
+            self._pending_roles_on_turn.pop(0)
+        if self._pending_roles_on_turn and self._pending_roles_on_turn[0] == AgentRole.AGENT:
+            self._pending_roles_on_turn.pop(0)
+        coro = self._call_agent(idx, role=AgentRole.AGENT)
+        self._pending_agent_task = asyncio.create_task(coro)
+        return True
 
     async def agent(
-        self, content: Optional[Union[str, ChatCompletionMessageParam]] = None
+        self,
+        content: Optional[Union[str, ChatCompletionMessageParam]] = None,
+        *,
+        wait: bool = True,
     ) -> None:
+        """Run the agent turn.
+
+        When ``wait=False`` (§4.4 L369-382), the agent call is dispatched as
+        a background task and control returns immediately. This is the async
+        primitive that enables interruption testing: subsequent script steps
+        run while the agent is still speaking.
+
+        A background turn is drained at the start of the next blocking step
+        (``user()``, ``agent()``, ``judge()``, ``proceed()``, ``succeed()``
+        or ``fail()``) so subsequent reads of ``state.messages`` see the
+        completed agent message.
+        """
+        if not wait:
+            self._schedule_background_agent_turn(content)
+            return
         await self._script_call_agent(AgentRole.AGENT, content)
+
+    def _schedule_background_agent_turn(
+        self, content: Optional[Union[str, ChatCompletionMessageParam]]
+    ) -> None:
+        pending = getattr(self, "_pending_agent_task", None)
+        if pending is not None and not pending.done():
+            raise RuntimeError(
+                "An async agent turn is already in flight — interleave sleep()/user() steps "
+                "or call agent() (wait=True) to await it."
+            )
+        coro = self._script_call_agent(AgentRole.AGENT, content)
+        self._pending_agent_task = asyncio.create_task(coro)
+
+    async def _drain_pending_agent_turn(self) -> None:
+        pending = getattr(self, "_pending_agent_task", None)
+        if pending is None:
+            return
+        # If _script_call_agent itself is running under the pending background
+        # task (the drain centralised at its top re-entered on the background
+        # coroutine), awaiting would deadlock with "Task cannot await on
+        # itself". Skip the drain in that case — the task is already running.
+        current = asyncio.current_task()
+        if current is pending:
+            return
+        try:
+            _ = await pending
+        finally:
+            self._pending_agent_task = None
 
     async def judge(
         self,
@@ -824,8 +1403,15 @@ class ScenarioExecutor:
             ]
         ] = None,
     ) -> Optional[ScenarioResult]:
+        await self._drain_pending_agent_turn()
         initial_turn: Optional[int] = None
         while True:
+            # Voice path: roll UserSimulatorAgent.interrupt_probability against
+            # the upcoming AGENT turn. On a hit, the agent turn runs in the
+            # background and the next user-sim turn fires the interrupt path
+            # mid-response. No-op for text scenarios or when probability is 0.
+            await self._maybe_schedule_interrupted_agent_turn()
+
             next_message = await self._step(
                 on_turn=on_turn,
                 go_to_next_turn=(
@@ -848,6 +1434,7 @@ class ScenarioExecutor:
                 return next_message
 
     async def succeed(self, reasoning: Optional[str] = None) -> ScenarioResult:
+        await self._drain_pending_agent_turn()
         return ScenarioResult(
             success=True,
             messages=self._state.messages,
@@ -856,6 +1443,7 @@ class ScenarioExecutor:
         )
 
     async def fail(self, reasoning: Optional[str] = None) -> ScenarioResult:
+        await self._drain_pending_agent_turn()
         return ScenarioResult(
             success=False,
             messages=self._state.messages,
@@ -875,6 +1463,11 @@ class ScenarioExecutor:
         content: Optional[Union[str, ChatCompletionMessageParam]] = None,
         judgment_request: Optional[JudgmentRequest] = None,
     ) -> Optional[ScenarioResult]:
+        # Any blocking script step (user/agent/judge/proceed) must drain a
+        # pending wait=False agent turn so later reads of state.messages are
+        # consistent. Centralised here to avoid shotgun surgery across every
+        # call site.
+        await self._drain_pending_agent_turn()
         self._consume_until_role(role)
         idx, next_agent = self._next_agent_for_role(role)
         if not next_agent:
@@ -1088,6 +1681,9 @@ def _build_scenario(
     script: Optional[List[ScriptStep]],
     set_id: Optional[str],
     metadata: Optional[Dict[str, Any]],
+    on_audio_chunk: Optional[Callable[[Any], None]] = None,
+    on_voice_event: Optional[Callable[[Any], None]] = None,
+    audio_playback: bool = False,
 ) -> "ScenarioExecutor":
     """Shared setup used by both ``run()`` (threaded) and ``arun()`` (async-native)."""
     from ._tracing import ensure_tracing_initialized
@@ -1106,6 +1702,9 @@ def _build_scenario(
         script=script,
         set_id=set_id,
         metadata=metadata,
+        on_audio_chunk=on_audio_chunk,
+        on_voice_event=on_voice_event,
+        audio_playback=audio_playback,
     )
 
 
@@ -1128,6 +1727,9 @@ async def arun(
     script: Optional[List[ScriptStep]] = None,
     set_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    on_audio_chunk: Optional[Callable[[Any], None]] = None,
+    on_voice_event: Optional[Callable[[Any], None]] = None,
+    audio_playback: bool = False,
 ) -> ScenarioResult:
     """Async-native counterpart of :func:`run`.
 
@@ -1156,6 +1758,9 @@ async def arun(
         script=script,
         set_id=set_id,
         metadata=metadata,
+        on_audio_chunk=on_audio_chunk,
+        on_voice_event=on_voice_event,
+        audio_playback=audio_playback,
     )
 
     try:
@@ -1180,6 +1785,9 @@ async def run(
     script: Optional[List[ScriptStep]] = None,
     set_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    on_audio_chunk: Optional[Callable[[Any], None]] = None,
+    on_voice_event: Optional[Callable[[Any], None]] = None,
+    audio_playback: bool = False,
 ) -> ScenarioResult:
     """
     High-level interface for running a scenario test.
@@ -1265,6 +1873,9 @@ async def run(
         script=script,
         set_id=set_id,
         metadata=metadata,
+        on_audio_chunk=on_audio_chunk,
+        on_voice_event=on_voice_event,
+        audio_playback=audio_playback,
     )
 
     # We'll use a thread pool to run the execution logic, we

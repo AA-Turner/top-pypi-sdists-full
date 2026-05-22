@@ -20,6 +20,8 @@ class SemanticType(str, Enum):
     APPLICATION_INSTANCE_ID = "application-instance-id"
     # Represents an AWS external ID that can be used to authenticate with AWS
     AWS_EXTERNAL_ID = "aws-external-id"
+    # Represents an AWS role ARN that can be used to authenticate with AWS
+    AWS_ROLE_ARN = "aws-role-arn"
     # Represents the ID of an entitlement discovered by the connector
     ENTITLEMENT_ID = "entitlement-id"
     # Represents the type of an entitlement discovered by the connector

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kugelaudio
-Version: 1.2.3
+Version: 1.3.1
 Summary: Official Python SDK for KugelAudio TTS API
 Project-URL: Homepage, https://kugelaudio.com
 Project-URL: Documentation, https://docs.kugelaudio.com
@@ -328,44 +328,55 @@ audio = client.tts.generate(
 
 ## LLM Integration: Streaming Text Input
 
-For real-time TTS when streaming text from an LLM (like GPT-4, Claude, etc.):
+For real-time TTS when streaming text from an LLM (GPT-4, Claude, etc.),
+use a `StreamingSession`. Forward LLM tokens directly to `session.send()`
+**without** `flush=True` — the server accumulates them and starts
+generation at natural sentence boundaries. Flush exactly once at the end
+of the assistant turn.
+
+> ⚠️ **Do not call `session.send(text, flush=True)` between sentences or
+> words.** Each explicit flush is a separate TTS request that pays the
+> full model time-to-first-audio (TTFA) again and produces an audible
+> gap. See [Streaming best practices](https://docs.kugelaudio.com/streaming-best-practices)
+> for the full rationale and ElevenLabs migration notes.
 
 ### Async Streaming Session
 
 ```python
 import asyncio
 
-async def stream_from_llm():
-    # Simulate LLM token stream
-    llm_tokens = ["Hello, ", "this ", "is ", "a ", "streamed ", "response."]
-    
+async def speak_turn(llm_token_stream):
     async with client.tts.streaming_session(
         voice_id=123,
-        cfg_scale=2.0,
-        flush_timeout_ms=500,  # Auto-flush after 500ms of no input
+        model_id="kugel-1-turbo",
+        language="en",
     ) as session:
-        # Send tokens as they arrive from LLM
-        for token in llm_tokens:
+        # Forward every LLM token directly. No flush=True per token —
+        # the server's text buffer chunks at sentence boundaries.
+        async for token in llm_token_stream:
             async for chunk in session.send(token):
-                # Play audio chunk immediately
                 play_audio(chunk.audio)
-        
-        # Flush any remaining text
+
+        # Single flush at turn end emits any trailing text.
         async for chunk in session.flush():
             play_audio(chunk.audio)
 
-asyncio.run(stream_from_llm())
+asyncio.run(speak_turn(my_llm_stream()))
 ```
 
 ### Synchronous Streaming Session
 
 ```python
-with client.tts.streaming_session_sync(voice_id=123) as session:
-    for token in llm_tokens:
-        for chunk in session.send(token):
+with client.tts.streaming_session_sync(
+    voice_id=123,
+    model_id="kugel-1-turbo",
+    language="en",
+) as session:
+    for token in llm_token_stream:
+        for chunk in session.send(token):  # no flush per token
             play_audio(chunk.audio)
-    
-    for chunk in session.flush():
+
+    for chunk in session.flush():  # single flush at turn end
         play_audio(chunk.audio)
 ```
 
@@ -379,6 +390,7 @@ from kugelaudio.exceptions import (
     RateLimitError,
     InsufficientCreditsError,
     ValidationError,
+    NotFoundError,
 )
 
 try:
@@ -391,6 +403,8 @@ except InsufficientCreditsError:
     print("Not enough credits, please top up")
 except ValidationError as e:
     print(f"Invalid request: {e}")
+except NotFoundError as e:
+    print(f"Resource not found (e.g. unknown voice_id): {e}")
 except KugelAudioError as e:
     print(f"API error: {e}")
 ```

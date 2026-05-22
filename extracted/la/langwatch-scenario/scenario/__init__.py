@@ -115,12 +115,52 @@ from .agent_adapter import AgentAdapter
 from .judge_agent import JudgeAgent
 from .user_simulator_agent import UserSimulatorAgent
 from .red_team_agent import RedTeamAgent
-from ._red_team import RedTeamStrategy, CrescendoStrategy, AttackTechnique, DEFAULT_TECHNIQUES
+from ._red_team import (
+    AttackerOutput,
+    RedTeamStrategy,
+    CrescendoStrategy,
+    GoatStrategy,
+    AttackTechnique,
+    DEFAULT_TECHNIQUES,
+    Technique,
+    DEFAULT_GOAT_TECHNIQUES,
+)
 from .cache import scenario_cache
 from .script import message, user, agent, judge, proceed, succeed, fail
 
-# Import pytest plugin components
-# from .pytest_plugin import pytest_configure, scenario_reporter
+# Voice support (issue #350) — sits alongside the text-based script steps.
+# Per the proposal (§1): same scenario.run(), same script DSL, same judge;
+# what changes is the medium, not the paradigm.
+from .voice import (
+    AdapterCapabilities,
+    AudioChunk,
+    AudioSegment,
+    ComposableVoiceAgent,
+    ElevenLabsAgentAdapter,
+    ElevenLabsSTTProvider,
+    ElevenLabsVoiceAgent,
+    GeminiLiveAgentAdapter,
+    LatencyMetrics,
+    LiveKitAgentAdapter,
+    OpenAIRealtimeAgentAdapter,
+    OpenAISTTProvider,
+    PipecatAgentAdapter,
+    STTProvider,
+    TwilioAgentAdapter,
+    UnsupportedCapabilityError,
+    VapiAgentAdapter,
+    VoiceAgentAdapter,
+    VoiceEvent,
+    VoiceRecording,
+    WebRTCAgentAdapter,
+    WebSocketAgentAdapter,
+    WebSocketProtocol,
+    register_tts_provider,
+    set_stt_provider,
+)
+from .voice.script_steps import audio, dtmf, interrupt, silence, sleep
+from .voice.interruption import InterruptionConfig
+from .voice import effects  # scenario.effects.background_noise(...) etc.
 
 configure = ScenarioConfig.configure
 
@@ -143,6 +183,41 @@ __all__ = [
     "judge",
     "agent",
     "user",
+    # Voice script steps
+    "audio",
+    "dtmf",
+    "interrupt",
+    "silence",
+    "sleep",
+    "InterruptionConfig",
+    "effects",
+    # Voice types
+    "AdapterCapabilities",
+    "AudioChunk",
+    "AudioSegment",
+    "LatencyMetrics",
+    "ComposableVoiceAgent",
+    "ElevenLabsSTTProvider",
+    "ElevenLabsVoiceAgent",
+    "OpenAISTTProvider",
+    "STTProvider",
+    "UnsupportedCapabilityError",
+    "VoiceAgentAdapter",
+    "VoiceEvent",
+    "VoiceRecording",
+    "register_tts_provider",
+    "set_stt_provider",
+    # Voice adapters
+    "ElevenLabsAgentAdapter",
+    "GeminiLiveAgentAdapter",
+    "LiveKitAgentAdapter",
+    "OpenAIRealtimeAgentAdapter",
+    "PipecatAgentAdapter",
+    "TwilioAgentAdapter",
+    "VapiAgentAdapter",
+    "WebRTCAgentAdapter",
+    "WebSocketAgentAdapter",
+    "WebSocketProtocol",
     # Tracing
     "setup_scenario_tracing",
     "scenario_only",
@@ -158,10 +233,14 @@ __all__ = [
     "AgentAdapter",
     "UserSimulatorAgent",
     "RedTeamAgent",
+    "AttackerOutput",
     "RedTeamStrategy",
     "CrescendoStrategy",
+    "GoatStrategy",
     "AttackTechnique",
     "DEFAULT_TECHNIQUES",
+    "Technique",
+    "DEFAULT_GOAT_TECHNIQUES",
     "JudgeAgent",
 ]
 __version__ = "0.1.0"

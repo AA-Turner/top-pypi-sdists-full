@@ -52,6 +52,21 @@ class SessionLogger:
 
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.session_dir = self.save_folder
+        # Eagerly materialize session_dir on disk BEFORE publishing the
+        # marker. Previously the dir was created lazily on the first
+        # log_event call, which could be 60+ seconds after spawn for
+        # slow startups. External watchers (tui_capture, test_harness
+        # runner) checked target.is_dir() before attaching and saw
+        # FALSE until the first event landed — so they timed out
+        # waiting on a session that drydock had already published but
+        # hadn't yet realized on disk. Observed 2026-05-21 across 10
+        # consecutive test_harness cases per iter (~20% of attempts):
+        # msgs+=1, no LLM call, runner SIGINT'd waiting for activity
+        # that never came.
+        try:
+            self.session_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:  # noqa: BLE001 — never block init
+            pass
         self.session_metadata = self._initialize_session_metadata()
         # Publish current session dir at init too (not just on reset)
         # so external watchers can find the very first session.

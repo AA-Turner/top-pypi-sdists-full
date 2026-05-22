@@ -48,7 +48,11 @@ class StackProfile:
     backend: str | None = None  # e.g. "fastapi", "django", "spring-boot"
     database: str | None = None  # e.g. "postgres", "sqlite", "mongo"
     cache: str | None = None  # e.g. "redis", "memcached"
-    queue: str | None = None  # e.g. "celery", "rq", "sqs"
+    queue: str | None = None  # e.g. "celery", "bullmq", "rq", "sqs"
+    # Extended runtime/packaging metadata from the spec
+    js_runtime: str = "node"      # "bun" | "node" — JS runtime for frontend + workers
+    pypi_package: bool = False    # True when backend should be pip-installable
+    ssr: bool = False             # True when web SSR is required
 
 
 @dataclass
@@ -152,9 +156,7 @@ def parse_stack_json(raw: str) -> StackProfile:
             return val.strip().lower()
         return None
 
-    # Normalize frontend aliases — LLMs often return "react-native" but the
-    # canonical key throughout sage is "react-native-web" (Expo SDK with web
-    # support). Any mobile-first React Native value should map there.
+    # Normalize frontend aliases
     _FRONTEND_ALIASES: dict[str, str] = {
         "react-native": "react-native-web",
         "reactnative": "react-native-web",
@@ -164,12 +166,31 @@ def parse_stack_json(raw: str) -> StackProfile:
     raw_frontend = _get("frontend")
     frontend = _FRONTEND_ALIASES.get(raw_frontend or "", raw_frontend)
 
+    # Extract extras: js_runtime, pypi_package, ssr
+    extras = data.get("extras") or {}
+    if not isinstance(extras, dict):
+        extras = {}
+    js_runtime_raw = (extras.get("js_runtime") or "node").strip().lower()
+    js_runtime = "bun" if js_runtime_raw == "bun" else "node"
+    pypi_package = bool(extras.get("pypi_package", False))
+    ssr = bool(extras.get("ssr", False))
+
+    # Also detect bun/pypi from top-level spec text fallback
+    # (in case LLM puts js_runtime at top level instead of extras)
+    if not js_runtime == "bun" and _get("js_runtime") == "bun":
+        js_runtime = "bun"
+    if not pypi_package and str(data.get("pypi_package", "")).lower() in ("true", "yes", "1"):
+        pypi_package = True
+
     return StackProfile(
         frontend=frontend,
         backend=_get("backend"),
         database=_get("database"),
         cache=_get("cache"),
         queue=_get("queue"),
+        js_runtime=js_runtime,
+        pypi_package=pypi_package,
+        ssr=ssr,
     )
 
 
@@ -204,29 +225,53 @@ Spec:
 
 _STACK_PROMPT = """You are choosing the technical stack for a software spec.
 
+## Technology Dictionary (reference before choosing)
+
+**Bun.js / Bun**: A fast JavaScript runtime + bundler + package manager (like Node.js but faster).
+  - Use `bun install` instead of `npm install`
+  - Use `bun run dev` / `bun run build` instead of `npm run`
+  - Docker image: `oven/bun:1` (NOT `node:`)
+  - BullMQ workers run under Bun (TypeScript, `import { Worker } from 'bullmq'`)
+  - When spec says "use Bun instead of Node" or "use Bun.js": set js_runtime="bun"
+
+**PyPI packaging**: Distributing a Python package to pip/PyPI.
+  - Requires `pyproject.toml` with `[build-system]` and `[project]` sections
+  - Built with `python -m build`, published with `twine upload`
+  - NOT the same as "use Python" — it means the backend should be installable via `pip install`
+  - When spec says "package via PyPI" or "distribute via PyPI": set pypi_package=true in extras
+
+**BullMQ**: Redis-based job queue for Node.js / Bun.js (TypeScript)
+  - Different from Python's Celery — this runs in the JS runtime (Bun or Node)
+  - Workers are TypeScript files: `new Worker('queue-name', async (job) => { ... })`
+
+**TimescaleDB**: PostgreSQL extension for time-series data
+  - Same `postgres` connection string, just enable the extension
+  - Use for analytics, metrics, event streams
+
+**RunwayML**: AI video generation API (not self-hosted)
+
+**Stable Diffusion**: AI image generation (can be self-hosted or via API)
+
 Output a single JSON object with these string keys (or null):
-  - frontend: framework name — MUST be one of the exact strings below:
+  - frontend: framework name — MUST be one of:
               "react-native-web" — React Native + Expo SDK (iOS/Android/Web). Use
-                  this for ANY spec mentioning React Native, Expo, mobile app,
-                  cross-platform app. NEVER use "react-native" (wrong key).
-              "react" — plain Vite+React web app (no mobile)
-              "nextjs" — Next.js SSR web app
-              "vue", "svelte" — other web frameworks
-              "flutter" — Dart/Flutter
-              "ios-swift" — native iOS Swift
-              "android-compose" — Jetpack Compose Android
-              null — if the project has no frontend
-  - backend:  framework name (e.g. "fastapi", "django", "spring-boot",
-              "express", "rust-axum", "go-microservices") or null
-  - database: db name (e.g. "postgres", "mysql", "sqlite", "mongo") or null
-  - cache:    cache name (e.g. "redis", "memcached") or null
-  - queue:    queue name (e.g. "celery", "rq", "sqs", "kafka") or null
+                  this for ANY spec mentioning React Native, Expo, mobile app.
+                  When spec also mentions Bun.js SSR: STILL use "react-native-web",
+                  and set js_runtime="bun" in extras.
+              "react" — plain web app (no mobile)
+              "nextjs" — Next.js SSR
+              null — no frontend
+  - backend:  "fastapi", "django", "express", "go-microservices", "rust-axum", etc. or null
+  - database: "postgres", "mysql", "sqlite", "mongo", "timescaledb" or null
+  - cache:    "redis", "memcached" or null
+  - queue:    "bullmq" (JS/Bun queue), "celery" (Python), "rq", "kafka" or null
+  - extras:   object with optional fields:
+              - js_runtime: "bun" | "node" (default "node") — set to "bun" if spec says Bun.js
+              - pypi_package: true/false — set true if spec says distribute via PyPI
+              - ssr: true/false — set true if spec requires server-side rendering
 
-IMPORTANT: For React Native / mobile / cross-platform apps ALWAYS output
-"react-native-web" (NOT "react-native", NOT "expo"). This is the canonical key.
-
-Prefer the explicit choices in the spec. If the spec is ambiguous, pick
-the most common production-grade option for that domain.
+IMPORTANT: For React Native / mobile / cross-platform apps ALWAYS output "react-native-web".
+When Bun.js is mentioned, set js_runtime="bun" in extras — do NOT change the frontend key.
 
 Output ONLY the JSON object. No prose.
 
@@ -235,22 +280,49 @@ Spec:
 """
 
 
-def _truncate_for_prompt(spec: str, max_chars: int = 6000) -> str:
+def _truncate_for_prompt(spec: str, max_chars: int = 14000) -> str:
     """Keep large specs from blowing the LLM context window.
 
-    Strategy: keep head and tail (specs usually have the title and
-    feature list at top, summary/requirements at bottom). Loses middle
-    detail but never crashes.
+    Strategy: keep first 6000 chars, summarize section headers from the
+    middle, then keep last 4000 chars. This preserves the overall
+    structure (title + intro, all section names, closing requirements)
+    rather than blindly discarding content from the middle.
     """
     if len(spec) <= max_chars:
         return spec
-    half = max_chars // 2 - 50
-    return spec[:half] + "\n\n...[truncated]...\n\n" + spec[-half:]
+
+    head_chars = 6000
+    tail_chars = 4000
+    head = spec[:head_chars]
+    tail = spec[-tail_chars:]
+
+    # Summarise section headers from the middle so the LLM knows what
+    # was truncated (lines starting with # or a numbered-section pattern).
+    middle = spec[head_chars : len(spec) - tail_chars]
+    _SECTION_HEADER_RE = re.compile(
+        r"^[ \t]*(?:#{1,4}[ \t]+\S|(?:\d+[.)]\s+[A-Z]))", re.MULTILINE
+    )
+    middle_headers = _SECTION_HEADER_RE.findall(middle)
+    if middle_headers:
+        # Collect full header lines from the middle block
+        header_lines = [
+            line.strip()
+            for line in middle.splitlines()
+            if _SECTION_HEADER_RE.match(line)
+        ]
+        summary = "\n".join(header_lines[:60])  # cap at 60 headers
+        middle_note = (
+            f"\n\n...[middle truncated — section headings below]...\n{summary}\n"
+        )
+    else:
+        middle_note = "\n\n...[middle truncated]...\n"
+
+    return head + middle_note + tail
 
 
 def extract_features(spec: str, generate: GenerateFn, *, max_retries: int = 3) -> list[Feature]:
     """Get the feature list, retrying on malformed JSON, falling back to keywords."""
-    prompt = _FEATURES_PROMPT.format(spec=_truncate_for_prompt(spec))
+    prompt = _FEATURES_PROMPT.format(spec=_truncate_for_prompt(spec, max_chars=14000))
     last_raw = ""
     for _ in range(max_retries):
         raw = generate(prompt)

@@ -1,3 +1,5 @@
+from typing_extensions import deprecated
+
 from eveuniverse.models import EveEntity
 
 _items = {
@@ -110,6 +112,7 @@ def _create_evemicros_item(item_id):
     return _items[item_id]
 
 
+@deprecated("No longer used")
 def create_evemicros_response(*item_ids, ok=True):
     return {
         "ok": ok,
@@ -117,12 +120,14 @@ def create_evemicros_response(*item_ids, ok=True):
     }
 
 
+@deprecated("Replaced by `EveEntityFactory`")
 def create_eve_entity(**kwargs):
     if "category" not in kwargs:
         kwargs["category"] = EveEntity.CATEGORY_CHARACTER
     return EveEntity.objects.create(**kwargs)
 
 
+@deprecated("No longer used")
 def create_evesdeapi_response(*item_ids):
     return [_create_evesdeapi_item(item_id) for item_id in item_ids]
 

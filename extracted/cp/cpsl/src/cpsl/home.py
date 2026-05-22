@@ -6,7 +6,7 @@ from typing import Any, Literal
 from .constants import ACCESS_PUBLIC, AccessLevel
 from .session import RequestContext
 
-SuggestionTarget = Literal["prompt", "workflow", "page"]
+SuggestionTarget = Literal["prompt", "workflow", "page", "action"]
 
 
 def _target_name(value: Any) -> str:
@@ -25,21 +25,28 @@ def _page_target_name(value: Any) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Suggestion:
-    """A typed action shown on an app's Capsule home screen.
+    """A typed button-like action for home screens and chat suggestions.
 
-    Targets are mutually exclusive:
-      - ``prompt=`` starts a normal chat with that text.
+    Exactly one target must be provided:
+      - ``prompt=`` sends text to chat.
       - ``workflow=`` opens the workflow launcher. Pass either the workflow
         object returned by ``app.workflow(...)`` or its string name.
       - ``workflow=`` plus ``input=`` immediately starts the workflow with
         that input. ``payload=`` is kept as a wire-format alias.
       - ``page=`` navigates to a page.
+      - ``action=`` invokes a named action. In active workflow/chat sessions,
+        the existing session is reused; on the home screen, the action opens
+        the normal action surface.
+
+    ``payload=`` is delivered to workflow and action targets. ``input=`` is a
+    readable alias for workflow/action payloads when authoring DSL code.
     """
 
     label: str
     prompt: str | None = None
     workflow: Any | None = None
     page: str | None = None
+    action: Any | None = None
     description: str | None = None
     icon: str | None = None
     image: str | None = None
@@ -49,13 +56,20 @@ class Suggestion:
     payload: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
-        targets = [self.prompt is not None, self.workflow is not None, self.page is not None]
+        targets = [
+            self.prompt is not None,
+            self.workflow is not None,
+            self.page is not None,
+            self.action is not None,
+        ]
         if sum(targets) != 1:
-            raise ValueError("Suggestion must define exactly one of prompt=, workflow=, or page=")
+            raise ValueError(
+                "Suggestion must define exactly one of prompt=, workflow=, page=, or action="
+            )
         if self.input and self.payload:
             raise ValueError("Suggestion accepts input= or payload=, not both")
-        if (self.input or self.payload) and self.workflow is None:
-            raise ValueError("Suggestion input is only supported with workflow=")
+        if (self.input or self.payload) and self.workflow is None and self.action is None:
+            raise ValueError("Suggestion input is only supported with workflow= or action=")
 
     def to_dict(self) -> dict[str, Any]:
         if self.prompt is not None:
@@ -64,9 +78,12 @@ class Suggestion:
         elif self.workflow is not None:
             target = "workflow"
             value = _target_name(self.workflow)
-        else:
+        elif self.page is not None:
             target = "page"
             value = _page_target_name(self.page)
+        else:
+            target = "action"
+            value = _target_name(self.action)
 
         d: dict[str, Any] = {
             "label": self.label,

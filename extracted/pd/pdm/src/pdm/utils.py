@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import errno
 import functools
+import importlib.metadata
 import inspect
 import json
 import os
@@ -18,28 +20,29 @@ import sysconfig
 import tempfile
 import urllib.parse as parse
 import warnings
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from os import name as os_name
 from pathlib import Path
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
 
-from pdm.compat import importlib_metadata
-from pdm.exceptions import PDMDeprecationWarning, PdmException
+from pdm.exceptions import PDMDeprecationWarning, PdmException, PdmUsageError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from importlib.metadata import Distribution
     from re import Match
-    from typing import IO, Any, Iterator
+    from typing import IO, Any
 
     from pbs_installer import PythonVersion
 
     from pdm._types import FileHash, HiddenText, RepositoryConfig
-    from pdm.compat import Distribution
 
 try:
-    _packaging_version = importlib_metadata.version("packaging")
+    _packaging_version = importlib.metadata.version("packaging")
 except Exception:
     from packaging import __version__ as _packaging_version
 
@@ -168,6 +171,34 @@ def atomic_open_for_write(filename: str | Path, *, mode: str = "w", encoding: st
         shutil.copyfile(name, str(filename))
     finally:
         os.unlink(name)
+
+
+@contextlib.contextmanager
+def open_for_write_no_symlink(filename: str | Path, *, encoding: str = "utf-8") -> Iterator[IO[str]]:
+    """Open *filename* for writing text, refusing to follow a symlink.
+
+    Project-local state and config files (``pdm.toml``, ``.pdm-python``,
+    ``.python-version``) may be planted as symlinks by an untrusted repository to
+    redirect the write onto a file outside the project root. This helper rejects
+    such writes: on POSIX it passes ``O_NOFOLLOW`` so the kernel rejects the open
+    atomically (no TOCTOU window); on platforms lacking ``O_NOFOLLOW`` it falls
+    back to a best-effort ``lstat`` pre-check.
+    """
+    path = Path(filename)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow and path.is_symlink():
+        raise PdmUsageError(f"Refusing to write to {path} because it is a symlink.")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | nofollow, 0o666)
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, errno.EMLINK):
+            raise PdmUsageError(f"Refusing to write to {path} because it is a symlink.") from exc
+        raise
+    fp = open(fd, "w", encoding=encoding)
+    try:
+        yield fp
+    finally:
+        fp.close()
 
 
 @contextlib.contextmanager
@@ -450,10 +481,9 @@ def deprecation_warning(message: str, stacklevel: int = 1, raise_since: str | No
 
 def is_pip_compatible_with_python(python_version: Version | str) -> bool:
     """Check the given python version is compatible with the pip installed"""
-    from pdm.compat import importlib_metadata
     from pdm.models.specifiers import get_specifier
 
-    pip = importlib_metadata.distribution("pip")
+    pip = importlib.metadata.distribution("pip")
     requires_python = get_specifier(pip.metadata.get("Requires-Python"))
     return requires_python.contains(python_version, True)
 
@@ -466,8 +496,8 @@ def is_in_zipapp() -> bool:
 @functools.lru_cache(None)
 def package_installed(package_name: str) -> bool:
     try:
-        importlib_metadata.distribution(package_name)
-    except importlib_metadata.PackageNotFoundError:
+        importlib.metadata.distribution(package_name)
+    except importlib.metadata.PackageNotFoundError:
         return False
     else:
         return True

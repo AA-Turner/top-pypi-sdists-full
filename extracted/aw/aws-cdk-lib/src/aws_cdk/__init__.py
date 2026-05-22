@@ -41284,6 +41284,7 @@ __all__ = [
     "aws_autoscaling_common",
     "aws_autoscaling_hooktargets",
     "aws_autoscalingplans",
+    "aws_awsexternalanthropic",
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
@@ -41611,6 +41612,7 @@ from . import aws_autoscaling
 from . import aws_autoscaling_common
 from . import aws_autoscaling_hooktargets
 from . import aws_autoscalingplans
+from . import aws_awsexternalanthropic
 from . import aws_b2bi
 from . import aws_backup
 from . import aws_backupgateway

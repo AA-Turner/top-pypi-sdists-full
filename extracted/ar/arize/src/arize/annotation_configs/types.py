@@ -3,7 +3,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from arize._generated.api_client.models.annotation_config import (
-    AnnotationConfig as _GenAnnotationConfig,
+    AnnotationConfig,
 )
 from arize._generated.api_client.models.annotation_config_type import (
     AnnotationConfigType,
@@ -28,7 +28,7 @@ from arize._generated.api_client.models.pagination_metadata import (
 )
 
 
-class AnnotationConfigsList200Response(BaseModel):
+class AnnotationConfigListResponse(BaseModel):
     """SDK view of the generated list response with each ``AnnotationConfig`` unwrapped.
 
     The ``annotation_configs`` field contains the concrete inner types
@@ -56,7 +56,7 @@ class AnnotationConfigsList200Response(BaseModel):
     ]:
         result = []
         for item in v:  # type: ignore[attr-defined]
-            if isinstance(item, _GenAnnotationConfig):
+            if isinstance(item, AnnotationConfig):
                 if item.actual_instance is None:
                     raise ValueError(
                         "AnnotationConfig wrapper has actual_instance=None"
@@ -67,8 +67,8 @@ class AnnotationConfigsList200Response(BaseModel):
 
 
 __all__ = [
+    "AnnotationConfigListResponse",
     "AnnotationConfigType",
-    "AnnotationConfigsList200Response",
     "CategoricalAnnotationConfig",
     "CategoricalAnnotationValue",
     "ContinuousAnnotationConfig",

@@ -1115,10 +1115,19 @@ def get_pre_season_init_months(
 
     months = []
     m = earliest
+    first_iter = True
     while True:
-        months.append(m)
-        if m == stop_month:
+        # Guard the wrap case: when ``extend_to_month`` happens to equal
+        # ``earliest`` (e.g. current month == earliest pre-season init), the
+        # first iteration would otherwise hit ``m == stop_month`` immediately
+        # and return only one month. ``first_iter`` lets us walk a full
+        # 12-month cycle and stop the *second* time we hit ``earliest``.
+        if not first_iter and m == earliest:
             break
+        months.append(m)
+        if m == stop_month and not first_iter:
+            break
+        first_iter = False
         m = m % 12 + 1
         if len(months) > 12:
             break

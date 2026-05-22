@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyverse2d
-Version: 1.3.25
+Version: 1.6.1
 Summary: 2D Game Engine using pyglet (OpenGL) for rendering
 Author: WhiteWolf45380
 License: MIT
@@ -25,10 +25,10 @@ Dynamic: license-file
 
 **A batteries-included 2D game engine for Python**, built on top of [pyglet](https://pyglet.org/).
 
-PyVerse2D gives you a complete ECS-based runtime: physics, lighting, particles, tilemaps, GUI, audio... behind a clean and minimal API.
+PyVerse2D gives you a complete ECS-based runtime - physics, lighting, particles, tilemaps, GUI, audio, video - behind a clean and minimal API.
 
 [![PyPI version](https://img.shields.io/pypi/v/pyverse2d)](https://pypi.org/project/pyverse2d/)
-[![Python](https://img.shields.io/pypi/pyversions/pyverse2d?cacheSeconds=60)](https://pypi.org/project/pyverse2d/)
+[![Python](https://img.shields.io/pypi/pyversions/pyverse2d)](https://pypi.org/project/pyverse2d/)
 [![License](https://img.shields.io/github/license/WhiteWolf45380/PyVerse2D)](LICENSE)
 
 ---
@@ -44,6 +44,7 @@ PyVerse2D gives you a complete ECS-based runtime: physics, lighting, particles, 
 - **GUI system** - widgets, tweens, behaviors (click, hover, focus, select), toggle buttons, scrollbars, labels
 - **Asset management** - images, animations, fonts, sounds, music, playlists, video
 - **Input system** - keyboard, mouse, combo listeners, repeat and condition support
+- **Post-processing** - shader-based effects (blur, chromatic aberration, color grading, glitch, distortion, scanlines…) applied per zone with spatial masking
 - **Built-in profiler** - frame-accurate profiling with export
 
 ---
@@ -120,17 +121,209 @@ pv.run()
 
 ---
 
-## Core concepts
+## Run Configuration
+
+### Engine API
+ 
+These are the top-level functions exposed directly on the `pyverse2d` module.
+ 
+```python
+# 1 - Bind the OS window to the engine (must be called before anything else)
+pv.set_window(window)
+ 
+# 2 - Upload scene assets to the GPU before the first frame
+pv.preload()           # preloads all pushed scenes
+pv.preload(my_scene)   # preloads a specific scene only
+ 
+# 3 - Start the main loop
+def on_update(dt: float):
+    pass   # game logic, called every frame
+ 
+def on_draw():
+    pass   # extra draw hook
+ 
+pv.run(on_update=on_update, on_draw=on_draw)
+ 
+# 4 - Stop cleanly (closes the window and exits the pyglet loop)
+pv.stop()
+```
+ 
+### Profiling
+ 
+```python
+pv.preload()
+pv.profile(duration=10.0, on_update=on_update, export_path="profile_report.txt")
+```
+ 
+The profiler runs the main loop for `duration` seconds, then writes a frame-accurate report to `export_path` (pass `None` to print to console instead).
+ 
+### Traceback
+ 
+By default PyVerse2D enriches Python tracebacks with engine context. You can control this:
+ 
+```python
+pv.enable_traceback()    # on by default
+pv.disable_traceback()
+pv.set_traceback(True)   # equivalent to enable
+```
+ 
+---
+
+## Internal objects
+
+### Assets
+ 
+Assets are immutable descriptors - they hold configuration but no runtime state. They are cheap to create and safe to share.
+ 
+```python
+# Image - width or height scales proportionally, scale_factor is a multiplier
+img = pv.asset.Image("player.png", height=2.5)
+img = pv.asset.Image("tile.png", scale_factor=2.0)
+ 
+# Animation - built from an Image sequence
+anim = pv.asset.Animation.from_folder("assets/", prefix="run_", framerate=12, height=2.5)
+anim.duration   # total duration in seconds
+anim.frames     # tuple of Images
+ 
+# Font - system name, file path, or default
+font = pv.asset.Font("Arial", size=24)
+font = pv.asset.Font("fonts/custom.ttf", size=18)
+font = pv.asset.Font()                   # built-in FreeSans fallback
+font.text_width("Hello")                 # pixel width of a string
+font.clip_text("Long string", max_width=200, suffix="…")
+ 
+# Text - immutable content + font pair
+text = pv.asset.Text("Score: 0", font=pv.asset.Font(size=20))
+text.with_text("Score: 100")             # returns a new Text
+text.with_font(pv.asset.Font(size=32))
+ 
+# Color - accepts int [0, 255] or float [0.0, 1.0] per channel, with optional alpha
+red   = pv.asset.Color(255, 0, 0)
+white = pv.asset.Color(1.0, 1.0, 1.0)
+semi  = pv.asset.Color(0.2, 0.6, 1.0, 0.8)
+semi.rgb    # (r, g, b) as floats
+semi.rgba8  # (r, g, b, a) as ints [0, 255]
+semi.with_alpha(0.5)
+ 
+# Sound - SFX, loaded entirely in memory
+sound = pv.asset.Sound("hit.wav", volume=0.8, cooldown=0.1)
+sound.play()
+sound.play(loop=True, limit=3)
+sound.pause()
+sound.stop()
+ 
+# Sound with random variations (picks one file at random each play)
+footstep = pv.asset.Sound.from_variations("assets/audio/", prefix="step_", cooldown=0.4)
+footstep.add_variation("assets/audio/step_extra.wav")
+ 
+# Music - streamed from disk
+music = pv.asset.Music("theme.ogg", volume=0.9)
+music.play(loop=True, fade_s=2.0)
+music.stop(fade_s=1.0)
+ 
+# Video
+video = pv.asset.Video("intro.mp4", volume=0.8)
+ 
+# Playlist
+playlist = pv.asset.Playlist(
+    [music_a, music_b, music_c],
+    shuffle=True, loop=True,
+    cross_fade=2.0, fade_in=1.0,
+)
+playlist.play()
+playlist.add(music_d)
+```
+ 
+### Bundles
+ 
+A `Bundle` loads a whole folder of assets at once, keyed by filename (minus extension and optional prefix). Results are cached - calling `get()` twice for the same key returns the same instance.
+ 
+```python
+# ImageBundle
+images = pv.asset.ImageBundle.from_folder("assets/ui/", height=64)
+btn_img = images.get("button")           # Image
+images.random()                          # random Image from the bundle
+ 
+# AnimationBundle - not a built-in type, use Animation.from_folder directly
+anim = pv.asset.Animation.from_folder("assets/run/", framerate=12, height=2.5)
+ 
+# FontBundle
+fonts = pv.asset.FontBundle.from_folder("assets/fonts/", size=24)
+title_font = fonts.get("bold", size=48)  # override size per call
+ 
+# SoundBundle
+sounds = pv.audio.load_sounds("assets/audio/sfx/", extensions=[".wav"], volume=1.0, cooldown=0.3)
+sounds["footstep"].play()
+sounds.random().play()
+ 
+# MusicBundle - preloads each music in a background thread
+musics = pv.audio.load_musics("assets/audio/music/", extensions=[".ogg"], volume=0.8)
+musics.preload()
+pv.audio.play_music(musics["theme"])
+pv.audio.switch_music(musics.random(), fade_s=2.0)
+ 
+# Common Bundle API
+bundle.keys()         # all keys
+bundle.values_list()  # all loaded assets
+bundle.has("key")
+len(bundle)
+"key" in bundle
+```
+
+---
+
+## Rendering Pipeline
 
 ### Window & screen
 
-`LogicalScreen` defines the virtual resolution your game is designed for. `Window` wraps the OS window and handles letterboxing automatically: your game scales cleanly to any physical window size.
+`LogicalScreen` defines the virtual resolution your game is designed for. `Window` wraps the OS window and handles letterboxing automatically, your game scales cleanly to any physical window size.
 
 ```python
 screen = LogicalScreen(1920, 1080)   # virtual canvas
 window = Window(screen=screen, resizable=True, vsync=True)
 pv.set_window(window)
 ```
+
+### Viewport
+ 
+A `Viewport` defines which region of the `LogicalScreen` a scene renders into, and how its local axes are oriented. By default a viewport covers the full screen with a standard basis, but you can split the screen, mirror axes, or skew the coordinate space.
+ 
+```python
+# Full screen, centered origin (default setup)
+viewport = Viewport(width=1920, height=1080, origin=(0.5, 0.5))
+ 
+# Bottom-left quarter of the screen
+viewport = Viewport(position=(0.0, 0.0), width=960, height=540, origin=(0.0, 0.0))
+ 
+# Mirrored horizontal axis (flip x)
+viewport = Viewport(
+    width=1920, height=1080,
+    origin=(0.5, 0.5),
+    x_direction=(-1.0, 0.0),
+    y_direction=(0.0, 1.0),
+)
+```
+ 
+`x_direction` and `y_direction` form the local basis of the viewport - they must not be collinear. Changing them lets you rotate or mirror the rendered output independently of the camera.
+
+### Camera
+
+Cameras define the point of view. They support smooth following, animated transitions, and parallax attachment.
+
+```python
+# Follow a target with smooth lag
+camera.follow(player.transform, offset=(0.0, 1.0), smoothing=0.05)
+
+# Animated transition to a position
+camera.goto((10.0, 0.0), duration=1.5, easing=pv.math.easing.ease_in_out_quad)
+
+# Parallax-derived camera (e.g. for a background layer)
+background_camera = Camera.derived_from(camera, parallax_x=0.3)
+```
+
+---
+
+## Core concepts
 
 ### Scene & layers
 
@@ -159,7 +352,7 @@ player = world.Entity(
 main_world.add_entity(player)
 ```
 
-Available components: `Transform`, `ShapeRenderer`, `SpriteRenderer`, `TextRenderer`, `Animator`, `Collider`, `RigidBody`, `GroundSensor`, `Follow`, `SoundEmitter`, `VideoPlayer`.
+Available components: `Transform`, `ShapeRenderer`, `SpriteRenderer`, `TextRenderer`, `Animator`, `TrailRenderer`, `Collider`, `RigidBody`, `GroundSensor`, `Follow`, `SoundEmitter`, `VideoPlayer`.
 
 ### Systems
 
@@ -175,64 +368,18 @@ main_world.add_system(world.SteeringSystem())
 main_world.add_system(world.SoundSystem(origin=camera))
 ```
 
-### Camera
-
-Cameras define the point of view. They support smooth following, animated transitions, and parallax attachment.
+### Tilemaps
 
 ```python
-# Follow a target with smooth lag
-camera.follow(player.transform, offset=(0.0, 1.0), smoothing=0.05)
+# Load a Tiled .tmx file
+stage = pv.tile.MapLoader.from_tiled_tmx("map/stage_0.tmx", tile_width=1.5, tile_height=1.5)
 
-# Animated transition to a position
-camera.goto((10.0, 0.0), duration=1.5, easing=pv.math.easing.ease_in_out_quad)
+# Add layers to the scene
+ground = stage["ground"]
+main_scene.add_layer(pv.scene.TileLayer(ground), z=4)
 
-# Parallax-derived camera (e.g. for a background layer)
-background_camera = Camera.derived_from(camera, parallax_x=0.3)
-```
-
-### Physics
-
-Entities with a `Collider` and a `RigidBody` participate in the physics simulation. Set `gravity=False` on a `RigidBody` to opt out of gravity. Use `apply_force` and `apply_impulse` for runtime interactions.
-
-```python
-rb = entity.rigid_body
-rb.apply_force(pv.math.Vector(500.0, 0.0))    # continuous force
-rb.apply_impulse(pv.math.Vector(0.0, 300.0))  # instant impulse (e.g. jump)
-```
-
-Supported shapes: `Circle`, `Rect`, `RoundedRect`, `Ellipse`, `Capsule`, `Polygon`, `RegularPolygon`.
-
-### Inputs
-
-```python
-# Single key listener
-pv.inputs.add_listener(pv.key.K_SPACE, player.jump)
-
-# Held key (repeat=True fires every frame)
-pv.inputs.add_listener(pv.key.K_D, player.move_right, repeat=True)
-
-# Combo
-pv.inputs.when_all_of([pv.key.K_LEFT, pv.key.K_DOWN], move_downleft, repeat=True)
-
-# Mouse
-pv.inputs.add_listener(pv.mouse.B_LEFT, on_click)
-```
-
-### Assets
-
-```python
-# Image
-img = pv.asset.Image("player.png", height=2.5)
-
-# Animation from a folder (files matching a prefix)
-anim = pv.asset.Animation.from_folder("assets/", prefix="run_", framerate=12, height=2.5)
-
-# Sound with random variations
-footstep = pv.asset.Sound.from_variations("assets/audio/", prefix="step_", cooldown=0.4)
-
-# Music
-music = pv.asset.Music("theme.ogg")
-pv.audio.play_music(music, loop=True, fade_s=2.0)
+# Inject tile colliders automatically into the world
+pv.tile.CollisionMapper(ground).inject(main_world)
 ```
 
 ### Lighting
@@ -271,45 +418,241 @@ emitter.add_modifier(pv.fx.Wind(direction=-45, strength=1.5, turbulence=8))
 particle_layer.add_emitter(emitter)
 ```
 
-### Tilemaps
+### Post-processing
+
+Post-processing effects are applied via a `PostFxLayer`. Each layer holds one or more `PostFxZone` objects, a zone can cover the entire screen (unbounded) or be restricted to a `Circle` or `Rect` shape with an optional soft blend edge. Effects chain in order and are GPU-accelerated (GLSL shaders).
 
 ```python
-# Load a Tiled .tmx file
-stage = pv.tile.MapLoader.from_tiled_tmx("map/stage_0.tmx", tile_width=1.5, tile_height=1.5)
+postfx_layer = pv.scene.PostFxLayer()
+main_scene.add_layer(postfx_layer, z=50)
 
-# Add layers to the scene
-ground = stage["ground"]
-main_scene.add_layer(pv.scene.TileLayer(ground), z=4)
+# Unbounded zone: covers the full screen
+zone = pv.fx.PostFxZone()
+zone.add_effect(pv.fx.ColorGrade(brightness=0.05, contrast=1.1, saturation=0.9))
+zone.add_effect(pv.fx.Vignette(strength=0.6, radius=80, softness=40))
+postfx_layer.add_zone(zone)
 
-# Inject tile colliders automatically into the world
-pv.tile.CollisionMapper(ground).inject(main_world)
+# Bounded zone: circle around a point, with edge blending
+local_zone = pv.fx.PostFxZone(shape=pv.shape.Circle(10), position=(0.0, 0.0), blend=3.0)
+local_zone.add_effect(pv.fx.Blur(radius=4.0, passes=2))
+postfx_layer.add_zone(local_zone)
+
+# Attach a zone to a moving object
+local_zone.attach_to(player.transform, offset=(0.0, 1.0), smoothing=0.05)
 ```
 
-### Profiling
+Available effects and their key parameters:
+
+| Effect | Description | Key params |
+|---|---|---|
+| `Blur` | Gaussian blur (separable, multi-pass) | `radius`, `passes` |
+| `Chromatic` | Chromatic aberration | `strength`, `angle` |
+| `ColorGrade` | Brightness / contrast / saturation / tint | `brightness`, `contrast`, `saturation`, `tint` |
+| `EdgeDetect` | Sobel edge detection | `threshold`, `strength`, `edge_color` |
+| `Flicker` | Luminosity flicker (unstable light source) | `amplitude`, `speed` |
+| `Glitch` | Digital corruption with band shifting | `strength`, `density`, `speed` |
+| `Pixelate` | Pixelation | `block_size` |
+| `Posterize` | Color level reduction (cel-shading) | `levels` |
+| `Scanlines` | CRT scanline overlay | `spacing`, `strength`, `softness` |
+| `Vignette` | Edge darkening | `strength`, `radius`, `softness`, `color` |
+| `Wave` | Sinusoidal distortion (cartesian) | `amplitude_x`, `amplitude_y`, `frequency_x`, `frequency_y`, `speed` |
+| `DistortSwirl` | Vortex rotation | `angle`, `falloff` |
+| `DistortSqueeze` | Asymmetric directional stretch | `strength_x`, `strength_y`, `falloff` |
+| `DistortRipple` | Radial concentric wave | `amplitude`, `frequency`, `speed`, `falloff` |
+
+Effects can be added, removed, replaced and reordered at runtime:
 
 ```python
-pv.preload()
-pv.profile(duration=10.0, on_update=on_update, export_path="profile_report.txt")
+zone.replace_effect(pv.fx.ColorGrade(saturation=0.0))   # swap params live
+zone.move_effect(pv.fx.Blur, index=0)                   # push blur to first pass
+zone.remove_effect(pv.fx.Vignette)
+zone.disable()                                          # pause the zone without removing it
 ```
 
 ---
 
-## Game loop
+## Managers
 
+### KeyManager
+ 
+`pv.key` tracks keyboard state. Key constants are exposed directly on the manager (`K_A`, `K_SPACE`, `K_F11`…).
+ 
 ```python
-def on_update(dt: float):
-    # your update logic
-    pass
-
-def on_draw():
-    # your extra draw logic
-    pass
-
-pv.preload()
-pv.run(on_update=on_update, on_draw=on_draw)
+# State queries (use these inside on_update)
+pv.key.is_pressed(pv.key.K_D)        # held down
+pv.key.just_pressed(pv.key.K_SPACE)  # pressed this frame
+pv.key.just_released(pv.key.K_LSHIFT)
+ 
+# Human-readable label
+pv.key.name(pv.key.K_ENTER)          # "Enter"
 ```
-
-`pv.stop()` cleanly shuts down the engine and closes the window.
+ 
+### MouseManager
+ 
+`pv.mouse` tracks cursor position, movement, scroll, and button state. Position is in `LogicalScreen` coordinates.
+ 
+```python
+pv.mouse.position          # (x, y) in logical space
+pv.mouse.scroll_y          # wheel delta this frame
+pv.mouse.is_pressed(pv.mouse.B_LEFT)
+pv.mouse.just_pressed(pv.mouse.B_RIGHT)
+ 
+# World-space position under the cursor
+wx, wy = pv.mouse.get_world_position(viewport=viewport, camera=camera)
+ 
+# Cursor appearance
+pv.mouse.set_appearance(pv.mouse.SystemMouseCursor(pv.mouse.CURSOR_HAND))
+pv.mouse.set_appearance(pv.mouse.ImageMouseCursor(img, anchor_x=0.0, anchor_y=1.0))
+ 
+# Exclusive mode (FPS-style grab)
+pv.mouse.set_exclusive(True)
+```
+ 
+### InputsManager
+ 
+`pv.inputs` maps keys and mouse buttons to callbacks. All listeners return a `Listener` object that can be enabled, disabled, or invalidated at any time.
+ 
+```python
+# Single key, fires on press
+pv.inputs.add_listener(pv.key.K_SPACE, player.jump)
+ 
+# Held key - fires every frame while pressed
+pv.inputs.add_listener(pv.key.K_D, player.move_right, repeat=True)
+ 
+# Release
+pv.inputs.add_listener(pv.key.K_LSHIFT, on_sprint_end, up=True)
+ 
+# Conditional - only fires when the lambda returns True
+pv.inputs.add_listener(pv.key.K_RIGHT, cam_right, repeat=True, condition=lambda: not pv.key.is_pressed(pv.key.K_LEFT))
+ 
+# Any of a set of keys
+pv.inputs.when_any_of([pv.key.K_A, pv.key.K_LEFT], player.move_left, repeat=True)
+ 
+# Combo - all keys held simultaneously
+pv.inputs.when_all_of([pv.key.K_LEFT, pv.key.K_DOWN], move_downleft, repeat=True)
+ 
+# Mouse button
+pv.inputs.add_listener(pv.mouse.B_LEFT, on_click)
+ 
+# Fire once then auto-remove
+pv.inputs.add_listener(pv.key.K_ENTER, on_confirm, once=True)
+ 
+# Manage a listener
+listener = pv.inputs.add_listener(pv.key.K_P, on_pause)
+listener.disable()   # temporarily mute
+listener.enable()
+listener.invalidate() # remove permanently
+```
+ 
+### EventManager
+ 
+`pv.event` gives direct access to raw pyglet events via subscribable slots. Each slot supports a priority and a consume flag to stop propagation.
+ 
+```python
+# Subscribe
+pv.event.on_key_press.subscribe(my_handler, priority=10)
+pv.event.on_mouse_scroll.subscribe(on_scroll)
+pv.event.on_resize.subscribe(on_resize)
+ 
+# Unsubscribe
+pv.event.on_key_press.unsubscribe(my_handler)
+ 
+# Stop propagation from inside a handler
+def my_handler(symbol):
+    if symbol == pv.key.K_ESCAPE:
+        return pv.event.ConsumeFlag
+```
+ 
+Available slots: `on_key_press`, `on_key_release`, `on_text`, `on_text_motion`, `on_text_motion_select`, `on_mouse_press`, `on_mouse_release`, `on_mouse_motion`, `on_mouse_drag`, `on_mouse_scroll`, `on_mouse_enter`, `on_mouse_leave`, `on_resize`, `on_close`, `on_activate`, `on_deactivate`, `on_show`, `on_hide`, `on_move`.
+ 
+### TimeManager
+ 
+`pv.time` manages the game clock, delta-time, FPS cap, time scaling, and deferred callbacks.
+ 
+```python
+pv.time.clock          # total elapsed time (seconds)
+pv.time.frame          # total frame count
+pv.time.dt             # capped delta-time
+pv.time.fps            # current FPS
+pv.time.smooth_fps     # averaged over last 50 frames
+ 
+pv.time.target_fps = 120          # cap framerate
+pv.time.time_scale = 0.5          # slow motion
+ 
+# Deferred call
+pv.time.after(2.0, spawn_enemy)            # once after 2 s
+pv.time.every(10.0, lambda: switch_music)  # repeat every 10 s
+```
+ 
+### AudioManager
+ 
+`pv.audio` handles sound effects and music, including crossfades, playlists, and sound groups.
+ 
+```python
+# Sound effects
+sound = pv.asset.Sound("hit.wav", volume=0.8, cooldown=0.1)
+pv.audio.play_sound(sound)
+pv.audio.play_sound(sound, loop=True, limit=3)
+pv.audio.pause_sound(sound)
+pv.audio.stop_sound(sound)
+ 
+# Volume groups
+sfx_group = pv.audio.SoundGroup(volume=0.6, pool_max=8)
+sound = pv.asset.Sound("step.wav", group=sfx_group)
+sfx_group.pause_all()
+ 
+# Music
+music = pv.asset.Music("theme.ogg")
+pv.audio.play_music(music, loop=True, fade_s=2.0)
+pv.audio.switch_music(other_music, fade_s=1.5)   # crossfade
+pv.audio.pause_music()
+pv.audio.stop_music(fade_s=1.0)
+ 
+# Playlist
+playlist = pv.asset.Playlist(musics.values_list(), shuffle=True, loop=True, cross_fade=2.0)
+pv.audio.play_playlist(playlist)
+ 
+# Master volumes
+pv.audio.master_volume = 0.8
+pv.audio.music_volume  = 0.5
+```
+ 
+### CoordinatesManager
+ 
+`pv.coordinates` converts positions between the four coordinate spaces: `World`, `Framebuffer` (logical pixels), and `Window` (physical pixels).
+ 
+```python
+# World → screen
+fx, fy = pv.coordinates.world_to_framebuffer(entity.x, entity.y)
+ 
+# Window (OS pixels) → world
+wx, wy = pv.coordinates.window_to_world(raw_x, raw_y)
+ 
+# Frustum corners and AABB (useful for culling)
+corners = pv.coordinates.get_frustum_corners()
+x_min, y_min, x_max, y_max = pv.coordinates.get_frustum_aabb()
+ 
+# Generic converter
+x, y = pv.coordinates.convert(x, y, from_space="world", to_space="framebuffer")
+```
+ 
+A context must be applied before converting (done automatically each frame inside layers). Use `temporary_context` to convert with a specific camera or viewport:
+ 
+```python
+with pv.coordinates.temporary_context(viewport=my_viewport, camera=my_camera):
+    wx, wy = pv.coordinates.framebuffer_to_world(fx, fy)
+```
+ 
+### UIManager
+ 
+`pv.ui` arbitrates widget focus and hover state. It is mostly used internally by the GUI system but can be queried directly.
+ 
+```python
+pv.ui.hovered   # currently hovered widget, or None
+pv.ui.focused   # currently focused widget, or None
+pv.ui.unhover()
+pv.ui.unfocus()
+```
 
 ---
 
@@ -317,17 +660,18 @@ pv.run(on_update=on_update, on_draw=on_draw)
 
 ```
 pyverse2d/
-├── abc/            # Abstract base classes (Space, Component, System, Asset…)
-├── asset/          # Image, Animation, Font, Sound, Music, Video, Text, Playlist
+├── abc/           # Abstract base classes (Space, Component, System, Asset…)
+├── asset/         # Image, Animation, Font, Sound, Music, Video, Text, Playlist
 ├── fx/
-│   ├── light/      # Ambient, PointLight, ConeLight, Bloom, Vignette, Tint
-│   └── particle/   # Emitters (Line, Circle, Cone, Point) + Modifiers
-├── gui/            # Widgets, Tweens, Behaviors, SelectionGroup
-├── math/           # Point, Vector, Line, easing functions, vertex helpers
-├── scene/          # Scene, WorldLayer, TileLayer, GuiLayer, LightLayer, ParticleLayer
-├── shape/          # Circle, Rect, RoundedRect, Ellipse, Capsule, Polygon, RegularPolygon
-├── tile/           # Tiled TMX loader, CollisionMapper, TileMap
-├── typing/         # Type aliases
+│   ├── light/     # Ambient, PointLight, ConeLight, Bloom, Vignette, Tint
+│   ├── particle/  # Emitters (Line, Circle, Cone, Point) + Modifiers
+│   └── postfx/    # PostFxZone, PostFxLayer + 14 shader effects
+├── gui/           # Widgets, Tweens, Behaviors, SelectionGroup
+├── math/          # Point, Vector, Line, easing functions, vertex helpers
+├── scene/         # Scene, WorldLayer, TileLayer, GuiLayer, LightLayer, ParticleLayer, PostFxLayer
+├── shape/         # Circle, Rect, RoundedRect, Ellipse, Capsule, Polygon, RegularPolygon
+├── tile/          # Tiled TMX loader, CollisionMapper, TileMap
+├── typing/        # Type aliases
 └── world/
     ├── _component/ # Transform, Collider, RigidBody, Renderers, Animator, Follow…
     └── _system/    # Physics, Gravity, Collision, Render, Animation, Steering, Sound, Video
@@ -337,4 +681,4 @@ pyverse2d/
 
 ## License
 
-[MIT](LICENSE) — © WhiteWolf45380
+[MIT](LICENSE) - © WhiteWolf45380

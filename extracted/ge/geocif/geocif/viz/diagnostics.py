@@ -221,21 +221,28 @@ def forest_yield_ci(
 # Scatter: Observed vs Predicted
 # ---------------------------------------------------------------------------
 
-def scatter_obs_pred(df, title, dir_out, fname):
-    """Scatter plot of observed vs predicted yield, coloured by harvest year.
+def scatter_obs_pred(df, title, dir_out, fname, color_by="year"):
+    """Scatter plot of observed vs predicted yield.
 
     Args:
         df: DataFrame with columns:
             "Observed Yield (tn per ha)", "Predicted Yield (tn per ha)", "Harvest Year"
+            (plus "Region" when ``color_by="region"``).
         title: Plot title / annotation prefix
         dir_out: pathlib.Path output directory (created if missing)
         fname: output filename (e.g. "scatter_malawi_maize.png")
+        color_by: ``"year"`` (default) colors points by Harvest Year via a
+            viridis colorbar — the right choice for multi-year scatters.
+            ``"region"`` colors by Region with a categorical palette + legend —
+            the right choice for per-year scatters where Harvest Year is
+            constant across all points.
     """
     from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_percentage_error
 
     obs_col  = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
     year_col = "Harvest Year"
+    region_col = "Region"
 
     df = df.dropna(subset=[obs_col, pred_col]).copy()
     if len(df) < 2:
@@ -243,15 +250,35 @@ def scatter_obs_pred(df, title, dir_out, fname):
 
     y_obs  = df[obs_col].astype(float)
     y_pred = df[pred_col].astype(float)
+
+    use_region = (color_by == "region") and (region_col in df.columns)
     years  = pd.to_numeric(df[year_col], errors="coerce") if year_col in df.columns else None
 
     cmap_y = plt.cm.viridis
-    if years is not None and years.notna().any():
+    norm = None
+    region_colors = None  # {region -> rgba} when use_region
+
+    if use_region:
+        regions = df[region_col].astype(str).tolist()
+        unique_regions = sorted(set(regions))
+        n_regions = len(unique_regions)
+        if n_regions <= 20:
+            cat_cmap = plt.cm.get_cmap("tab20", max(n_regions, 1))
+            palette = [cat_cmap(i) for i in range(n_regions)]
+        else:
+            import matplotlib.colors as mcolors
+            stacked = np.vstack([
+                plt.cm.tab20b(np.linspace(0, 1, 20)),
+                plt.cm.tab20c(np.linspace(0, 1, 20)),
+            ])
+            palette = [stacked[i % len(stacked)] for i in range(n_regions)]
+        region_colors = dict(zip(unique_regions, palette))
+        colors = [region_colors[r] for r in regions]
+    elif years is not None and years.notna().any():
         norm   = plt.Normalize(vmin=years.min(), vmax=years.max())
         colors = [cmap_y(norm(y)) for y in years]
     else:
         colors = "steelblue"
-        norm   = None
 
     rmse = np.sqrt(mean_squared_error(y_obs, y_pred))
     mape = mean_absolute_percentage_error(y_obs, y_pred)
@@ -280,7 +307,20 @@ def scatter_obs_pred(df, title, dir_out, fname):
     ax.set_ylabel("Predicted Yield (tn/ha)")
     ax.set_title(title, fontsize=10)
 
-    if norm is not None:
+    if region_colors is not None:
+        from matplotlib.lines import Line2D
+        handles = [
+            Line2D([0], [0], marker="o", linestyle="",
+                   markerfacecolor=c, markeredgecolor=c,
+                   markersize=6, label=r)
+            for r, c in region_colors.items()
+        ]
+        ncol = 2 if len(region_colors) > 10 else 1
+        ax.legend(handles=handles, title="Region",
+                  bbox_to_anchor=(1.02, 1), loc="upper left",
+                  fontsize=7, title_fontsize=8, ncol=ncol,
+                  frameon=False)
+    elif norm is not None:
         sm = plt.cm.ScalarMappable(cmap=cmap_y, norm=norm)
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, aspect=40, pad=0.02)

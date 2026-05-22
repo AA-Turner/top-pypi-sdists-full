@@ -13,6 +13,8 @@ DEFAULT_GCP_CLIENT_PROVIDER = "obp"
 # Image builder service url
 FAST_BAKERY_URL = from_conf("FAST_BAKERY_URL", None)
 
+# index-strategy for UV that fast-bakery should use
+FAST_BAKERY_INDEX_STRATEGY = from_conf("FAST_BAKERY_INDEX_STRATEGY", None)
 
 ###
 # NVCF configuration

@@ -2259,6 +2259,12 @@ def _process_module_builtin_defaults():
     _process_module_definition(
         "langgraph.prebuilt.tool_node", "newrelic.hooks.mlmodel_langgraph", "instrument_langgraph_prebuilt_tool_node"
     )
+    _process_module_definition(
+        "langgraph.pregel._executor", "newrelic.hooks.mlmodel_langgraph", "instrument_langgraph_pregel_executor"
+    )
+    _process_module_definition(
+        "langgraph._internal._runnable", "newrelic.hooks.mlmodel_langgraph", "instrument_langgraph_internal_runnable"
+    )
 
     _process_module_definition(
         "langchain_core.runnables.base",
@@ -3256,7 +3262,6 @@ def _process_module_builtin_defaults():
     _process_module_definition(
         "requests.packages.urllib3.connection", "newrelic.hooks.external_urllib3", "instrument_urllib3_connection"
     )
-
     _process_module_definition(
         "starlette.requests", "newrelic.hooks.framework_starlette", "instrument_starlette_requests"
     )

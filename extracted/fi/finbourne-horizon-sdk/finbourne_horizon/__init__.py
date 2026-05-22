@@ -22,6 +22,7 @@ from finbourne_horizon.api.integrations_api import IntegrationsApi
 from finbourne_horizon.api.logs_api import LogsApi
 from finbourne_horizon.api.process_history_api import ProcessHistoryApi
 from finbourne_horizon.api.runs_api import RunsApi
+from finbourne_horizon.api.trade_publication_framework_api import TradePublicationFrameworkApi
 from finbourne_horizon.api.vendor_api import VendorApi
 from finbourne_horizon.api.versioned_configurations_api import VersionedConfigurationsApi
 
@@ -43,18 +44,24 @@ from finbourne_horizon.models.audit_update_response import AuditUpdateResponse
 from finbourne_horizon.models.cancel_run_request import CancelRunRequest
 from finbourne_horizon.models.create_instance_request import CreateInstanceRequest
 from finbourne_horizon.models.create_versioned_configuration_draft_request import CreateVersionedConfigurationDraftRequest
+from finbourne_horizon.models.destination_response import DestinationResponse
 from finbourne_horizon.models.enrichment_response import EnrichmentResponse
 from finbourne_horizon.models.execute_instance_response import ExecuteInstanceResponse
 from finbourne_horizon.models.external_log_insertion_request import ExternalLogInsertionRequest
 from finbourne_horizon.models.external_log_record import ExternalLogRecord
 from finbourne_horizon.models.field_mapping import FieldMapping
+from finbourne_horizon.models.file_destination_response import FileDestinationResponse
 from finbourne_horizon.models.file_details import FileDetails
 from finbourne_horizon.models.i_field_mapping import IFieldMapping
 from finbourne_horizon.models.i_integration_log_response import IIntegrationLogResponse
 from finbourne_horizon.models.i_property_mapping import IPropertyMapping
 from finbourne_horizon.models.identifiers import Identifiers
+from finbourne_horizon.models.instance_destinations import InstanceDestinations
 from finbourne_horizon.models.instance_execution_reference_id import InstanceExecutionReferenceId
 from finbourne_horizon.models.instance_identifier import InstanceIdentifier
+from finbourne_horizon.models.instance_response import InstanceResponse
+from finbourne_horizon.models.instance_run_response import InstanceRunResponse
+from finbourne_horizon.models.instances_response import InstancesResponse
 from finbourne_horizon.models.integration_cancellation_response import IntegrationCancellationResponse
 from finbourne_horizon.models.integration_description import IntegrationDescription
 from finbourne_horizon.models.integration_instance import IntegrationInstance
@@ -90,10 +97,13 @@ from finbourne_horizon.models.open_figi_search_result import OpenFigiSearchResul
 from finbourne_horizon.models.paged_resource_list_of_i_field_mapping import PagedResourceListOfIFieldMapping
 from finbourne_horizon.models.paged_resource_list_of_i_integration_log_response import PagedResourceListOfIIntegrationLogResponse
 from finbourne_horizon.models.paged_resource_list_of_i_property_mapping import PagedResourceListOfIPropertyMapping
+from finbourne_horizon.models.paged_resource_list_of_instance_run_response import PagedResourceListOfInstanceRunResponse
 from finbourne_horizon.models.paged_resource_list_of_integration_run_response import PagedResourceListOfIntegrationRunResponse
 from finbourne_horizon.models.paged_resource_list_of_process_information import PagedResourceListOfProcessInformation
 from finbourne_horizon.models.paged_resource_list_of_process_update_result import PagedResourceListOfProcessUpdateResult
+from finbourne_horizon.models.paged_resource_list_of_run_file_response import PagedResourceListOfRunFileResponse
 from finbourne_horizon.models.paged_resource_list_of_tpf_transaction_search_response import PagedResourceListOfTpfTransactionSearchResponse
+from finbourne_horizon.models.paged_resource_list_of_transaction_response import PagedResourceListOfTransactionResponse
 from finbourne_horizon.models.paged_resource_list_of_vendor_product import PagedResourceListOfVendorProduct
 from finbourne_horizon.models.perm_id_data import PermIdData
 from finbourne_horizon.models.post_process_task import PostProcessTask
@@ -107,7 +117,11 @@ from finbourne_horizon.models.query_request import QueryRequest
 from finbourne_horizon.models.query_specification import QuerySpecification
 from finbourne_horizon.models.resource_id import ResourceId
 from finbourne_horizon.models.row_details import RowDetails
+from finbourne_horizon.models.run_file_response import RunFileResponse
+from finbourne_horizon.models.tpf_portfolio import TpfPortfolio
 from finbourne_horizon.models.tpf_transaction_search_response import TpfTransactionSearchResponse
+from finbourne_horizon.models.transaction_payload_response import TransactionPayloadResponse
+from finbourne_horizon.models.transaction_response import TransactionResponse
 from finbourne_horizon.models.trigger import Trigger
 from finbourne_horizon.models.update_instance_request import UpdateInstanceRequest
 from finbourne_horizon.models.update_versioned_configuration_draft_request import UpdateVersionedConfigurationDraftRequest
@@ -135,6 +149,7 @@ __all__ = [
     "LogsApi",
     "ProcessHistoryApi",
     "RunsApi",
+    "TradePublicationFrameworkApi",
     "VendorApi",
     "VersionedConfigurationsApi",
     "AllowedParameterValue",
@@ -146,18 +161,24 @@ __all__ = [
     "CancelRunRequest",
     "CreateInstanceRequest",
     "CreateVersionedConfigurationDraftRequest",
+    "DestinationResponse",
     "EnrichmentResponse",
     "ExecuteInstanceResponse",
     "ExternalLogInsertionRequest",
     "ExternalLogRecord",
     "FieldMapping",
+    "FileDestinationResponse",
     "FileDetails",
     "IFieldMapping",
     "IIntegrationLogResponse",
     "IPropertyMapping",
     "Identifiers",
+    "InstanceDestinations",
     "InstanceExecutionReferenceId",
     "InstanceIdentifier",
+    "InstanceResponse",
+    "InstanceRunResponse",
+    "InstancesResponse",
     "IntegrationCancellationResponse",
     "IntegrationDescription",
     "IntegrationInstance",
@@ -193,10 +214,13 @@ __all__ = [
     "PagedResourceListOfIFieldMapping",
     "PagedResourceListOfIIntegrationLogResponse",
     "PagedResourceListOfIPropertyMapping",
+    "PagedResourceListOfInstanceRunResponse",
     "PagedResourceListOfIntegrationRunResponse",
     "PagedResourceListOfProcessInformation",
     "PagedResourceListOfProcessUpdateResult",
+    "PagedResourceListOfRunFileResponse",
     "PagedResourceListOfTpfTransactionSearchResponse",
+    "PagedResourceListOfTransactionResponse",
     "PagedResourceListOfVendorProduct",
     "PermIdData",
     "PostProcessTask",
@@ -210,7 +234,11 @@ __all__ = [
     "QuerySpecification",
     "ResourceId",
     "RowDetails",
+    "RunFileResponse",
+    "TpfPortfolio",
     "TpfTransactionSearchResponse",
+    "TransactionPayloadResponse",
+    "TransactionResponse",
     "Trigger",
     "UpdateInstanceRequest",
     "UpdateVersionedConfigurationDraftRequest",

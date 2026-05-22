@@ -14,13 +14,10 @@
 # Copied from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
-
 """Utilities for bounding box manipulation and GIoU."""
 
-from typing import Tuple
-
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from torchvision.ops.boxes import box_area
 
 
@@ -42,7 +39,7 @@ def box_xyxy_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
 
 
 # modified from torchvision to also return the union
-def box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute pairwise IoU and union for two sets of boxes.
 
     Returns:
@@ -71,8 +68,7 @@ def generalized_box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Ten
 
     The boxes should be in [x0, y0, x1, y1] format.
 
-    Returns a [N, M] pairwise matrix, where N = len(boxes1)
-    and M = len(boxes2).
+    Returns a [N, M] pairwise matrix, where N = len(boxes1) and M = len(boxes2).
     """
     # degenerate boxes gives inf / nan results
     # so do an early check
@@ -90,8 +86,7 @@ def generalized_box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Ten
 def masks_to_boxes(masks: torch.Tensor) -> torch.Tensor:
     """Compute the bounding boxes around the provided masks.
 
-    The masks should be in format [N, H, W] where N is the number of masks,
-    (H, W) are the spatial dimensions.
+    The masks should be in format [N, H, W] where N is the number of masks, (H, W) are the spatial dimensions.
 
     Returns a [N, 4] tensor, with the boxes in xyxy format.
     """
@@ -121,8 +116,7 @@ def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor
     Args:
         inputs: A float tensor of arbitrary shape. The predictions for each example.
         targets: A float tensor with the same shape as inputs. Stores the binary
-            classification label for each element in inputs
-            (0 for the negative class and 1 for the positive class).
+            classification label for each element in inputs (0 for the negative class and 1 for the positive class).
     """
     inputs = inputs.sigmoid()
     inputs = inputs.flatten(1)
@@ -141,8 +135,7 @@ def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.
     Args:
         inputs: A float tensor of arbitrary shape. The predictions for each example.
         targets: A float tensor with the same shape as inputs. Stores the binary
-            classification label for each element in inputs
-            (0 for the negative class and 1 for the positive class).
+            classification label for each element in inputs (0 for the negative class and 1 for the positive class).
 
     Returns:
         Loss tensor.

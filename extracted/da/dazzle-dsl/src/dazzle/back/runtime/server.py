@@ -63,6 +63,7 @@ else:
 
 if TYPE_CHECKING:
     from dazzle.back.events.framework import EventFramework
+    from dazzle.back.runtime.audit_log import AuditLogger
     from dazzle.back.runtime.auth_detection import AuthConfig
     from dazzle.back.runtime.pg_backend import PostgresBackend
     from dazzle.back.runtime.process_manager import ProcessManager
@@ -291,10 +292,12 @@ class DazzleBackendApp:
         self._models: dict[str, type[BaseModel]] = {}
         self._schemas: dict[str, dict[str, type[BaseModel]]] = {}
         self._services: dict[str, Any] = {}
+        self._service_factory: ServiceFactory | None = None
         self._repositories: dict[str, Any] = {}
         self._db_manager: PostgresBackend | None = None
         self._auth_store: AuthStore | None = None
         self._auth_middleware: AuthMiddleware | None = None
+        self._audit_logger: AuditLogger | None = None
         self._file_service: FileService | None = None
         self._last_migration: MigrationPlan | None = None
         self._start_time: datetime | None = None
@@ -561,6 +564,9 @@ class DazzleBackendApp:
 
         metadata = build_metadata(self._entities)
         sa_url = self._database_url
+        # Normalise Heroku-style postgres:// alias before adding driver suffix
+        if sa_url.startswith("postgres://"):
+            sa_url = sa_url.replace("postgres://", "postgresql://", 1)
         if sa_url.startswith("postgresql://"):
             sa_url = sa_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
@@ -656,6 +662,9 @@ class DazzleBackendApp:
 
                 metadata = build_metadata(self._entities)
                 sa_url = self._database_url
+                # Normalise Heroku-style postgres:// alias before adding driver suffix
+                if sa_url.startswith("postgres://"):
+                    sa_url = sa_url.replace("postgres://", "postgresql://", 1)
                 if sa_url.startswith("postgresql://"):
                     sa_url = sa_url.replace("postgresql://", "postgresql+psycopg://", 1)
                 engine = _sa_create_engine(sa_url)
@@ -745,6 +754,7 @@ class DazzleBackendApp:
         entity_specs = {entity.name: entity for entity in self._entities}
 
         factory = ServiceFactory(self._models, state_machines, entity_specs)
+        self._service_factory = factory
         self._services = factory.create_all_services(
             self._service_specs,
             self._schemas,
@@ -1058,7 +1068,10 @@ class DazzleBackendApp:
             if entity.access:
                 cedar_access_specs[entity.name] = entity.access
 
-        # Audit logger
+        # Audit logger (#1172). The runtime AuditLogger writes every
+        # access-control decision to `_dazzle_audit_log`. It is the
+        # production audit trail — distinct from the verification-layer
+        # observability seam in `dazzle.rbac.audit`.
         audit_logger = None
         _has_auditable_entities = any(
             (entity.metadata and "access" in entity.metadata)
@@ -1066,11 +1079,28 @@ class DazzleBackendApp:
             or entity.access
             for entity in self._entities
         )
-        if _has_auditable_entities and self._database_url:
+        if _has_auditable_entities:
+            # Fail-closed audit invariant (#1172): an app with access-
+            # controlled or audited entities MUST boot with a working
+            # audit trail, or not boot at all — a silently-absent trail
+            # is a compliance hole. `_setup_database` already raises
+            # without a database_url, so this is belt-and-suspenders: if
+            # a future refactor reorders boot or makes the DB optional,
+            # the server refuses to start rather than run un-audited.
+            if not self._database_url:
+                raise RuntimeError(
+                    "Audit logging required: this app has access-controlled "
+                    "or audited entities but no database_url to persist the "
+                    "audit trail. Set DATABASE_URL or ServerConfig.database_url."
+                )
             from dazzle.back.runtime.audit_log import AuditLogger
 
             audit_logger = AuditLogger(database_url=self._database_url)
             audit_logger.start()
+            # Keep a handle on the builder so callers (graceful shutdown,
+            # in-process tests) can deterministically `drain()` the audit
+            # queue instead of racing the 1s background flush timer.
+            self._audit_logger = audit_logger
 
         # Project route overrides — registered first for priority (v0.29.0)
         if self._project_root:
@@ -1268,6 +1298,10 @@ class DazzleBackendApp:
         # bypass permit/scope" gap surfaced by #1126.
         from dazzle.back.runtime.policy import EntityPolicyInfo, PolicyRegistry
 
+        # `_services` is keyed by service name; resolve an entity-keyed view
+        # once so both the `service=` lookup and the entity-set enumeration
+        # below see entity names, not service names (#1181).
+        _services_by_entity = self._services_by_entity()
         policy_registry = PolicyRegistry(
             entities={
                 entity_name: EntityPolicyInfo(
@@ -1275,11 +1309,11 @@ class DazzleBackendApp:
                     cedar_access_spec=cedar_access_specs.get(entity_name),
                     fk_graph=_fk_graph,
                     admin_personas=list(_admin_personas),
-                    service=self._services.get(entity_name),
+                    service=_services_by_entity.get(entity_name),
                 )
                 for entity_name in {
                     *cedar_access_specs.keys(),
-                    *self._services.keys(),
+                    *_services_by_entity.keys(),
                 }
             }
         )
@@ -1324,7 +1358,7 @@ class DazzleBackendApp:
             )
 
             audit_history_router = create_audit_history_routes(
-                audit_service=self._services.get("AuditEntry"),
+                audit_service=self.service_for_entity("AuditEntry"),
                 audits=list(self._appspec.audits),
                 auth_dep=auth_dep,
             )
@@ -1455,9 +1489,20 @@ class DazzleBackendApp:
         if self._repositories and self._appspec.surfaces:
             from dazzle.back.runtime.bulk_routes import create_bulk_routes
 
+            # `create_bulk_routes` expects `services` keyed by entity name
+            # (it gates each bulk route on `entity_name in services` for the
+            # scope-aware pre-read). `self._services` is keyed by *service*
+            # name (`list_invoices`, ...), so pass the entity-keyed view
+            # (#1181) — otherwise every bulk route is silently skipped under
+            # auth ("no service for scope enforcement").
             bulk_router = create_bulk_routes(
-                surfaces=list(self._appspec.surfaces),
+                list(self._appspec.surfaces),
                 repositories=self._repositories,
+                services=self._services_by_entity(),
+                cedar_access_specs=cedar_access_specs,
+                fk_graph=_fk_graph,
+                optional_auth_dep=optional_auth_dep,
+                admin_personas=_admin_personas,
             )
             if bulk_router is not None:
                 self._app.include_router(bulk_router)
@@ -1559,10 +1604,42 @@ class DazzleBackendApp:
         """Get a service by name."""
         return self._services.get(name)
 
+    def _services_by_entity(self) -> dict[str, Any]:
+        """Entity-name-keyed view of the services (#1181).
+
+        `_services` is keyed by *service* name (`list_invoices`, ...), so an
+        entity-name lookup against it silently misses. Delegates to the
+        `ServiceFactory`, which owns the keying.
+        """
+        if self._service_factory is None:
+            return {}
+        return self._service_factory.services_by_entity()
+
+    def service_for_entity(self, entity_name: str) -> Any | None:
+        """Return a service wrapping `entity_name`'s repository, or None.
+
+        Use this instead of `_services.get(entity_name)` — the latter keys by
+        service name and silently resolves to None for entity-name callers
+        (#1181).
+        """
+        if self._service_factory is None:
+            return None
+        return self._service_factory.service_for_entity(entity_name)
+
     @property
     def auth_store(self) -> AuthStore | None:
         """Get the auth store (None if auth not enabled)."""
         return self._auth_store
+
+    @property
+    def audit_logger(self) -> "AuditLogger | None":
+        """Get the runtime audit logger (None if no auditable entities).
+
+        Exposed so a graceful-shutdown path or an in-process test can call
+        ``audit_logger.drain()`` to synchronously persist the audit queue —
+        the deterministic alternative to waiting on the 1s background flush.
+        """
+        return self._audit_logger
 
     @property
     def auth_middleware(self) -> AuthMiddleware | None:

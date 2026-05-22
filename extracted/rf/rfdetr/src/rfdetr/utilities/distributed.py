@@ -10,11 +10,10 @@
 # Copied from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
-
 """Distributed-training helpers (world-size, rank, all_gather, reduce_dict)."""
 
 import pickle
-from typing import Any, Dict, List
+from typing import Any
 
 import torch
 import torch.distributed as dist
@@ -56,14 +55,14 @@ def save_on_master(obj: Any, f: Any, *args: Any, **kwargs: Any) -> None:
     Args:
         obj: Object to save.
         f: File path or file-like object passed to ``torch.save``.
-        *args: Additional positional arguments forwarded to ``torch.save``.
-        **kwargs: Additional keyword arguments forwarded to ``torch.save``.
+        *args: Additional positional arguments forwarded to ``torch.save``. **kwargs: Additional keyword arguments
+        forwarded to ``torch.save``.
     """
     if is_main_process():
         torch.save(obj, f, *args, **kwargs)
 
 
-def all_gather(data: Any) -> List[Any]:
+def all_gather(data: Any) -> list[Any]:
     """Run all_gather on arbitrary picklable data (not necessarily tensors).
 
     Args:
@@ -108,7 +107,7 @@ def all_gather(data: Any) -> List[Any]:
     return data_list
 
 
-def reduce_dict(input_dict: Dict[str, torch.Tensor], average: bool = True) -> Dict[str, torch.Tensor]:
+def reduce_dict(input_dict: dict[str, torch.Tensor], average: bool = True) -> dict[str, torch.Tensor]:
     """Reduce values in *input_dict* across all processes.
 
     Args:

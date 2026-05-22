@@ -21,6 +21,9 @@ Usage::
         ListCodeInterpretersPaginator,
         ListConfigurationBundleVersionsPaginator,
         ListConfigurationBundlesPaginator,
+        ListDatasetExamplesPaginator,
+        ListDatasetVersionsPaginator,
+        ListDatasetsPaginator,
         ListEvaluatorsPaginator,
         ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
@@ -69,6 +72,9 @@ Usage::
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
     list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
+    list_dataset_examples_paginator: ListDatasetExamplesPaginator = client.get_paginator("list_dataset_examples")
+    list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_paginator("list_dataset_versions")
+    list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
     list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
@@ -104,6 +110,9 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListDatasetExamplesPaginator,
+    ListDatasetsPaginator,
+    ListDatasetVersionsPaginator,
     ListEvaluatorsPaginator,
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
@@ -149,6 +158,9 @@ __all__ = (
     "ListCodeInterpretersPaginator",
     "ListConfigurationBundleVersionsPaginator",
     "ListConfigurationBundlesPaginator",
+    "ListDatasetExamplesPaginator",
+    "ListDatasetVersionsPaginator",
+    "ListDatasetsPaginator",
     "ListEvaluatorsPaginator",
     "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",

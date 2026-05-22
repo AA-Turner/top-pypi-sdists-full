@@ -65,6 +65,7 @@ class PaymentsResource(SyncAPIResource):
         adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         allowed_payment_method_types: Optional[List[PaymentMethodTypes]] | Omit = omit,
         billing_currency: Optional[Currency] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         discount_codes: Optional[SequenceNotStr[str]] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
@@ -104,6 +105,10 @@ class PaymentsResource(SyncAPIResource):
 
           billing_currency: Fix the currency in which the end customer is billed. If Dodo Payments cannot
               support that currency for this transaction, it will not proceed
+
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B purchase, this name is rendered on the
+              invoice instead of the customer's personal name.
 
           discount_code: DEPRECATED: Use discount_codes instead. Cannot be used together with
               discount_codes.
@@ -157,6 +162,7 @@ class PaymentsResource(SyncAPIResource):
                     "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "allowed_payment_method_types": allowed_payment_method_types,
                     "billing_currency": billing_currency,
+                    "customer_business_name": customer_business_name,
                     "discount_code": discount_code,
                     "discount_codes": discount_codes,
                     "force_3ds": force_3ds,
@@ -357,6 +363,7 @@ class AsyncPaymentsResource(AsyncAPIResource):
         adaptive_currency_fees_inclusive: Optional[bool] | Omit = omit,
         allowed_payment_method_types: Optional[List[PaymentMethodTypes]] | Omit = omit,
         billing_currency: Optional[Currency] | Omit = omit,
+        customer_business_name: Optional[str] | Omit = omit,
         discount_code: Optional[str] | Omit = omit,
         discount_codes: Optional[SequenceNotStr[str]] | Omit = omit,
         force_3ds: Optional[bool] | Omit = omit,
@@ -396,6 +403,10 @@ class AsyncPaymentsResource(AsyncAPIResource):
 
           billing_currency: Fix the currency in which the end customer is billed. If Dodo Payments cannot
               support that currency for this transaction, it will not proceed
+
+          customer_business_name: Optional business / legal name associated with the tax id. When provided
+              together with a valid tax id for a B2B purchase, this name is rendered on the
+              invoice instead of the customer's personal name.
 
           discount_code: DEPRECATED: Use discount_codes instead. Cannot be used together with
               discount_codes.
@@ -449,6 +460,7 @@ class AsyncPaymentsResource(AsyncAPIResource):
                     "adaptive_currency_fees_inclusive": adaptive_currency_fees_inclusive,
                     "allowed_payment_method_types": allowed_payment_method_types,
                     "billing_currency": billing_currency,
+                    "customer_business_name": customer_business_name,
                     "discount_code": discount_code,
                     "discount_codes": discount_codes,
                     "force_3ds": force_3ds,

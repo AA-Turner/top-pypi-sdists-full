@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: cmeel-tinyxml2
-Version: 10.0.0
+Version: 11.0.0
 Summary: cmeel distribution for TinyXML-2
-Requires-Python: >= 3.8
+Requires-Python: >= 3.10
 License-Expression: Zlib
 Home-page: https://github.com/cmake-wheel/cmeel-tinyxml2
 Project-URL: Repository, https://github.com/cmake-wheel/cmeel-tinyxml2.git

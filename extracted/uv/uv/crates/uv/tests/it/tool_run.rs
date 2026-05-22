@@ -162,6 +162,43 @@ fn tool_run_at_version() {
 }
 
 #[test]
+fn tool_run_no_binary_package_env_var() {
+    let context = uv_test::test_context!("3.12").with_filtered_exe_suffix();
+    let tool_dir = context.temp_dir.child("tools");
+    let bin_dir = context.temp_dir.child("bin");
+
+    context
+        .tool_install()
+        .arg("pytest")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str())
+        .env(EnvVars::PATH, bin_dir.as_os_str())
+        .assert()
+        .success();
+
+    uv_snapshot!(context.filters(), context.tool_run()
+        .arg("pytest")
+        .arg("--version")
+        .env(EnvVars::UV_NO_BINARY_PACKAGE, "iniconfig")
+        .env(EnvVars::UV_TOOL_DIR, tool_dir.as_os_str())
+        .env(EnvVars::XDG_BIN_HOME, bin_dir.as_os_str()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    pytest 8.1.1
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 4 packages in [TIME]
+     + iniconfig==2.0.0
+     + packaging==24.0
+     + pluggy==1.4.0
+     + pytest==8.1.1
+    ");
+}
+
+#[test]
 fn tool_run_from_version() {
     let context = uv_test::test_context!("3.12");
     let tool_dir = context.temp_dir.child("tools");
@@ -2918,7 +2955,7 @@ fn tool_run_with_nonexistent_py_script() {
     ----- stdout -----
 
     ----- stderr -----
-    error: It looks like you provided a Python script to run, which is not supported supported by `uv tool run`
+    error: It looks like you provided a Python script to run, which is not supported by `uv tool run`
 
     hint: We did not find a script at the requested path. If you meant to run a command from the `script-py` package, pass the normalized package name to `--from` to disambiguate, e.g., `uv tool run --from script-py script.py`
     ");
@@ -2936,7 +2973,7 @@ fn tool_run_with_nonexistent_pyw_script() {
     ----- stdout -----
 
     ----- stderr -----
-    error: It looks like you provided a Python script to run, which is not supported supported by `uv tool run`
+    error: It looks like you provided a Python script to run, which is not supported by `uv tool run`
 
     hint: We did not find a script at the requested path. If you meant to run a command from the `script-pyw` package, pass the normalized package name to `--from` to disambiguate, e.g., `uv tool run --from script-pyw script.pyw`
     ");
@@ -3003,7 +3040,8 @@ fn tool_run_verbose_hint() {
     ----- stderr -----
       × No solution found when resolving dependencies:
       ╰─▶ Because nonexistent-package-foo was not found in the package registry and you require nonexistent-package-foo, we can conclude that your requirements are unsatisfiable.
-      help: You provided `--verbose` to `nonexistent-package-foo`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run --verbose nonexistent-package-foo`
+
+    hint: You provided `--verbose` to `nonexistent-package-foo`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run --verbose nonexistent-package-foo`
     ");
 
     // Test with -v flag
@@ -3019,7 +3057,8 @@ fn tool_run_verbose_hint() {
     ----- stderr -----
       × No solution found when resolving dependencies:
       ╰─▶ Because nonexistent-package-bar was not found in the package registry and you require nonexistent-package-bar, we can conclude that your requirements are unsatisfiable.
-      help: You provided `-v` to `nonexistent-package-bar`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run -v nonexistent-package-bar`
+
+    hint: You provided `-v` to `nonexistent-package-bar`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run -v nonexistent-package-bar`
     ");
 
     // Test with -vv flag
@@ -3035,7 +3074,8 @@ fn tool_run_verbose_hint() {
     ----- stderr -----
       × No solution found when resolving dependencies:
       ╰─▶ Because nonexistent-package-baz was not found in the package registry and you require nonexistent-package-baz, we can conclude that your requirements are unsatisfiable.
-      help: You provided `-vv` to `nonexistent-package-baz`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run -vv nonexistent-package-baz`
+
+    hint: You provided `-vv` to `nonexistent-package-baz`. Did you mean to provide it to `uv tool run`? e.g., `uv tool run -vv nonexistent-package-baz`
     ");
 
     // Test for false positives

@@ -7,7 +7,8 @@ from functools import partial
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from typing import Any, Protocol, Sequence
+    from collections.abc import Sequence
+    from typing import Any, Protocol
 
     from pdm.project import Project
 
@@ -170,7 +171,6 @@ dry_run_option = Option(
 @Option(
     "-L",
     "--lockfile",
-    default=os.getenv("PDM_LOCKFILE"),
     help="Specify another lockfile path. Default: pdm.lock. [env var: PDM_LOCKFILE]",
 )
 def lockfile_option(

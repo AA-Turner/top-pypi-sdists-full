@@ -1,6 +1,7 @@
 # Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
+import functools
 import html
 import json
 import os
@@ -394,7 +395,8 @@ def static_notebook_template(
     asset_url: str | None = None,
 ) -> str:
     if asset_url is None:
-        asset_url = f"https://cdn.jsdelivr.net/npm/@marimo-team/frontend@{__version__}/dist"
+        version = str(__version__).replace(".dev", "-dev")
+        asset_url = f"https://cdn.jsdelivr.net/npm/@marimo-team/frontend@{version}/dist"
 
     html = html.replace("{{ base_url }}", "")
     filename = os.path.basename(filepath or "")
@@ -619,7 +621,11 @@ def _del_none_or_empty(d: Any) -> Any:
     }
 
 
+@functools.lru_cache(maxsize=1)
 def get_version() -> str:
+    # Invariant for the lifetime of the process; cache so the three
+    # render-path call sites (mount_config + two .replace passes) don't
+    # each pay the importlib.metadata lookup.
     return (
         f"{__version__} (editable)" if is_editable("marimo") else __version__
     )

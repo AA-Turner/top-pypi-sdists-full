@@ -17,7 +17,16 @@ logger = logging.getLogger("dazzle.audit")
 
 @dataclass
 class AuditDecision:
-    """Parameters for an audit log decision entry, replacing 14 individual parameters."""
+    """The audit event schema — one access-control decision (#1172).
+
+    Every field below is persisted as a column of `_dazzle_audit_log`:
+    who (`user_id` / `user_email` / `user_roles` / `tenant_id`), what
+    (`operation` / `entity_name` / `entity_id` / `field_changes`), the
+    outcome (`decision` / `matched_policy` / `policy_effect`), and the
+    request context (`ip_address` / `request_path` / `request_method` /
+    `evaluation_time_us`). This dataclass is the canonical shape; the
+    table DDL in `AuditLogger._init_db` mirrors it.
+    """
 
     operation: str
     entity_name: str
@@ -42,14 +51,26 @@ class AuditDecision:
 
 
 class AuditLogger:
-    """
-    Async audit logger with bounded queue.
+    """Production access-decision audit trail (#1172).
 
-    Writes access control decisions to the _dazzle_audit_log table.
-    Non-blocking — entries are queued and flushed in background.
-    Dropped entries are counted and logged to stderr.
+    The durable audit trail for the running app: writes every
+    access-control decision (and CRUD field-change diff) to the
+    `_dazzle_audit_log` PostgreSQL table, wired into every generated
+    route via `_log_audit_decision`. Distinct from the verification
+    seam in `dazzle.rbac.audit` — that one *observes* decisions for the
+    conformance / verifier tooling; this one is the real trail.
 
-    Requires PostgreSQL (psycopg). Raises RuntimeError if unavailable.
+    **Fail-open by design.** Writes go through a bounded async queue
+    (`max_queue_size`, default 10000) flushed in the background. If the
+    queue is full the entry is dropped and `_dropped_count` is
+    incremented and logged — a slow database degrades audit
+    completeness but never blocks or fails a request. Callers needing
+    fail-*closed* semantics must add that explicitly.
+
+    Requires PostgreSQL (psycopg); raises RuntimeError if unavailable.
+    The boot path enforces a matching fail-closed invariant: a server
+    with auditable entities refuses to start without a database_url
+    (see `DazzleServer._setup_routes`).
     """
 
     def __init__(
@@ -248,18 +269,20 @@ class AuditLogger:
             except Exception:
                 logger.warning("Audit flush error", exc_info=True)
 
-    async def _flush(self) -> None:
-        """Flush all queued entries to the database."""
+    def _drain_queue(self) -> list[dict[str, Any]]:
+        """Pop every currently-queued entry off the queue (non-blocking)."""
         entries: list[dict[str, Any]] = []
         while not self._queue.empty():
             try:
                 entries.append(self._queue.get_nowait())
             except asyncio.QueueEmpty:
                 break
+        return entries
 
+    def _write_entries(self, entries: list[dict[str, Any]]) -> None:
+        """Synchronously INSERT a batch of audit entries into PostgreSQL."""
         if not entries:
             return
-
         try:
             conn = self._get_connection()
             try:
@@ -282,6 +305,28 @@ class AuditLogger:
                 conn.close()
         except Exception:
             logger.warning("Failed to write %d audit entries", len(entries), exc_info=True)
+
+    async def _flush(self) -> None:
+        """Flush all queued entries to the database."""
+        self._write_entries(self._drain_queue())
+
+    def drain(self) -> int:
+        """Synchronously flush every queued entry to the database, now.
+
+        Unlike the background ``_flush_loop`` (which only runs on the timer
+        and depends on event-loop scheduling), this writes the current queue
+        contents inline and returns the number of entries persisted. It does
+        no ``await`` and acquires its own short-lived connection, so it is
+        safe to call from a synchronous context or from inside an async test
+        without racing the background flush task.
+
+        This is the deterministic observability seam: a test (or a graceful
+        shutdown path) that needs the audit trail to be readable *right now*
+        calls ``drain()`` instead of sleeping and hoping the 1s timer fired.
+        """
+        entries = self._drain_queue()
+        self._write_entries(entries)
+        return len(entries)
 
     def query_logs(
         self,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,6 +10,14 @@ from drydock.core.logger import logger
 from drydock.core.skills.models import SkillInfo, SkillMetadata
 from drydock.core.skills.parser import SkillParseError, parse_frontmatter
 from drydock.core.utils import name_matches
+
+# Skill names must match the same regex as SkillMetadata.name. Dirs
+# whose names violate this can NEVER load successfully, so reading
+# their SKILL.md + running pydantic validation just to fail is pure
+# startup latency. Observed 2026-05-21: a user with 327 skills, ~864
+# of which have underscores in their dir names, was paying 30-60s of
+# drydock startup time on cumulative validation failures.
+_VALID_SKILL_NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 if TYPE_CHECKING:
     from drydock.core.config import DrydockConfig
@@ -86,14 +95,29 @@ class SkillManager:
 
     def _discover_skills_in_dir(self, base: Path) -> dict[str, SkillInfo]:
         skills: dict[str, SkillInfo] = {}
+        skipped_bad_name = 0
         for skill_dir in base.iterdir():
             if not skill_dir.is_dir():
+                continue
+            # Fast-path skip: dirs whose names can't possibly satisfy
+            # SkillMetadata.name's validation regex. Avoids the SKILL.md
+            # read + pydantic validation + exception handling cost for
+            # every misnamed skill on every drydock startup.
+            if not _VALID_SKILL_NAME.match(skill_dir.name):
+                skipped_bad_name += 1
                 continue
             skill_file = skill_dir / "SKILL.md"
             if not skill_file.is_file():
                 continue
             if (skill_info := self._try_load_skill(skill_file)) is not None:
                 skills[skill_info.name] = skill_info
+        if skipped_bad_name:
+            logger.info(
+                "Skipped %d skill dir(s) in %s with names that don't "
+                "match the skill-name regex (a-z0-9-only). Rename them "
+                "to enable loading.",
+                skipped_bad_name, base,
+            )
         return skills
 
     def _try_load_skill(self, skill_file: Path) -> SkillInfo | None:

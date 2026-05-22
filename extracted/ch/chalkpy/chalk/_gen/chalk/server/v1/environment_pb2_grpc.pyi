@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.environment_pb2 import (
     CreateEnvironmentV2Response,
     DeleteEnvironmentRequest,
     DeleteEnvironmentResponse,
+    DiscoverEnvironmentBucketsRequest,
+    DiscoverEnvironmentBucketsResponse,
     SetDefaultEnvironmentRequest,
     SetDefaultEnvironmentResponse,
     UpdateEnvironmentV2Request,
@@ -44,6 +46,10 @@ class EnvironmentServiceStub:
         SetDefaultEnvironmentRequest,
         SetDefaultEnvironmentResponse,
     ]
+    DiscoverEnvironmentBuckets: UnaryUnaryMultiCallable[
+        DiscoverEnvironmentBucketsRequest,
+        DiscoverEnvironmentBucketsResponse,
+    ]
 
 class EnvironmentServiceServicer(metaclass=ABCMeta):
     """Note that the RPCs in this service supersede those in the team service for environments."""
@@ -72,5 +78,11 @@ class EnvironmentServiceServicer(metaclass=ABCMeta):
         request: SetDefaultEnvironmentRequest,
         context: ServicerContext,
     ) -> SetDefaultEnvironmentResponse: ...
+    @abstractmethod
+    def DiscoverEnvironmentBuckets(
+        self,
+        request: DiscoverEnvironmentBucketsRequest,
+        context: ServicerContext,
+    ) -> DiscoverEnvironmentBucketsResponse: ...
 
 def add_EnvironmentServiceServicer_to_server(servicer: EnvironmentServiceServicer, server: Server) -> None: ...

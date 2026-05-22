@@ -32,7 +32,7 @@ from concurrent.futures.process import BrokenProcessPool
 from multiprocessing import active_children
 from multiprocessing.managers import DictProxy
 from tempfile import gettempdir
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # Third-party imports
 from behave.configuration import Configuration
@@ -41,9 +41,12 @@ from behave.runner import Runner
 
 # Local imports
 # noinspection PyUnresolvedReferences
+import importlib.util
+
 from behavex import conf_mgr
 from behavex.arguments import BEHAVE_ARGS, BEHAVEX_ARGS, parse_arguments
 from behavex.conf_mgr import ConfigRun, get_env, get_param
+from behavex.context import BehaveXContext
 from behavex.environment import extend_behave_hooks
 from behavex.execution_singleton import ExecutionSingleton
 from behavex.global_vars import global_vars
@@ -154,8 +157,9 @@ def run(args):
         os.environ['FEATURES_PATH'] = 'features'
     _set_env_variables(args_parsed)
     set_system_paths()
-    cleanup_folders()
-    copy_bootstrap_html_generator()
+    if not get_param('no_report'):
+        cleanup_folders()
+        copy_bootstrap_html_generator()
     configure_logging(args_parsed)
     match_include = MatchInclude()
     include_path_match = IncludePathsMatch()
@@ -232,7 +236,16 @@ def launch_behavex():
         if parallel_processes > 1 and not get_param('dry_run')
         else False
     )
+    if multiprocess:
+        _warn_parallel_incompatible_params()
     set_behave_tags()
+    bhx_context = BehaveXContext()
+    bhx_before_workers_ok = False
+    _call_bhx_hook('before_all_workers', bhx_context)
+    bhx_before_workers_ok = True
+    shared_data = bhx_context._to_dict()
+    if shared_data:
+        os.environ['BHX_SHARED_CONTEXT'] = json.dumps(shared_data)
     scenario = False
     notify_missing_features(features_path)
     features_list = {}
@@ -291,7 +304,7 @@ def launch_behavex():
                                                             process_pool,
                                                             lock,
                                                             show_progress_bar)
-        wrap_up_process_pools(process_pool, json_reports, scenario)
+        merged_json = wrap_up_process_pools(process_pool, json_reports, scenario)
 
         if get_param('dry_run'):
             print_parallel('execution.dry_run.completed', get_env('OUTPUT'))
@@ -302,7 +315,7 @@ def launch_behavex():
         # TODO: Replace logs below with test execution logs when an unexpected error occurs
         # behave_log_file = os.path.join(output_folder, 'behavex', 'logs', str(scenario['id_feature']), 'behave.log')
         # behave_log_file = os.path.join(output_folder, 'behavex', 'logs', str(json_test_configuration['id']), 'behave.log')
-        results = get_json_results()
+        results = merged_json if get_param('no_report') else get_json_results()
         processed_feature_filenames = []
         if results:
             for feature in results['features']:
@@ -337,7 +350,7 @@ def launch_behavex():
                         totals['scenarios']['untested'] += 1
                     else:
                         totals['scenarios']['skipped'] += 1
-            if failures:
+            if failures and not get_param('no_report'):
                 failures_file_path = os.path.join(get_env('OUTPUT'), global_vars.report_filenames['report_failures'])
                 with open(failures_file_path, 'w') as failures_file:
                     failures_file.write(','.join(failures))
@@ -366,10 +379,15 @@ def launch_behavex():
         except Exception as e:
             print(f"Error during shutdown: {e}")
         exit_code = EXIT_ERROR
+    finally:
+        if bhx_before_workers_ok:
+            _call_bhx_hook('after_all_workers', bhx_context)
     if multiprocess:
         print_execution_summary(totals, failures, results)  # failures initialized above
-    if results and results['features'] and not get_param('formatter'):
+    if results and results['features'] and not get_param('formatter') and not get_param('no_report'):
         print('\nHTML output report is located at: {}'.format(os.path.join(get_env('OUTPUT'), "report.html")))
+    if get_param('no_report'):
+        print('\nTemporary assets (logs, evidence, images) are located at: {}'.format(get_env('LOGS')))
     print('Exit code: {}'.format(exit_code))
     return exit_code
 
@@ -1130,14 +1148,16 @@ def wrap_up_process_pools(process_pool,
         merged_json = json_reports
     if global_vars.progress_bar_instance:
         global_vars.progress_bar_instance.finish()
-    status_info = os.path.join(output, global_vars.report_filenames['report_overall'])
-    with open(status_info, 'w') as file_info:
-        over_status = {'status': get_overall_status(merged_json)}
-        file_info.write(json.dumps(over_status))
-    path_info = os.path.join(output, global_vars.report_filenames['report_json'])
-    with open(path_info, 'w') as file_info:
-        file_info.write(json.dumps(merged_json))
-    generate_reports(merged_json)
+    if not get_param('no_report'):
+        status_info = os.path.join(output, global_vars.report_filenames['report_overall'])
+        with open(status_info, 'w') as file_info:
+            over_status = {'status': get_overall_status(merged_json)}
+            file_info.write(json.dumps(over_status))
+        path_info = os.path.join(output, global_vars.report_filenames['report_json'])
+        with open(path_info, 'w') as file_info:
+            file_info.write(json.dumps(merged_json))
+        generate_reports(merged_json)
+    return merged_json
 
 
 def remove_temporary_files(parallel_processes, json_reports):
@@ -1182,7 +1202,8 @@ def remove_temporary_files(parallel_processes, json_reports):
         json_reports = [json_reports]
     for json_report in json_reports:
         if 'features' in json_report and json_report['features']:
-            feature_name = os.path.join(get_env('OUTPUT'), u'{}.tmp'.format(json_report['features'][0]['name']))
+            feature_tmp_dir = get_env('TEMP') if get_param('no_report') else get_env('OUTPUT')
+            feature_name = os.path.join(feature_tmp_dir, u'{}.tmp'.format(json_report['features'][0]['name']))
             if os.path.exists(feature_name):
                 try:
                     os.remove(feature_name)
@@ -1223,8 +1244,9 @@ def processing_xml_feature(json_output, scenario_line, feature_filename,
                 if reported_scenario['line'] == scenario_line:
                     executed_scenarios.append(reported_scenario)
             json_output['features'][0]['scenarios'] = executed_scenarios
+            feature_tmp_dir = get_env('TEMP') if get_param('no_report') else get_env('OUTPUT')
             feature_name = os.path.join(
-                get_env('OUTPUT'), u'{}.tmp'.format(os.path.basename(feature_filename))
+                feature_tmp_dir, u'{}.tmp'.format(os.path.basename(feature_filename))
             )
             processed_feature_data = json_output['features'][0]
             processed_feature_data['scenarios'] = executed_scenarios
@@ -1268,6 +1290,43 @@ def processing_xml_feature(json_output, scenario_line, feature_filename,
             lock.release()
 
 
+def _find_user_environment_path() -> Optional[str]:
+    """Return the path to the user's environment.py, or None if not found."""
+    features_path = os.environ.get('FEATURES_PATH', '')
+    for path in features_path.split(','):
+        path = path.strip()
+        if not path:
+            continue
+        candidate_dir = path if os.path.isdir(path) else os.path.dirname(path)
+        env_file = os.path.join(candidate_dir, 'environment.py')
+        if os.path.exists(env_file):
+            return env_file
+    return None
+
+
+_bhx_user_environment_module = None
+
+
+def _call_bhx_hook(hook_name: str, *args) -> None:
+    """Load the user's environment.py (cached) and call hook_name if defined."""
+    global _bhx_user_environment_module
+    if _bhx_user_environment_module is None:
+        env_path = _find_user_environment_path()
+        if not env_path:
+            return
+        spec = importlib.util.spec_from_file_location('bhx_user_environment', env_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _bhx_user_environment_module = module
+    try:
+        hook_fn = getattr(_bhx_user_environment_module, hook_name, None)
+        if callable(hook_fn):
+            hook_fn(*args)
+    except Exception as ex:
+        logging.error(f"[BehaveX] Error in {hook_name}: {ex}")
+        raise
+
+
 def _set_env_variables(args):
     """
     Set environment variables based on the given arguments.
@@ -1280,13 +1339,13 @@ def _set_env_variables(args):
         set_env_variable('OUTPUT', output_folder)
     else:
         set_env_variable('OUTPUT', os.path.abspath(output_folder))
-    _store_tags_to_env_variable(args.tags)
+    _store_tags_to_env_variable(get_param('tags'))
     if get_param('include_paths'):
         set_env_variable('INCLUDE_PATHS', get_param('include_paths'))
     if get_param('include'):
         set_env_variable('INCLUDE', get_param('include'))
     if get_param('name'):
-        set_env_variable('NAME', args.name)
+        set_env_variable('NAME', get_param('name'))
     if get_param('formatter'):
         formatter_outdir = get_param('formatter_outdir', '')
         formatter_spec = get_param('formatter')
@@ -1313,6 +1372,11 @@ def _set_env_variables(args):
         set_env_variable(arg.upper(), get_param(arg))
 
     set_env_variable('TEMP', os.path.join(get_env('output'), 'temp'))
+    if get_param('no_report'):
+        set_env_variable('NO_REPORT', True)
+        set_env_variable('LOGS', os.path.join(gettempdir(), 'bhx_logs'))
+        set_env_variable('TEMP', os.path.join(gettempdir(), 'bhx_temp'))
+        os.makedirs(get_env('TEMP'), exist_ok=True)
     set_env_variable('LOGGING_LEVEL', get_logging_level())
     if platform.system() == 'Windows':
         set_env_variable('HOME', os.path.abspath('.\\'))
@@ -1346,9 +1410,15 @@ def _store_tags_to_env_variable(tags):
         tags_skip = [tags_skip]
     else:
         tags_skip = tags_skip
-    tags = tags if tags is not None else []
+    # Normalize to list: CLI gives a list, config file may give a str for single
+    # values (configobj list-type validation fails for single entries without commas).
+    if isinstance(tags, str):
+        tags = [t.strip() for t in tags.split(',') if t.strip()]
+    elif tags is None:
+        tags = []
     tags_skip = [tag for tag in tags_skip if tag not in tags]
-    tags = tags + ['~@{0}'.format(tag) for tag in tags_skip] if tags else []
+    exclusion_tags = ['~@{0}'.format(tag) for tag in tags_skip]
+    tags = tags + exclusion_tags if tags else exclusion_tags
     if tags:
         for tag in tags:
             existing_tags = get_env('TAGS')
@@ -1358,6 +1428,32 @@ def _store_tags_to_env_variable(tags):
                 set_env_variable('TAGS', tag)
     else:
         set_env_variable('TAGS', '')
+
+
+_PARALLEL_INCOMPATIBLE_PARAMS = [
+    (
+        'stop',
+        'stops only the worker process that hits the first failure; other workers keep running. '
+        'Use serial execution (--parallel-processes 1) if you need fail-fast behaviour.',
+    ),
+    (
+        'wip',
+        'WIP mode may cause individual workers to fail when no @wip scenarios are assigned to them. '
+        'Apply the @WIP tag via --tags instead.',
+    ),
+    (
+        'name',
+        'name-based filtering runs inside each worker after BehaveX has already dispatched '
+        'scenarios by line number, which can silently drop scenarios from the run.',
+    ),
+]
+
+
+def _warn_parallel_incompatible_params():
+    """Emit warnings for config/CLI params that do not work correctly in parallel mode."""
+    for param, reason in _PARALLEL_INCOMPATIBLE_PARAMS:
+        if get_param(param):
+            print(f"WARNING: Parameter '{param}' is not compatible with parallel execution: {reason}")
 
 
 def _set_behave_arguments(features_path, multiprocess, execution_id=None, feature=None, scenario_line=None, config=None):
@@ -1400,7 +1496,12 @@ def _set_behave_arguments(features_path, multiprocess, execution_id=None, featur
         else:
             arguments.append('--summary')
         arguments.append('--junit-directory')
-        arguments.append(output_folder)
+        if get_param('no_report'):
+            behave_outdir = os.path.join(gettempdir(), 'bhx_behave')
+            os.makedirs(behave_outdir, exist_ok=True)
+            arguments.append(behave_outdir)
+        else:
+            arguments.append(output_folder)
         # Note: --outfile removed since we get execution results directly from runner
         arguments.append('-D')
         arguments.append(f'worker_id=0')
@@ -1485,10 +1586,15 @@ def _set_behave_arguments(features_path, multiprocess, execution_id=None, featur
                 value_arg = value_arg.replace(features_path, 'features').replace(
                     '\\', '\\\\'
                 )
-        if arg == 'define' and value_arg:
-            for key_value in value_arg:
-                arguments.append('--define')
-                arguments.append(key_value)
+        if arg == 'define':
+            if not value_arg:
+                value_arg = get_param('define')
+            if isinstance(value_arg, str) and value_arg:
+                value_arg = [value_arg]
+            if value_arg:
+                for key_value in value_arg:
+                    arguments.append('--define')
+                    arguments.append(key_value)
         if value_arg and arg not in BEHAVEX_ARGS and arg != 'define':
             arguments.append('--{}'.format(arg.replace('_', '-')))
             if value_arg and not isinstance(value_arg, bool):

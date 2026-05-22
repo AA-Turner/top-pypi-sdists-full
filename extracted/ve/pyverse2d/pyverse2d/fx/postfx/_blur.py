@@ -60,7 +60,7 @@ class Blur(PostFxEffect):
     """Effet post-processing: flou gaussien
 
     Args:
-        radius: rayon du noyau en pixels *(> 0)*
+        radius: rayon du noyau en unités mondes *(> 0)*
         passes: nombre d'itérations du flou *(>= 1)*
     """
     radius: Real = 4.0
@@ -110,6 +110,7 @@ class BlurPostFxRenderer(SpecializedPostFxRenderer):
         texel = (1.0 / fbo.width, 1.0 / fbo.height)
         program = self._get_program()
         mask_uniforms = mask.as_uniforms()
+        radius = pipeline.scale_to_framebuffer(effect.radius)
 
         for _ in range(effect.passes):
             pipeline.apply_shader(program,
@@ -121,7 +122,7 @@ class BlurPostFxRenderer(SpecializedPostFxRenderer):
             pipeline.apply_shader(program,
                 u_direction=(0.0, 1.0),
                 u_texel=texel,
-                u_radius=effect.radius,
+                u_radius=radius,
                 **mask_uniforms,
             )
 

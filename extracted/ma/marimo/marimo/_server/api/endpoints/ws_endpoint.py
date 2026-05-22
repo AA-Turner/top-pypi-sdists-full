@@ -369,7 +369,7 @@ class WebSocketHandler(SessionConsumer):
                     self.manager.close_session(self.params.session_id)
 
             if session is not None:
-                cancellation_handle = asyncio.get_event_loop().call_later(
+                cancellation_handle = asyncio.get_running_loop().call_later(
                     session.ttl_seconds, _close
                 )
                 self.cancel_close_handle = cancellation_handle
@@ -455,9 +455,9 @@ class WebSocketHandler(SessionConsumer):
     async def _safe_close(self, code: int, reason: str) -> None:
         """Close the WebSocket, ignoring errors from uninitialized state.
 
-        uvicorn never calls websockets' ``connection_open()``, so internal
-        attributes like ``transfer_data_task`` are missing. Closing a
-        websocket in that state raises ``AttributeError``. The connection
+        uvicorn never calls websockets' `connection_open()`, so internal
+        attributes like `transfer_data_task` are missing. Closing a
+        websocket in that state raises `AttributeError`. The connection
         is cleaned up when the handler returns regardless.
         """
         try:

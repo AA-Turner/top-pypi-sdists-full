@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
+import platform
+from typing import Any, Dict, List, Mapping, Optional, OrderedDict, Tuple, Union
 
 from . import cpp as fstcpp
 from .common import (
@@ -9,7 +10,6 @@ from .common import (
     TensorFrame,
     get_device_numa_node,
     init_logger,
-    set_debug,
 )
 from .copier import CopierConstructFunc, CopierType, create_copier_constructor
 from .copier.unified import is_unified_memory_system
@@ -38,6 +38,15 @@ class BaseSafeTensorsFileLoader:
         debug_log (bool): Enable detailed debug logging.
         framework (str): Deep learning framework to use ("pytorch" or "paddle").
     """
+
+    @classmethod
+    def process_extension_config(
+        cls, ext_config: Mapping[str, Any], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Translate extension config into ``__init__`` kwargs.
+        Default: shallow copy as-is. Subclasses override to remap fields.
+        ``kwargs`` carries runtime context (e.g. ``hf_weights_files``)."""
+        return dict(ext_config)
 
     def __init__(
         self,
@@ -179,6 +188,16 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
         >> loader.close()
     """
 
+    @classmethod
+    def process_extension_config(
+        cls, ext_config: Mapping[str, Any], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Map ``copier_type`` to ``nogds`` flag; pass rest through."""
+        out = dict(ext_config)
+        copier_type = out.pop("copier_type", "gds")
+        out["nogds"] = copier_type != "gds"
+        return out
+
     def __init__(
         self,
         pg: Optional[Any],
@@ -199,7 +218,10 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
         fstcpp.set_debug_log(debug_log)
 
         if not nogds:
-            copier_type = "gds"
+            if platform.system() == "Windows":
+                copier_type = "dstorage"
+            else:
+                copier_type = "gds"
         elif self.device.type != DeviceType.CPU and is_unified_memory_system():
             # When GDS is unavailable, prefer the unified copier on systems
             # with shared CPU/GPU memory (e.g., DGX Spark) over the

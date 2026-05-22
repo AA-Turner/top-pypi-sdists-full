@@ -36,6 +36,9 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListDatasetExamplesPaginator,
+    ListDatasetsPaginator,
+    ListDatasetVersionsPaginator,
     ListEvaluatorsPaginator,
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
@@ -59,6 +62,8 @@ from .paginator import (
     ListWorkloadIdentitiesPaginator,
 )
 from .type_defs import (
+    AddDatasetExamplesRequestTypeDef,
+    AddDatasetExamplesResponseTypeDef,
     CreateAgentRuntimeEndpointRequestTypeDef,
     CreateAgentRuntimeEndpointResponseTypeDef,
     CreateAgentRuntimeRequestTypeDef,
@@ -73,6 +78,10 @@ from .type_defs import (
     CreateCodeInterpreterResponseTypeDef,
     CreateConfigurationBundleRequestTypeDef,
     CreateConfigurationBundleResponseTypeDef,
+    CreateDatasetRequestTypeDef,
+    CreateDatasetResponseTypeDef,
+    CreateDatasetVersionRequestTypeDef,
+    CreateDatasetVersionResponseTypeDef,
     CreateEvaluatorRequestTypeDef,
     CreateEvaluatorResponseTypeDef,
     CreateGatewayRequestTypeDef,
@@ -118,6 +127,10 @@ from .type_defs import (
     DeleteCodeInterpreterResponseTypeDef,
     DeleteConfigurationBundleRequestTypeDef,
     DeleteConfigurationBundleResponseTypeDef,
+    DeleteDatasetExamplesRequestTypeDef,
+    DeleteDatasetExamplesResponseTypeDef,
+    DeleteDatasetRequestTypeDef,
+    DeleteDatasetResponseTypeDef,
     DeleteEvaluatorRequestTypeDef,
     DeleteEvaluatorResponseTypeDef,
     DeleteGatewayRequestTypeDef,
@@ -163,6 +176,8 @@ from .type_defs import (
     GetConfigurationBundleResponseTypeDef,
     GetConfigurationBundleVersionRequestTypeDef,
     GetConfigurationBundleVersionResponseTypeDef,
+    GetDatasetRequestTypeDef,
+    GetDatasetResponseTypeDef,
     GetEvaluatorRequestTypeDef,
     GetEvaluatorResponseTypeDef,
     GetGatewayRequestTypeDef,
@@ -225,6 +240,12 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListDatasetExamplesRequestTypeDef,
+    ListDatasetExamplesResponseTypeDef,
+    ListDatasetsRequestTypeDef,
+    ListDatasetsResponseTypeDef,
+    ListDatasetVersionsRequestTypeDef,
+    ListDatasetVersionsResponseTypeDef,
     ListEvaluatorsRequestTypeDef,
     ListEvaluatorsResponseTypeDef,
     ListGatewayRulesRequestTypeDef,
@@ -289,6 +310,10 @@ from .type_defs import (
     UpdateApiKeyCredentialProviderResponseTypeDef,
     UpdateConfigurationBundleRequestTypeDef,
     UpdateConfigurationBundleResponseTypeDef,
+    UpdateDatasetExamplesRequestTypeDef,
+    UpdateDatasetExamplesResponseTypeDef,
+    UpdateDatasetRequestTypeDef,
+    UpdateDatasetResponseTypeDef,
     UpdateEvaluatorRequestTypeDef,
     UpdateEvaluatorResponseTypeDef,
     UpdateGatewayRequestTypeDef,
@@ -392,6 +417,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#generate_presigned_url)
         """
 
+    def add_dataset_examples(
+        self, **kwargs: Unpack[AddDatasetExamplesRequestTypeDef]
+    ) -> AddDatasetExamplesResponseTypeDef:
+        """
+        Adds examples to the dataset's DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/add_dataset_examples.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#add_dataset_examples)
+        """
+
     def create_agent_runtime(
         self, **kwargs: Unpack[CreateAgentRuntimeRequestTypeDef]
     ) -> CreateAgentRuntimeResponseTypeDef:
@@ -460,6 +495,26 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_configuration_bundle.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_configuration_bundle)
+        """
+
+    def create_dataset(
+        self, **kwargs: Unpack[CreateDatasetRequestTypeDef]
+    ) -> CreateDatasetResponseTypeDef:
+        """
+        Creates a new Dataset resource asynchronously.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_dataset.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_dataset)
+        """
+
+    def create_dataset_version(
+        self, **kwargs: Unpack[CreateDatasetVersionRequestTypeDef]
+    ) -> CreateDatasetVersionResponseTypeDef:
+        """
+        Publishes the current DRAFT as a new numbered version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_dataset_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_dataset_version)
         """
 
     def create_evaluator(
@@ -693,6 +748,26 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_configuration_bundle.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_configuration_bundle)
+        """
+
+    def delete_dataset(
+        self, **kwargs: Unpack[DeleteDatasetRequestTypeDef]
+    ) -> DeleteDatasetResponseTypeDef:
+        """
+        Deletes a dataset version or an entire dataset (all versions + name claim).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_dataset.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_dataset)
+        """
+
+    def delete_dataset_examples(
+        self, **kwargs: Unpack[DeleteDatasetExamplesRequestTypeDef]
+    ) -> DeleteDatasetExamplesResponseTypeDef:
+        """
+        Deletes specific examples by ID from DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_dataset_examples.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_dataset_examples)
         """
 
     def delete_evaluator(
@@ -942,6 +1017,14 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle_version.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_configuration_bundle_version)
+        """
+
+    def get_dataset(self, **kwargs: Unpack[GetDatasetRequestTypeDef]) -> GetDatasetResponseTypeDef:
+        """
+        Retrieves dataset metadata only.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_dataset.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_dataset)
         """
 
     def get_evaluator(
@@ -1253,6 +1336,37 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundles.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_configuration_bundles)
+        """
+
+    def list_dataset_examples(
+        self, **kwargs: Unpack[ListDatasetExamplesRequestTypeDef]
+    ) -> ListDatasetExamplesResponseTypeDef:
+        """
+        Returns paginated examples from the dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_dataset_examples.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_dataset_examples)
+        """
+
+    def list_dataset_versions(
+        self, **kwargs: Unpack[ListDatasetVersionsRequestTypeDef]
+    ) -> ListDatasetVersionsResponseTypeDef:
+        """
+        Lists all published versions of a dataset, sorted by version number descending
+        (newest first).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_dataset_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_dataset_versions)
+        """
+
+    def list_datasets(
+        self, **kwargs: Unpack[ListDatasetsRequestTypeDef]
+    ) -> ListDatasetsResponseTypeDef:
+        """
+        Lists all datasets in the caller's account, paginated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_datasets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_datasets)
         """
 
     def list_evaluators(
@@ -1593,6 +1707,26 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_configuration_bundle)
         """
 
+    def update_dataset(
+        self, **kwargs: Unpack[UpdateDatasetRequestTypeDef]
+    ) -> UpdateDatasetResponseTypeDef:
+        """
+        Updates a dataset's metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_dataset.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_dataset)
+        """
+
+    def update_dataset_examples(
+        self, **kwargs: Unpack[UpdateDatasetExamplesRequestTypeDef]
+    ) -> UpdateDatasetExamplesResponseTypeDef:
+        """
+        Updates multiple existing examples in-place on DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_dataset_examples.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_dataset_examples)
+        """
+
     def update_evaluator(
         self, **kwargs: Unpack[UpdateEvaluatorRequestTypeDef]
     ) -> UpdateEvaluatorResponseTypeDef:
@@ -1857,6 +1991,39 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configuration_bundles"]
     ) -> ListConfigurationBundlesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_examples"]
+    ) -> ListDatasetExamplesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_versions"]
+    ) -> ListDatasetVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_datasets"]
+    ) -> ListDatasetsPaginator:
         """
         Create a paginator for an operation.
 

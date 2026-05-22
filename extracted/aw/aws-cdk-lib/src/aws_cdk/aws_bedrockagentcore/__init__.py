@@ -3075,6 +3075,7 @@ from ..interfaces.aws_bedrockagentcore import (
     ApiKeyCredentialProviderReference as _ApiKeyCredentialProviderReference_cd6b5fa8,
     BrowserCustomReference as _BrowserCustomReference_ceb8fdba,
     BrowserProfileReference as _BrowserProfileReference_7d69eac7,
+    BrowserReference as _BrowserReference_80bd1deb,
     CodeInterpreterCustomReference as _CodeInterpreterCustomReference_0b253bc0,
     EvaluatorReference as _EvaluatorReference_a3ac0235,
     GatewayReference as _GatewayReference_350c3a07,
@@ -3082,6 +3083,7 @@ from ..interfaces.aws_bedrockagentcore import (
     IApiKeyCredentialProviderRef as _IApiKeyCredentialProviderRef_be95a523,
     IBrowserCustomRef as _IBrowserCustomRef_f12bfa35,
     IBrowserProfileRef as _IBrowserProfileRef_87a4b1a8,
+    IBrowserRef as _IBrowserRef_9ae0dbbd,
     ICodeInterpreterCustomRef as _ICodeInterpreterCustomRef_2d5c05fb,
     IEvaluatorRef as _IEvaluatorRef_21d364d2,
     IGatewayRef as _IGatewayRef_a3ed30fe,
@@ -3089,6 +3091,7 @@ from ..interfaces.aws_bedrockagentcore import (
     IMemoryRef as _IMemoryRef_2d13cc89,
     IOAuth2CredentialProviderRef as _IOAuth2CredentialProviderRef_0815c2a4,
     IOnlineEvaluationConfigRef as _IOnlineEvaluationConfigRef_cf19cabf,
+    IPaymentCredentialProviderRef as _IPaymentCredentialProviderRef_cdad81c3,
     IPolicyEngineRef as _IPolicyEngineRef_6d885cfc,
     IPolicyRef as _IPolicyRef_ceb8b108,
     IRuntimeEndpointRef as _IRuntimeEndpointRef_7a1c67f8,
@@ -3097,6 +3100,7 @@ from ..interfaces.aws_bedrockagentcore import (
     MemoryReference as _MemoryReference_a1aef278,
     OAuth2CredentialProviderReference as _OAuth2CredentialProviderReference_0c62007e,
     OnlineEvaluationConfigReference as _OnlineEvaluationConfigReference_13c14f3c,
+    PaymentCredentialProviderReference as _PaymentCredentialProviderReference_84da34cb,
     PolicyEngineReference as _PolicyEngineReference_471db68b,
     PolicyReference as _PolicyReference_d2f6bd10,
     RuntimeEndpointReference as _RuntimeEndpointReference_dff8b038,
@@ -6596,6 +6600,153 @@ class CfnApiKeyCredentialProviderProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IBrowserRef_9ae0dbbd)
+class CfnBrowser(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowser",
+):
+    '''Definition of AWS::BedrockAgentCore::Browser Resource Type.
+
+    This is a read-only resource representing the default service-managed browser.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browser.html
+    :cloudformationResource: AWS::BedrockAgentCore::Browser
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_browser = bedrockagentcore.CfnBrowser(self, "MyCfnBrowser")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::Browser``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fb42cd127ac32667184adb3370786abb79a41a490b6594b9ab009515775a08a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBrowserProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBrowser")
+    @builtins.classmethod
+    def arn_for_browser(cls, resource: "_IBrowserRef_9ae0dbbd") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bacadb0540af24852ae4bf00bb8a44c57f41f5348832c1acb6778d3959a0fbe7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBrowser", [resource]))
+
+    @jsii.member(jsii_name="isCfnBrowser")
+    @builtins.classmethod
+    def is_cfn_browser(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBrowser.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ccd9abd5a9608e4188783cfd53420f65fe72cd6747df00adf83f763f89ec4615)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBrowser", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3375c475ed5025fb06c307929f0f29d9577291a52deefaf03c7118983d4757d0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bd23ae020d4c21fb04d9480efcddb5709f91b6b0de855bd315dc05e4a2e9e24)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBrowserArn")
+    def attr_browser_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the browser.
+
+        :cloudformationAttribute: BrowserArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBrowserArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBrowserId")
+    def attr_browser_id(self) -> builtins.str:
+        '''The unique identifier of the browser.
+
+        :cloudformationAttribute: BrowserId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBrowserId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the browser.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the browser.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="browserRef")
+    def browser_ref(self) -> "_BrowserReference_80bd1deb":
+        '''A reference to a Browser resource.'''
+        return typing.cast("_BrowserReference_80bd1deb", jsii.get(self, "browserRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+
 @jsii.implements(_IInspectable_c2943556, _IBrowserCustomRef_f12bfa35, _ITaggableV2_4e6798f8)
 class CfnBrowserCustom(
     _CfnResource_9df397a6,
@@ -8133,6 +8284,40 @@ class CfnBrowserProfileProps:
 
     def __repr__(self) -> str:
         return "CfnBrowserProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnBrowserProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnBrowser``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browser.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_browser_props = bedrockagentcore.CfnBrowserProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBrowserProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -23740,6 +23925,1021 @@ class CfnOnlineEvaluationConfigProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IPaymentCredentialProviderRef_cdad81c3, _ITaggableV2_4e6798f8)
+class CfnPaymentCredentialProvider(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::PaymentCredentialProvider.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html
+    :cloudformationResource: AWS::BedrockAgentCore::PaymentCredentialProvider
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_payment_credential_provider = bedrockagentcore.CfnPaymentCredentialProvider(self, "MyCfnPaymentCredentialProvider",
+            credential_provider_vendor="credentialProviderVendor",
+            name="name",
+        
+            # the properties below are optional
+            provider_configuration_input=bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
+                coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
+                    api_key_id="apiKeyId",
+                    api_key_secret="apiKeySecret",
+        
+                    # the properties below are optional
+                    wallet_secret="walletSecret"
+                ),
+                stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
+                    app_id="appId",
+                    app_secret="appSecret",
+                    authorization_id="authorizationId",
+                    authorization_private_key="authorizationPrivateKey"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        credential_provider_vendor: builtins.str,
+        name: builtins.str,
+        provider_configuration_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::PaymentCredentialProvider``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param credential_provider_vendor: Supported vendor types for payment providers.
+        :param name: Unique name for the payment credential provider.
+        :param provider_configuration_input: Provider configuration input containing secrets for creation/update.
+        :param tags: Tags for the payment credential provider.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75ba63aa016d8ba5dcd5ff05648fb02c379bf8e71375ffb7aa6d38b0116b63d1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPaymentCredentialProviderProps(
+            credential_provider_vendor=credential_provider_vendor,
+            name=name,
+            provider_configuration_input=provider_configuration_input,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnPaymentCredentialProvider")
+    @builtins.classmethod
+    def is_cfn_payment_credential_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPaymentCredentialProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dd6150285e5f7f7c24e8c0d9624138a795c0d7f8e3db45c78237a01bb19d623)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPaymentCredentialProvider", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c44b2139fc9789900d78e5614a56465436a43831b16cb9f9c9b4d6de6904e981)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cab39b686dcea537592f4a0b64b3c8723cdf6036ef33b06f704ba9865fad808e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was created.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCredentialProviderArn")
+    def attr_credential_provider_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the payment credential provider.
+
+        :cloudformationAttribute: CredentialProviderArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCredentialProviderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The timestamp when the credential provider was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProviderConfigurationOutput")
+    def attr_provider_configuration_output(self) -> "_IResolvable_da3f097b":
+        '''Provider configuration output containing secret ARNs (no raw secrets).
+
+        :cloudformationAttribute: ProviderConfigurationOutput
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrProviderConfigurationOutput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentCredentialProviderRef")
+    def payment_credential_provider_ref(
+        self,
+    ) -> "_PaymentCredentialProviderReference_84da34cb":
+        '''A reference to a PaymentCredentialProvider resource.'''
+        return typing.cast("_PaymentCredentialProviderReference_84da34cb", jsii.get(self, "paymentCredentialProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderVendor")
+    def credential_provider_vendor(self) -> builtins.str:
+        '''Supported vendor types for payment providers.'''
+        return typing.cast(builtins.str, jsii.get(self, "credentialProviderVendor"))
+
+    @credential_provider_vendor.setter
+    def credential_provider_vendor(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc08ebdfc113baf80a0d4677b9b83b53febc4e11a04ad010e0dabeca2e84fafd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "credentialProviderVendor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''Unique name for the payment credential provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5da2b977babf349445e769fe6278f67f803b3d66928790ace71fa2fb985f80ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="providerConfigurationInput")
+    def provider_configuration_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty"]]:
+        '''Provider configuration input containing secrets for creation/update.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty"]], jsii.get(self, "providerConfigurationInput"))
+
+    @provider_configuration_input.setter
+    def provider_configuration_input(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5fbe2eb9b846d5eb0814ee6973b139762b65fdf4e0e62796e040420b4adaf6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "providerConfigurationInput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags for the payment credential provider.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ff0ec42d3966318b33b335957c8847bd072e0af0c53256c3f6460a65ae76fa8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "api_key_id": "apiKeyId",
+            "api_key_secret": "apiKeySecret",
+            "wallet_secret": "walletSecret",
+        },
+    )
+    class CoinbaseCdpConfigurationInputProperty:
+        def __init__(
+            self,
+            *,
+            api_key_id: builtins.str,
+            api_key_secret: builtins.str,
+            wallet_secret: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Coinbase CDP configuration with API credentials.
+
+            :param api_key_id: The Coinbase CDP API key ID.
+            :param api_key_secret: The Coinbase CDP API key secret.
+            :param wallet_secret: The Coinbase CDP wallet secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                coinbase_cdp_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
+                    api_key_id="apiKeyId",
+                    api_key_secret="apiKeySecret",
+                
+                    # the properties below are optional
+                    wallet_secret="walletSecret"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9dd8ba3186c2a37d4a11913e5b9f7b6642b7119bccd6a210792c9596b1e3147d)
+                check_type(argname="argument api_key_id", value=api_key_id, expected_type=type_hints["api_key_id"])
+                check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
+                check_type(argname="argument wallet_secret", value=wallet_secret, expected_type=type_hints["wallet_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key_id": api_key_id,
+                "api_key_secret": api_key_secret,
+            }
+            if wallet_secret is not None:
+                self._values["wallet_secret"] = wallet_secret
+
+        @builtins.property
+        def api_key_id(self) -> builtins.str:
+            '''The Coinbase CDP API key ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-apikeyid
+            '''
+            result = self._values.get("api_key_id")
+            assert result is not None, "Required property 'api_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key_secret(self) -> builtins.str:
+            '''The Coinbase CDP API key secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-apikeysecret
+            '''
+            result = self._values.get("api_key_secret")
+            assert result is not None, "Required property 'api_key_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def wallet_secret(self) -> typing.Optional[builtins.str]:
+            '''The Coinbase CDP wallet secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-walletsecret
+            '''
+            result = self._values.get("wallet_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CoinbaseCdpConfigurationInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "api_key_id": "apiKeyId",
+            "api_key_secret_arn": "apiKeySecretArn",
+            "wallet_secret_arn": "walletSecretArn",
+        },
+    )
+    class CoinbaseCdpConfigurationOutputProperty:
+        def __init__(
+            self,
+            *,
+            api_key_id: builtins.str,
+            api_key_secret_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            wallet_secret_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Coinbase CDP configuration output with secret ARNs.
+
+            :param api_key_id: The Coinbase CDP API key ID.
+            :param api_key_secret_arn: Contains information about a secret in AWS Secrets Manager.
+            :param wallet_secret_arn: Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                coinbase_cdp_configuration_output_property = bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty(
+                    api_key_id="apiKeyId",
+                    api_key_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                        secret_arn="secretArn"
+                    ),
+                
+                    # the properties below are optional
+                    wallet_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5758217524779314f78859e9aebe61972010673b0fb9a5e75d07b9b8882ef918)
+                check_type(argname="argument api_key_id", value=api_key_id, expected_type=type_hints["api_key_id"])
+                check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+                check_type(argname="argument wallet_secret_arn", value=wallet_secret_arn, expected_type=type_hints["wallet_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key_id": api_key_id,
+                "api_key_secret_arn": api_key_secret_arn,
+            }
+            if wallet_secret_arn is not None:
+                self._values["wallet_secret_arn"] = wallet_secret_arn
+
+        @builtins.property
+        def api_key_id(self) -> builtins.str:
+            '''The Coinbase CDP API key ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-apikeyid
+            '''
+            result = self._values.get("api_key_id")
+            assert result is not None, "Required property 'api_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key_secret_arn(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-apikeysecretarn
+            '''
+            result = self._values.get("api_key_secret_arn")
+            assert result is not None, "Required property 'api_key_secret_arn' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"], result)
+
+        @builtins.property
+        def wallet_secret_arn(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]]:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-walletsecretarn
+            '''
+            result = self._values.get("wallet_secret_arn")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CoinbaseCdpConfigurationOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "coinbase_cdp_configuration": "coinbaseCdpConfiguration",
+            "stripe_privy_configuration": "stripePrivyConfiguration",
+        },
+    )
+    class PaymentProviderConfigurationInputProperty:
+        def __init__(
+            self,
+            *,
+            coinbase_cdp_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stripe_privy_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Provider configuration input containing secrets for creation/update.
+
+            :param coinbase_cdp_configuration: Coinbase CDP configuration with API credentials.
+            :param stripe_privy_configuration: Stripe Privy configuration with credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                payment_provider_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
+                    coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
+                        api_key_id="apiKeyId",
+                        api_key_secret="apiKeySecret",
+                
+                        # the properties below are optional
+                        wallet_secret="walletSecret"
+                    ),
+                    stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
+                        app_id="appId",
+                        app_secret="appSecret",
+                        authorization_id="authorizationId",
+                        authorization_private_key="authorizationPrivateKey"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4992072ee8f5c24341566e4372d466a6fd3eb891a8f10dad8c6e282a37e3bee7)
+                check_type(argname="argument coinbase_cdp_configuration", value=coinbase_cdp_configuration, expected_type=type_hints["coinbase_cdp_configuration"])
+                check_type(argname="argument stripe_privy_configuration", value=stripe_privy_configuration, expected_type=type_hints["stripe_privy_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if coinbase_cdp_configuration is not None:
+                self._values["coinbase_cdp_configuration"] = coinbase_cdp_configuration
+            if stripe_privy_configuration is not None:
+                self._values["stripe_privy_configuration"] = stripe_privy_configuration
+
+        @builtins.property
+        def coinbase_cdp_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty"]]:
+            '''Coinbase CDP configuration with API credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationinput-coinbasecdpconfiguration
+            '''
+            result = self._values.get("coinbase_cdp_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty"]], result)
+
+        @builtins.property
+        def stripe_privy_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty"]]:
+            '''Stripe Privy configuration with credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationinput-stripeprivyconfiguration
+            '''
+            result = self._values.get("stripe_privy_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaymentProviderConfigurationInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationOutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "coinbase_cdp_configuration": "coinbaseCdpConfiguration",
+            "stripe_privy_configuration": "stripePrivyConfiguration",
+        },
+    )
+    class PaymentProviderConfigurationOutputProperty:
+        def __init__(
+            self,
+            *,
+            coinbase_cdp_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stripe_privy_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Provider configuration output containing secret ARNs (no raw secrets).
+
+            :param coinbase_cdp_configuration: Coinbase CDP configuration output with secret ARNs.
+            :param stripe_privy_configuration: Stripe Privy configuration output with secret ARNs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationoutput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                payment_provider_configuration_output_property = bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationOutputProperty(
+                    coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty(
+                        api_key_id="apiKeyId",
+                        api_key_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                            secret_arn="secretArn"
+                        ),
+                
+                        # the properties below are optional
+                        wallet_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                            secret_arn="secretArn"
+                        )
+                    ),
+                    stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty(
+                        app_id="appId",
+                        app_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                            secret_arn="secretArn"
+                        ),
+                        authorization_id="authorizationId",
+                        authorization_private_key_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                            secret_arn="secretArn"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e0cd5ed1de6aef99be445bea5d5ea491dc44cb5fd75ab7c7cd777dc665d68a91)
+                check_type(argname="argument coinbase_cdp_configuration", value=coinbase_cdp_configuration, expected_type=type_hints["coinbase_cdp_configuration"])
+                check_type(argname="argument stripe_privy_configuration", value=stripe_privy_configuration, expected_type=type_hints["stripe_privy_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if coinbase_cdp_configuration is not None:
+                self._values["coinbase_cdp_configuration"] = coinbase_cdp_configuration
+            if stripe_privy_configuration is not None:
+                self._values["stripe_privy_configuration"] = stripe_privy_configuration
+
+        @builtins.property
+        def coinbase_cdp_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty"]]:
+            '''Coinbase CDP configuration output with secret ARNs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationoutput-coinbasecdpconfiguration
+            '''
+            result = self._values.get("coinbase_cdp_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty"]], result)
+
+        @builtins.property
+        def stripe_privy_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty"]]:
+            '''Stripe Privy configuration output with secret ARNs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-paymentproviderconfigurationoutput-stripeprivyconfiguration
+            '''
+            result = self._values.get("stripe_privy_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaymentProviderConfigurationOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class SecretInfoProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :param secret_arn: The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretinfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                secret_info_property = bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f1e750aa85787aedacec025aee2681bebd0c15f05a95aaa02075a09fff8448d7)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretinfo.html#cfn-bedrockagentcore-paymentcredentialprovider-secretinfo-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretInfoProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "app_id": "appId",
+            "app_secret": "appSecret",
+            "authorization_id": "authorizationId",
+            "authorization_private_key": "authorizationPrivateKey",
+        },
+    )
+    class StripePrivyConfigurationInputProperty:
+        def __init__(
+            self,
+            *,
+            app_id: builtins.str,
+            app_secret: builtins.str,
+            authorization_id: builtins.str,
+            authorization_private_key: builtins.str,
+        ) -> None:
+            '''Stripe Privy configuration with credentials.
+
+            :param app_id: The app ID provided by Privy.
+            :param app_secret: The app secret provided by Privy.
+            :param authorization_id: The authorization ID for the Stripe Privy integration.
+            :param authorization_private_key: The authorization private key for the Stripe Privy integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                stripe_privy_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
+                    app_id="appId",
+                    app_secret="appSecret",
+                    authorization_id="authorizationId",
+                    authorization_private_key="authorizationPrivateKey"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c23d91704fe694d36b873234b168ebc938879a44902d7c0933cc4371114bcd50)
+                check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+                check_type(argname="argument app_secret", value=app_secret, expected_type=type_hints["app_secret"])
+                check_type(argname="argument authorization_id", value=authorization_id, expected_type=type_hints["authorization_id"])
+                check_type(argname="argument authorization_private_key", value=authorization_private_key, expected_type=type_hints["authorization_private_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "app_id": app_id,
+                "app_secret": app_secret,
+                "authorization_id": authorization_id,
+                "authorization_private_key": authorization_private_key,
+            }
+
+        @builtins.property
+        def app_id(self) -> builtins.str:
+            '''The app ID provided by Privy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appid
+            '''
+            result = self._values.get("app_id")
+            assert result is not None, "Required property 'app_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def app_secret(self) -> builtins.str:
+            '''The app secret provided by Privy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appsecret
+            '''
+            result = self._values.get("app_secret")
+            assert result is not None, "Required property 'app_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_id(self) -> builtins.str:
+            '''The authorization ID for the Stripe Privy integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-authorizationid
+            '''
+            result = self._values.get("authorization_id")
+            assert result is not None, "Required property 'authorization_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_private_key(self) -> builtins.str:
+            '''The authorization private key for the Stripe Privy integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-authorizationprivatekey
+            '''
+            result = self._values.get("authorization_private_key")
+            assert result is not None, "Required property 'authorization_private_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StripePrivyConfigurationInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "app_id": "appId",
+            "app_secret_arn": "appSecretArn",
+            "authorization_id": "authorizationId",
+            "authorization_private_key_arn": "authorizationPrivateKeyArn",
+        },
+    )
+    class StripePrivyConfigurationOutputProperty:
+        def __init__(
+            self,
+            *,
+            app_id: builtins.str,
+            app_secret_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            authorization_id: builtins.str,
+            authorization_private_key_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Stripe Privy configuration output with secret ARNs.
+
+            :param app_id: The app ID provided by Privy.
+            :param app_secret_arn: Contains information about a secret in AWS Secrets Manager.
+            :param authorization_id: The authorization ID for the Stripe Privy integration.
+            :param authorization_private_key_arn: Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                stripe_privy_configuration_output_property = bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty(
+                    app_id="appId",
+                    app_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                        secret_arn="secretArn"
+                    ),
+                    authorization_id="authorizationId",
+                    authorization_private_key_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6b027bcbe48e7e246509db80fc1054eccb3f9c6370afb33099247e4e9dc5bf24)
+                check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+                check_type(argname="argument app_secret_arn", value=app_secret_arn, expected_type=type_hints["app_secret_arn"])
+                check_type(argname="argument authorization_id", value=authorization_id, expected_type=type_hints["authorization_id"])
+                check_type(argname="argument authorization_private_key_arn", value=authorization_private_key_arn, expected_type=type_hints["authorization_private_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "app_id": app_id,
+                "app_secret_arn": app_secret_arn,
+                "authorization_id": authorization_id,
+                "authorization_private_key_arn": authorization_private_key_arn,
+            }
+
+        @builtins.property
+        def app_id(self) -> builtins.str:
+            '''The app ID provided by Privy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-appid
+            '''
+            result = self._values.get("app_id")
+            assert result is not None, "Required property 'app_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def app_secret_arn(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-appsecretarn
+            '''
+            result = self._values.get("app_secret_arn")
+            assert result is not None, "Required property 'app_secret_arn' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"], result)
+
+        @builtins.property
+        def authorization_id(self) -> builtins.str:
+            '''The authorization ID for the Stripe Privy integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-authorizationid
+            '''
+            result = self._values.get("authorization_id")
+            assert result is not None, "Required property 'authorization_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_private_key_arn(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]:
+            '''Contains information about a secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-authorizationprivatekeyarn
+            '''
+            result = self._values.get("authorization_private_key_arn")
+            assert result is not None, "Required property 'authorization_private_key_arn' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StripePrivyConfigurationOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "credential_provider_vendor": "credentialProviderVendor",
+        "name": "name",
+        "provider_configuration_input": "providerConfigurationInput",
+        "tags": "tags",
+    },
+)
+class CfnPaymentCredentialProviderProps:
+    def __init__(
+        self,
+        *,
+        credential_provider_vendor: builtins.str,
+        name: builtins.str,
+        provider_configuration_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPaymentCredentialProvider``.
+
+        :param credential_provider_vendor: Supported vendor types for payment providers.
+        :param name: Unique name for the payment credential provider.
+        :param provider_configuration_input: Provider configuration input containing secrets for creation/update.
+        :param tags: Tags for the payment credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_payment_credential_provider_props = bedrockagentcore.CfnPaymentCredentialProviderProps(
+                credential_provider_vendor="credentialProviderVendor",
+                name="name",
+            
+                # the properties below are optional
+                provider_configuration_input=bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
+                    coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
+                        api_key_id="apiKeyId",
+                        api_key_secret="apiKeySecret",
+            
+                        # the properties below are optional
+                        wallet_secret="walletSecret"
+                    ),
+                    stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
+                        app_id="appId",
+                        app_secret="appSecret",
+                        authorization_id="authorizationId",
+                        authorization_private_key="authorizationPrivateKey"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a5e3c8da78c2ea24272479a73788d794f68ef519523a4d460a471712b08d74b)
+            check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument provider_configuration_input", value=provider_configuration_input, expected_type=type_hints["provider_configuration_input"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "credential_provider_vendor": credential_provider_vendor,
+            "name": name,
+        }
+        if provider_configuration_input is not None:
+            self._values["provider_configuration_input"] = provider_configuration_input
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def credential_provider_vendor(self) -> builtins.str:
+        '''Supported vendor types for payment providers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html#cfn-bedrockagentcore-paymentcredentialprovider-credentialprovidervendor
+        '''
+        result = self._values.get("credential_provider_vendor")
+        assert result is not None, "Required property 'credential_provider_vendor' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Unique name for the payment credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html#cfn-bedrockagentcore-paymentcredentialprovider-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def provider_configuration_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty"]]:
+        '''Provider configuration input containing secrets for creation/update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html#cfn-bedrockagentcore-paymentcredentialprovider-providerconfigurationinput
+        '''
+        result = self._values.get("provider_configuration_input")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags for the payment credential provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentcredentialprovider.html#cfn-bedrockagentcore-paymentcredentialprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPaymentCredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _IPolicyRef_ceb8b108)
 class CfnPolicy(
     _CfnResource_9df397a6,
@@ -24695,6 +25895,14 @@ class CfnRuntime(
                 "environment_variables_key": "environmentVariables"
             },
             filesystem_configurations=[bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                efs_access_point=bedrockagentcore.CfnRuntime.EfsAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                ),
+                s3_files_access_point=bedrockagentcore.CfnRuntime.S3FilesAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                ),
                 session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
                     mount_path="mountPath"
                 )
@@ -25878,18 +27086,97 @@ class CfnRuntime(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.EfsAccessPointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_point_arn": "accessPointArn", "mount_path": "mountPath"},
+    )
+    class EfsAccessPointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_point_arn: builtins.str,
+            mount_path: builtins.str,
+        ) -> None:
+            '''Configuration for EFS access point filesystem.
+
+            :param access_point_arn: ARN of the EFS access point.
+            :param mount_path: Mount path for filesystem configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-efsaccesspointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                efs_access_point_configuration_property = bedrockagentcore.CfnRuntime.EfsAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__375da19d6b0ac9a669aee3703cb6101c8369f8cffc69013e617e1eaf4770f76a)
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_point_arn": access_point_arn,
+                "mount_path": mount_path,
+            }
+
+        @builtins.property
+        def access_point_arn(self) -> builtins.str:
+            '''ARN of the EFS access point.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-efsaccesspointconfiguration.html#cfn-bedrockagentcore-runtime-efsaccesspointconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            assert result is not None, "Required property 'access_point_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''Mount path for filesystem configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-efsaccesspointconfiguration.html#cfn-bedrockagentcore-runtime-efsaccesspointconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EfsAccessPointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"session_storage": "sessionStorage"},
+        name_mapping={
+            "efs_access_point": "efsAccessPoint",
+            "s3_files_access_point": "s3FilesAccessPoint",
+            "session_storage": "sessionStorage",
+        },
     )
     class FilesystemConfigurationProperty:
         def __init__(
             self,
             *,
+            efs_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.EfsAccessPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_files_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.S3FilesAccessPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             session_storage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuntime.SessionStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Filesystem configuration for the runtime.
 
+            :param efs_access_point: Configuration for EFS access point filesystem.
+            :param s3_files_access_point: Configuration for S3 Files access point filesystem.
             :param session_storage: Configuration for session storage.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html
@@ -25902,6 +27189,14 @@ class CfnRuntime(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 filesystem_configuration_property = bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                    efs_access_point=bedrockagentcore.CfnRuntime.EfsAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
+                    s3_files_access_point=bedrockagentcore.CfnRuntime.S3FilesAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
                     session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
                         mount_path="mountPath"
                     )
@@ -25909,10 +27204,38 @@ class CfnRuntime(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9c6ed3ffc88e8f51fb4002dbc69380cb5deff931c76d63bc29648fe0b3c464bf)
+                check_type(argname="argument efs_access_point", value=efs_access_point, expected_type=type_hints["efs_access_point"])
+                check_type(argname="argument s3_files_access_point", value=s3_files_access_point, expected_type=type_hints["s3_files_access_point"])
                 check_type(argname="argument session_storage", value=session_storage, expected_type=type_hints["session_storage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if efs_access_point is not None:
+                self._values["efs_access_point"] = efs_access_point
+            if s3_files_access_point is not None:
+                self._values["s3_files_access_point"] = s3_files_access_point
             if session_storage is not None:
                 self._values["session_storage"] = session_storage
+
+        @builtins.property
+        def efs_access_point(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.EfsAccessPointConfigurationProperty"]]:
+            '''Configuration for EFS access point filesystem.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html#cfn-bedrockagentcore-runtime-filesystemconfiguration-efsaccesspoint
+            '''
+            result = self._values.get("efs_access_point")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.EfsAccessPointConfigurationProperty"]], result)
+
+        @builtins.property
+        def s3_files_access_point(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.S3FilesAccessPointConfigurationProperty"]]:
+            '''Configuration for S3 Files access point filesystem.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html#cfn-bedrockagentcore-runtime-filesystemconfiguration-s3filesaccesspoint
+            '''
+            result = self._values.get("s3_files_access_point")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuntime.S3FilesAccessPointConfigurationProperty"]], result)
 
         @builtins.property
         def session_storage(
@@ -26148,6 +27471,77 @@ class CfnRuntime(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.S3FilesAccessPointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_point_arn": "accessPointArn", "mount_path": "mountPath"},
+    )
+    class S3FilesAccessPointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_point_arn: builtins.str,
+            mount_path: builtins.str,
+        ) -> None:
+            '''Configuration for S3 Files access point filesystem.
+
+            :param access_point_arn: ARN of the S3 Files access point.
+            :param mount_path: Mount path for filesystem configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-s3filesaccesspointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                s3_files_access_point_configuration_property = bedrockagentcore.CfnRuntime.S3FilesAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c53f171b9b0f129e4c994cba870b877378cfaafe11598967eba9c5a2d6438e0e)
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_point_arn": access_point_arn,
+                "mount_path": mount_path,
+            }
+
+        @builtins.property
+        def access_point_arn(self) -> builtins.str:
+            '''ARN of the S3 Files access point.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-s3filesaccesspointconfiguration.html#cfn-bedrockagentcore-runtime-s3filesaccesspointconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            assert result is not None, "Required property 'access_point_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''Mount path for filesystem configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-s3filesaccesspointconfiguration.html#cfn-bedrockagentcore-runtime-s3filesaccesspointconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FilesAccessPointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnRuntime.S3LocationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -26248,7 +27642,7 @@ class CfnRuntime(
         def __init__(self, *, mount_path: builtins.str) -> None:
             '''Configuration for session storage.
 
-            :param mount_path: Mount path for session storage.
+            :param mount_path: Mount path for filesystem configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-sessionstorageconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -26272,7 +27666,7 @@ class CfnRuntime(
 
         @builtins.property
         def mount_path(self) -> builtins.str:
-            '''Mount path for session storage.
+            '''Mount path for filesystem configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-sessionstorageconfiguration.html#cfn-bedrockagentcore-runtime-sessionstorageconfiguration-mountpath
             '''
@@ -26945,6 +28339,14 @@ class CfnRuntimeProps:
                     "environment_variables_key": "environmentVariables"
                 },
                 filesystem_configurations=[bedrockagentcore.CfnRuntime.FilesystemConfigurationProperty(
+                    efs_access_point=bedrockagentcore.CfnRuntime.EfsAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
+                    s3_files_access_point=bedrockagentcore.CfnRuntime.S3FilesAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
                     session_storage=bedrockagentcore.CfnRuntime.SessionStorageConfigurationProperty(
                         mount_path="mountPath"
                     )
@@ -58734,10 +60136,12 @@ __all__ = [
     "CategoricalRatingOption",
     "CfnApiKeyCredentialProvider",
     "CfnApiKeyCredentialProviderProps",
+    "CfnBrowser",
     "CfnBrowserCustom",
     "CfnBrowserCustomProps",
     "CfnBrowserProfile",
     "CfnBrowserProfileProps",
+    "CfnBrowserProps",
     "CfnCodeInterpreterCustom",
     "CfnCodeInterpreterCustomProps",
     "CfnEvaluator",
@@ -58752,6 +60156,8 @@ __all__ = [
     "CfnOAuth2CredentialProviderProps",
     "CfnOnlineEvaluationConfig",
     "CfnOnlineEvaluationConfigProps",
+    "CfnPaymentCredentialProvider",
+    "CfnPaymentCredentialProviderProps",
     "CfnPolicy",
     "CfnPolicyEngine",
     "CfnPolicyEngineProps",
@@ -59323,6 +60729,37 @@ def _typecheckingstub__fb76a2edf3865bdbdece780b83e38390cac0e28bcdc052fe44627dd0b
     name: builtins.str,
     api_key: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fb42cd127ac32667184adb3370786abb79a41a490b6594b9ab009515775a08a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bacadb0540af24852ae4bf00bb8a44c57f41f5348832c1acb6778d3959a0fbe7(
+    resource: _IBrowserRef_9ae0dbbd,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccd9abd5a9608e4188783cfd53420f65fe72cd6747df00adf83f763f89ec4615(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3375c475ed5025fb06c307929f0f29d9577291a52deefaf03c7118983d4757d0(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bd23ae020d4c21fb04d9480efcddb5709f91b6b0de855bd315dc05e4a2e9e24(
+    props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -61220,6 +62657,131 @@ def _typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__75ba63aa016d8ba5dcd5ff05648fb02c379bf8e71375ffb7aa6d38b0116b63d1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    credential_provider_vendor: builtins.str,
+    name: builtins.str,
+    provider_configuration_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dd6150285e5f7f7c24e8c0d9624138a795c0d7f8e3db45c78237a01bb19d623(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c44b2139fc9789900d78e5614a56465436a43831b16cb9f9c9b4d6de6904e981(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cab39b686dcea537592f4a0b64b3c8723cdf6036ef33b06f704ba9865fad808e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc08ebdfc113baf80a0d4677b9b83b53febc4e11a04ad010e0dabeca2e84fafd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5da2b977babf349445e769fe6278f67f803b3d66928790ace71fa2fb985f80ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5fbe2eb9b846d5eb0814ee6973b139762b65fdf4e0e62796e040420b4adaf6a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ff0ec42d3966318b33b335957c8847bd072e0af0c53256c3f6460a65ae76fa8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9dd8ba3186c2a37d4a11913e5b9f7b6642b7119bccd6a210792c9596b1e3147d(
+    *,
+    api_key_id: builtins.str,
+    api_key_secret: builtins.str,
+    wallet_secret: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5758217524779314f78859e9aebe61972010673b0fb9a5e75d07b9b8882ef918(
+    *,
+    api_key_id: builtins.str,
+    api_key_secret_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    wallet_secret_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4992072ee8f5c24341566e4372d466a6fd3eb891a8f10dad8c6e282a37e3bee7(
+    *,
+    coinbase_cdp_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stripe_privy_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0cd5ed1de6aef99be445bea5d5ea491dc44cb5fd75ab7c7cd777dc665d68a91(
+    *,
+    coinbase_cdp_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.CoinbaseCdpConfigurationOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stripe_privy_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1e750aa85787aedacec025aee2681bebd0c15f05a95aaa02075a09fff8448d7(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c23d91704fe694d36b873234b168ebc938879a44902d7c0933cc4371114bcd50(
+    *,
+    app_id: builtins.str,
+    app_secret: builtins.str,
+    authorization_id: builtins.str,
+    authorization_private_key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b027bcbe48e7e246509db80fc1054eccb3f9c6370afb33099247e4e9dc5bf24(
+    *,
+    app_id: builtins.str,
+    app_secret_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    authorization_id: builtins.str,
+    authorization_private_key_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a5e3c8da78c2ea24272479a73788d794f68ef519523a4d460a471712b08d74b(
+    *,
+    credential_provider_vendor: builtins.str,
+    name: builtins.str,
+    provider_configuration_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a0df0ec34c1700a2fd80d71aa113459b1f257b8a6040e2dac1057827afc8f5d2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -61572,8 +63134,18 @@ def _typecheckingstub__6479ff33c6925aa85dcd6d4587cd46a0d073bd9992bb93c306d366f07
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__375da19d6b0ac9a669aee3703cb6101c8369f8cffc69013e617e1eaf4770f76a(
+    *,
+    access_point_arn: builtins.str,
+    mount_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9c6ed3ffc88e8f51fb4002dbc69380cb5deff931c76d63bc29648fe0b3c464bf(
     *,
+    efs_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.EfsAccessPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_files_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.S3FilesAccessPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     session_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuntime.SessionStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -61598,6 +63170,14 @@ def _typecheckingstub__f7ef3688e7eda46e5ab607f7c059dd5ed308816790e532f38188518d3
 def _typecheckingstub__e84a0bf594bf7173d323308d7c226c002caf3ffc7491c328dcd26a42c198c3e2(
     *,
     request_header_allowlist: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c53f171b9b0f129e4c994cba870b877378cfaafe11598967eba9c5a2d6438e0e(
+    *,
+    access_point_arn: builtins.str,
+    mount_path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

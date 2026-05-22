@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chatlas
-Version: 0.18.0
+Version: 0.18.1
 Summary: A simple and consistent interface for chatting with LLMs
 Project-URL: Homepage, https://posit-dev.github.io/chatlas
 Project-URL: Documentation, https://posit-dev.github.io/chatlas
@@ -36,7 +36,7 @@ Provides-Extra: dev
 Requires-Dist: anthropic[bedrock]; extra == 'dev'
 Requires-Dist: databricks-sdk; extra == 'dev'
 Requires-Dist: google-genai>=1.14.0; extra == 'dev'
-Requires-Dist: htmltools; extra == 'dev'
+Requires-Dist: htmltools>=0.7.0; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: narwhals; extra == 'dev'
 Requires-Dist: numpy>1.24.4; extra == 'dev'

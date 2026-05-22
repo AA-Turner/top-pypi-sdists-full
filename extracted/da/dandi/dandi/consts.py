@@ -101,6 +101,14 @@ class EmbargoStatus(Enum):
     EMBARGOED = "EMBARGOED"
 
 
+class SyncMode(str, Enum):
+    ASK = "ask"
+    DO = "do"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
@@ -192,6 +200,11 @@ MAX_ZARR_DEPTH = 7
 
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum file size for a single S3 PUT upload (5 GiB).
+#: S3 rejects single-part PUTs larger than this; such files would need
+#: multipart upload which is not yet supported for zarr chunks.
+S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
 
 #: Maximum number of Zarr directory entries to upload at once
 ZARR_UPLOAD_BATCH_SIZE = 255

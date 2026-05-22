@@ -1,4 +1,4 @@
-from typing import Required, Union, TypedDict
+from typing import Required, TypedDict, Union
 
 
 class ProfileChunk(TypedDict, total=False):

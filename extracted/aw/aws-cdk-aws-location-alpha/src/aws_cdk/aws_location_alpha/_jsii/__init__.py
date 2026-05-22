@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-location-alpha",
-    "2.256.1-alpha.0",
+    "2.257.0-alpha.0",
     __name__[0:-6],
-    "aws-location-alpha@2.256.1-alpha.0.jsii.tgz",
+    "aws-location-alpha@2.257.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

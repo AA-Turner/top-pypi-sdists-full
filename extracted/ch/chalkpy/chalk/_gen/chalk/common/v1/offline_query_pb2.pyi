@@ -75,7 +75,14 @@ class OfflineQueryShardedParquetUploadInput(_message.Message):
     def __init__(self, filenames: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ...) -> None: ...
 
 class OfflineQueryInputs(_message.Message):
-    __slots__ = ("feather_inputs", "no_inputs", "single_inputs", "sharded_inputs", "sharded_parquet_upload_inputs")
+    __slots__ = (
+        "feather_inputs",
+        "no_inputs",
+        "single_inputs",
+        "sharded_inputs",
+        "sharded_parquet_upload_inputs",
+        "sql_input",
+    )
     class NoInputs(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
@@ -85,11 +92,13 @@ class OfflineQueryInputs(_message.Message):
     SINGLE_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SHARDED_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SHARDED_PARQUET_UPLOAD_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    SQL_INPUT_FIELD_NUMBER: _ClassVar[int]
     feather_inputs: bytes
     no_inputs: OfflineQueryInputs.NoInputs
     single_inputs: OfflineQueryInput
     sharded_inputs: OfflineQueryInputSharded
     sharded_parquet_upload_inputs: OfflineQueryShardedParquetUploadInput
+    sql_input: str
     def __init__(
         self,
         feather_inputs: _Optional[bytes] = ...,
@@ -97,6 +106,7 @@ class OfflineQueryInputs(_message.Message):
         single_inputs: _Optional[_Union[OfflineQueryInput, _Mapping]] = ...,
         sharded_inputs: _Optional[_Union[OfflineQueryInputSharded, _Mapping]] = ...,
         sharded_parquet_upload_inputs: _Optional[_Union[OfflineQueryShardedParquetUploadInput, _Mapping]] = ...,
+        sql_input: _Optional[str] = ...,
     ) -> None: ...
 
 class ResourceRequests(_message.Message):
@@ -154,6 +164,7 @@ class OfflineQueryRequest(_message.Message):
         "query_name_version",
         "resources",
         "unload_resolvers",
+        "use_metaplanner",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -215,6 +226,7 @@ class OfflineQueryRequest(_message.Message):
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     RESOURCES_FIELD_NUMBER: _ClassVar[int]
     UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    USE_METAPLANNER_FIELD_NUMBER: _ClassVar[int]
     inputs: OfflineQueryInputs
     outputs: _containers.RepeatedScalarFieldContainer[str]
     required_outputs: _containers.RepeatedScalarFieldContainer[str]
@@ -247,6 +259,7 @@ class OfflineQueryRequest(_message.Message):
     query_name_version: str
     resources: ResourceRequests
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[UnloadResolverSpec]
+    use_metaplanner: bool
     def __init__(
         self,
         inputs: _Optional[_Union[OfflineQueryInputs, _Mapping]] = ...,
@@ -281,6 +294,7 @@ class OfflineQueryRequest(_message.Message):
         query_name_version: _Optional[str] = ...,
         resources: _Optional[_Union[ResourceRequests, _Mapping]] = ...,
         unload_resolvers: _Optional[_Iterable[_Union[UnloadResolverSpec, _Mapping]]] = ...,
+        use_metaplanner: bool = ...,
     ) -> None: ...
 
 class UnloadResolverSpec(_message.Message):

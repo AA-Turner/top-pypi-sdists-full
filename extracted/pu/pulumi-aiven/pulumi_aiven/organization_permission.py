@@ -25,7 +25,7 @@ class OrganizationPermissionArgs:
                  permissions: pulumi.Input[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]],
                  resource_id: pulumi.Input[_builtins.str],
                  resource_type: pulumi.Input[_builtins.str],
-                 timeouts: Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']] = None):
+                 timeouts: pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']] = None):
         """
         The set of arguments for constructing a OrganizationPermission resource.
 
@@ -91,22 +91,22 @@ class OrganizationPermissionArgs:
 
     @_builtins.property
     @pulumi.getter
-    def timeouts(self) -> Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']]:
+    def timeouts(self) -> pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']]:
         return pulumi.get(self, "timeouts")
 
     @timeouts.setter
-    def timeouts(self, value: Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']]):
+    def timeouts(self, value: pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']]):
         pulumi.set(self, "timeouts", value)
 
 
 @pulumi.input_type
 class _OrganizationPermissionState:
     def __init__(__self__, *,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 permissions: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]] = None,
-                 resource_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeouts: Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']] = None):
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 permissions: pulumi.Input[Optional[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]] = None,
+                 resource_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeouts: pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']] = None):
         """
         Input properties used for looking up and filtering OrganizationPermission resources.
 
@@ -128,59 +128,59 @@ class _OrganizationPermissionState:
 
     @_builtins.property
     @pulumi.getter(name="organizationId")
-    def organization_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of an organization. Changing this property forces recreation of the resource.
         """
         return pulumi.get(self, "organization_id")
 
     @organization_id.setter
-    def organization_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def permissions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]]:
+    def permissions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]]:
         """
         Required property. List of roles to set.
         """
         return pulumi.get(self, "permissions")
 
     @permissions.setter
-    def permissions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]]):
+    def permissions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['OrganizationPermissionPermissionArgs']]]]):
         pulumi.set(self, "permissions", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceId")
-    def resource_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the organization, unit, or project to grant permissions for. The project ID is the name of the project. Changing this property forces recreation of the resource.
         """
         return pulumi.get(self, "resource_id")
 
     @resource_id.setter
-    def resource_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_id", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceType")
-    def resource_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource type. The possible values are `organization`, `organization_unit` and `project`. Changing this property forces recreation of the resource.
         """
         return pulumi.get(self, "resource_type")
 
     @resource_type.setter
-    def resource_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def timeouts(self) -> Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']]:
+    def timeouts(self) -> pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']]:
         return pulumi.get(self, "timeouts")
 
     @timeouts.setter
-    def timeouts(self, value: Optional[pulumi.Input['OrganizationPermissionTimeoutsArgs']]):
+    def timeouts(self, value: pulumi.Input[Optional['OrganizationPermissionTimeoutsArgs']]):
         pulumi.set(self, "timeouts", value)
 
 
@@ -190,11 +190,11 @@ class OrganizationPermission(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 permissions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
-                 resource_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeouts: Optional[pulumi.Input[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 permissions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
+                 resource_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeouts: pulumi.Input[Optional[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None,
                  __props__=None):
         """
         Grants [roles and permissions](https://aiven.io/docs/platform/concepts/permissions) to a principal for a resource. Permissions can be granted at the organization, organizational unit, and project level. Unit-level permissions aren't shown in the Aiven Console. To assign permissions to multiple users and groups on the same combination of organization ID, resource ID and resource type, don't use multiple `OrganizationPermission` resources. Instead, use multiple permission blocks as in the example usage. **Do not use the `ProjectUser` or `OrganizationGroupProject` resources with this resource**. By default, Aiven Terraform Provider validates whether the resource already exists in the Aiven API. This validation prevents you from managing permissions for a specific resource using multiple `OrganizationGroupProject` resources, which leads to overwrites and conflicts. In case of a conflict, you can import the resource using the `pulumi import` command to continue managing it. Alternatively, you can disable this validation by setting the `AIVEN_ORGANIZATION_PERMISSION_VALIDATE_CONFLICT` environment variable to `false`, which will cause Terraform to override the remote state.
@@ -205,54 +205,15 @@ class OrganizationPermission(pulumi.CustomResource):
         import pulumi
         import pulumi_aiven as aiven
 
-        # Grant access to a specific project
-        example_project_permissions = aiven.OrganizationPermission("example_project_permissions",
-            organization_id=main["id"],
-            resource_id=example_project["project"],
-            resource_type="project",
-            permissions=[
-                {
-                    "permissions": [
-                        "operator",
-                        "service:logs:read",
-                    ],
-                    "principal_id": "u123a456b7890c",
-                    "principal_type": "user",
-                },
-                {
-                    "permissions": [
-                        "project:integrations:write",
-                        "developer",
-                    ],
-                    "principal_id": example_group["groupId"],
-                    "principal_type": "user_group",
-                },
-            ])
-        # Organization-level permissions
-        example_org_permissions = aiven.OrganizationPermission("example_org_permissions",
-            organization_id=main["id"],
-            resource_id=main["id"],
+        example = aiven.OrganizationPermission("example",
+            organization_id="org1a23f456789",
             resource_type="organization",
-            permissions=[
-                {
-                    "permissions": [
-                        "organization:app_users:write",
-                        "project:audit_logs:read",
-                    ],
-                    "principal_id": "u123a456b7890c",
-                    "principal_type": "user",
-                },
-                {
-                    "permissions": [
-                        "organization:users:write",
-                        "organization:groups:write",
-                        "organization:domains:write",
-                        "organization:idps:write",
-                    ],
-                    "principal_id": example_group_aiven_organization_user_group["groupId"],
-                    "principal_type": "user_group",
-                },
-            ])
+            resource_id="foo",
+            permissions=[{
+                "principal_id": "u12345",
+                "permissions": ["read_only"],
+                "principal_type": "user",
+            }])
         ```
 
         ## Import
@@ -284,54 +245,15 @@ class OrganizationPermission(pulumi.CustomResource):
         import pulumi
         import pulumi_aiven as aiven
 
-        # Grant access to a specific project
-        example_project_permissions = aiven.OrganizationPermission("example_project_permissions",
-            organization_id=main["id"],
-            resource_id=example_project["project"],
-            resource_type="project",
-            permissions=[
-                {
-                    "permissions": [
-                        "operator",
-                        "service:logs:read",
-                    ],
-                    "principal_id": "u123a456b7890c",
-                    "principal_type": "user",
-                },
-                {
-                    "permissions": [
-                        "project:integrations:write",
-                        "developer",
-                    ],
-                    "principal_id": example_group["groupId"],
-                    "principal_type": "user_group",
-                },
-            ])
-        # Organization-level permissions
-        example_org_permissions = aiven.OrganizationPermission("example_org_permissions",
-            organization_id=main["id"],
-            resource_id=main["id"],
+        example = aiven.OrganizationPermission("example",
+            organization_id="org1a23f456789",
             resource_type="organization",
-            permissions=[
-                {
-                    "permissions": [
-                        "organization:app_users:write",
-                        "project:audit_logs:read",
-                    ],
-                    "principal_id": "u123a456b7890c",
-                    "principal_type": "user",
-                },
-                {
-                    "permissions": [
-                        "organization:users:write",
-                        "organization:groups:write",
-                        "organization:domains:write",
-                        "organization:idps:write",
-                    ],
-                    "principal_id": example_group_aiven_organization_user_group["groupId"],
-                    "principal_type": "user_group",
-                },
-            ])
+            resource_id="foo",
+            permissions=[{
+                "principal_id": "u12345",
+                "permissions": ["read_only"],
+                "principal_type": "user",
+            }])
         ```
 
         ## Import
@@ -356,11 +278,11 @@ class OrganizationPermission(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 permissions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
-                 resource_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeouts: Optional[pulumi.Input[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 permissions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
+                 resource_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeouts: pulumi.Input[Optional[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -393,11 +315,11 @@ class OrganizationPermission(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-            permissions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
-            resource_id: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-            timeouts: Optional[pulumi.Input[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None) -> 'OrganizationPermission':
+            organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+            permissions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['OrganizationPermissionPermissionArgs', 'OrganizationPermissionPermissionArgsDict']]]]] = None,
+            resource_id: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+            timeouts: pulumi.Input[Optional[Union['OrganizationPermissionTimeoutsArgs', 'OrganizationPermissionTimeoutsArgsDict']]] = None) -> 'OrganizationPermission':
         """
         Get an existing OrganizationPermission resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.

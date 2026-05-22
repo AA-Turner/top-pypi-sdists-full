@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.49"
+version = "0.0.50"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"

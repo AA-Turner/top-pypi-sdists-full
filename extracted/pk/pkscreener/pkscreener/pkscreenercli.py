@@ -975,6 +975,9 @@ class ApplicationRunner:
                     f"{'Reduce number of piped scans if no stocks found.' if '[0]' in self.args.pipedtitle else ''}" +
                     colorText.END
                 )
+                if '[0]' in self.args.pipedtitle:
+                    OutputControls().printOutput(self.results)
+                    OutputControls().takeUserInput("Continue ?")
                 org_args = self._refresh_args()
                 if not org_args.monitor:
                     if org_args.answerdefault is None:

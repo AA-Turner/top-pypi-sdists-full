@@ -494,6 +494,7 @@ __all__ = (
     "UpdateIdNamespaceAssociationOutputTypeDef",
     "UpdateMembershipInputTypeDef",
     "UpdateMembershipOutputTypeDef",
+    "UpdateMembershipPaymentConfigurationTypeDef",
     "UpdatePrivacyBudgetTemplateInputTypeDef",
     "UpdatePrivacyBudgetTemplateOutputTypeDef",
     "UpdateProtectedJobInputTypeDef",
@@ -660,11 +661,6 @@ class BilledResourceUtilizationTypeDef(TypedDict):
 
 class CollaborationChangeSpecificationOutputTypeDef(TypedDict):
     autoApprovedChangeTypes: NotRequired[list[AutoApprovedChangeTypeType]]
-
-class MemberChangeSpecificationOutputTypeDef(TypedDict):
-    accountId: str
-    memberAbilities: list[MemberAbilityType]
-    displayName: NotRequired[str]
 
 CollaborationAnalysisTemplateSummaryTypeDef = TypedDict(
     "CollaborationAnalysisTemplateSummaryTypeDef",
@@ -1262,11 +1258,6 @@ class ModelTrainingPaymentConfigTypeDef(TypedDict):
 class SyntheticDataGenerationPaymentConfigTypeDef(TypedDict):
     isResponsible: bool
 
-class MemberChangeSpecificationTypeDef(TypedDict):
-    accountId: str
-    memberAbilities: Sequence[MemberAbilityType]
-    displayName: NotRequired[str]
-
 class MembershipJobComputePaymentConfigTypeDef(TypedDict):
     isResponsible: bool
 
@@ -1513,10 +1504,6 @@ class ProtectedJobStatisticsTypeDef(TypedDict):
 class ProtectedQueryStatisticsTypeDef(TypedDict):
     totalDurationInMillis: NotRequired[int]
     billedResourceUtilization: NotRequired[BilledResourceUtilizationTypeDef]
-
-class ChangeSpecificationOutputTypeDef(TypedDict):
-    member: NotRequired[MemberChangeSpecificationOutputTypeDef]
-    collaboration: NotRequired[CollaborationChangeSpecificationOutputTypeDef]
 
 class ListCollaborationAnalysisTemplatesOutputTypeDef(TypedDict):
     collaborationAnalysisTemplateSummaries: list[CollaborationAnalysisTemplateSummaryTypeDef]
@@ -1882,10 +1869,6 @@ class MLPaymentConfigTypeDef(TypedDict):
     modelInference: NotRequired[ModelInferencePaymentConfigTypeDef]
     syntheticDataGeneration: NotRequired[SyntheticDataGenerationPaymentConfigTypeDef]
 
-MemberChangeSpecificationUnionTypeDef = Union[
-    MemberChangeSpecificationTypeDef, MemberChangeSpecificationOutputTypeDef
-]
-
 class MembershipMLPaymentConfigTypeDef(TypedDict):
     modelTraining: NotRequired[MembershipModelTrainingPaymentConfigTypeDef]
     modelInference: NotRequired[MembershipModelInferencePaymentConfigTypeDef]
@@ -2001,15 +1984,6 @@ class AnalysisTemplateArtifactsTypeDef(TypedDict):
     entryPoint: AnalysisTemplateArtifactTypeDef
     roleArn: str
     additionalArtifacts: NotRequired[Sequence[AnalysisTemplateArtifactTypeDef]]
-
-ChangeTypeDef = TypedDict(
-    "ChangeTypeDef",
-    {
-        "specificationType": ChangeSpecificationTypeType,
-        "specification": ChangeSpecificationOutputTypeDef,
-        "types": list[ChangeTypeType],
-    },
-)
 
 class ListCollaborationIdNamespaceAssociationsOutputTypeDef(TypedDict):
     collaborationIdNamespaceAssociationSummaries: list[
@@ -2137,12 +2111,13 @@ class PaymentConfigurationTypeDef(TypedDict):
     machineLearning: NotRequired[MLPaymentConfigTypeDef]
     jobCompute: NotRequired[JobComputePaymentConfigTypeDef]
 
-class ChangeSpecificationTypeDef(TypedDict):
-    member: NotRequired[MemberChangeSpecificationUnionTypeDef]
-    collaboration: NotRequired[CollaborationChangeSpecificationUnionTypeDef]
-
 class MembershipPaymentConfigurationTypeDef(TypedDict):
     queryCompute: MembershipQueryComputePaymentConfigTypeDef
+    machineLearning: NotRequired[MembershipMLPaymentConfigTypeDef]
+    jobCompute: NotRequired[MembershipJobComputePaymentConfigTypeDef]
+
+class UpdateMembershipPaymentConfigurationTypeDef(TypedDict):
+    queryCompute: NotRequired[MembershipQueryComputePaymentConfigTypeDef]
     machineLearning: NotRequired[MembershipMLPaymentConfigTypeDef]
     jobCompute: NotRequired[MembershipJobComputePaymentConfigTypeDef]
 
@@ -2264,33 +2239,6 @@ class AnalysisSourceTypeDef(TypedDict):
     text: NotRequired[str]
     artifacts: NotRequired[AnalysisTemplateArtifactsTypeDef]
 
-CollaborationChangeRequestSummaryTypeDef = TypedDict(
-    "CollaborationChangeRequestSummaryTypeDef",
-    {
-        "id": str,
-        "collaborationId": str,
-        "createTime": datetime,
-        "updateTime": datetime,
-        "status": ChangeRequestStatusType,
-        "isAutoApproved": bool,
-        "changes": list[ChangeTypeDef],
-        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
-    },
-)
-CollaborationChangeRequestTypeDef = TypedDict(
-    "CollaborationChangeRequestTypeDef",
-    {
-        "id": str,
-        "collaborationId": str,
-        "createTime": datetime,
-        "updateTime": datetime,
-        "status": ChangeRequestStatusType,
-        "isAutoApproved": bool,
-        "changes": list[ChangeTypeDef],
-        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
-    },
-)
-
 class SyntheticDataParametersOutputTypeDef(TypedDict):
     mlSyntheticDataParameters: NotRequired[MLSyntheticDataParametersOutputTypeDef]
 
@@ -2306,6 +2254,7 @@ ProtectedQuerySummaryTypeDef = TypedDict(
         "createTime": datetime,
         "status": ProtectedQueryStatusType,
         "receiverConfigurations": list[ReceiverConfigurationTypeDef],
+        "queryComputePayerAccountId": NotRequired[str],
     },
 )
 ConfiguredTableAssociationAnalysisRuleTypeDef = TypedDict(
@@ -2419,6 +2368,20 @@ SchemaTypeDef = TypedDict(
     },
 )
 
+class MemberChangeSpecificationOutputTypeDef(TypedDict):
+    accountId: str
+    memberAbilities: list[MemberAbilityType]
+    mlMemberAbilities: NotRequired[MLMemberAbilitiesOutputTypeDef]
+    paymentConfiguration: NotRequired[PaymentConfigurationTypeDef]
+    displayName: NotRequired[str]
+
+class MemberChangeSpecificationTypeDef(TypedDict):
+    accountId: str
+    memberAbilities: Sequence[MemberAbilityType]
+    mlMemberAbilities: NotRequired[MLMemberAbilitiesUnionTypeDef]
+    paymentConfiguration: NotRequired[PaymentConfigurationTypeDef]
+    displayName: NotRequired[str]
+
 class MemberSpecificationTypeDef(TypedDict):
     accountId: str
     memberAbilities: Sequence[MemberAbilityType]
@@ -2438,9 +2401,6 @@ class MemberSummaryTypeDef(TypedDict):
     membershipId: NotRequired[str]
     membershipArn: NotRequired[str]
 
-ChangeSpecificationUnionTypeDef = Union[
-    ChangeSpecificationTypeDef, ChangeSpecificationOutputTypeDef
-]
 MembershipSummaryTypeDef = TypedDict(
     "MembershipSummaryTypeDef",
     {
@@ -2504,6 +2464,7 @@ class UpdateMembershipInputTypeDef(TypedDict):
     jobLogStatus: NotRequired[MembershipJobLogStatusType]
     defaultResultConfiguration: NotRequired[MembershipProtectedQueryResultConfigurationTypeDef]
     defaultJobResultConfiguration: NotRequired[MembershipProtectedJobResultConfigurationTypeDef]
+    membershipPaymentConfiguration: NotRequired[UpdateMembershipPaymentConfigurationTypeDef]
 
 ProtectedJobSummaryTypeDef = TypedDict(
     "ProtectedJobSummaryTypeDef",
@@ -2514,6 +2475,7 @@ ProtectedJobSummaryTypeDef = TypedDict(
         "createTime": datetime,
         "status": ProtectedJobStatusType,
         "receiverConfigurations": list[ProtectedJobReceiverConfigurationTypeDef],
+        "jobComputePayerAccountId": NotRequired[str],
     },
 )
 ProtectedJobTypeDef = TypedDict(
@@ -2530,6 +2492,7 @@ ProtectedJobTypeDef = TypedDict(
         "result": NotRequired[ProtectedJobResultTypeDef],
         "error": NotRequired[ProtectedJobErrorTypeDef],
         "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationOutputTypeDef],
+        "jobComputePayerAccountId": NotRequired[str],
     },
 )
 ProtectedJobComputeConfigurationUnionTypeDef = Union[
@@ -2589,24 +2552,6 @@ class UpdatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 AnalysisSourceUnionTypeDef = Union[AnalysisSourceTypeDef, AnalysisSourceOutputTypeDef]
-
-class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
-    collaborationChangeRequestSummaries: list[CollaborationChangeRequestSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class CreateCollaborationChangeRequestOutputTypeDef(TypedDict):
-    collaborationChangeRequest: CollaborationChangeRequestTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetCollaborationChangeRequestOutputTypeDef(TypedDict):
-    collaborationChangeRequest: CollaborationChangeRequestTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateCollaborationChangeRequestOutputTypeDef(TypedDict):
-    collaborationChangeRequest: CollaborationChangeRequestTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 AnalysisTemplateTypeDef = TypedDict(
     "AnalysisTemplateTypeDef",
     {
@@ -2713,6 +2658,14 @@ class GetSchemaOutputTypeDef(TypedDict):
     schema: SchemaTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ChangeSpecificationOutputTypeDef(TypedDict):
+    member: NotRequired[MemberChangeSpecificationOutputTypeDef]
+    collaboration: NotRequired[CollaborationChangeSpecificationOutputTypeDef]
+
+MemberChangeSpecificationUnionTypeDef = Union[
+    MemberChangeSpecificationTypeDef, MemberChangeSpecificationOutputTypeDef
+]
+
 class CreateCollaborationInputTypeDef(TypedDict):
     members: Sequence[MemberSpecificationTypeDef]
     name: str
@@ -2734,10 +2687,6 @@ class ListMembersOutputTypeDef(TypedDict):
     memberSummaries: list[MemberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class ChangeInputTypeDef(TypedDict):
-    specificationType: ChangeSpecificationTypeType
-    specification: ChangeSpecificationUnionTypeDef
 
 class ListMembershipsOutputTypeDef(TypedDict):
     membershipSummaries: list[MembershipSummaryTypeDef]
@@ -2781,6 +2730,7 @@ StartProtectedJobInputTypeDef = TypedDict(
         "jobParameters": ProtectedJobParametersUnionTypeDef,
         "resultConfiguration": NotRequired[ProtectedJobResultConfigurationInputTypeDef],
         "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationUnionTypeDef],
+        "jobComputePayerAccountId": NotRequired[str],
     },
 )
 
@@ -2861,10 +2811,18 @@ ConfiguredTableAnalysisRuleTypeDef = TypedDict(
 ConfiguredTableAnalysisRulePolicyUnionTypeDef = Union[
     ConfiguredTableAnalysisRulePolicyTypeDef, ConfiguredTableAnalysisRulePolicyOutputTypeDef
 ]
+ChangeTypeDef = TypedDict(
+    "ChangeTypeDef",
+    {
+        "specificationType": ChangeSpecificationTypeType,
+        "specification": ChangeSpecificationOutputTypeDef,
+        "types": list[ChangeTypeType],
+    },
+)
 
-class CreateCollaborationChangeRequestInputTypeDef(TypedDict):
-    collaborationIdentifier: str
-    changes: Sequence[ChangeInputTypeDef]
+class ChangeSpecificationTypeDef(TypedDict):
+    member: NotRequired[MemberChangeSpecificationUnionTypeDef]
+    collaboration: NotRequired[CollaborationChangeSpecificationUnionTypeDef]
 
 ProtectedQueryTypeDef = TypedDict(
     "ProtectedQueryTypeDef",
@@ -2881,6 +2839,7 @@ ProtectedQueryTypeDef = TypedDict(
         "error": NotRequired[ProtectedQueryErrorTypeDef],
         "differentialPrivacy": NotRequired[DifferentialPrivacyParametersTypeDef],
         "computeConfiguration": NotRequired[ComputeConfigurationOutputTypeDef],
+        "queryComputePayerAccountId": NotRequired[str],
     },
 )
 ProtectedQueryResultConfigurationUnionTypeDef = Union[
@@ -2954,6 +2913,36 @@ class UpdateConfiguredTableAnalysisRuleInputTypeDef(TypedDict):
     analysisRuleType: ConfiguredTableAnalysisRuleTypeType
     analysisRulePolicy: ConfiguredTableAnalysisRulePolicyUnionTypeDef
 
+CollaborationChangeRequestSummaryTypeDef = TypedDict(
+    "CollaborationChangeRequestSummaryTypeDef",
+    {
+        "id": str,
+        "collaborationId": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "status": ChangeRequestStatusType,
+        "isAutoApproved": bool,
+        "changes": list[ChangeTypeDef],
+        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
+    },
+)
+CollaborationChangeRequestTypeDef = TypedDict(
+    "CollaborationChangeRequestTypeDef",
+    {
+        "id": str,
+        "collaborationId": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "status": ChangeRequestStatusType,
+        "isAutoApproved": bool,
+        "changes": list[ChangeTypeDef],
+        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
+    },
+)
+ChangeSpecificationUnionTypeDef = Union[
+    ChangeSpecificationTypeDef, ChangeSpecificationOutputTypeDef
+]
+
 class GetProtectedQueryOutputTypeDef(TypedDict):
     protectedQuery: ProtectedQueryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2974,6 +2963,7 @@ StartProtectedQueryInputTypeDef = TypedDict(
         "sqlParameters": ProtectedQuerySQLParametersUnionTypeDef,
         "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationUnionTypeDef],
         "computeConfiguration": NotRequired[ComputeConfigurationUnionTypeDef],
+        "queryComputePayerAccountId": NotRequired[str],
     },
 )
 
@@ -2985,3 +2975,28 @@ class BatchGetSchemaAnalysisRuleOutputTypeDef(TypedDict):
 class GetSchemaAnalysisRuleOutputTypeDef(TypedDict):
     analysisRule: AnalysisRuleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
+    collaborationChangeRequestSummaries: list[CollaborationChangeRequestSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ChangeInputTypeDef(TypedDict):
+    specificationType: ChangeSpecificationTypeType
+    specification: ChangeSpecificationUnionTypeDef
+
+class CreateCollaborationChangeRequestInputTypeDef(TypedDict):
+    collaborationIdentifier: str
+    changes: Sequence[ChangeInputTypeDef]

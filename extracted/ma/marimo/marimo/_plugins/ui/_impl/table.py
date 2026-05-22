@@ -71,6 +71,7 @@ from marimo._runtime.context.types import (
 from marimo._runtime.context.utils import get_mode
 from marimo._runtime.functions import EmptyArgs, Function
 from marimo._utils.hashable import is_hashable
+from marimo._utils.memoize import memoize_last_value
 from marimo._utils.methods import getcallable
 from marimo._utils.narwhals_utils import (
     can_narwhalify_lazyframe,
@@ -165,6 +166,8 @@ class SearchTableResponse:
     # Unformatted data mirroring the same shape/page as `data`,
     # provided when format_mapping is applied.
     raw_data: str | None = None
+    # JSON-serialized size of the currently-rendered (searched/filtered) data.
+    size_bytes: int | None = None
 
 
 @dataclass
@@ -316,10 +319,7 @@ class table(
 
     1. a list of dicts, with one dict for each row, keyed by column names;
     2. a list of values, representing a table with a single column;
-    3. a Pandas dataframe; or
-    4. a Polars dataframe; or
-    5. an Ibis dataframe; or
-    6. a PyArrow table.
+    3. a dataframe (e.g., Polars, Pandas, PyArrow, Ibis, DuckDB).
 
     Examples:
         Create a table from a list of dicts, one for each row:
@@ -489,7 +489,7 @@ class table(
         preload: bool = False,
     ) -> table:
         """
-        Create a table from a Polars LazyFrame.
+        Create a table from a lazy dataframe (e.g., Polars LazyFrame, Ibis Table, DuckDB Relation).
 
         This won't load the data into memory until requested by the user.
         Once requested, only the first 10 rows will be loaded.
@@ -756,6 +756,7 @@ class table(
         search_result_raw_data: str | None = None
         field_types: FieldTypes | None = None
         num_columns = 0
+        row_headers = self._manager.get_row_headers()
 
         if not _internal_lazy:
             # Search first page
@@ -776,8 +777,12 @@ class table(
             # Validate column configurations
             column_names_set = set(self._manager.get_column_names())
             num_columns = len(column_names_set)
+            row_header_names_set = {name for name, _ in row_headers}
             _validate_frozen_columns(
-                freeze_columns_left, freeze_columns_right, column_names_set
+                freeze_columns_left,
+                freeze_columns_right,
+                column_names_set,
+                row_header_names_set,
             )
             _validate_column_formatting(
                 text_justify_columns, wrapped_columns, column_names_set
@@ -794,6 +799,11 @@ class table(
                 "data": search_result_data,
                 "raw-data": search_result_raw_data,
                 "total-rows": total_rows,
+                "size-bytes": (
+                    self._get_json_size_bytes(self._manager)
+                    if not _internal_lazy
+                    else None
+                ),
                 "total-columns": num_columns,
                 "max-columns": max_columns_arg,
                 "banner-text": self._get_banner_text(),
@@ -811,7 +821,7 @@ class table(
                 "show-page-size-selector": show_page_size_selector,
                 "show-column-explorer": show_column_explorer,
                 "show-chart-builder": show_chart_builder,
-                "row-headers": self._manager.get_row_headers(),
+                "row-headers": row_headers,
                 "freeze-columns-left": freeze_columns_left,
                 "freeze-columns-right": freeze_columns_right,
                 "text-justify-columns": text_justify_columns,
@@ -916,6 +926,20 @@ class table(
                 )
             return unwrap_narwhals_dataframe(self._selected_manager.data)  # type: ignore[no-any-return]
 
+    @memoize_last_value
+    def _get_json_size_bytes(self, manager: TableManager[Any]) -> int | None:
+        """Size in bytes of the manager's JSON serialization.
+
+        JSON is the largest format we export, so this is a conservative size estimate:
+        if the JSON fits under a host's download limit, CSV and Parquet will
+        too. Memoized on manager identity — recomputed when filters/search
+        produce a new `_searched_manager`.
+        """
+        try:
+            return len(manager.to_json(strict_json=True))
+        except Exception:
+            return None
+
     def _download_as(self, args: DownloadAsArgs) -> DownloadAsResponse:
         """Download the table data in the specified format.
 
@@ -927,24 +951,24 @@ class table(
 
         When a requested format requires a package that isn't installed
         (e.g., Parquet without pyarrow/pandas/polars), returns a
-        ``DownloadAsResponse`` with ``error`` and ``missing_packages``
+        `DownloadAsResponse` with `error` and `missing_packages`
         populated instead of raising. The frontend uses this to prompt the
         user to install the dependency and retry.
 
         Args:
             args (DownloadAsArgs): The requested download format. Must be
-                one of ``'csv'``, ``'json'``, or ``'parquet'``.
+                one of `'csv'`, `'json'`, or `'parquet'`.
 
         Returns:
-            DownloadAsResponse: Either a success response with ``url`` and
-                ``filename`` populated, or a missing-packages response with
-                ``error`` and ``missing_packages`` populated when the
+            DownloadAsResponse: Either a success response with `url` and
+                `filename` populated, or a missing-packages response with
+                `error` and `missing_packages` populated when the
                 format's dependencies are not available.
 
         Raises:
             NotImplementedError: If the current selection resolves to
-                something other than a ``TableManager`` (e.g., a raw list
-                of ``TableCell`` from cell-selection modes).
+                something other than a `TableManager` (e.g., a raw list
+                of `TableCell` from cell-selection modes).
         """
         # Short-circuit Parquet when no parquet-capable lib is importable.
         if args.format == "parquet":
@@ -1381,7 +1405,7 @@ class table(
         """Get the row IDs for a page of data.
 
         When all rows are present (no filter applied, e.g. sort-only),
-        this reads actual ``_marimo_row_id`` values from the searched
+        this reads actual `_marimo_row_id` values from the searched
         manager so that style/hover dict keys match what the frontend
         uses for lookup -- regardless of sort column or direction.
 
@@ -1619,6 +1643,7 @@ class table(
                     offset, args.page_size, total_rows
                 ),
                 raw_data=raw_data,
+                size_bytes=self._get_json_size_bytes(self._manager),
             )
 
         filter_function = (
@@ -1649,6 +1674,7 @@ class table(
                 offset, args.page_size, total_rows
             ),
             raw_data=raw_data,
+            size_bytes=self._get_json_size_bytes(result),
         )
 
     def _get_row_ids(self, args: EmptyArgs) -> GetRowIdsResponse:
@@ -1727,12 +1753,16 @@ def _validate_frozen_columns(
     freeze_columns_left: Sequence[str] | None,
     freeze_columns_right: Sequence[str] | None,
     column_names_set: set[str],
+    row_header_names_set: set[str],
 ) -> None:
     """Validate frozen column configurations.
 
     Validates that:
     1. The same column is not frozen on both sides
-    2. All frozen columns exist in the table
+    2. All left-frozen columns exist as table columns or row-header names
+    3. Right-frozen columns exist as table columns; row-header names are
+       rejected with a friendly error since row headers always render on
+       the left
     """
 
     freeze_columns_left_set = (
@@ -1742,20 +1772,37 @@ def _validate_frozen_columns(
         set(freeze_columns_right) if freeze_columns_right else None
     )
 
-    # Convert sequences to sets for O(1) lookups
     if freeze_columns_left_set and freeze_columns_right_set:
         if not freeze_columns_left_set.isdisjoint(freeze_columns_right_set):
             raise ValueError("The same column cannot be frozen on both sides.")
 
-    # Check all frozen columns exist
     if freeze_columns_left_set:
-        invalid = freeze_columns_left_set - column_names_set
+        # Unnamed row headers (e.g. a default pandas index) have no stable
+        # client-side id, so we can't freeze them. Surface this directly
+        # rather than letting the frontend silently no-op.
+        if "" in freeze_columns_left_set and "" in row_header_names_set:
+            raise ValueError(
+                "Cannot freeze an unnamed row index. "
+                "Set `df.index.name = '...'` (or `df.index.names = [...]` "
+                "for a MultiIndex) and pass that name to freeze_columns_left."
+            )
+        invalid = (
+            freeze_columns_left_set - column_names_set - row_header_names_set
+        )
         if invalid:
             raise ValueError(
                 f"Column '{next(iter(invalid))}' not found in table."
             )
 
     if freeze_columns_right_set:
+        row_header_on_right = freeze_columns_right_set & row_header_names_set
+        if row_header_on_right:
+            name = next(iter(row_header_on_right))
+            raise ValueError(
+                f"Row index '{name}' cannot be frozen on the right; "
+                "row headers always render on the left. "
+                "Use freeze_columns_left instead."
+            )
         invalid = freeze_columns_right_set - column_names_set
         if invalid:
             raise ValueError(

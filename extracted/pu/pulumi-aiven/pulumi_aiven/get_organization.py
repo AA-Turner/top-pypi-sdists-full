@@ -122,7 +122,7 @@ def get_organization(id: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_aiven as aiven
 
-    main = aiven.get_organization(name="Example organization")
+    example = aiven.get_organization(id="org1a23f456789")
     ```
 
 
@@ -143,9 +143,9 @@ def get_organization(id: Optional[_builtins.str] = None,
         tenant_id=pulumi.get(__ret__, 'tenant_id'),
         timeouts=pulumi.get(__ret__, 'timeouts'),
         update_time=pulumi.get(__ret__, 'update_time'))
-def get_organization_output(id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                            name: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                            timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationTimeoutsArgs', 'GetOrganizationTimeoutsArgsDict']]]] = None,
+def get_organization_output(id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                            name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                            timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationTimeoutsArgs', 'GetOrganizationTimeoutsArgsDict']]]] = None,
                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationResult]:
     """
     Gets information about an organization.
@@ -156,7 +156,7 @@ def get_organization_output(id: Optional[pulumi.Input[Optional[_builtins.str]]] 
     import pulumi
     import pulumi_aiven as aiven
 
-    main = aiven.get_organization(name="Example organization")
+    example = aiven.get_organization(id="org1a23f456789")
     ```
 
 

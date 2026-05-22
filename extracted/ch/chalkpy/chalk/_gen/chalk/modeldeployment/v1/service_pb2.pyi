@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.models.v1 import model_version_pb2 as _model_version_pb2
+from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as _remote_python_call_pb2
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as _service_pb2_1
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -111,4 +112,24 @@ class ListModelScalingGroupsResponse(_message.Message):
     scaling_groups: _containers.RepeatedCompositeFieldContainer[_service_pb2_1.ScalingGroupResponse]
     def __init__(
         self, scaling_groups: _Optional[_Iterable[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]]] = ...
+    ) -> None: ...
+
+class CallModelRequest(_message.Message):
+    __slots__ = ("model_version", "remote_call_request")
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    REMOTE_CALL_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    model_version: ModelVersionSelector
+    remote_call_request: _remote_python_call_pb2.CallFunctionRequest
+    def __init__(
+        self,
+        model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...,
+        remote_call_request: _Optional[_Union[_remote_python_call_pb2.CallFunctionRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class CallModelResponse(_message.Message):
+    __slots__ = ("remote_call_response",)
+    REMOTE_CALL_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    remote_call_response: _remote_python_call_pb2.CallFunctionResponse
+    def __init__(
+        self, remote_call_response: _Optional[_Union[_remote_python_call_pb2.CallFunctionResponse, _Mapping]] = ...
     ) -> None: ...

@@ -402,6 +402,20 @@ class AgentSourceType(sgqlc.types.Enum):
     __choices__ = ("PLATFORM_AGENT", "TRACE_TABLE")
 
 
+class AgentTraceExportStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DONE`None
+    * `DONE_PARTIAL`None
+    * `FAILED`None
+    * `PENDING`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DONE", "DONE_PARTIAL", "FAILED", "PENDING", "RUNNING")
+
+
 class AgentTraceFormatEnum(sgqlc.types.Enum):
     """Enum for agent trace format types.
 
@@ -2627,6 +2641,25 @@ class EtlRunStatus(sgqlc.types.Enum):
         "UP_FOR_RETRY",
         "WARN",
     )
+
+
+class EtlRunTrigger(sgqlc.types.Enum):
+    """Run-trigger taxonomy for the unified ETL domain model.
+
+    Enumeration Choices:
+
+    * `API`None
+    * `BACKFILL`None
+    * `CYCLIC`None
+    * `EVENT`None
+    * `MANUAL`None
+    * `RETRY`None
+    * `SCHEDULE`None
+    * `UPSTREAM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("API", "BACKFILL", "CYCLIC", "EVENT", "MANUAL", "RETRY", "SCHEDULE", "UPSTREAM")
 
 
 class EtlType(sgqlc.types.Enum):
@@ -17907,6 +17940,38 @@ class AgentSpanTree(sgqlc.types.Type):
     )
 
 
+class AgentTraceExportStatusOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("status", "url", "error", "created_time", "expires_at")
+    status = sgqlc.types.Field(sgqlc.types.non_null(AgentTraceExportStatus), graphql_name="status")
+    """Current export status. DONE means a complete presigned URL is
+    available; DONE_PARTIAL means the artifact is available but at
+    least one span couldn't be fetched (see `error` for details).
+    """
+
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """Short-lived (10 min) presigned URL to the gzipped JSON export.
+    Populated when status=DONE or DONE_PARTIAL. Regenerated fresh on
+    each poll — treat as a bearer credential and do not log or share.
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Sanitized message when status=FAILED or status=DONE_PARTIAL. For
+    FAILED, this is a user-facing validation message (e.g. 'Trace not
+    found') or a generic exception class name. For DONE_PARTIAL, this
+    summarizes what was dropped (e.g. 'N spans dropped due to
+    warehouse payload size cap'). Never echoes trace content.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the export job was created."""
+
+    expires_at = sgqlc.types.Field(DateTime, graphql_name="expiresAt")
+    """When the presigned URL expires. Populated when status=DONE or
+    DONE_PARTIAL; regenerated alongside the URL on each poll.
+    """
+
+
 class AgentTraceTableConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -28564,6 +28629,424 @@ class EtlContainer(sgqlc.types.Type):
     """
 
 
+class EtlGroupV3(sgqlc.types.Type):
+    """Optional intermediate entity between `EtlContainerModel` and
+    `EtlJobV3`.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "mcon",
+        "global_id",
+        "source_id",
+        "container_uuid",
+        "name",
+        "group_type",
+        "schedule",
+        "attributes",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable identifier for client-side caching. Equal to `mcon`;
+    clients may rely on `__typename + id` as the cache key.
+    """
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="globalId")
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+
+    container_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="containerUuid")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    group_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="groupType")
+
+    schedule = sgqlc.types.Field(JSONString, graphql_name="schedule")
+
+    attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
+
+
+class EtlGroupV3Connection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlGroupV3Edge"))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of rows matching the query, ignoring `first` / `last`
+    / `before` / `after`. Resolved on demand via a single COUNT query.
+    """
+
+
+class EtlGroupV3Edge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(EtlGroupV3), graphql_name="node")
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+
+
+class EtlJobRunV3(sgqlc.types.Type):
+    """One execution of an `EtlJobV3`."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "global_id",
+        "source_id",
+        "job_global_id",
+        "status",
+        "raw_status",
+        "event_time",
+        "started_at",
+        "queued_at",
+        "end_time",
+        "heartbeat_at",
+        "expected_end_time",
+        "trigger",
+        "attempt_number",
+        "run_url",
+        "error",
+        "attributes",
+        "job_mcon",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable opaque identifier derived from `(globalId, startedAt)` —
+    the composite uniqueness of partitioned run rows. Use it as the
+    Apollo cache key and React list key; do not parse it on the
+    client.
+    """
+
+    global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="globalId")
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+
+    job_global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobGlobalId")
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(EtlRunStatus), graphql_name="status")
+
+    raw_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="rawStatus")
+    """Producer-supplied vendor status string before normalization.
+    Always populated; clients should display this when `status` falls
+    outside the known enum values.
+    """
+
+    event_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="eventTime")
+
+    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
+
+    queued_at = sgqlc.types.Field(DateTime, graphql_name="queuedAt")
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+
+    heartbeat_at = sgqlc.types.Field(DateTime, graphql_name="heartbeatAt")
+
+    expected_end_time = sgqlc.types.Field(DateTime, graphql_name="expectedEndTime")
+
+    trigger = sgqlc.types.Field(EtlRunTrigger, graphql_name="trigger")
+
+    attempt_number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attemptNumber")
+
+    run_url = sgqlc.types.Field(String, graphql_name="runUrl")
+
+    error = sgqlc.types.Field(JSONString, graphql_name="error")
+
+    attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
+
+    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
+    """MCON of the parent ETL job."""
+
+
+class EtlJobRunV3Connection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlJobRunV3Edge"))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of rows matching the query, ignoring `first` / `last`
+    / `before` / `after`. Resolved on demand via a single COUNT query.
+    """
+
+
+class EtlJobRunV3Edge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(EtlJobRunV3), graphql_name="node")
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+
+
+class EtlJobV3(sgqlc.types.Type):
+    """A schedulable unit projected from `EtlJobModel`."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "mcon",
+        "global_id",
+        "source_id",
+        "name",
+        "description",
+        "folder",
+        "schedule",
+        "owner",
+        "job_url",
+        "is_paused",
+        "is_stale",
+        "generates_alerts",
+        "deleted_at",
+        "container_uuid",
+        "group_global_id",
+        "attributes",
+        "last_run_date",
+        "recent_run_count",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable identifier for client-side caching. Equal to `mcon`;
+    clients may rely on `__typename + id` as the cache key.
+    """
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="globalId")
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    folder = sgqlc.types.Field(String, graphql_name="folder")
+
+    schedule = sgqlc.types.Field(JSONString, graphql_name="schedule")
+
+    owner = sgqlc.types.Field(JSONString, graphql_name="owner")
+
+    job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
+
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
+
+    is_stale = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStale")
+
+    generates_alerts = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts"
+    )
+    """Whether this job generates alerts or not"""
+
+    deleted_at = sgqlc.types.Field(DateTime, graphql_name="deletedAt")
+
+    container_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="containerUuid")
+
+    group_global_id = sgqlc.types.Field(String, graphql_name="groupGlobalId")
+
+    attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
+
+    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
+    """Most recent `EtlJobRunV3.startedAt` within the 6-month retention
+    window. Null when the job has no runs in that window.
+    """
+
+    recent_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="recentRunCount")
+    """Count of runs in the last 30 days. Defaults to 0."""
+
+
+class EtlJobV3Connection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlJobV3Edge"))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of rows matching the query, ignoring `first` / `last`
+    / `before` / `after`. Resolved on demand via a single COUNT query.
+    """
+
+
+class EtlJobV3Edge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(EtlJobV3), graphql_name="node")
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+
+
+class EtlTaskRunV3(sgqlc.types.Type):
+    """One execution of an `EtlTaskV3`."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "global_id",
+        "source_id",
+        "task_global_id",
+        "job_run_global_id",
+        "job_global_id",
+        "status",
+        "raw_status",
+        "event_time",
+        "started_at",
+        "queued_at",
+        "end_time",
+        "heartbeat_at",
+        "duration_seconds",
+        "attempt_number",
+        "error",
+        "attributes",
+        "job_mcon",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable opaque identifier derived from `(globalId, startedAt)` —
+    the composite uniqueness of partitioned run rows. Use it as the
+    Apollo cache key and React list key; do not parse it on the
+    client.
+    """
+
+    global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="globalId")
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+
+    task_global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskGlobalId")
+
+    job_run_global_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="jobRunGlobalId"
+    )
+
+    job_global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobGlobalId")
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(EtlRunStatus), graphql_name="status")
+
+    raw_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="rawStatus")
+    """Producer-supplied vendor status string before normalization.
+    Always populated; clients should display this when `status` falls
+    outside the known enum values.
+    """
+
+    event_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="eventTime")
+
+    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
+
+    queued_at = sgqlc.types.Field(DateTime, graphql_name="queuedAt")
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+
+    heartbeat_at = sgqlc.types.Field(DateTime, graphql_name="heartbeatAt")
+
+    duration_seconds = sgqlc.types.Field(Float, graphql_name="durationSeconds")
+
+    attempt_number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attemptNumber")
+
+    error = sgqlc.types.Field(JSONString, graphql_name="error")
+
+    attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
+
+    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
+    """MCON of the parent ETL job."""
+
+
+class EtlTaskRunV3Connection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlTaskRunV3Edge"))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of rows matching the query, ignoring `first` / `last`
+    / `before` / `after`. Resolved on demand via a single COUNT query.
+    """
+
+
+class EtlTaskRunV3Edge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(EtlTaskRunV3), graphql_name="node")
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+
+
+class EtlTaskV3(sgqlc.types.Type):
+    """A node in a job graph. No soft-delete on `EtlTaskModel`."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "mcon",
+        "global_id",
+        "source_id",
+        "job_global_id",
+        "name",
+        "task_type",
+        "description",
+        "attributes",
+        "job_mcon",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable identifier for client-side caching. Equal to `mcon`;
+    clients may rely on `__typename + id` as the cache key.
+    """
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="globalId")
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+
+    job_global_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobGlobalId")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    task_type = sgqlc.types.Field(String, graphql_name="taskType")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
+
+    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
+    """MCON of the parent ETL job."""
+
+
+class EtlTaskV3Connection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "total_count")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlTaskV3Edge"))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of rows matching the query, ignoring `first` / `last`
+    / `before` / `after`. Resolved on demand via a single COUNT query.
+    """
+
+
+class EtlTaskV3Edge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(EtlTaskV3), graphql_name="node")
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+
+
 class EvaluatedPermissionPolicy(sgqlc.types.Type):
     """A policy that was matched and evaluated when resolving a
     permission's effect.
@@ -29170,6 +29653,17 @@ class ExplanatoryFieldMetadata(sgqlc.types.Type):
     __field_names__ = ("candidates",)
     candidates = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="candidates")
     """Fields which can be used as explanatory"""
+
+
+class ExportAgentTrace(sgqlc.types.Type):
+    """Kick off an async export of a full agent trace to S3."""
+
+    __schema__ = schema
+    __field_names__ = ("job_id",)
+    job_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="jobId")
+    """Opaque job id. Poll getAgentTraceExport with this id for status
+    and (when complete) the presigned download URL.
+    """
 
 
 class ExtendedDataSource(sgqlc.types.Type):
@@ -33356,7 +33850,12 @@ class LinkGithubAppInstallation(sgqlc.types.Type):
     """Called from the FE as part of the post-installation callback. The
     "code" parameter is used to validate that the request is an
     authentic Github callback and authenticates the user on the Github
-    side.
+    side.  For GitHub Enterprise Server (GHES, BYO-app) installations
+    the FE passes ``installation_uuid`` (the pending
+    ``GHInstallationModel.uuid`` round-tripped through GitHub as the
+    OAuth ``state``) so the backend can derive the host and load the
+    per-installation credentials. github.com callers omit
+    ``installation_uuid``.
     """
 
     __schema__ = schema
@@ -35431,6 +35930,7 @@ class Mutation(sgqlc.types.Type):
         "update_ci_gate_config",
         "delete_ci_gate_repo_override",
         "delete_github_installation",
+        "register_github_app_on_ghes",
         "register_gitlab_app",
         "link_gitlab_app",
         "delete_gitlab_installation",
@@ -35627,6 +36127,7 @@ class Mutation(sgqlc.types.Type):
         "pause_monitor_bootstrap",
         "create_or_update_comparison_monitor",
         "create_or_update_metric_monitor",
+        "export_agent_trace",
         "create_or_update_agent_metric_monitor",
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
@@ -35828,6 +36329,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_alation_integration",
         "delete_alation_integration",
         "create_or_update_alation_table_flag",
+        "set_etl_job_generates_alerts_v3",
+        "bulk_set_etl_job_generates_alerts_v3",
         "set_etl_job_generates_incidents",
         "set_etl_job_generates_alerts",
         "bulk_set_etl_job_generates_alerts",
@@ -37458,6 +37961,10 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
+                    "sensitivity",
+                    sgqlc.types.Arg(SensitivityLevels, graphql_name="sensitivity", default=None),
+                ),
+                (
                     "tags",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
@@ -37502,6 +38009,9 @@ class Mutation(sgqlc.types.Type):
       `""`)
     * `priority` (`String`): The default priority for alerts involving
       this monitor
+    * `sensitivity` (`SensitivityLevels`): Sensitivity level for the
+      table monitor. Defaults to MEDIUM on create. Omitting on update
+      preserves the existing value.
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
     * `uuid` (`UUID`): UUID of the table monitor, to update existing
       monito
@@ -40748,18 +41258,30 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="installationId", default=None
                     ),
                 ),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="installationUuid", default=None),
+                ),
             )
         ),
     )
     """Called from the FE as part of the post-installation callback. The
     "code" parameter is used to validate that the request is an
     authentic Github callback and authenticates the user on the Github
-    side.
+    side.  For GitHub Enterprise Server (GHES, BYO-app) installations
+    the FE passes ``installation_uuid`` (the pending
+    ``GHInstallationModel.uuid`` round-tripped through GitHub as the
+    OAuth ``state``) so the backend can derive the host and load the
+    per-installation credentials. github.com callers omit
+    ``installation_uuid``.
 
     Arguments:
 
     * `code` (`String!`): Security code passed from Github
     * `installation_id` (`String!`): Github App installation id
+    * `installation_uuid` (`UUID`): UUID of the pending GHES
+      installation row (round-tripped through OAuth as ``state``).
+      Required for GHES; omit for github.com.
     """
 
     register_github_app_installation_request = sgqlc.types.Field(
@@ -40773,17 +41295,30 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="code", default=None
                     ),
                 ),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="installationUuid", default=None),
+                ),
             )
         ),
     )
     """Called from the FE as part of the post-installation callback in
     case the user requested approval from her Github admin, instead of
     approving directly. The "code" parameter is used to identify the
-    Github user of the requester.
+    Github user of the requester.  For GitHub Enterprise Server (GHES,
+    BYO-app) requests, the FE passes the pending ``installation_uuid``
+    (round-tripped through OAuth as ``state``) so the backend can
+    derive the host, target the customer's GHES instance for the OAuth
+    + ``GET /user`` calls, and ensure the later
+    ``installation.created`` webhook correlates the right pending
+    request to the right GHES installation.
 
     Arguments:
 
     * `code` (`String!`): Security code passed from Github
+    * `installation_uuid` (`UUID`): UUID of the pending GHES
+      installation row (round-tripped through OAuth as ``state``).
+      Required for GHES; omit for github.com.
     """
 
     update_github_installation = sgqlc.types.Field(
@@ -40934,6 +41469,69 @@ class Mutation(sgqlc.types.Type):
 
     * `installation_uuid` (`UUID!`): Internal UUID of the installation
       to delete
+    """
+
+    register_github_app_on_ghes = sgqlc.types.Field(
+        "RegisterGithubAppOnGhes",
+        graphql_name="registerGithubAppOnGhes",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "app_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="appId", default=None
+                    ),
+                ),
+                (
+                    "app_slug",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="appSlug", default=None
+                    ),
+                ),
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="clientId", default=None
+                    ),
+                ),
+                (
+                    "client_secret",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="clientSecret", default=None
+                    ),
+                ),
+                (
+                    "host",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="host", default=None
+                    ),
+                ),
+                (
+                    "private_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="privateKey", default=None
+                    ),
+                ),
+                (
+                    "webhook_secret",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="webhookSecret", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Registers a customer-supplied GitHub App on GHES
+
+    Arguments:
+
+    * `app_id` (`String!`): GitHub App ID
+    * `app_slug` (`String!`): GitHub App slug
+    * `client_id` (`String!`): GitHub App client ID
+    * `client_secret` (`String!`): GitHub App client secret
+    * `host` (`String!`): GHES hostname (e.g. ghes.acme.com)
+    * `private_key` (`String!`): GitHub App private key (PEM)
+    * `webhook_secret` (`String!`): GitHub App webhook secret
     """
 
     register_gitlab_app = sgqlc.types.Field(
@@ -49390,6 +49988,39 @@ class Mutation(sgqlc.types.Type):
       query
     """
 
+    export_agent_trace = sgqlc.types.Field(
+        ExportAgentTrace,
+        graphql_name="exportAgentTrace",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "trace_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Export a full agent trace (tree + per-span content)
+    to S3 as gzipped JSON. Returns a job id; poll getAgentTraceExport
+    for the download URL when complete. Async because exporting a full
+    trace can take longer than Django/ALB HTTP timeouts.
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the agent trace table. Find this in
+      the trace page URL in the Monte Carlo UI, or in the response of
+      getAgentSpanGroups.
+    * `trace_id` (`String!`): The trace_id to export.
+    """
+
     create_or_update_agent_metric_monitor = sgqlc.types.Field(
         CreateOrUpdateAgentMetricMonitor,
         graphql_name="createOrUpdateAgentMetricMonitor",
@@ -56708,6 +57339,66 @@ class Mutation(sgqlc.types.Type):
     * `mcon` (`String!`): The MCON of the table
     """
 
+    set_etl_job_generates_alerts_v3 = sgqlc.types.Field(
+        "SetEtlJobGeneratesAlertsV3Result",
+        graphql_name="setEtlJobGeneratesAlertsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "generates_alerts",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts", default=None
+                    ),
+                ),
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Configures if alerts should be generated or not
+    when a given ETL Job (like an Airflow DAG) fails
+
+    Arguments:
+
+    * `generates_alerts` (`Boolean!`): should generate alerts
+    * `mcon` (`String!`): job mcon
+    """
+
+    bulk_set_etl_job_generates_alerts_v3 = sgqlc.types.Field(
+        "SetEtlJobGeneratesAlertsV3Result",
+        graphql_name="bulkSetEtlJobGeneratesAlertsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "generates_alerts",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts", default=None
+                    ),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set whether a set of ETL jobs generates alerts or
+    not
+
+    Arguments:
+
+    * `generates_alerts` (`Boolean!`): should generate alerts
+    * `mcons` (`[String!]!`): MCONs of jobs to set generate alerts for
+    """
+
     set_etl_job_generates_incidents = sgqlc.types.Field(
         "SetEtlJobGeneratesIncidents",
         graphql_name="setEtlJobGeneratesIncidents",
@@ -59364,6 +60055,15 @@ class Query(sgqlc.types.Type):
         "get_account_usage",
         "get_streaming_systems",
         "get_tableau_asset_warning_by_id",
+        "get_etl_job_v3",
+        "get_etl_jobs_v3",
+        "get_etl_job_run_v3",
+        "get_etl_job_runs_v3",
+        "get_etl_task_v3",
+        "get_etl_tasks_v3",
+        "get_etl_task_runs_v3",
+        "get_etl_group_v3",
+        "get_etl_groups_v3",
         "get_informatica_mapping_task_runs",
         "get_adf_job_runs",
         "get_adf_task_runs",
@@ -59529,6 +60229,7 @@ class Query(sgqlc.types.Type):
         "get_table_columns_lineage",
         "get_derived_tables_partial_lineage",
         "get_parsed_query",
+        "get_agent_trace_export",
         "get_trace_tree_nodes",
         "get_agent_span_groups",
         "get_agent_span_sample",
@@ -62886,6 +63587,367 @@ class Query(sgqlc.types.Type):
       which this warning is being created.
     * `tableau_warning_id` (`String!`): The Tableau Data Quality
       Warning ID.
+    """
+
+    get_etl_job_v3 = sgqlc.types.Field(
+        EtlJobV3,
+        graphql_name="getEtlJobV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single unified-ETL job by mcon.
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
+    get_etl_jobs_v3 = sgqlc.types.Field(
+        EtlJobV3Connection,
+        graphql_name="getEtlJobsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                (
+                    "container_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="containerUuid", default=None),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
+                (
+                    "job_name_substring",
+                    sgqlc.types.Arg(String, graphql_name="jobNameSubstring", default=None),
+                ),
+                ("is_paused", sgqlc.types.Arg(Boolean, graphql_name="isPaused", default=None)),
+                (
+                    "with_recent_runs",
+                    sgqlc.types.Arg(Boolean, graphql_name="withRecentRuns", default=None),
+                ),
+                (
+                    "no_recent_runs",
+                    sgqlc.types.Arg(Boolean, graphql_name="noRecentRuns", default=None),
+                ),
+                (
+                    "group_global_id",
+                    sgqlc.types.Arg(String, graphql_name="groupGlobalId", default=None),
+                ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="orderBy",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List unified-ETL jobs scoped to the caller's
+    account.
+
+    Arguments:
+
+    * `first` (`Int`): When paging forward: the number of items to
+      return (page size)
+    * `after` (`String`): When paging forward: the cursor of the last
+      item on the previous page of results
+    * `last` (`Int`): When paging backward: the number of items to
+      return (page size)
+    * `before` (`String`): When paging backward: the cursor of the
+      first item on the next page of results
+    * `container_uuid` (`UUID`): Filter by EtlContainer uuid
+    * `mcons` (`[String]`): Filter by job mcons
+    * `job_name_substring` (`String`): Case-insensitive name filter
+    * `is_paused` (`Boolean`)None
+    * `with_recent_runs` (`Boolean`)None
+    * `no_recent_runs` (`Boolean`)None
+    * `group_global_id` (`String`)None
+    * `order_by` (`[String!]`): Order-by keys applied in order; first
+      key is primary, subsequent keys act as tiebreakers. Prefix any
+      key with `-` for descending.
+    """
+
+    get_etl_job_run_v3 = sgqlc.types.Field(
+        EtlJobRunV3,
+        graphql_name="getEtlJobRunV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "global_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="globalId", default=None
+                    ),
+                ),
+                (
+                    "started_at",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startedAt", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single job run by (globalId, startedAt).
+
+    Arguments:
+
+    * `global_id` (`String!`)None
+    * `started_at` (`DateTime!`)None
+    """
+
+    get_etl_job_runs_v3 = sgqlc.types.Field(
+        EtlJobRunV3Connection,
+        graphql_name="getEtlJobRunsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
+                (
+                    "job_global_id",
+                    sgqlc.types.Arg(String, graphql_name="jobGlobalId", default=None),
+                ),
+                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
+                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
+                (
+                    "status_in",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(EtlRunStatus)),
+                        graphql_name="statusIn",
+                        default=None,
+                    ),
+                ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="orderBy",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List runs for a unified-ETL job.
+
+    Arguments:
+
+    * `first` (`Int`): When paging forward: the number of items to
+      return (page size)
+    * `after` (`String`): When paging forward: the cursor of the last
+      item on the previous page of results
+    * `last` (`Int`): When paging backward: the number of items to
+      return (page size)
+    * `before` (`String`): When paging backward: the cursor of the
+      first item on the next page of results
+    * `job_mcon` (`String`)None
+    * `job_global_id` (`String`)None
+    * `from_date` (`DateTime`)None
+    * `to_date` (`DateTime`)None
+    * `status_in` (`[EtlRunStatus!]`)None
+    * `order_by` (`[String!]`): Order-by keys applied in order; first
+      key is primary, subsequent keys act as tiebreakers. Prefix any
+      key with `-` for descending.
+    """
+
+    get_etl_task_v3 = sgqlc.types.Field(
+        EtlTaskV3,
+        graphql_name="getEtlTaskV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single unified-ETL task by mcon.
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
+    get_etl_tasks_v3 = sgqlc.types.Field(
+        EtlTaskV3Connection,
+        graphql_name="getEtlTasksV3",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
+                (
+                    "job_global_id",
+                    sgqlc.types.Arg(String, graphql_name="jobGlobalId", default=None),
+                ),
+                (
+                    "task_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="taskMcons", default=None
+                    ),
+                ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="orderBy",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List tasks for a unified-ETL job.
+
+    Arguments:
+
+    * `first` (`Int`): When paging forward: the number of items to
+      return (page size)
+    * `after` (`String`): When paging forward: the cursor of the last
+      item on the previous page of results
+    * `last` (`Int`): When paging backward: the number of items to
+      return (page size)
+    * `before` (`String`): When paging backward: the cursor of the
+      first item on the next page of results
+    * `job_mcon` (`String`)None
+    * `job_global_id` (`String`)None
+    * `task_mcons` (`[String]`)None
+    * `order_by` (`[String!]`): Order-by keys applied in order; first
+      key is primary, subsequent keys act as tiebreakers. Prefix any
+      key with `-` for descending.
+    """
+
+    get_etl_task_runs_v3 = sgqlc.types.Field(
+        EtlTaskRunV3Connection,
+        graphql_name="getEtlTaskRunsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                (
+                    "job_run_global_id",
+                    sgqlc.types.Arg(String, graphql_name="jobRunGlobalId", default=None),
+                ),
+                ("task_mcon", sgqlc.types.Arg(String, graphql_name="taskMcon", default=None)),
+                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
+                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="orderBy",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List task runs scoped to a job run or task.
+
+    Arguments:
+
+    * `first` (`Int`): When paging forward: the number of items to
+      return (page size)
+    * `after` (`String`): When paging forward: the cursor of the last
+      item on the previous page of results
+    * `last` (`Int`): When paging backward: the number of items to
+      return (page size)
+    * `before` (`String`): When paging backward: the cursor of the
+      first item on the next page of results
+    * `job_run_global_id` (`String`)None
+    * `task_mcon` (`String`)None
+    * `from_date` (`DateTime`)None
+    * `to_date` (`DateTime`)None
+    * `order_by` (`[String!]`): Order-by keys applied in order; first
+      key is primary, subsequent keys act as tiebreakers. Prefix any
+      key with `-` for descending.
+    """
+
+    get_etl_group_v3 = sgqlc.types.Field(
+        EtlGroupV3,
+        graphql_name="getEtlGroupV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single unified-ETL group by mcon.
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    """
+
+    get_etl_groups_v3 = sgqlc.types.Field(
+        EtlGroupV3Connection,
+        graphql_name="getEtlGroupsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                (
+                    "container_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="containerUuid", default=None),
+                ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="orderBy",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List unified-ETL groups for the caller's account.
+
+    Arguments:
+
+    * `first` (`Int`): When paging forward: the number of items to
+      return (page size)
+    * `after` (`String`): When paging forward: the cursor of the last
+      item on the previous page of results
+    * `last` (`Int`): When paging backward: the number of items to
+      return (page size)
+    * `before` (`String`): When paging backward: the cursor of the
+      first item on the next page of results
+    * `container_uuid` (`UUID`)None
+    * `order_by` (`[String!]`): Order-by keys applied in order; first
+      key is primary, subsequent keys act as tiebreakers. Prefix any
+      key with `-` for descending.
     """
 
     get_informatica_mapping_task_runs = sgqlc.types.Field(
@@ -67796,6 +68858,27 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String`): Source table mcon
+    """
+
+    get_agent_trace_export = sgqlc.types.Field(
+        AgentTraceExportStatusOutput,
+        graphql_name="getAgentTraceExport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="jobId", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Status and short-lived (10 min) download URL for an
+    export job. URL is a bearer credential — do not log or share.
+    Regenerated fresh per call.
+
+    Arguments:
+
+    * `job_id` (`UUID!`): Job id returned by exportAgentTrace.
     """
 
     get_trace_tree_nodes = sgqlc.types.Field(
@@ -81637,13 +82720,41 @@ class RegisterGithubAppInstallationRequest(sgqlc.types.Type):
     """Called from the FE as part of the post-installation callback in
     case the user requested approval from her Github admin, instead of
     approving directly. The "code" parameter is used to identify the
-    Github user of the requester.
+    Github user of the requester.  For GitHub Enterprise Server (GHES,
+    BYO-app) requests, the FE passes the pending ``installation_uuid``
+    (round-tripped through OAuth as ``state``) so the backend can
+    derive the host, target the customer's GHES instance for the OAuth
+    + ``GET /user`` calls, and ensure the later
+    ``installation.created`` webhook correlates the right pending
+    request to the right GHES installation.
     """
 
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """True if the registration was successful"""
+
+
+class RegisterGithubAppOnGhes(sgqlc.types.Type):
+    """Register a customer-supplied GitHub App for a GHES (GitHub
+    Enterprise Server) installation under the BYO-app model
+    (DOL-8651).  GHES does not allow MC's github.com-registered App to
+    be installed on the customer's GHES server, so each GHES customer
+    registers their own App and sends the credentials back via this
+    mutation. We persist a host-only ``GHInstallationModel`` row and
+    upload the BYO-app credentials to vault, then return the GHES app-
+    install URL the customer is redirected to — that URL carries the
+    ``GHInstallationModel.uuid`` as OAuth ``state`` so the post-
+    install callback can correlate back to the pending row.
+    Idempotent: a retry for the same ``(account, host)`` reuses the
+    existing pending row and ``credentials_key`` rather than creating
+    a duplicate.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("auth_url",)
+    auth_url = sgqlc.types.Field(String, graphql_name="authUrl")
+    """GHES URL to install the GitHub App"""
 
 
 class RegisterGitlabApp(sgqlc.types.Type):
@@ -83153,6 +84264,28 @@ class SetEtlJobGeneratesAlerts(sgqlc.types.Type):
     __field_names__ = ("generates_alerts",)
     generates_alerts = sgqlc.types.Field(Boolean, graphql_name="generatesAlerts")
     """New value for generates_alerts"""
+
+
+class SetEtlJobGeneratesAlertsV3Result(sgqlc.types.Type):
+    """Return shape shared by the V3 generates-alerts mutations.
+    ``jobs`` carries every ETL job row affected by the rollup write —
+    the input mcon(s) plus every sibling row sharing the same logical
+    job's ``globalId`` (one logical V3 job can live under multiple
+    groups, so a single mcon flip can touch multiple rows). Returning
+    the full rows — not just a count — lets FE Apollo normalize the
+    cache on ``__typename + id`` and skip a list refetch.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("jobs",)
+    jobs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EtlJobV3))),
+        graphql_name="jobs",
+    )
+    """All ETL job rows affected by the rollup write: the supplied
+    mcon(s) plus every multi-group sibling that shares a globalId with
+    them.
+    """
 
 
 class SetEtlJobGeneratesIncidents(sgqlc.types.Type):
@@ -97954,6 +99087,7 @@ class InformaticaMappingTaskRun(sgqlc.types.Type, Node):
         "total_success_rows",
         "total_failed_rows",
         "error_message",
+        "run_url",
         "associated_task",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -98002,6 +99136,13 @@ class InformaticaMappingTaskRun(sgqlc.types.Type, Node):
     error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     """Informatica's errorMsg; only emitted on the top-level activity-log
     entry for failed runs
+    """
+
+    run_url = sgqlc.types.Field(String, graphql_name="runUrl")
+    """Customer-facing deep link to the Informatica monitor run-detail
+    page. Nullable because the resolved POD URL needed to construct it
+    isn't always available — older apollo-agent versions pre-date the
+    metadata RPC used to fetch it on the agent path
     """
 
     associated_task = sgqlc.types.Field(
@@ -99102,6 +100243,7 @@ class TableMonitor(sgqlc.types.Type, Node):
         "domain_restrictions",
         "enable_row_count_collection",
         "enable_row_count_collection_limit",
+        "sensitivity",
         "asset_selection",
         "audiences",
         "failure_audiences",
@@ -99180,6 +100322,11 @@ class TableMonitor(sgqlc.types.Type, Node):
     """Maximum number of tables to enable row count collection for, null
     means use default limit (100)
     """
+
+    sensitivity = sgqlc.types.Field(
+        sgqlc.types.non_null(SensitivityLevels), graphql_name="sensitivity"
+    )
+    """Sensitivity level for the table monitor."""
 
     asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
     """SQL blocks used on the monitor"""

@@ -193,6 +193,16 @@ def get_organization_billing_group(billing_contact_emails: Optional[Sequence[Uni
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
 
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_billing_group(organization_id="org1a23f456789",
+        billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
+    ```
+
 
     :param Sequence[Union['GetOrganizationBillingGroupBillingContactEmailArgs', 'GetOrganizationBillingGroupBillingContactEmailArgsDict']] billing_contact_emails: List of billing contact emails.
     :param Sequence[Union['GetOrganizationBillingGroupBillingEmailArgs', 'GetOrganizationBillingGroupBillingEmailArgsDict']] billing_emails: List of billing contact emails.
@@ -223,18 +233,28 @@ def get_organization_billing_group(billing_contact_emails: Optional[Sequence[Uni
         shipping_address_id=pulumi.get(__ret__, 'shipping_address_id'),
         timeouts=pulumi.get(__ret__, 'timeouts'),
         vat_id=pulumi.get(__ret__, 'vat_id'))
-def get_organization_billing_group_output(billing_contact_emails: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationBillingGroupBillingContactEmailArgs', 'GetOrganizationBillingGroupBillingContactEmailArgsDict']]]]] = None,
-                                          billing_emails: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationBillingGroupBillingEmailArgs', 'GetOrganizationBillingGroupBillingEmailArgsDict']]]]] = None,
-                                          billing_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                          organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                          payment_methods: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationBillingGroupPaymentMethodArgs', 'GetOrganizationBillingGroupPaymentMethodArgsDict']]]]] = None,
-                                          timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationBillingGroupTimeoutsArgs', 'GetOrganizationBillingGroupTimeoutsArgsDict']]]] = None,
+def get_organization_billing_group_output(billing_contact_emails: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationBillingGroupBillingContactEmailArgs', 'GetOrganizationBillingGroupBillingContactEmailArgsDict']]]]] = None,
+                                          billing_emails: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationBillingGroupBillingEmailArgs', 'GetOrganizationBillingGroupBillingEmailArgsDict']]]]] = None,
+                                          billing_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                          organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                          payment_methods: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationBillingGroupPaymentMethodArgs', 'GetOrganizationBillingGroupPaymentMethodArgsDict']]]]] = None,
+                                          timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationBillingGroupTimeoutsArgs', 'GetOrganizationBillingGroupTimeoutsArgsDict']]]] = None,
                                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationBillingGroupResult]:
     """
     Gets information about a billing group.
 
     **This resource is in the beta stage and may change without notice.** Set
     the `PROVIDER_AIVEN_ENABLE_BETA` environment variable to use the resource.
+
+    ## Example Usage
+
+    ```python
+    import pulumi
+    import pulumi_aiven as aiven
+
+    example = aiven.get_organization_billing_group(organization_id="org1a23f456789",
+        billing_group_id="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d")
+    ```
 
 
     :param Sequence[Union['GetOrganizationBillingGroupBillingContactEmailArgs', 'GetOrganizationBillingGroupBillingContactEmailArgsDict']] billing_contact_emails: List of billing contact emails.

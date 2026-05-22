@@ -2852,6 +2852,7 @@ class StreamResolver(Resolver[P, T]):
         message_header_filters: list[tuple[str, bytes]] | None = None,
         resource_group: str | None = None,
         deduplication: Deduplication | None = None,
+        customer_metrics_tags: list[str] | None = None,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -2925,6 +2926,22 @@ class StreamResolver(Resolver[P, T]):
         self.include_message_envelope = include_message_envelope
         self.message_header_filters = message_header_filters
         self.deduplication = deduplication
+        if customer_metrics_tags is not None:
+            if not isinstance(customer_metrics_tags, list):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise TypeError(
+                    f"customer_metrics_tags must be a list[str], got {type(customer_metrics_tags).__name__!r}"
+                )
+            bad_type = [
+                t
+                for t in customer_metrics_tags
+                if not isinstance(t, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+            ]
+            if bad_type:
+                raise TypeError(f"customer_metrics_tags must be a list[str]; non-string entries: {bad_type!r}")
+            bad_fmt = [t for t in customer_metrics_tags if ":" not in t or t.startswith(":") or t.endswith(":")]
+            if bad_fmt:
+                raise ValueError(f"customer_metrics_tags entries must be in 'key:value' format; invalid: {bad_fmt!r}")
+        self.customer_metrics_tags: list[str] = customer_metrics_tags or []
 
     @property
     def output_features(self) -> Sequence[Feature]:
@@ -3828,6 +3845,7 @@ def make_stream_resolver(
     message_header_filters: list[tuple[str, bytes]] | None = None,
     resource_group: Optional[str] = None,
     deduplication: Optional[Deduplication] = None,
+    customer_metrics_tags: list[str] | None = None,
 ) -> StreamResolver:
     """Constructs a streaming resolver that, instead of a Python function,
     defines its output features as column projections on an input message.
@@ -4086,6 +4104,7 @@ def make_stream_resolver(
         message_header_filters=message_header_filters,
         resource_group=resource_group,
         deduplication=deduplication,
+        customer_metrics_tags=customer_metrics_tags,
     )
     resolver.add_to_registry(override=False)
     return resolver

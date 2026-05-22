@@ -110,21 +110,38 @@ class LogUniformPrior(Prior):
 
     __identifier_fields__ = ("lower_limit", "upper_limit")
 
-    def log_prior_from_value(self, value, xp=np) -> float:
+    def log_prior_from_value(self, value, xp=np):
         """
-        Returns the log prior of a physical value, so the log likelihood of a model evaluation can be converted to a
-        posterior as log_prior + log_likelihood.
+        Returns the log prior density at a physical value, used by Emcee / Zeus
+        / MLE searches to form a log-posterior via ``log_likelihood + sum(log_priors)``.
 
-        This is used by certain non-linear searches (e.g. Emcee) in the log likelihood function evaluation.
+        For a log-uniform prior on ``[lower_limit, upper_limit]`` the density is
+        ``p(x) = 1 / (x * log(upper_limit / lower_limit))``, giving
+        ``log p(x) = -log(x) - log(log(upper_limit / lower_limit))``. The
+        normalisation constant ``-log(log(upper_limit / lower_limit))`` is
+        dropped (it is irrelevant to posterior shape), matching the convention
+        used by ``UniformPrior.log_prior_from_value`` which drops ``-log(b - a)``
+        to return ``0.0``.
+
+        Out-of-support (``value`` outside ``[lower_limit, upper_limit]``) returns
+        ``-inf`` on the JAX path; the NumPy path returns ``-log(value)`` without
+        bounds-checking to mirror the existing ``UniformPrior`` NumPy semantics
+        which trust the search to stay inside bounds.
 
         Parameters
         ----------
-        value : float
-            The physical value of this prior's corresponding parameter in a `NonLinearSearch` sample.
+        value
+            The physical value of this prior's corresponding parameter in a
+            ``NonLinearSearch`` sample.
+        xp
+            Array-module to dispatch on (``numpy`` or ``jax.numpy``). Default ``numpy``.
         """
-        return 1.0 / value
+        if xp is np:
+            return -np.log(value)
+        in_bounds = (value >= self.lower_limit) & (value <= self.upper_limit)
+        return xp.where(in_bounds, -xp.log(value), -xp.inf)
 
-    def value_for(self, unit: float) -> float:
+    def value_for(self, unit, xp=np):
         """
         Returns a physical value from an input unit value according to the limits of the log10 uniform prior.
 
@@ -132,6 +149,10 @@ class LogUniformPrior(Prior):
         ----------
         unit
             A unit value between 0 and 1.
+        xp
+            Array-module to dispatch on (``numpy`` or ``jax.numpy``). Default ``numpy``.
+            The NumPy path delegates to the message stack (scipy-backed); the JAX
+            path uses the closed-form ``lower * (upper / lower) ** unit``.
 
         Returns
         -------
@@ -145,7 +166,9 @@ class LogUniformPrior(Prior):
 
         physical_value = prior.value_for(unit=0.2)
         """
-        return super().value_for(unit)
+        if xp is np:
+            return super().value_for(unit)
+        return self.lower_limit * (self.upper_limit / self.lower_limit) ** unit
 
     def dict(self) -> dict:
         """

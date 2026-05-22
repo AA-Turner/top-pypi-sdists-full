@@ -1,52 +1,52 @@
 import os
-from AOT_biomaps.AOT_Recon.AOT_SparseSMatrix import SparseSMatrix_CSR, SparseSMatrix_SELL
-import torch
 import numpy as np
-import pycuda.driver as drv
-from numba import njit, prange
-from torch_sparse import coalesce
 from scipy.signal.windows import hann
-import cupy as cp
-from cupyx.scipy.ndimage import map_coordinates
+from AOT_biomaps.AOT_Recon.AOT_SparseSMatrix import SparseSMatrix_CSR, SparseSMatrix_SELL
+import warnings
+
+# Optional cupy imports for GPU acceleration
+try:
+    import cupy as cp
+    from cupyx.scipy.ndimage import map_coordinates
+    CUPY_AVAILABLE = True
+except ImportError:
+    CUPY_AVAILABLE = False
 
 def load_recon(hdr_path):
     """
-    Lit un fichier Interfile (.hdr) et son fichier binaire (.img) pour reconstruire une image comme le fait Vinci.
-    
-    Paramètres :
-    ------------
-    - hdr_path : chemin complet du fichier .hdr
-    
-    Retour :
+    Load an Interfile (.hdr) and its binary file (.img) to reconstruct an image as Vinci does.
+
+    Parameters:
+    -----------
+    - hdr_path : full path to the .hdr file
+
+    Returns:
     --------
-    - image : tableau NumPy contenant l'image
-    - header : dictionnaire contenant les métadonnées du fichier .hdr
+    - image : NumPy array containing the image
+    - header : dictionary containing metadata from the .hdr file
     """
     header = {}
     with open(hdr_path, 'r') as f:
         for line in f:
             if ':=' in line:
-                key, value = line.split(':=', 1)  # s'assurer qu'on ne coupe que la première occurrence de ':='
-                key = key.strip().lower().replace('!', '')  # Nettoyage des caractères
+                key, value = line.split(':=', 1)
+                key = key.strip().lower().replace('!', '')
                 value = value.strip()
                 header[key] = value
-    
-    # 📘 Obtenez le nom du fichier de données associé (le .img)
+
     data_file = header.get('name of data file')
     if data_file is None:
-        raise ValueError(f"Impossible de trouver le fichier de données associé au fichier header {hdr_path}")
-    
+        raise ValueError(f"Cannot find data file associated with header file {hdr_path}")
+
     img_path = os.path.join(os.path.dirname(hdr_path), data_file)
-    
-    # 📘 Récupérer la taille de l'image à partir des métadonnées
+
     shape = [int(header[f'matrix size [{i}]']) for i in range(1, 4) if f'matrix size [{i}]' in header]
-    if shape and shape[-1] == 1:  # Si la 3e dimension est 1, on la supprime
-        shape = shape[:-1]  # On garde (192, 240) par exemple
-    
+    if shape and shape[-1] == 1:
+        shape = shape[:-1]
+
     if not shape:
-        raise ValueError("Impossible de déterminer la forme de l'image à partir des métadonnées.")
-    
-    # 📘 Déterminez le type de données à utiliser
+        raise ValueError("Cannot determine image shape from metadata.")
+
     data_type = header.get('number format', 'short float').lower()
     dtype_map = {
         'short float': np.float32,
@@ -58,35 +58,31 @@ def load_recon(hdr_path):
     }
     dtype = dtype_map.get(data_type)
     if dtype is None:
-        raise ValueError(f"Type de données non pris en charge : {data_type}")
-    
-    # 📘 Ordre des octets (endianness)
+        raise ValueError(f"Unsupported data type: {data_type}")
+
     byte_order = header.get('imagedata byte order', 'LITTLEENDIAN').lower()
     endianess = '<' if 'little' in byte_order else '>'
-    
-    # 📘 Vérifie la taille réelle du fichier .img
+
     img_size = os.path.getsize(img_path)
     expected_size = np.prod(shape) * np.dtype(dtype).itemsize
-    
+
     if img_size != expected_size:
-        raise ValueError(f"La taille du fichier img ({img_size} octets) ne correspond pas à la taille attendue ({expected_size} octets).")
-    
-    # 📘 Lire les données binaires et les reformater
+        raise ValueError(f"Image file size ({img_size} bytes) does not match expected size ({expected_size} bytes).")
+
     with open(img_path, 'rb') as f:
         data = np.fromfile(f, dtype=endianess + np.dtype(dtype).char)
-    
-    image =  data.reshape(shape[::-1]) 
-    
-    # 📘 Rescale l'image si nécessaire
+
+    image = data.reshape(shape[::-1])
+
     rescale_slope = float(header.get('data rescale slope', 1))
     rescale_offset = float(header.get('data rescale offset', 0))
     image = image * rescale_slope + rescale_offset
-    
+
     return image
 
 def mse(y_true, y_pred):
     """
-    Calcule la Mean Squared Error (MSE) entre deux tableaux.
+    Calculate la Mean Squared Error (MSE) entre deux tableaux.
     Équivalent à sklearn.metrics.mean_squared_error.
     """
     y_true = np.asarray(y_true)
@@ -95,7 +91,7 @@ def mse(y_true, y_pred):
 
 def calculate_memory_requirement(SMatrix, y):
     """
-    Calcule la mémoire requise (en Go) pour :
+    Calculate la mémoire requise (en Go) pour :
     - SMatrix : Matrice (np.ndarray, CuPy CSR, SparseSMatrix_CSR ou SparseSMatrix_SELL)
     - y : vecteur (NumPy ou CuPy, float32)
 
@@ -105,7 +101,7 @@ def calculate_memory_requirement(SMatrix, y):
     """
     total_bytes = 0
 
-    # --- 1. Memory for SMatrix ---
+    # ---
     
     # 1.1. Custom Sparse Matrix (SELL/CSR)
     if isinstance(SMatrix, (SparseSMatrix_SELL, SparseSMatrix_CSR)):
@@ -148,7 +144,7 @@ def calculate_memory_requirement(SMatrix, y):
     else:
         raise ValueError("SMatrix must be a np.ndarray, cpsparse.csr_matrix, or a custom SparseSMatrix object (CSR/SELL).")
 
-    # --- 2. Memory for Vector y ---
+    # ---
     
     # Check if y is a CuPy array or NumPy array (assuming float32 based on docstring)
     if hasattr(y, 'nbytes'):
@@ -159,41 +155,32 @@ def calculate_memory_requirement(SMatrix, y):
         # Fallback if object doesn't expose nbytes (e.g., custom buffer), but usually array objects do.
         raise ValueError("Vector y must be an array type exposing the .nbytes attribute.")
 
-
-    # --- 3. Final Result ---
+    # ---
     return total_bytes / (1024 ** 3)
 
 def check_gpu_memory(device_index, required_memory, show_logs=True):
     """Check if enough memory is available on the specified GPU."""
-    free_memory, _ = torch.cuda.mem_get_info(f"cuda:{device_index}")
+    import cupy as cp
+    try:
+        free_memory = cp.cuda.runtime.getFreeMem()
+    except AttributeError:
+        # Fallback for older CuPy versions
+        free_memory = cp.cuda.runtime.memoryGetInfo()[0]
     free_memory_gb = free_memory / 1024**3
     if show_logs:
         print(f"Free memory on GPU {device_index}: {free_memory_gb:.2f} GB, Required memory: {required_memory:.2f} GB")
     return free_memory_gb >= required_memory
 
-@njit(parallel=True)
-def _forward_projection(SMatrix, theta_p, q_p):
-    t_dim, z_dim, x_dim, i_dim = SMatrix.shape
-    for _t in prange(t_dim):
-        for _n in range(i_dim):
-            total = 0.0
-            for _z in range(z_dim):
-                for _x in range(x_dim):
-                    total += SMatrix[_t, _z, _x, _n] * theta_p[_z, _x]
-            q_p[_t, _n] = total
+def _forward_projection_cupy(SMatrix, theta_p, q_p):
+    """Forward projection using CuPy."""
+    q_p[:] = cp.dot(SMatrix.reshape(q_p.shape[0], -1), theta_p.ravel())
 
-@njit(parallel=True)
-def _backward_projection(SMatrix, e_p, c_p):
-    t_dim, z_dim, x_dim, n_dim = SMatrix.shape
-    for _z in prange(z_dim):
-        for _x in range(x_dim):
-            total = 0.0
-            for _t in range(t_dim):
-                for _n in range(n_dim):
-                    total += SMatrix[_t, _z, _x, _n] * e_p[_t, _n]
-            c_p[_z, _x] = total
+def _backward_projection_cupy(SMatrix, e_p, c_p):
+    """Backward projection using CuPy."""
+    c_p[:] = cp.dot(SMatrix.reshape(e_p.shape[0], -1).T, e_p.ravel())
 
-def _build_adjacency_sparse(Z, X, device, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2), face=0.5 - np.sqrt(2) / 4,dtype=torch.float32):
+def _build_adjacency_sparse(Z, X, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2), face=0.5 - np.sqrt(2) / 4, dtype=np.float32):
+    """Build adjacency matrix for sparse operations."""
     rows, cols, weights = [], [], []
     for z in range(Z):
         for x in range(X):
@@ -208,101 +195,105 @@ def _build_adjacency_sparse(Z, X, device, corner=(0.5 - np.sqrt(2) / 4) / np.sqr
                     rows.append(j)
                     cols.append(k)
                     weights.append(weight)
-    index = torch.tensor([rows, cols], dtype=torch.long, device=device)
-    values = torch.tensor(weights, dtype=dtype, device=device)
-    index, values = coalesce(index, values, m=Z*X, n=Z*X)
-    return index, values
+    return cp.sparse.coo_matrix((cp.array(weights, dtype=dtype), (cp.array(rows), cp.array(cols))), shape=(Z*X, Z*X)).tocsr()
 
 def power_method(P, PT, data, Z, X, n_it=10):
-    x = torch.randn(Z * X, device=data.device)
-    x = x / torch.norm(x)
+    """Power method for spectral radius estimation using CuPy."""
+    x = cp.random.randn(Z * X)
+    x = x / cp.linalg.norm(x)
     for _ in range(n_it):
         Ax = P(x)
         ATax = PT(Ax)
-        x = ATax / torch.norm(ATax)
+        x = ATax / cp.linalg.norm(ATax)
     ATax = PT(P(x))
-    return torch.sqrt(torch.dot(x, ATax))
+    return cp.sqrt(cp.dot(x, ATax))
 
 def proj_l2(p, alpha):
+    """L2 projection using CuPy."""
     if alpha <= 0:
-        return torch.zeros_like(p)
-    norm = torch.sqrt(torch.sum(p**2, dim=0, keepdim=True) + 1e-12)
-    return p * torch.min(norm, torch.tensor(alpha, device=p.device)) / (norm + 1e-12)
+        return cp.zeros_like(p)
+    norm = cp.sqrt(cp.sum(p**2, axis=0, keepdims=True) + 1e-12)
+    return p * cp.minimum(norm, alpha) / (norm + 1e-12)
 
 def gradient(x):
-    grad_x = torch.zeros_like(x)
-    grad_y = torch.zeros_like(x)
-    grad_x[:, :-1] = x[:, 1:] - x[:, :-1]  # Gradient horizontal
-    grad_y[:-1, :] = x[1:, :] - x[:-1, :]   # Gradient vertical
-    return torch.stack((grad_x, grad_y), dim=0)
+    """Compute gradient using CuPy."""
+    grad_x = cp.zeros_like(x)
+    grad_y = cp.zeros_like(x)
+    grad_x[:, :-1] = x[:, 1:] - x[:, :-1]
+    grad_y[:-1, :] = x[1:, :] - x[:-1, :]
+    return cp.stack((grad_x, grad_y), axis=0)
 
 def div(x):
-    if x.dim() == 3:
-        x = x.unsqueeze(0)  # Ajoute une dimension batch si nécessaire
+    """Compute divergence using CuPy."""
+    if x.ndim == 3:
+        x = cp.expand_dims(x, axis=0)
 
-    gx = x[:, 0, :, :]  # Gradient horizontal (shape: [1, H, W] ou [H, W])
-    gy = x[:, 1, :, :]  # Gradient vertical   (shape: [1, H, W] ou [H, W])
+    gx = x[:, 0, :, :]
+    gy = x[:, 1, :, :]
 
-    # Divergence du gradient horizontal (gx)
-    div_x = torch.zeros_like(gx)
-    div_x[:, :, 1:] += gx[:, :, :-1]  # Contribution positive (gauche)
-    div_x[:, :, :-1] -= gx[:, :, :-1] # Contribution négative (droite)
+    div_x = cp.zeros_like(gx)
+    div_x[:, :, 1:] += gx[:, :, :-1]
+    div_x[:, :, :-1] -= gx[:, :, :-1]
 
-    # Divergence du gradient vertical (gy)
-    div_y = torch.zeros_like(gy)
-    div_y[:, 1:, :] += gy[:, :-1, :]  # Contribution positive (haut)
-    div_y[:, :-1, :] -= gy[:, :-1, :] # Contribution négative (bas)
+    div_y = cp.zeros_like(gy)
+    div_y[:, 1:, :] += gy[:, :-1, :]
+    div_y[:, :-1, :] -= gy[:, :-1, :]
 
     return -(div_x + div_y)
 
 def norm2sq(x):
-    return torch.sum(x**2)
+    """Squared L2 norm using CuPy."""
+    return cp.sum(x**2)
 
 def norm1(x):
-    return torch.sum(torch.abs(x))
+    """L1 norm using CuPy."""
+    return cp.sum(cp.abs(x))
 
 def KL_divergence(Ax, y):
-    return torch.sum(Ax - y * torch.log(Ax + 1e-10))
+    """KL divergence using CuPy."""
+    return cp.sum(Ax - y * cp.log(Ax + 1e-10))
 
 def gradient_KL(Ax, y):
+    """KL gradient using CuPy."""
     return 1 - y / (Ax + 1e-10)
 
 def prox_F_star(y, sigma, a):
-    return 0.5 * (y - torch.sqrt(y**2 + 4 * sigma * a))
+    """Proximal operator for F* using CuPy."""
+    return 0.5 * (y - cp.sqrt(y**2 + 4 * sigma * a))
 
 def prox_G(x, tau, K):
-    return torch.clamp(x - tau * K, min=0)
+    """Proximal operator for G using CuPy."""
+    return cp.clip(x - tau * K, 0, None)
 
 def filter_radon(f, N, filter_type, Fc):
     """
-    Implémente les filtres pour la rétroprojection filtrée (iRadon).
-    Inspirée de la fonction MATLAB FilterRadon de Mamouna Bocoum.
+    Implement filters for filtered backprojection (iRadon).
+    Inspired by MATLAB FilterRadon function from Mamouna Bocoum.
 
-    Paramètres :
-    ------------
+    Parameters:
+    -----------
     f : np.ndarray
-        Vecteur des fréquences (ex: f_t ou f_z).
+        Frequency vector (e.g., f_t or f_z).
     N : int
-        Taille du filtre (longueur de f).
+        Filter size (length of f).
     filter_type : str
-        Type de filtre : 'ram-lak', 'shepp-logan', 'cosine', 'hamming', 'hann'.
+        Filter type: 'ram-lak', 'shepp-logan', 'cosine', 'hamming', 'hann'.
     Fc : float
-        Fréquence de coupure.
+        Cutoff frequency.
 
-    Retourne :
+    Returns:
     -----------
     FILTER : np.ndarray
-        Filtre appliqué aux fréquences.
+        Filter applied to frequencies.
     """
     FILTER = np.abs(f)
 
     if filter_type == 'ram-lak':
-        pass  # FILTER = |f| (déjà calculé)
+        pass
     elif filter_type == 'shepp-logan':
-        # Évite la division par zéro
         with np.errstate(divide='ignore', invalid='ignore'):
-            FILTER = FILTER * (np.sinc(2 * f / (2 * Fc)))  # sin(2πf/(2Fc))/(2πf/(4Fc)) = sinc(2f/(2Fc))
-        FILTER[np.isnan(FILTER)] = 1.0  # Pour f=0
+            FILTER = FILTER * (np.sinc(2 * f / (2 * Fc)))
+        FILTER[np.isnan(FILTER)] = 1.0
     elif filter_type == 'cosine':
         FILTER = FILTER * np.cos(2 * np.pi * f / (4 * Fc))
     elif filter_type == 'hamming':
@@ -310,11 +301,9 @@ def filter_radon(f, N, filter_type, Fc):
     elif filter_type == 'hann':
         FILTER = FILTER * (1 + np.cos(2 * np.pi * f / (4 * Fc))) / 2
     else:
-        raise ValueError(f"Type de filtre inconnu : {filter_type}")
+        raise ValueError(f"Unknown filter type: {filter_type}")
 
-    # Coupure des fréquences au-delà de Fc
     FILTER[np.abs(f) > Fc] = 0
-    # Atténuation exponentielle (optionnelle, comme dans le code MATLAB)
     FILTER = FILTER * np.exp(-2 * (np.abs(f) / Fc)**10)
 
     return FILTER
@@ -329,7 +318,6 @@ def compute_TV_cpu(x, Z, X, isotropic=False):
     dx = np.diff(x2d, axis=1)
     dy = np.diff(x2d, axis=0)
     if isotropic:
-        # pad to original size for consistent measure (we only need sum of norms)
         mags = np.sqrt(dx**2 + dy**2)
         return float(np.sum(mags))
     else:
@@ -337,94 +325,41 @@ def compute_TV_cpu(x, Z, X, isotropic=False):
 
 def get_apodization_vector_gpu(matrix_sparse_obj):
     """
-    Génère un vecteur de fenêtrage 2D (Hanning) pour l'apodisation 
-    de la matrice système A et le transfère sur le GPU.
-    Ce vecteur doit être multiplié par les colonnes de A (pixels Z*X).
+    Generate a 2D Hanning window vector for apodization of system matrix A.
+    This vector should be multiplied by the columns of A (Z*X pixels).
     """
     Z = matrix_sparse_obj.Z
     X = matrix_sparse_obj.X
-    
-    # 1. Génération des fenêtres 1D sur l'axe X et Z
-    # Forte apodisation latérale (X) pour cibler l'artefact de bordure.
-    fenetre_x = hann(X).astype(np.float32)
-    
-    # Fenêtre uniforme en profondeur (Z), car l'artefact est surtout latéral.
-    fenetre_z = np.ones(Z, dtype=np.float32)
-    
-    # 2. Création de la matrice de fenêtre 2D (Z, X)
-    fenetre_2d = np.outer(fenetre_z, fenetre_x)
-    
-    # 3. Vectorisation (Z*X)
-    fenetre_vectorisee = fenetre_2d.flatten()
-    
-    # 4. Transfert sur GPU (mémoire contiguë)
-    fenetre_gpu = drv.mem_alloc(fenetre_vectorisee.nbytes)
-    drv.memcpy_htod(fenetre_gpu, fenetre_vectorisee)
-    
-    print(f"✅ Vecteur de fenêtrage (Z*X={Z*X}) généré et transféré sur GPU.")
-    
-    return fenetre_gpu
 
-def _call_axpby(axpby_kernel, out_ptr, x_ptr, y_ptr, a, b, N, stream, block):
-    grid = ((int(N) + block - 1) // block, 1, 1)
-    axpby_kernel(out_ptr, x_ptr, y_ptr,
-                    np.float32(a), np.float32(b),
-                    np.int32(N),
-                    block=(block, 1, 1), grid=grid, stream=stream)
+    window_x = hann(X).astype(np.float32)
+    window_z = np.ones(Z, dtype=np.float32)
 
-def _call_minus_axpy(minus_kernel, out_ptr, z_ptr, a, N, stream, block):
-    grid = ((int(N) + block - 1) // block, 1, 1)
-    minus_kernel(out_ptr, z_ptr, np.float32(a), np.int32(N),
-                    block=(block, 1, 1), grid=grid, stream=stream)
+    window_2d = np.outer(window_z, window_x)
+    window_vector = window_2d.flatten()
 
-def power_method_estimate_L__SELL(SMatrix, stream, n_it=20, block_size=256):
-    """Estimate ||A||^2 using power method (uses your projection/backprojection kernels)."""
+    window_gpu = cp.asarray(window_vector)
+
+    print(f"Window vector (Z*X={Z*X}) generated and transferred to GPU.")
+
+    return window_gpu
+
+def power_method_estimate_L__SELL(SMatrix, n_it=20):
+    """Estimate ||A||^2 using power method with CuPy."""
     TN = int(SMatrix.N * SMatrix.T)
     ZX = int(SMatrix.Z * SMatrix.X)
-    proj = SMatrix.sparse_mod.get_function("projection_kernel__SELL")
-    back = SMatrix.sparse_mod.get_function("backprojection_kernel__SELL")
-    TN_i = np.int32(TN)
-    ZX_i = np.int32(ZX)
-    slice_h = np.int32(SMatrix.slice_height)
-    grid_rows = ((TN + block_size - 1) // block_size, 1, 1)
-    block_1D = (block_size, 1, 1)
 
-    dtype = np.float32
-    x_host = np.random.randn(ZX).astype(dtype)
-    x_host /= np.linalg.norm(x_host) + 1e-12
-    x_gpu = drv.mem_alloc(x_host.nbytes)
-    drv.memcpy_htod_async(x_gpu, x_host, stream)
-    q_gpu = drv.mem_alloc(TN * np.dtype(dtype).itemsize)
-    ATq_gpu = drv.mem_alloc(ZX * np.dtype(dtype).itemsize)
-    ATq_host = np.empty(ZX, dtype=dtype)
+    x = cp.random.randn(ZX).astype(cp.float32)
+    x /= cp.linalg.norm(x) + 1e-12
 
     for _ in range(n_it):
-        proj(q_gpu, SMatrix.sell_values_gpu, SMatrix.sell_colinds_gpu, SMatrix.slice_ptr_gpu, SMatrix.slice_len_gpu,
-                x_gpu, TN_i, slice_h, block=block_1D, grid=grid_rows, stream=stream)
-        drv.memset_d32_async(ATq_gpu, 0, ZX, stream)
-        back(SMatrix.sell_values_gpu, SMatrix.sell_colinds_gpu, SMatrix.slice_ptr_gpu, SMatrix.slice_len_gpu,
-                q_gpu, ATq_gpu, TN_i, slice_h, block=block_1D, grid=grid_rows, stream=stream)
-        stream.synchronize()
-        drv.memcpy_dtoh(ATq_host, ATq_gpu)
-        norm = np.linalg.norm(ATq_host)
+        q = SMatrix.projection(x)
+        ATq = SMatrix.backprojection(q)
+        norm = cp.linalg.norm(ATq)
         if norm < 1e-12:
             break
-        x_host = ATq_host / norm
-        drv.memcpy_htod_async(x_gpu, x_host, stream)
-    # final Rayleigh quotient
-    proj(q_gpu, SMatrix.sell_values_gpu, SMatrix.sell_colinds_gpu, SMatrix.slice_ptr_gpu, SMatrix.slice_len_gpu,
-            x_gpu, TN_i, slice_h, block=block_1D, grid=grid_rows, stream=stream)
-    drv.memset_d32_async(ATq_gpu, 0, ZX, stream)
-    back(SMatrix.sell_values_gpu, SMatrix.sell_colinds_gpu, SMatrix.slice_ptr_gpu, SMatrix.slice_len_gpu,
-            q_gpu, ATq_gpu, TN_i, slice_h, block=block_1D, grid=grid_rows, stream=stream)
-    stream.synchronize()
-    drv.memcpy_dtoh(ATq_host, ATq_gpu)
-    L_sq = float(np.dot(x_host, ATq_host))
-    for g in (x_gpu, q_gpu, ATq_gpu):
-        try:
-            g.free()
-        except:
-            pass
+        x = ATq / norm
+
+    L_sq = float(cp.dot(x, SMatrix.backprojection(SMatrix.projection(x))))
     return max(L_sq, 1e-6)
 
 def fourierz_gpu(z, X):
@@ -470,15 +405,22 @@ def ifourierx_gpu(F_fx_z, dx):
 
 def EvalDelayLawOS_center(X_m, theta, DelayLAWS, ActiveLIST, c):
     """
-    Retourne le centre de rotation C pour chaque angle
-    X_m : positions des éléments de la sonde
-    DelayLAWS : delays en secondes (chaque colonne = angle, chaque ligne = élément)
-    ActiveLIST : masque des éléments actifs (1 = actif)
-    c : vitesse du son
+    Return the rotation center C for each angle.
+
+    Parameters:
+    -----------
+    X_m : probe element positions
+    DelayLAWS : delays in seconds (each column = angle, each row = element)
+    ActiveLIST : mask of active elements (1 = active)
+    c : speed of sound
+
+    Returns:
+    --------
+    C : rotation centers for each angle
     """
     Nangle = DelayLAWS.shape[1]
     C = np.zeros((Nangle, 2))
-    
+
     ct = DelayLAWS * c  # convert seconds to distance
 
     for i in range(Nangle):
@@ -486,12 +428,9 @@ def EvalDelayLawOS_center(X_m, theta, DelayLAWS, ActiveLIST, c):
         if len(active_idx) == 0:
             continue
 
-
         angle_i = np.round(theta[i], 5)
-        # unit vector orthogonal to wavefront
         u = np.array([np.sin(angle_i), np.cos(angle_i)])
 
-        # initial positions X0, Z0
         X0 = X_m - u[0] * ct[:, i]
         Z0 = 0 - u[1] * ct[:, i]
 
@@ -509,14 +448,14 @@ def rotate_theta_gpu(X, Z, Iin, theta, C):
     C : (2,) array-like
     """
 
-    # --- Translation ---
+    # ---
     X_rel = X - C[0]
     Z_rel = Z - C[1]
 
     c = cp.cos(theta)
     s = cp.sin(theta)
 
-    # --- Rotation (Matlab convention) ---
+    # ---
     Xout = c * X_rel + s * Z_rel
     Zout = -s * X_rel + c * Z_rel
 
@@ -524,7 +463,7 @@ def rotate_theta_gpu(X, Z, Iin, theta, C):
     Xout += C[0]
     Zout += C[1]
 
-    # --- Conversion coordonnées -> indices ---
+    # ---
     # Grille régulière supposée
     dx = X[0, 1] - X[0, 0]
     dz = Z[1, 0] - Z[0, 0]
@@ -535,7 +474,7 @@ def rotate_theta_gpu(X, Z, Iin, theta, C):
     ix = (Xout - x0) / dx
     iz = (Zout - z0) / dz
 
-    # --- Interpolation bilinéaire GPU ---
+    # ---
     # map_coordinates attend (ndim, Npoints)
     coords = cp.stack([iz.ravel(), ix.ravel()])
 

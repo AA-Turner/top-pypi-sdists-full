@@ -26,6 +26,7 @@ from plato.v2.async_.flow_executor import FlowExecutionError as AsyncFlowExecuti
 from plato.v2.async_.flow_executor import FlowExecutor as AsyncFlowExecutor
 from plato.v2.async_.session import SerializedSession
 from plato.v2.async_.session import Session as AsyncSession
+from plato.v2.async_.simulators import AsyncSimulatorsManager
 from plato.v2.async_.testcase import AsyncTestcaseManager
 from plato.v2.sync.client import Plato
 from plato.v2.sync.datagen_session import (
@@ -41,6 +42,7 @@ from plato.v2.sync.flow_backends import (
 from plato.v2.sync.flow_executor import FlowExecutionError, FlowExecutor
 from plato.v2.sync.sandbox import SandboxClient
 from plato.v2.sync.session import LoginResult, Session
+from plato.v2.sync.simulators import SimulatorArtifact, SimulatorsManager
 from plato.v2.sync.testcase import TestcaseManager
 
 # DatagenResponse lives in both sync and async datagen_session modules
@@ -70,6 +72,8 @@ __all__ = [
     "PlaywrightBackend",
     "ArtifactInfoResponse",
     "SandboxClient",
+    "SimulatorArtifact",
+    "SimulatorsManager",
     "TestcaseManager",
     "JobTerminalStatusError",
     # Async
@@ -84,6 +88,7 @@ __all__ = [
     "make_ssh_run_cmd",
     "shared_cdp_chromium",
     "SerializedSession",
+    "AsyncSimulatorsManager",
     "AsyncTestcaseManager",
     # Models
     "Flow",

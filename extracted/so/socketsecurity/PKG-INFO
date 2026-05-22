@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: socketsecurity
-Version: 2.2.89
+Version: 2.2.90
 Summary: Socket Security CLI for CI/CD
-Project-URL: Homepage, https://socket.dev
+Project-URL: Homepage, https://github.com/SocketDev/socket-python-cli
 Author-email: Douglas Coburn <douglas@socket.dev>
 Maintainer-email: Douglas Coburn <douglas@socket.dev>
 License: MIT License
@@ -41,7 +41,7 @@ Requires-Dist: packaging
 Requires-Dist: prettytable
 Requires-Dist: python-dotenv
 Requires-Dist: requests
-Requires-Dist: socketdev<4.0.0,>=3.0.33
+Requires-Dist: socketdev<4.0.0,>=3.1.0
 Provides-Extra: dev
 Requires-Dist: hatch; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'

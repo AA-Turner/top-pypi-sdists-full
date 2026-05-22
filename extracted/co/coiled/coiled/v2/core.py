@@ -596,7 +596,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
 
     async def _load_server_dask_config(self, workspace: str | None = None):
         workspace = workspace or self.default_workspace
-        response = await self._do_request(
+        response = await self._do_request_idempotent(
             "GET",
             self.server + f"/api/v2/user/workspace/{workspace}/dask-config-overrides",
         )

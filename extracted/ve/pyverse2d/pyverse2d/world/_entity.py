@@ -21,6 +21,7 @@ _COMPONENTS: dict[Component, str] = {
     SpriteRenderer: "_sprite_renderer",
     TextRenderer: "_text_renderer",
     Animator: "_animator",
+    TrailRenderer: "_trail_renderer",
     SoundEmitter: "_sound_emitter",
     VideoPlayer: "_video_player",
 }
@@ -70,6 +71,7 @@ class Entity:
         self._rigid_body: RigidBody = None
         self._ground_sensor: GroundSensor = None
         self._animator: Animator = None
+        self._trail_renderer: TrailRenderer = None
         self._sound_emitter: SoundEmitter = None
         self._video_player: VideoPlayer = None
 
@@ -141,6 +143,10 @@ class Entity:
     def animator(self) -> Animator | None:
         """Composant ``Animator`` *(lecture seule)*"""
         return self._animator
+    
+    @property
+    def trail_renderer(self) -> TrailRenderer | None:
+        """Composant ``TrailRenderer`` *(lecture seule)*"""
     
     @property
     def sound_emitter(self) -> SoundEmitter | None:

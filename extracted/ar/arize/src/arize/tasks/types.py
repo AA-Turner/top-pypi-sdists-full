@@ -14,17 +14,17 @@ from arize._generated.api_client.models.pagination_metadata import (
     PaginationMetadata,
 )
 from arize._generated.api_client.models.run_configuration import (
-    RunConfiguration as _GenRunConfiguration,
+    RunConfiguration,
 )
 from arize._generated.api_client.models.task_evaluator import TaskEvaluator
 from arize._generated.api_client.models.task_run import TaskRun
+from arize._generated.api_client.models.task_run_list_response import (
+    TaskRunListResponse,
+)
 from arize._generated.api_client.models.task_run_status import (
     TaskRunStatus as RunStatus,
 )
 from arize._generated.api_client.models.task_type import TaskType
-from arize._generated.api_client.models.tasks_list_runs200_response import (
-    TasksListRuns200Response,
-)
 from arize._generated.api_client.models.template_evaluation_run_config import (
     TemplateEvaluationRunConfig,
 )
@@ -63,7 +63,7 @@ class Task(BaseModel):
     def _coerce_run_configuration(
         cls, v: object
     ) -> LlmGenerationRunConfig | TemplateEvaluationRunConfig | None:
-        if isinstance(v, _GenRunConfiguration):
+        if isinstance(v, RunConfiguration):
             if v.actual_instance is None:
                 raise ValueError(
                     "RunConfiguration wrapper has actual_instance=None"
@@ -72,7 +72,7 @@ class Task(BaseModel):
         return v  # type: ignore[return-value]
 
 
-class TasksList200Response(BaseModel):
+class TaskListResponse(BaseModel):
     """SDK view of the generated list response with each ``Task``'s ``run_configuration`` unwrapped."""
 
     tasks: list[Task]
@@ -84,12 +84,13 @@ class TasksList200Response(BaseModel):
 __all__ = [
     "BaseEvaluationTaskRequestEvaluatorsInner",
     "LlmGenerationRunConfig",
+    "RunConfiguration",
     "RunStatus",
     "Task",
     "TaskEvaluator",
+    "TaskListResponse",
     "TaskRun",
+    "TaskRunListResponse",
     "TaskType",
-    "TasksList200Response",
-    "TasksListRuns200Response",
     "TemplateEvaluationRunConfig",
 ]

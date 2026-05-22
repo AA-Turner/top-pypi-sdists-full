@@ -295,6 +295,29 @@ impl NativeProcess {
         Ok(())
     }
 
+    /// Write to the child's stdin without closing it afterwards, so the
+    /// caller can issue additional writes. Used by interactive
+    /// pipe-backed sessions (#130 milestone 3) where the daemon keeps
+    /// stdin open across multiple client input frames.
+    pub fn write_stdin_streaming(&self, data: &[u8]) -> Result<(), ProcessError> {
+        let mut guard = self.child.lock().expect("child mutex poisoned");
+        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
+        let stdin = child.stdin.as_mut().ok_or(ProcessError::StdinUnavailable)?;
+        use std::io::Write;
+        stdin.write_all(data).map_err(ProcessError::Io)?;
+        stdin.flush().map_err(ProcessError::Io)?;
+        Ok(())
+    }
+
+    /// Explicitly close the child's stdin (signals EOF to the child).
+    /// Idempotent: returns Ok if stdin was already closed.
+    pub fn close_stdin(&self) -> Result<(), ProcessError> {
+        let mut guard = self.child.lock().expect("child mutex poisoned");
+        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
+        drop(child.stdin.take());
+        Ok(())
+    }
+
     pub fn poll(&self) -> Result<Option<i32>, ProcessError> {
         // Fast path: check atomic set by background waiter thread.
         if let Some(code) = self.returncode() {
@@ -375,16 +398,96 @@ impl NativeProcess {
 
     fn kill_impl(&self) -> Result<(), ProcessError> {
         crate::rp_rust_debug_scope!("running_process_core::NativeProcess::kill");
-        let mut guard = self.child.lock().expect("child mutex poisoned");
-        let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
-        child.kill().map_err(ProcessError::Io)?;
-        let status = child.wait().map_err(ProcessError::Io)?;
-        self.set_returncode(exit_code(status));
+        {
+            let mut guard = self.child.lock().expect("child mutex poisoned");
+            let child = &mut guard.as_mut().ok_or(ProcessError::NotRunning)?.child;
+            child.kill().map_err(ProcessError::Io)?;
+            let status = child.wait().map_err(ProcessError::Io)?;
+            self.set_returncode(exit_code(status));
+        }
+        // Synchronize with the per-stream reader threads so that by the
+        // time kill() returns, the capture queues have flipped from
+        // "blocked on read" to "closed" and downstream pollers (e.g.
+        // take_combined_line) observe EOS instead of timeout. Without
+        // this, callers that hit a wait()-timeout path see Python code
+        // raise TimeoutError, kill the child, then race the reader
+        // threads — a 10ms poll loop can miss the EOS flip entirely.
+        public_symbols::rp_native_process_wait_for_capture_completion_public(self);
         Ok(())
     }
 
     pub fn terminate(&self) -> Result<(), ProcessError> {
         self.kill()
+    }
+
+    /// Send the OS-appropriate soft termination signal to the child's
+    /// process group (POSIX: SIGTERM to `-pid`; Windows: no soft path
+    /// implemented yet — returns Ok without doing anything so callers
+    /// can run the same code on both platforms and rely on the post-
+    /// grace hard kill).
+    ///
+    /// Requires `ProcessConfig.create_process_group=true` on POSIX so
+    /// that `-pid` resolves to the child's own group. With the default
+    /// `create_process_group=false`, the kill would walk back to the
+    /// caller's group; the method silently no-ops in that case to avoid
+    /// signaling the wrong tree.
+    ///
+    /// Used by the daemon-side pipe sessions (#130 M4 follow-up) so
+    /// that `TerminationOutcome::SoftExit` becomes meaningful on POSIX.
+    pub fn terminate_group_soft(&self) -> Result<(), ProcessError> {
+        #[cfg(unix)]
+        {
+            if !self.config.create_process_group {
+                return Ok(());
+            }
+            let pid = match self.pid() {
+                Some(p) => p as i32,
+                None => return Err(ProcessError::NotRunning),
+            };
+            let result = unsafe { libc::kill(-pid, libc::SIGTERM) };
+            if result != 0 {
+                let err = std::io::Error::last_os_error();
+                if err.raw_os_error() != Some(libc::ESRCH) {
+                    return Err(ProcessError::Io(err));
+                }
+            }
+            Ok(())
+        }
+        #[cfg(windows)]
+        {
+            if !self.config.create_process_group {
+                // GenerateConsoleCtrlEvent only routes to children
+                // spawned with CREATE_NEW_PROCESS_GROUP, and the
+                // event would otherwise hit the daemon's own group.
+                // No-op so the hard-kill schedule still wins.
+                return Ok(());
+            }
+            let pid = match self.pid() {
+                Some(p) => p,
+                None => return Err(ProcessError::NotRunning),
+            };
+            // GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT=1, pid).
+            // SAFETY: the FFI call is the standard Windows API; no
+            // borrowed Rust state is involved.
+            let ok = unsafe {
+                winapi::um::wincon::GenerateConsoleCtrlEvent(
+                    winapi::um::wincon::CTRL_BREAK_EVENT,
+                    pid,
+                )
+            };
+            if ok == 0 {
+                let err = std::io::Error::last_os_error();
+                // ERROR_INVALID_HANDLE means the child has already
+                // exited or has detached from the console — treat as
+                // success because the soft step's only goal is to
+                // give the child a chance to exit cleanly, and a
+                // dead/detached child does not need one.
+                if err.raw_os_error() != Some(6) {
+                    return Err(ProcessError::Io(err));
+                }
+            }
+            Ok(())
+        }
     }
 
     // Preserve a stable Rust frame here in release user dumps.
@@ -672,8 +775,18 @@ impl NativeProcess {
         {
             use std::os::windows::process::CommandExt;
 
+            // CREATE_NEW_PROCESS_GROUP makes GenerateConsoleCtrlEvent
+            // with CTRL_BREAK_EVENT route to this child's group
+            // (rather than the daemon's group) — required for the
+            // pipe-session soft-signal path on Windows (#130 M4).
+            const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+            let extra = if self.config.create_process_group {
+                CREATE_NEW_PROCESS_GROUP
+            } else {
+                0
+            };
             let flags =
-                self.config.creationflags.unwrap_or(0) | windows_priority_flags(self.config.nice);
+                self.config.creationflags.unwrap_or(0) | extra | windows_priority_flags(self.config.nice);
             if flags != 0 {
                 command.creation_flags(flags);
             }

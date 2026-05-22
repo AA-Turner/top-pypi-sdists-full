@@ -1,5 +1,7 @@
 """Module for dealing with interactive GUIs."""
 
+from __future__ import annotations
+
 # *******************************************************************************#
 # This module contains core features and extra features of the geemap package.   #
 # The Earth Engine team and the geemap community will maintain the core features.#
@@ -8,8 +10,8 @@
 # *******************************************************************************#
 
 from collections.abc import Callable
-from dataclasses import dataclass
 import importlib.resources
+import math
 import os
 import pathlib
 from typing import Any
@@ -21,25 +23,31 @@ import ipyevents
 import ipyfilechooser
 import ipyleaflet
 from IPython.display import display
-import ipywidgets as widgets
+import ipywidgets
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import traitlets
 
+from . import common
 from . import coreutils
 from . import geemap
 from . import map_widgets
-from .common import *
+from . import timelapse
 from .conversion import js_snippet_to_py
-from .timelapse import *
+
+
+def js_path() -> pathlib.Path:
+    """Returns the path to the JavaScript files."""
+    base = pathlib.Path(__file__).parent
+    return base / "static"
 
 
 @map_widgets.Theme.apply
 class ToolbarItem(anywidget.AnyWidget):
     """A toolbar item widget for geemap."""
 
-    _esm = pathlib.Path(__file__).parent / "static" / "toolbar_item.js"
+    _esm = js_path() / "toolbar_item.js"
     active = traitlets.Bool(False).tag(sync=True)
     primary = traitlets.Bool(True).tag(sync=True)
     icon = traitlets.Unicode("").tag(sync=True)
@@ -51,9 +59,9 @@ class ToolbarItem(anywidget.AnyWidget):
         icon: str,
         tooltip: str,
         callback: Callable[[Any, bool, Any], None],
-        control: widgets.Widget | None = None,
-        reset=False,
-        active=False,
+        control: ipywidgets.Widget | None = None,
+        reset: bool = False,
+        active: bool = False,
     ):
         """A togglable, toolbar item.
 
@@ -79,6 +87,7 @@ class ToolbarItem(anywidget.AnyWidget):
         self.active = active
 
     def toggle_off(self) -> None:
+        """Toggles the item off if it is active."""
         if self.active:
             self.active = False
 
@@ -93,19 +102,19 @@ class ToolbarItem(anywidget.AnyWidget):
 class Toolbar(anywidget.AnyWidget):
     """A toolbar that can be added to the map."""
 
-    _esm = pathlib.Path(__file__).parent / "static" / "toolbar.js"
+    _esm = js_path() / "toolbar.js"
 
     # The list of main tools.
     main_tools = map_widgets.TypedTuple(
-        trait=traitlets.Instance(widgets.Widget),
+        trait=traitlets.Instance(ipywidgets.Widget),
         help="List of main tools",
-    ).tag(sync=True, **widgets.widget_serialization)
+    ).tag(sync=True, **ipywidgets.widget_serialization)
 
     # The list of extra tools.
     extra_tools = map_widgets.TypedTuple(
-        trait=traitlets.Instance(widgets.Widget),
+        trait=traitlets.Instance(ipywidgets.Widget),
         help="List of extra tools",
-    ).tag(sync=True, **widgets.widget_serialization)
+    ).tag(sync=True, **ipywidgets.widget_serialization)
 
     # Whether the toolbar is expanded.
     expanded = traitlets.Bool(False).tag(sync=True)
@@ -117,7 +126,7 @@ class Toolbar(anywidget.AnyWidget):
 
     def __init__(
         self,
-        host_map: "geemap.Map",
+        host_map: geemap.Map,
         main_tools: list[ToolbarItem],
         extra_tools: list[ToolbarItem],
     ):
@@ -158,11 +167,11 @@ class Toolbar(anywidget.AnyWidget):
             self.toggle_widget.icon = self._TOGGLE_EXPAND_ICON
 
 
-def inspector_gui(m=None):
+def inspector_gui(m: geemap.Map | None = None):
     """Generates a tool GUI template using ipywidgets.
 
     Args:
-        m (geemap.Map, optional): The leaflet Map object. Defaults to None.
+        m: The leaflet Map object.
 
     Returns:
         ipywidgets: The tool GUI widget.
@@ -180,8 +189,8 @@ def inspector_gui(m=None):
             setattr(m, "interact_mode", False)
 
         if not hasattr(m, "inspector_output"):
-            inspector_output = widgets.Output(
-                layout=widgets.Layout(
+            inspector_output = ipywidgets.Output(
+                layout=ipywidgets.Layout(
                     width=widget_width,
                     padding="0px 5px 5px 5px",
                     max_width=widget_width,
@@ -193,31 +202,31 @@ def inspector_gui(m=None):
         output.outputs = ()
 
         if not hasattr(m, "inspector_add_marker"):
-            inspector_add_marker = widgets.Checkbox(
+            inspector_add_marker = ipywidgets.Checkbox(
                 description="Add Marker at clicked location",
                 value=True,
                 indent=False,
-                layout=widgets.Layout(padding=padding, width=widget_width),
+                layout=ipywidgets.Layout(padding=padding, width=widget_width),
             )
             setattr(m, "inspector_add_marker", inspector_add_marker)
         add_marker = m.inspector_add_marker
 
         if not hasattr(m, "inspector_bands_chk"):
-            inspector_bands_chk = widgets.Checkbox(
+            inspector_bands_chk = ipywidgets.Checkbox(
                 description="Get pixel value for visible bands only",
                 indent=False,
-                layout=widgets.Layout(padding=padding, width=widget_width),
+                layout=ipywidgets.Layout(padding=padding, width=widget_width),
             )
             setattr(m, "inspector_bands_chk", inspector_bands_chk)
         bands_chk = m.inspector_bands_chk
 
         if not hasattr(m, "inspector_class_label"):
-            inspector_label = widgets.Text(
+            inspector_label = ipywidgets.Text(
                 value="",
                 description="Class label:",
                 placeholder="Add a label to the marker",
                 style=style,
-                layout=widgets.Layout(width=widget_width, padding=padding),
+                layout=ipywidgets.Layout(width=widget_width, padding=padding),
             )
             setattr(m, "inspector_class_label", inspector_label)
         label = m.inspector_class_label
@@ -231,33 +240,37 @@ def inspector_gui(m=None):
         else:
             default_option = options[0]
         if not hasattr(m, "inspector_dropdown"):
-            inspector_dropdown = widgets.Dropdown(
+            inspector_dropdown = ipywidgets.Dropdown(
                 options=options,
                 value=default_option,
                 description="Select a layer:",
-                layout=widgets.Layout(width=widget_width, padding=padding),
+                layout=ipywidgets.Layout(width=widget_width, padding=padding),
                 style=style,
             )
             setattr(m, "inspector_dropdown", inspector_dropdown)
 
         dropdown = m.inspector_dropdown
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="info-circle",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Download", "Reset", "Close"],
         tooltips=["Download", "Reset", "Close"],
@@ -269,11 +282,11 @@ def inspector_gui(m=None):
         with output:
             print("No COG/STAC layers available")
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         add_marker,
         label,
@@ -288,6 +301,7 @@ def inspector_gui(m=None):
     )
 
     def chk_change(change) -> None:
+        del change  # Unused.
         if hasattr(m, "pixel_values"):
             m.pixel_values = []
         if hasattr(m, "marker_cluster"):
@@ -362,7 +376,7 @@ def inspector_gui(m=None):
                     df = pd.DataFrame(m.pixel_values)
                     temp_csv = coreutils.temp_file_path("csv")
                     df.to_csv(temp_csv, index=False)
-                    link = create_download_link(temp_csv)
+                    link = common.create_download_link(temp_csv)
                     with output:
                         output.outputs = ()
                         display(link)
@@ -406,7 +420,7 @@ def inspector_gui(m=None):
                 else:
                     assets = None
 
-                result = stac_pixel_value(
+                result = common.stac_pixel_value(
                     lon,
                     lat,
                     layer_dict["url"],
@@ -439,7 +453,9 @@ def inspector_gui(m=None):
                         bounds = m.cog_layer_dict[m.inspector_dropdown.value]["bounds"]
                         m.zoom_to_bounds(bounds)
             elif layer_dict["type"] == "COG":
-                result = cog_pixel_value(lon, lat, layer_dict["url"], verbose=False)
+                result = common.cog_pixel_value(
+                    lon, lat, layer_dict["url"], verbose=False
+                )
                 if result is not None:
                     with output:
                         output.outputs = ()
@@ -463,7 +479,7 @@ def inspector_gui(m=None):
                         m.zoom_to_bounds(bounds)
 
             elif layer_dict["type"] == "LOCAL":
-                result = local_tile_pixel_value(
+                result = common.local_tile_pixel_value(
                     lon, lat, layer_dict["tile_client"], verbose=False
                 )
                 if result is not None:
@@ -531,21 +547,23 @@ def ee_plot_gui(m, position: str = "topright", **kwargs):
 
     Args:
         m (object): geemap.Map.
-        position: Position of the widget. Defaults to "topright".
+        position: Position of the widget.
     """
-    close_btn = widgets.Button(
+    del kwargs  # Unused.
+
+    close_btn = ipywidgets.Button(
         icon="times",
         tooltip="Close the plot widget",
         button_style="primary",
-        layout=widgets.Layout(width="32px"),
+        layout=ipywidgets.Layout(width="32px"),
     )
 
     m._plot_checked = True
-    dropdown = widgets.Dropdown(options=list(m.ee_raster_layers.keys()))
+    dropdown = ipywidgets.Dropdown(options=list(m.ee_raster_layers.keys()))
     dropdown.layout.width = "18ex"
     m._plot_dropdown_widget = dropdown
 
-    widget = widgets.HBox([dropdown, close_btn])
+    widget = ipywidgets.HBox([dropdown, close_btn])
 
     plot_dropdown_control = ipyleaflet.WidgetControl(widget=widget, position=position)
     m._plot_dropdown_control = plot_dropdown_control
@@ -645,13 +663,11 @@ def ee_plot_gui(m, position: str = "topright", **kwargs):
                 b_names = ee_object.bandNames().getInfo()
                 dict_values = dict(zip(b_names, [dict_values_tmp[b] for b in b_names]))
                 generate_chart(dict_values, latlon)
-            except Exception as e:
+            except Exception:
                 if hasattr(m, "_plot_widget") and m._plot_widget is not None:
                     m._plot_widget.clear_output()
                     with m._plot_widget:
                         print("No data for the clicked location.")
-                else:
-                    pass
                 m.default_style = {"cursor": "crosshair"}
 
     m.on_interaction(handle_interaction)
@@ -678,36 +694,6 @@ def ee_plot_gui(m, position: str = "topright", **kwargs):
         generate_chart(dict_values, chart_point)
 
     draw_control.on_geometry_create(handle_draw)
-
-    def cleanup() -> None:
-        m._plot_checked = False
-
-        if (
-            hasattr(m, "plot_control")
-            and (m._plot_control is not None)
-            and (m._plot_control in m.controls)
-        ):
-            m._plot_widget.outputs = ()
-            m.remove_control(m._plot_control)
-
-        if (
-            m._plot_dropdown_control is not None
-            and m._plot_dropdown_control in m.controls
-        ):
-            m.remove_control(m._plot_dropdown_control)
-
-        widget.close()
-
-        m.on_interaction(handle_interaction, remove=True)
-        m._plot_widget = None
-        m.default_style = {"cursor": "default"}
-        if old_draw_control:
-            old_draw_control.open()
-            m.substitute(m.get_draw_control(), old_draw_control)
-        else:
-            m.remove_draw_control()
-
-    m._plot_dropdown_control.cleanup = cleanup
 
     def cleanup() -> None:
         if not hasattr(m, "_plot_dropdown_widget"):
@@ -773,102 +759,106 @@ SearchDataGUI = map_widgets.SearchBar
 # ******************************************************************************#
 
 
-def tool_template(m=None, opened: bool = True) -> None:
+def tool_template(m: geemap.Map | None = None, opened: bool = True):
     """Create a toolbar widget.
 
     Args:
-        m (geemap.Map, optional): The geemap.Map instance. Defaults to None.
-        opened: Whether to open the toolbar. Defaults to True.
+        m: The geemap.Map instance.
+        opened: Whether to open the toolbar.
     """
 
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="gear",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    checkbox = widgets.Checkbox(
+    checkbox = ipywidgets.Checkbox(
         description="Checkbox",
         indent=False,
-        layout=widgets.Layout(padding=padding, width=widget_width),
+        layout=ipywidgets.Layout(padding=padding, width=widget_width),
     )
 
-    dropdown = widgets.Dropdown(
+    dropdown = ipywidgets.Dropdown(
         options=["Option 1", "Option 2", "Option 3"],
         value=None,
         description="Dropdown:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style={"description_width": "initial"},
     )
 
-    int_slider = widgets.IntSlider(
+    int_slider = ipywidgets.IntSlider(
         min=1,
         max=100,
         description="Int Slider: ",
         readout=False,
         continuous_update=True,
-        layout=widgets.Layout(width="220px", padding=padding),
+        layout=ipywidgets.Layout(width="220px", padding=padding),
         style={"description_width": "initial"},
     )
 
-    int_slider_label = widgets.Label(str(int_slider.value))
+    int_slider_label = ipywidgets.Label(str(int_slider.value))
 
     def update_int_slider(change) -> None:
         int_slider_label.value = str(change["new"])
 
     int_slider.observe(update_int_slider, "value")
 
-    float_slider = widgets.FloatSlider(
+    float_slider = ipywidgets.FloatSlider(
         min=1,
         max=100,
         description="Float Slider: ",
         readout=False,
         continuous_update=True,
-        layout=widgets.Layout(width="210px", padding=padding),
+        layout=ipywidgets.Layout(width="210px", padding=padding),
         style={"description_width": "initial"},
     )
 
-    float_slider_label = widgets.Label(str(float_slider.value))
+    float_slider_label = ipywidgets.Label(str(float_slider.value))
 
     def update_float_slider(change) -> None:
         float_slider_label.value = str(change["new"])
 
     float_slider.observe(update_float_slider, "value")
 
-    color = widgets.ColorPicker(
+    color = ipywidgets.ColorPicker(
         concise=False,
         description="Color:",
         value="white",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    text = widgets.Text(
+    text = ipywidgets.Text(
         value="",
         description="Textbox:",
         placeholder="Placeholder",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    textarea = widgets.Textarea(
+    textarea = ipywidgets.Textarea(
         placeholder="Placeholder",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Apply", "Reset", "Close"],
         tooltips=["Apply", "Reset", "Close"],
@@ -876,17 +866,19 @@ def tool_template(m=None, opened: bool = True) -> None:
     )
     buttons.style.button_width = "80px"
 
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         checkbox,
-        widgets.HBox([int_slider, int_slider_label]),
-        widgets.HBox([float_slider, float_slider_label]),
+        ipywidgets.HBox([int_slider, int_slider_label]),
+        ipywidgets.HBox([float_slider, float_slider_label]),
         dropdown,
         text,
         color,
@@ -950,34 +942,40 @@ def tool_template(m=None, opened: bool = True) -> None:
         return toolbar_widget
 
 
-def tool_header_template(m=None, opened: bool = True, show_close_button: bool = True):
+def tool_header_template(
+    m: geemap.Map | None = None, opened: bool = True, show_close_button: bool = True
+):
     """Create a toolbar widget.
 
     Args:
-        m (geemap.Map, optional): The geemap.Map instance. Defaults to None.
-        opened: Whether to open the toolbar. Defaults to True.
-        show_close_button Whether to show the close button. Defaults to True.
+        m: The geemap.Map instance.
+        opened: Whether to open the toolbar.
+        show_close_button: Whether to show the close button.
     """
 
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="gear",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Apply", "Reset", "Close"],
         tooltips=["Apply", "Reset", "Close"],
@@ -985,16 +983,18 @@ def tool_header_template(m=None, opened: bool = True, show_close_button: bool = 
     )
     buttons.style.button_width = "80px"
 
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     if show_close_button:
         toolbar_header.children = [close_button, toolbar_button]
     else:
         toolbar_header.children = [toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         buttons,
         output,
@@ -1064,7 +1064,7 @@ def open_data_widget(m):
     padding = "0px 0px 0px 5px"
     style = {"description_width": "initial"}
 
-    tool_output = widgets.Output()
+    tool_output = ipywidgets.Output()
     tool_output_ctrl = ipyleaflet.WidgetControl(widget=tool_output, position="topright")
 
     if (
@@ -1074,7 +1074,7 @@ def open_data_widget(m):
     ):
         m.remove_control(m._tool_output_ctrl)
 
-    file_type = widgets.ToggleButtons(
+    file_type = ipywidgets.ToggleButtons(
         options=["Shapefile", "GeoJSON", "CSV", "Vector", "Raster"],
         tooltips=[
             "Open a shapefile",
@@ -1087,113 +1087,115 @@ def open_data_widget(m):
     )
     file_type.style.button_width = "88px"
 
-    filepath = widgets.Text(
+    filepath = ipywidgets.Text(
         value="",
         description="File path or http URL:",
         tooltip="Enter a file path or http URL to vector data",
         style=style,
-        layout=widgets.Layout(width="454px", padding=padding),
+        layout=ipywidgets.Layout(width="454px", padding=padding),
     )
-    http_widget = widgets.HBox()
+    http_widget = ipywidgets.HBox()
 
     file_chooser = ipyfilechooser.FileChooser(
-        os.getcwd(), sandbox_path=m.sandbox_path, layout=widgets.Layout(width="454px")
+        os.getcwd(),
+        sandbox_path=m.sandbox_path,
+        layout=ipywidgets.Layout(width="454px"),
     )
     file_chooser.filter_pattern = "*.shp"
     file_chooser.use_dir_icons = True
 
     style = {"description_width": "initial"}
-    layer_name = widgets.Text(
+    layer_name = ipywidgets.Text(
         value="Shapefile",
         description="Enter a layer name:",
         tooltip="Enter a layer name for the selected file",
         style=style,
-        layout=widgets.Layout(width="454px", padding="0px 0px 0px 5px"),
+        layout=ipywidgets.Layout(width="454px", padding="0px 0px 0px 5px"),
     )
 
-    longitude = widgets.Dropdown(
+    longitude = ipywidgets.Dropdown(
         options=[],
         value=None,
         description="Longitude:",
-        layout=widgets.Layout(width="149px", padding="0px 0px 0px 5px"),
+        layout=ipywidgets.Layout(width="149px", padding="0px 0px 0px 5px"),
         style={"description_width": "initial"},
     )
 
-    latitude = widgets.Dropdown(
+    latitude = ipywidgets.Dropdown(
         options=[],
         value=None,
         description="Latitude:",
-        layout=widgets.Layout(width="149px", padding="0px 0px 0px 5px"),
+        layout=ipywidgets.Layout(width="149px", padding="0px 0px 0px 5px"),
         style={"description_width": "initial"},
     )
 
-    label = widgets.Dropdown(
+    label = ipywidgets.Dropdown(
         options=[],
         value=None,
         description="Label:",
-        layout=widgets.Layout(width="149px", padding="0px 0px 0px 5px"),
+        layout=ipywidgets.Layout(width="149px", padding="0px 0px 0px 5px"),
         style={"description_width": "initial"},
     )
 
-    csv_widget = widgets.HBox()
+    csv_widget = ipywidgets.HBox()
 
-    convert_bool = widgets.Checkbox(
+    convert_bool = ipywidgets.Checkbox(
         description="Convert to ee.FeatureCollection?",
         indent=False,
-        layout=widgets.Layout(padding="0px 0px 0px 5px"),
+        layout=ipywidgets.Layout(padding="0px 0px 0px 5px"),
     )
-    convert_hbox = widgets.HBox([convert_bool])
+    convert_hbox = ipywidgets.HBox([convert_bool])
 
-    ok_cancel = widgets.ToggleButtons(
+    ok_cancel = ipywidgets.ToggleButtons(
         value=None,
         options=["Apply", "Reset", "Close"],
         tooltips=["Apply", "Reset", "Close"],
         button_style="primary",
     )
 
-    bands = widgets.Text(
+    bands = ipywidgets.Text(
         value=None,
         description="Band:",
         tooltip="Enter a list of band indices",
         style=style,
-        layout=widgets.Layout(width="150px", padding=padding),
+        layout=ipywidgets.Layout(width="150px", padding=padding),
     )
 
-    vmin = widgets.Text(
+    vmin = ipywidgets.Text(
         value=None,
         description="vmin:",
         tooltip="Minimum value of the raster to visualize",
         style=style,
-        layout=widgets.Layout(width="148px"),
+        layout=ipywidgets.Layout(width="148px"),
     )
 
-    vmax = widgets.Text(
+    vmax = ipywidgets.Text(
         value=None,
         description="vmax:",
         tooltip="Maximum value of the raster to visualize",
         style=style,
-        layout=widgets.Layout(width="148px"),
+        layout=ipywidgets.Layout(width="148px"),
     )
 
-    nodata = widgets.Text(
+    nodata = ipywidgets.Text(
         value=None,
         description="Nodata:",
         tooltip="Nodata the raster to visualize",
         style=style,
-        layout=widgets.Layout(width="150px", padding=padding),
+        layout=ipywidgets.Layout(width="150px", padding=padding),
     )
 
-    palette = widgets.Dropdown(
+    palette = ipywidgets.Dropdown(
         options=[],
         value=None,
         description="palette:",
-        layout=widgets.Layout(width="300px"),
+        layout=ipywidgets.Layout(width="300px"),
         style=style,
     )
 
-    raster_options = widgets.VBox()
+    raster_options = ipywidgets.VBox()
 
-    main_widget = widgets.VBox(
+    main_widget = ipywidgets.VBox(
         [
             file_type,
             file_chooser,
@@ -1220,6 +1222,7 @@ def open_data_widget(m):
     bands.observe(bands_changed, "value")
 
     def chooser_callback(chooser) -> None:
+        del chooser  # Unused.
         filepath.value = file_chooser.selected
 
         if file_type.value == "CSV":
@@ -1276,8 +1279,8 @@ def open_data_widget(m):
             palette.options = m._colormaps
             palette.value = None
             raster_options.children = [
-                widgets.HBox([bands, vmin, vmax]),
-                widgets.HBox([nodata, palette]),
+                ipywidgets.HBox([bands, vmin, vmax]),
+                ipywidgets.HBox([nodata, palette]),
             ]
             convert_hbox.children = []
             http_widget.children = [filepath]
@@ -1303,7 +1306,7 @@ def open_data_widget(m):
                 with tool_output:
                     if ext.lower() == ".shp":
                         if convert_bool.value:
-                            ee_object = shp_to_ee(file_path)
+                            ee_object = common.shp_to_ee(file_path)
                             m.addLayer(ee_object, {}, layer_name.value)
                         else:
                             m.add_shapefile(
@@ -1320,7 +1323,7 @@ def open_data_widget(m):
 
                     elif ext.lower() == ".csv":
                         if convert_bool.value:
-                            ee_object = csv_to_ee(
+                            ee_object = common.csv_to_ee(
                                 file_path, latitude.value, longitude.value
                             )
                             m.addLayer(ee_object, {}, layer_name.value)
@@ -1391,16 +1394,18 @@ def convert_js2py(m):
         m (object): geemap.Map
     """
 
-    full_widget = widgets.VBox(layout=widgets.Layout(width="465px", height="350px"))
-    text_widget = widgets.Textarea(
+    full_widget = ipywidgets.VBox(
+        layout=ipywidgets.Layout(width="465px", height="350px")
+    )
+    text_widget = ipywidgets.Textarea(
         placeholder=(
             "Paste your Earth Engine JavaScript into this textbox and click the "
             "Convert button below to convert the Javascript to Python"
         ),
-        layout=widgets.Layout(width="455px", height="310px"),
+        layout=ipywidgets.Layout(width="455px", height="310px"),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Convert", "Clear", "Close"],
         tooltips=["Convert", "Clear", "Close"],
@@ -1415,7 +1420,6 @@ def convert_js2py(m):
 
     def button_clicked(change) -> None:
         if change["new"] == "Convert":
-            from .conversion import create_new_cell, js_snippet_to_py
 
             if len(text_widget.value) > 0:
                 out_lines = js_snippet_to_py(
@@ -1452,34 +1456,45 @@ def convert_js2py(m):
 
 
 def collect_samples(m):
-    full_widget = widgets.VBox()
-    layout = widgets.Layout(width="100px")
-    prop_label = widgets.Label(
+    """A widget for collecting training samples.
+
+    Args:
+        m (object): geemap.Map
+    """
+    full_widget = ipywidgets.VBox()
+    layout = ipywidgets.Layout(width="100px")
+    prop_label = ipywidgets.Label(
         value="Property",
-        layout=widgets.Layout(display="flex", justify_content="center", width="100px"),
+        layout=ipywidgets.Layout(
+            display="flex", justify_content="center", width="100px"
+        ),
     )
-    value_label = widgets.Label(
+    value_label = ipywidgets.Label(
         value="Value",
-        layout=widgets.Layout(display="flex", justify_content="center", width="100px"),
+        layout=ipywidgets.Layout(
+            display="flex", justify_content="center", width="100px"
+        ),
     )
-    color_label = widgets.Label(
+    color_label = ipywidgets.Label(
         value="Color",
-        layout=widgets.Layout(display="flex", justify_content="center", width="100px"),
+        layout=ipywidgets.Layout(
+            display="flex", justify_content="center", width="100px"
+        ),
     )
 
-    prop_text1 = widgets.Text(layout=layout, placeholder="Required")
-    value_text1 = widgets.Text(layout=layout, placeholder="Integer")
-    prop_text2 = widgets.Text(layout=layout, placeholder="Optional")
-    value_text2 = widgets.Text(layout=layout, placeholder="String")
+    prop_text1 = ipywidgets.Text(layout=layout, placeholder="Required")
+    value_text1 = ipywidgets.Text(layout=layout, placeholder="Integer")
+    prop_text2 = ipywidgets.Text(layout=layout, placeholder="Optional")
+    value_text2 = ipywidgets.Text(layout=layout, placeholder="String")
 
-    color = widgets.ColorPicker(
+    color = ipywidgets.ColorPicker(
         concise=False,
         value="#3388ff",
         layout=layout,
         style={"description_width": "initial"},
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Apply", "Clear", "Close"],
         tooltips=["Apply", "Clear", "Close"],
@@ -1553,9 +1568,9 @@ def collect_samples(m):
     buttons.observe(button_clicked, "value")
 
     full_widget.children = [
-        widgets.HBox([prop_label, value_label, color_label]),
-        widgets.HBox([prop_text1, value_text1, color]),
-        widgets.HBox([prop_text2, value_text2, color]),
+        ipywidgets.HBox([prop_label, value_label, color_label]),
+        ipywidgets.HBox([prop_text1, value_text1, color]),
+        ipywidgets.HBox([prop_text2, value_text2, color]),
         buttons,
     ]
 
@@ -1566,6 +1581,7 @@ def collect_samples(m):
 
 
 def get_tools_dict():
+    """Returns a dictionary of tools."""
     # pytype: disable=attribute-error
     pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     # pytype: enable=attribute-error
@@ -1588,8 +1604,8 @@ def tool_gui(tool_dict, max_width: str = "420px", max_height: str = "600px"):
     Returns:
         object: An ipywidget object representing the tool interface.
     """
-    tool_widget = widgets.VBox(
-        layout=widgets.Layout(max_width=max_width, max_height=max_height)
+    tool_widget = ipywidgets.VBox(
+        layout=ipywidgets.Layout(max_width=max_width, max_height=max_height)
     )
     children = []
     args = {}
@@ -1598,40 +1614,45 @@ def tool_gui(tool_dict, max_width: str = "420px", max_height: str = "600px"):
     max_width = str(int(max_width.replace("px", "")) - 10) + "px"
 
     header_width = str(int(max_width.replace("px", "")) - 104) + "px"
-    header = widgets.Label(
+    header = ipywidgets.Label(
         value=f'Current Tool: {tool_dict["label"]}',
         style=style,
-        layout=widgets.Layout(width=header_width),
+        layout=ipywidgets.Layout(width=header_width),
     )
-    code_btn = widgets.Button(
-        description="View Code", layout=widgets.Layout(width="100px")
+    code_btn = ipywidgets.Button(
+        description="View Code", layout=ipywidgets.Layout(width="100px")
     )
 
-    children.append(widgets.HBox([header, code_btn]))
+    children.append(ipywidgets.HBox([header, code_btn]))
 
-    desc = widgets.Textarea(
+    desc = ipywidgets.Textarea(
         value=f'Description: {tool_dict["description"]}',
-        layout=widgets.Layout(width="410px", max_width=max_width),
+        layout=ipywidgets.Layout(width="410px", max_width=max_width),
         disabled=True,
     )
     children.append(desc)
 
-    run_btn = widgets.Button(description="Run", layout=widgets.Layout(width="100px"))
-    cancel_btn = widgets.Button(
-        description="Cancel", layout=widgets.Layout(width="100px")
+    run_btn = ipywidgets.Button(
+        description="Run", layout=ipywidgets.Layout(width="100px")
     )
-    help_btn = widgets.Button(description="Help", layout=widgets.Layout(width="100px"))
-    import_btn = widgets.Button(
+    cancel_btn = ipywidgets.Button(
+        description="Cancel", layout=ipywidgets.Layout(width="100px")
+    )
+    help_btn = ipywidgets.Button(
+        description="Help", layout=ipywidgets.Layout(width="100px")
+    )
+    import_btn = ipywidgets.Button(
         description="Import",
         tooltip="Import the script to a new cell",
-        layout=widgets.Layout(width="98px"),
+        layout=ipywidgets.Layout(width="98px"),
     )
-    tool_output = widgets.Output(layout=widgets.Layout(max_height="200px"))
-    children.append(widgets.HBox([run_btn, cancel_btn, help_btn, import_btn]))
+    tool_output = ipywidgets.Output(layout=ipywidgets.Layout(max_height="200px"))
+    children.append(ipywidgets.HBox([run_btn, cancel_btn, help_btn, import_btn]))
     children.append(tool_output)
     tool_widget.children = children
 
     def run_button_clicked(b) -> None:
+        del b  # Unused.
         tool_output.outputs = ()
 
         required_params = required_inputs.copy()
@@ -1641,7 +1662,7 @@ def tool_gui(tool_dict, max_width: str = "420px", max_height: str = "600px"):
             if isinstance(args[arg], ipyfilechooser.FileChooser):
                 if arg in required_params and args[arg].selected is None:
                     with tool_output:
-                        print(f"Please provide inputs for required parameters.")
+                        print("Please provide inputs for required parameters.")
                         break
                 elif arg in required_params:
                     required_params.remove(arg)
@@ -1649,16 +1670,16 @@ def tool_gui(tool_dict, max_width: str = "420px", max_height: str = "600px"):
                     line = f"-{arg}={args[arg].selected}"
                 else:
                     line = f"--{arg}={args[arg].selected}"
-            elif isinstance(args[arg], widgets.Text):
+            elif isinstance(args[arg], ipywidgets.Text):
                 if arg in required_params and len(args[arg].value) == 0:
                     with tool_output:
-                        print(f"Please provide inputs for required parameters.")
+                        print("Please provide inputs for required parameters.")
                         break
                 elif arg in required_params:
                     required_params.remove(arg)
                 if args[arg].value is not None and len(args[arg].value) > 0:
                     line = f"--{arg}={args[arg].value}"
-            elif isinstance(args[arg], widgets.Checkbox):
+            elif isinstance(args[arg], ipywidgets.Checkbox):
                 line = f"--{arg}={args[arg].value}"
             args2.append(line)
 
@@ -1668,26 +1689,30 @@ def tool_gui(tool_dict, max_width: str = "420px", max_height: str = "600px"):
                 pass
 
     def help_button_clicked(b) -> None:
+        del b  # Unused.
         tool_output.outputs = ()
         with tool_output:
-            html = widgets.HTML(
+            html = ipywidgets.HTML(
                 value=f'<a href={tool_dict["link"]} target="_blank">{tool_dict["link"]}</a>'
             )
             display(html)
         webbrowser.open_new_tab(tool_dict["link"])
 
     def code_button_clicked(b) -> None:
+        del b  # Unused.
         with tool_output:
-            html = widgets.HTML(
+            html = ipywidgets.HTML(
                 value=f'<a href={tool_dict["link"]} target="_blank">{tool_dict["link"]}</a>'
             )
             display(html)
         webbrowser.open_new_tab(tool_dict["link"])
 
     def cancel_btn_clicked(b) -> None:
+        del b  # Unused.
         tool_output.outputs = ()
 
     def import_button_clicked(b) -> None:
+        del b  # Unused.
         tool_output.outputs = ()
 
         content = []
@@ -1714,32 +1739,34 @@ def build_toolbox(tools_dict, max_width: str = "1080px", max_height: str = "600p
     Returns:
         object: An ipywidget representing the toolbox.
     """
-    left_widget = widgets.VBox(layout=widgets.Layout(min_width="175px"))
-    center_widget = widgets.VBox(
-        layout=widgets.Layout(min_width="200px", max_width="200px")
+    left_widget = ipywidgets.VBox(layout=ipywidgets.Layout(min_width="175px"))
+    center_widget = ipywidgets.VBox(
+        layout=ipywidgets.Layout(min_width="200px", max_width="200px")
     )
-    right_widget = widgets.Output(
-        layout=widgets.Layout(width="630px", max_height=max_height)
+    right_widget = ipywidgets.Output(
+        layout=ipywidgets.Layout(width="630px", max_height=max_height)
     )
-    full_widget = widgets.HBox(
+    full_widget = ipywidgets.HBox(
         [left_widget, center_widget, right_widget],
-        layout=widgets.Layout(max_width=max_width, max_height=max_height),
+        layout=ipywidgets.Layout(max_width=max_width, max_height=max_height),
     )
 
-    search_widget = widgets.Text(
-        placeholder="Search tools ...", layout=widgets.Layout(width="170px")
+    search_widget = ipywidgets.Text(
+        placeholder="Search tools ...", layout=ipywidgets.Layout(width="170px")
     )
-    label_widget = widgets.Label(layout=widgets.Layout(width="170px"))
+    label_widget = ipywidgets.Label(layout=ipywidgets.Layout(width="170px"))
     label_widget.value = f"{len(tools_dict)} Available Tools"
-    close_btn = widgets.Button(
-        description="Close Toolbox", icon="close", layout=widgets.Layout(width="170px")
+    close_btn = ipywidgets.Button(
+        description="Close Toolbox",
+        icon="close",
+        layout=ipywidgets.Layout(width="170px"),
     )
 
     categories = {}
     categories["All Tools"] = []
-    for key in tools_dict.keys():
+    for key in tools_dict:
         category = tools_dict[key]["category"]
-        if category not in categories.keys():
+        if category not in categories:
             categories[category] = []
         categories[category].append(tools_dict[key]["name"])
         categories["All Tools"].append(tools_dict[key]["name"])
@@ -1747,11 +1774,11 @@ def build_toolbox(tools_dict, max_width: str = "1080px", max_height: str = "600p
     options = list(categories.keys())
     all_tools = categories["All Tools"]
     all_tools.sort()
-    category_widget = widgets.Select(
-        options=options, layout=widgets.Layout(width="170px", height="165px")
+    category_widget = ipywidgets.Select(
+        options=options, layout=ipywidgets.Layout(width="170px", height="165px")
     )
-    tools_widget = widgets.Select(
-        options=[], layout=widgets.Layout(width="195px", height="400px")
+    tools_widget = ipywidgets.Select(
+        options=[], layout=ipywidgets.Layout(width="195px", height="400px")
     )
 
     def category_selected(change) -> None:
@@ -1797,6 +1824,7 @@ def build_toolbox(tools_dict, max_width: str = "1080px", max_height: str = "600p
     full_widget.cleanup = cleanup
 
     def close_btn_clicked(b) -> None:
+        del b  # Unused.
         full_widget.cleanup()
 
     close_btn.on_click(close_btn_clicked)
@@ -1809,58 +1837,62 @@ def build_toolbox(tools_dict, max_width: str = "1080px", max_height: str = "600p
     return full_widget
 
 
-def timelapse_gui(m=None, basemap: str = "HYBRID"):
+def timelapse_gui(m: geemap.Map | None = None, basemap: str = "HYBRID"):
     """Creates timelapse animations.
 
     Args:
-        m (geemap.Map, optional): A geemap Map instance. Defaults to None.
-        basemap: The basemap to use. Defaults to "HYBRID".
+        m: A geemap Map instance.
+        basemap: The basemap to use.
 
     Returns:
         ipywidgets: The interactive GUI.
     """
-    if m is not None and (basemap is not None):
+    if m is not None and basemap is not None:
         m.add_basemap(basemap)
 
     widget_width = "350px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     style = {"description_width": "initial"}
 
-    current_year = get_current_year()
+    current_year = common.get_current_year()
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="gear",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    collection = widgets.Dropdown(
+    collection = ipywidgets.Dropdown(
         options=[
             "Landsat TM-ETM-OLI Surface Reflectance",
         ],
         value="Landsat TM-ETM-OLI Surface Reflectance",
         description="Collection:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style=style,
     )
 
-    title = widgets.Text(
+    title = ipywidgets.Text(
         value="Timelapse",
         description="Title:",
         style=style,
-        layout=widgets.Layout(width="181px", padding=padding),
+        layout=ipywidgets.Layout(width="181px", padding=padding),
     )
 
-    bands = widgets.Dropdown(
+    bands = ipywidgets.Dropdown(
         description="RGB:",
         options=[
             "Red/Green/Blue",
@@ -1876,10 +1908,10 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         ],
         value="SWIR1/NIR/Red",
         style=style,
-        layout=widgets.Layout(width="165px", padding=padding),
+        layout=ipywidgets.Layout(width="165px", padding=padding),
     )
 
-    speed = widgets.IntSlider(
+    speed = ipywidgets.IntSlider(
         description="Frames/sec:",
         tooltip="Frames per second",
         value=10,
@@ -1887,103 +1919,103 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         max=30,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="142px", padding=padding),
+        layout=ipywidgets.Layout(width="142px", padding=padding),
     )
 
-    speed_label = widgets.Label(
+    speed_label = ipywidgets.Label(
         "10",
-        layout=widgets.Layout(width="20px", padding=padding),
+        layout=ipywidgets.Layout(width="20px", padding=padding),
     )
-    jslink_slider_label(speed, speed_label)
+    common.jslink_slider_label(speed, speed_label)
 
-    cloud = widgets.Checkbox(
+    cloud = ipywidgets.Checkbox(
         value=True,
         description="Apply fmask (remove clouds, shadows, snow)",
         tooltip="Apply fmask (remove clouds, shadows, snow)",
         style=style,
     )
 
-    start_year = widgets.IntSlider(
+    start_year = ipywidgets.IntSlider(
         description="Start Year:",
         value=1984,
         min=1984,
         max=current_year,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="138px", padding=padding),
+        layout=ipywidgets.Layout(width="138px", padding=padding),
     )
 
-    start_year_label = widgets.Label("1984")
-    jslink_slider_label(start_year, start_year_label)
+    start_year_label = ipywidgets.Label("1984")
+    common.jslink_slider_label(start_year, start_year_label)
 
-    end_year = widgets.IntSlider(
+    end_year = ipywidgets.IntSlider(
         description="End Year:",
         value=current_year,
         min=1984,
         max=current_year,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="138px", padding=padding),
+        layout=ipywidgets.Layout(width="138px", padding=padding),
     )
-    end_year_label = widgets.Label(str(current_year))
-    jslink_slider_label(end_year, end_year_label)
+    end_year_label = ipywidgets.Label(str(current_year))
+    common.jslink_slider_label(end_year, end_year_label)
 
-    start_month = widgets.IntSlider(
+    start_month = ipywidgets.IntSlider(
         description="Start Month:",
         value=5,
         min=1,
         max=12,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="145px", padding=padding),
+        layout=ipywidgets.Layout(width="145px", padding=padding),
     )
 
-    start_month_label = widgets.Label(
+    start_month_label = ipywidgets.Label(
         "5",
-        layout=widgets.Layout(width="20px", padding=padding),
+        layout=ipywidgets.Layout(width="20px", padding=padding),
     )
-    jslink_slider_label(start_month, start_month_label)
+    common.jslink_slider_label(start_month, start_month_label)
 
-    end_month = widgets.IntSlider(
+    end_month = ipywidgets.IntSlider(
         description="End Month:",
         value=10,
         min=1,
         max=12,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="155px", padding=padding),
+        layout=ipywidgets.Layout(width="155px", padding=padding),
     )
 
-    end_month_label = widgets.Label("10")
-    jslink_slider_label(end_month, end_month_label)
+    end_month_label = ipywidgets.Label("10")
+    common.jslink_slider_label(end_month, end_month_label)
 
-    font_size = widgets.IntSlider(
+    font_size = ipywidgets.IntSlider(
         description="Font size:",
         value=30,
         min=10,
         max=50,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="152px", padding=padding),
+        layout=ipywidgets.Layout(width="152px", padding=padding),
     )
 
-    font_size_label = widgets.Label("30")
-    jslink_slider_label(font_size, font_size_label)
+    font_size_label = ipywidgets.Label("30")
+    common.jslink_slider_label(font_size, font_size_label)
 
-    font_color = widgets.ColorPicker(
+    font_color = ipywidgets.ColorPicker(
         concise=False,
         description="Font color:",
         value="white",
         style=style,
-        layout=widgets.Layout(width="170px", padding=padding),
+        layout=ipywidgets.Layout(width="170px", padding=padding),
     )
 
-    progress_bar_color = widgets.ColorPicker(
+    progress_bar_color = ipywidgets.ColorPicker(
         concise=False,
         description="Progress bar:",
         value="blue",
         style=style,
-        layout=widgets.Layout(width="180px", padding=padding),
+        layout=ipywidgets.Layout(width="180px", padding=padding),
     )
 
     # Normalized Satellite Indices:
@@ -1998,31 +2030,31 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         "Burn Ratio (NBR)",
         "Customized",
     ]
-    nd_indices = widgets.Dropdown(
+    nd_indices = ipywidgets.Dropdown(
         options=nd_options,
         value=None,
         description="Normalized Difference Index:",
         style=style,
-        layout=widgets.Layout(width="347px", padding=padding),
+        layout=ipywidgets.Layout(width="347px", padding=padding),
     )
 
-    first_band = widgets.Dropdown(
+    first_band = ipywidgets.Dropdown(
         description="1st band:",
         options=["Blue", "Green", "Red", "NIR", "SWIR1", "SWIR2"],
         value=None,
         style=style,
-        layout=widgets.Layout(width="171px", padding=padding),
+        layout=ipywidgets.Layout(width="171px", padding=padding),
     )
 
-    second_band = widgets.Dropdown(
+    second_band = ipywidgets.Dropdown(
         description="2nd band:",
         options=["Blue", "Green", "Red", "NIR", "SWIR1", "SWIR2"],
         value=None,
         style=style,
-        layout=widgets.Layout(width="172px", padding=padding),
+        layout=ipywidgets.Layout(width="172px", padding=padding),
     )
 
-    nd_threshold = widgets.FloatSlider(
+    nd_threshold = ipywidgets.FloatSlider(
         value=0,
         min=-1,
         max=1,
@@ -2031,24 +2063,25 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         orientation="horizontal",
         readout=False,
         style=style,
-        layout=widgets.Layout(width="159px", padding=padding),
+        layout=ipywidgets.Layout(width="159px", padding=padding),
     )
 
-    nd_threshold_label = widgets.Label(
+    nd_threshold_label = ipywidgets.Label(
         "0",
-        layout=widgets.Layout(width="35px", padding=padding),
+        layout=ipywidgets.Layout(width="35px", padding=padding),
     )
-    jslink_slider_label(nd_threshold, nd_threshold_label)
+    common.jslink_slider_label(nd_threshold, nd_threshold_label)
 
-    nd_color = widgets.ColorPicker(
+    nd_color = ipywidgets.ColorPicker(
         concise=False,
         description="Color:",
         value="blue",
         style=style,
-        layout=widgets.Layout(width="145px", padding=padding),
+        layout=ipywidgets.Layout(width="145px", padding=padding),
     )
 
     def nd_index_change(change) -> None:
+        del change  # Unused.
         if nd_indices.value == "Vegetation Index (NDVI)":
             first_band.value = "NIR"
             second_band.value = "Red"
@@ -2074,15 +2107,16 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
     nd_indices.observe(nd_index_change, names="value")
 
     button_width = "113px"
-    create_gif = widgets.Button(
+    create_gif = ipywidgets.Button(
         description="Create timelapse",
         button_style="primary",
         tooltip="Click to create timelapse",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
     def submit_clicked(b) -> None:
+        del b  # Unused.
         if start_year.value > end_year.value:
             print("The end year must be great than the start year.")
             return
@@ -2109,11 +2143,11 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         if (first_band.value is not None) and (second_band.value is not None):
             nd_bands = [first_band.value, second_band.value]
 
-        temp_output = widgets.Output()
+        temp_output = ipywidgets.Output()
 
         if m is not None:
             m.default_style = {"cursor": "wait"}
-            out_dir = get_temp_dir()
+            out_dir = common.get_temp_dir()
             out_gif = os.path.join(
                 out_dir, f"timelapse_{coreutils.random_string(3)}.gif"
             )
@@ -2151,13 +2185,13 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
             with output:
                 output.clear_output()
                 if os.path.exists(out_gif):
-                    link = create_download_link(
+                    link = common.create_download_link(
                         out_gif,
                         title="Click here to download: ",
                     )
                     display(link)
                     if nd_bands is not None:
-                        link_nd = create_download_link(
+                        link_nd = common.create_download_link(
                             out_gif.replace(".gif", "_nd.gif"),
                             title="Click here to download: ",
                         )
@@ -2167,44 +2201,47 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
 
     create_gif.on_click(submit_clicked)
 
-    reset_btn = widgets.Button(
+    reset_btn = ipywidgets.Button(
         description="Reset",
         button_style="primary",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
     def reset_btn_click(change) -> None:
+        del change  # Unused.
         output.outputs = ()
 
     reset_btn.on_click(reset_btn_click)
 
-    close_btn = widgets.Button(
+    close_btn = ipywidgets.Button(
         description="Close",
         button_style="primary",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         collection,
-        widgets.HBox([title, bands]),
-        widgets.HBox([speed, speed_label, progress_bar_color]),
-        widgets.HBox([start_year, start_year_label, end_year, end_year_label]),
-        widgets.HBox([start_month, start_month_label, end_month, end_month_label]),
-        widgets.HBox([font_size, font_size_label, font_color]),
+        ipywidgets.HBox([title, bands]),
+        ipywidgets.HBox([speed, speed_label, progress_bar_color]),
+        ipywidgets.HBox([start_year, start_year_label, end_year, end_year_label]),
+        ipywidgets.HBox([start_month, start_month_label, end_month, end_month_label]),
+        ipywidgets.HBox([font_size, font_size_label, font_color]),
         cloud,
         nd_indices,
-        widgets.HBox([first_band, second_band]),
-        widgets.HBox([nd_threshold, nd_threshold_label, nd_color]),
-        widgets.HBox([create_gif, reset_btn, close_btn]),
+        ipywidgets.HBox([first_band, second_band]),
+        ipywidgets.HBox([nd_threshold, nd_threshold_label, nd_color]),
+        ipywidgets.HBox([create_gif, reset_btn, close_btn]),
         output,
     ]
 
@@ -2265,11 +2302,11 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
         return toolbar_widget
 
 
-def time_slider(m=None):
+def time_slider(m: geemap.Map | None = None):
     """Creates a time slider for visualizing any ee.ImageCollection.
 
     Args:
-        m (geemap.Map, optional): A geemap Map instance. Defaults to None.
+        m: A geemap Map instance.
 
     Returns:
         ipywidgets: The interactive GUI.
@@ -2278,19 +2315,23 @@ def time_slider(m=None):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     style = {"description_width": "initial"}
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="fast-forward",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
     col_options_dict = {
@@ -2362,68 +2403,68 @@ def time_slider(m=None):
     if m is not None:
         col_options += m.ee_raster_layers.keys()
 
-    collection = widgets.Dropdown(
+    collection = ipywidgets.Dropdown(
         options=col_options,
         value=col_options[0],
         description="Time series:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style=style,
     )
 
-    region = widgets.Dropdown(
+    region = ipywidgets.Dropdown(
         options=["User-drawn ROI"] + list(m.ee_vector_layers.keys()),
         value="User-drawn ROI",
         description="Region:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style=style,
     )
 
     dropdown_width = "97px"
     landsat_bands = ["Blue", "Green", "Red", "NIR", "SWIR1", "SWIR2", "pixel_qa"]
-    band1_dropdown = widgets.Dropdown(
+    band1_dropdown = ipywidgets.Dropdown(
         options=landsat_bands,
         value="NIR",
-        layout=widgets.Layout(width=dropdown_width),
+        layout=ipywidgets.Layout(width=dropdown_width),
     )
-    band2_dropdown = widgets.Dropdown(
+    band2_dropdown = ipywidgets.Dropdown(
         options=landsat_bands,
         value="Red",
-        layout=widgets.Layout(width=dropdown_width),
+        layout=ipywidgets.Layout(width=dropdown_width),
     )
-    band3_dropdown = widgets.Dropdown(
+    band3_dropdown = ipywidgets.Dropdown(
         options=landsat_bands,
         value="Green",
-        layout=widgets.Layout(width=dropdown_width),
+        layout=ipywidgets.Layout(width=dropdown_width),
     )
 
-    bands_label = widgets.Label("Bands:", layout=widgets.Layout(padding=padding))
-    bands_hbox = widgets.HBox(
+    bands_label = ipywidgets.Label("Bands:", layout=ipywidgets.Layout(padding=padding))
+    bands_hbox = ipywidgets.HBox(
         [bands_label, band1_dropdown, band2_dropdown, band3_dropdown]
     )
 
-    vis = widgets.Text(
+    vis = ipywidgets.Text(
         value="",
         description="Vis min value:",
         placeholder="{'min': 0, 'max': 1, 'palette': ['red', 'blue']}",
         style=style,
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    vis_min = widgets.Text(
+    vis_min = ipywidgets.Text(
         value="0",
         description="Vis min value:",
         style=style,
-        layout=widgets.Layout(width="172px", padding=padding),
+        layout=ipywidgets.Layout(width="172px", padding=padding),
     )
 
-    vis_max = widgets.Text(
+    vis_max = ipywidgets.Text(
         value="4000",
         description="Vis max value:",
         style=style,
-        layout=widgets.Layout(width="172px", padding=padding),
+        layout=ipywidgets.Layout(width="172px", padding=padding),
     )
 
-    opacity = widgets.FloatSlider(
+    opacity = ipywidgets.FloatSlider(
         value=1,
         min=0,
         max=1,
@@ -2432,16 +2473,16 @@ def time_slider(m=None):
         continuous_update=True,
         readout=False,
         readout_format=".2f",
-        layout=widgets.Layout(width="130px", padding=padding),
+        layout=ipywidgets.Layout(width="130px", padding=padding),
         style={"description_width": "50px"},
     )
 
-    opacity_label = widgets.Label(
-        "1", layout=widgets.Layout(width="40px", padding=padding)
+    opacity_label = ipywidgets.Label(
+        "1", layout=ipywidgets.Layout(width="40px", padding=padding)
     )
-    jslink_slider_label(opacity, opacity_label)
+    common.jslink_slider_label(opacity, opacity_label)
 
-    gamma = widgets.FloatSlider(
+    gamma = ipywidgets.FloatSlider(
         value=1,
         min=0.1,
         max=10,
@@ -2450,52 +2491,52 @@ def time_slider(m=None):
         continuous_update=True,
         readout=False,
         readout_format=".2f",
-        layout=widgets.Layout(width="123px", padding=padding),
+        layout=ipywidgets.Layout(width="123px", padding=padding),
         style={"description_width": "50px"},
     )
 
-    gamma_label = widgets.Label(
-        "1", layout=widgets.Layout(width="40px", padding=padding)
+    gamma_label = ipywidgets.Label(
+        "1", layout=ipywidgets.Layout(width="40px", padding=padding)
     )
-    jslink_slider_label(gamma, gamma_label)
+    common.jslink_slider_label(gamma, gamma_label)
 
-    color_picker = widgets.ColorPicker(
+    color_picker = ipywidgets.ColorPicker(
         concise=False,
         value="#000000",
-        layout=widgets.Layout(width="97px"),
+        layout=ipywidgets.Layout(width="97px"),
         style={"description_width": "initial"},
     )
 
-    add_color = widgets.Button(
+    add_color = ipywidgets.Button(
         icon="plus",
         tooltip="Add a hex color string to the palette",
-        layout=widgets.Layout(width="32px"),
+        layout=ipywidgets.Layout(width="32px"),
     )
 
-    del_color = widgets.Button(
+    del_color = ipywidgets.Button(
         icon="minus",
         tooltip="Remove a hex color string from the palette",
-        layout=widgets.Layout(width="32px"),
+        layout=ipywidgets.Layout(width="32px"),
     )
 
-    reset_color = widgets.Button(
+    reset_color = ipywidgets.Button(
         icon="eraser",
         tooltip="Remove all color strings from the palette",
-        layout=widgets.Layout(width="34px"),
+        layout=ipywidgets.Layout(width="34px"),
     )
 
-    classes = widgets.Dropdown(
+    classes = ipywidgets.Dropdown(
         options=["Any"] + [str(i) for i in range(3, 13)],
         description="Classes:",
-        layout=widgets.Layout(width="150px", padding=padding),
+        layout=ipywidgets.Layout(width="150px", padding=padding),
         style={"description_width": "initial"},
     )
 
-    colormap = widgets.Dropdown(
+    colormap = ipywidgets.Dropdown(
         options=plt.colormaps(),
         value=None,
         description="Colormap:",
-        layout=widgets.Layout(width="195px", padding=padding),
+        layout=ipywidgets.Layout(width="195px", padding=padding),
         style={"description_width": "initial"},
     )
 
@@ -2509,7 +2550,7 @@ def time_slider(m=None):
 
                 try:
                     colors = plt.get_cmap(colormap.value, n_class)
-                except:
+                except Exception:
                     colors = plt.cm.get_cmap(colormap.value, n_class)
                 cmap_colors = [
                     mpl.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)
@@ -2535,11 +2576,11 @@ def time_slider(m=None):
                     ax, norm=norm, cmap=cmap, orientation="horizontal"
                 )
 
-                palette.value = ", ".join([color for color in cmap_colors])
+                palette.value = ", ".join(cmap_colors)
 
                 if m._colorbar_widget is None:
-                    m._colorbar_widget = widgets.Output(
-                        layout=widgets.Layout(height="60px")
+                    m._colorbar_widget = ipywidgets.Output(
+                        layout=ipywidgets.Layout(height="60px")
                     )
 
                 if (not hasattr(m, "_colorbar_ctrl")) or (m._colorbar_ctrl is None):
@@ -2555,16 +2596,17 @@ def time_slider(m=None):
 
     classes.observe(classes_changed, "value")
 
-    palette = widgets.Text(
+    palette = ipywidgets.Text(
         value="",
         placeholder="",
         description="Palette:",
         tooltip="Enter a list of hex color code (RRGGBB)",
-        layout=widgets.Layout(width="137px", padding=padding),
+        layout=ipywidgets.Layout(width="137px", padding=padding),
         style={"description_width": "initial"},
     )
 
     def add_color_clicked(b) -> None:
+        del b  # Unused.
         if color_picker.value is not None:
             if len(palette.value) == 0:
                 palette.value = color_picker.value[1:]
@@ -2572,6 +2614,7 @@ def time_slider(m=None):
                 palette.value += ", " + color_picker.value[1:]
 
     def del_color_clicked(b) -> None:
+        del b  # Unused.
         if "," in palette.value:
             items = [item.strip() for item in palette.value.split(",")]
             palette.value = ", ".join(items[:-1])
@@ -2579,6 +2622,7 @@ def time_slider(m=None):
             palette.value = ""
 
     def reset_color_clicked(b) -> None:
+        del b  # Unused.
         palette.value = ""
 
     add_color.on_click(add_color_clicked)
@@ -2593,7 +2637,7 @@ def time_slider(m=None):
 
             try:
                 colors = plt.get_cmap(colormap.value, n_class)
-            except:
+            except Exception:
                 colors = plt.cm.get_cmap(colormap.value, n_class)
             cmap_colors = [mpl.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)]
 
@@ -2620,8 +2664,8 @@ def time_slider(m=None):
             palette.value = ", ".join(cmap_colors)
 
             if m._colorbar_widget is None:
-                m._colorbar_widget = widgets.Output(
-                    layout=widgets.Layout(height="60px")
+                m._colorbar_widget = ipywidgets.Output(
+                    layout=ipywidgets.Layout(height="60px")
                 )
 
             if hasattr(m, "_colorbar_ctrl") or (m._colorbar_ctrl is None):
@@ -2637,16 +2681,16 @@ def time_slider(m=None):
 
     colormap.observe(colormap_changed, "value")
 
-    palette_vbox = widgets.VBox()
+    palette_vbox = ipywidgets.VBox()
 
-    labels = widgets.Text(
+    labels = ipywidgets.Text(
         value=", ".join([str(i) for i in range(1984, 2021)]),
         description="Labels:",
         style=style,
-        layout=widgets.Layout(width="150px", padding=padding),
+        layout=ipywidgets.Layout(width="150px", padding=padding),
     )
 
-    speed = widgets.FloatSlider(
+    speed = ipywidgets.FloatSlider(
         description="Speed (sec):",
         tooltip="Time interval in seconds",
         value=1,
@@ -2654,34 +2698,34 @@ def time_slider(m=None):
         max=10,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="160px", padding=padding),
+        layout=ipywidgets.Layout(width="160px", padding=padding),
     )
 
-    speed_label = widgets.Label(
+    speed_label = ipywidgets.Label(
         "1",
-        layout=widgets.Layout(width="25px", padding=padding),
+        layout=ipywidgets.Layout(width="25px", padding=padding),
     )
-    jslink_slider_label(speed, speed_label)
+    common.jslink_slider_label(speed, speed_label)
 
-    prebuilt_options = widgets.VBox()
+    prebuilt_options = ipywidgets.VBox()
 
-    cloud = widgets.Checkbox(
+    cloud = ipywidgets.Checkbox(
         value=True,
         description="Apply fmask (remove clouds, shadows, snow)",
         tooltip="Apply fmask (remove clouds, shadows, snow)",
         style=style,
     )
 
-    current_year = get_current_year()
+    current_year = common.get_current_year()
 
-    start_year = widgets.IntSlider(
+    start_year = ipywidgets.IntSlider(
         description="Start Year:",
         value=1984,
         min=1984,
         max=current_year,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="138px", padding=padding),
+        layout=ipywidgets.Layout(width="138px", padding=padding),
     )
 
     def year_change(change) -> None:
@@ -2700,69 +2744,70 @@ def time_slider(m=None):
 
     start_year.observe(year_change, "value")
 
-    start_year_label = widgets.Label("1984")
-    jslink_slider_label(start_year, start_year_label)
+    start_year_label = ipywidgets.Label("1984")
+    common.jslink_slider_label(start_year, start_year_label)
 
-    end_year = widgets.IntSlider(
+    end_year = ipywidgets.IntSlider(
         description="End Year:",
         value=2020,
         min=1984,
         max=current_year,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="138px", padding=padding),
+        layout=ipywidgets.Layout(width="138px", padding=padding),
     )
 
     end_year.observe(year_change, "value")
 
-    end_year_label = widgets.Label(str(current_year))
-    jslink_slider_label(end_year, end_year_label)
+    end_year_label = ipywidgets.Label(str(current_year))
+    common.jslink_slider_label(end_year, end_year_label)
 
-    start_month = widgets.IntSlider(
+    start_month = ipywidgets.IntSlider(
         description="Start Month:",
         value=1,
         min=1,
         max=12,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="145px", padding=padding),
+        layout=ipywidgets.Layout(width="145px", padding=padding),
     )
 
-    start_month_label = widgets.Label(
+    start_month_label = ipywidgets.Label(
         "1",
-        layout=widgets.Layout(width="20px", padding=padding),
+        layout=ipywidgets.Layout(width="20px", padding=padding),
     )
-    jslink_slider_label(start_month, start_month_label)
+    common.jslink_slider_label(start_month, start_month_label)
 
-    end_month = widgets.IntSlider(
+    end_month = ipywidgets.IntSlider(
         description="End Month:",
         value=12,
         min=1,
         max=12,
         readout=False,
         style=style,
-        layout=widgets.Layout(width="155px", padding=padding),
+        layout=ipywidgets.Layout(width="155px", padding=padding),
     )
 
-    end_month_label = widgets.Label("12")
-    jslink_slider_label(end_month, end_month_label)
+    end_month_label = ipywidgets.Label("12")
+    common.jslink_slider_label(end_month, end_month_label)
 
     prebuilt_options.children = [
-        widgets.HBox([start_year, start_year_label, end_year, end_year_label]),
-        widgets.HBox([start_month, start_month_label, end_month, end_month_label]),
+        ipywidgets.HBox([start_year, start_year_label, end_year, end_year_label]),
+        ipywidgets.HBox([start_month, start_month_label, end_month, end_month_label]),
         cloud,
     ]
 
     button_width = "113px"
-    apply_btn = widgets.Button(
+    apply_btn = ipywidgets.Button(
         description="Apply",
         button_style="primary",
         tooltip="Apply the settings to activate the time slider",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
     def submit_clicked(b):
+        del b  # Unused.
         output.outputs = ()
         with output:
             if start_year.value > end_year.value:
@@ -2827,8 +2872,9 @@ def time_slider(m=None):
                 try:
                     layer_labels = [i.strip() for i in labels.value.split(",")]
                 except Exception as e:
-                    raise ValueError(e)
+                    raise ValueError(e) from e
 
+            ee_object = None
             if collection.value in m.ee_raster_layers:
                 layer = m.ee_layers[collection.value]
                 ee_object = layer["ee_object"]
@@ -2837,7 +2883,7 @@ def time_slider(m=None):
                 end_date = str(end_month.value).zfill(2) + "-30"
 
                 if collection.value == "Landsat TM-ETM-OLI Surface Reflectance":
-                    ee_object = landsat_timeseries(
+                    ee_object = timelapse.landsat_timeseries(
                         roi,
                         int(start_year.value),
                         int(end_year.value),
@@ -2846,7 +2892,7 @@ def time_slider(m=None):
                         cloud.value,
                     )
                 elif collection.value == "MOD13A2.006 Terra Vegetation Indices":
-                    ee_object = modis_timeseries(
+                    ee_object = timelapse.modis_timeseries(
                         roi=roi,
                         start_year=int(start_year.value),
                         end_year=int(end_year.value),
@@ -2855,7 +2901,7 @@ def time_slider(m=None):
                     )
 
                 elif collection.value == "Sentinel-2 Surface Relectance":
-                    ee_object = sentinel2_timeseries(
+                    ee_object = timelapse.sentinel2_timeseries(
                         roi,
                         int(start_year.value),
                         int(end_year.value),
@@ -2874,7 +2920,9 @@ def time_slider(m=None):
                             print("4-band NAIP imagery not available before 2009.")
                             return
 
-                    ee_object = naip_timeseries(roi, start_year.value, end_year.value)
+                    ee_object = timelapse.naip_timeseries(
+                        roi, start_year.value, end_year.value
+                    )
 
             m.add_time_slider(
                 ee_object,
@@ -2892,14 +2940,15 @@ def time_slider(m=None):
 
     apply_btn.on_click(submit_clicked)
 
-    reset_btn = widgets.Button(
+    reset_btn = ipywidgets.Button(
         description="Reset",
         button_style="primary",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
     def reset_btn_click(change) -> None:
+        del change  # Unused.
         output.outputs = ()
         collection.value = col_options[0]
         region.value = "User-drawn ROI"
@@ -2913,11 +2962,11 @@ def time_slider(m=None):
 
     reset_btn.on_click(reset_btn_click)
 
-    close_btn = widgets.Button(
+    close_btn = ipywidgets.Button(
         description="Close",
         button_style="primary",
         style=style,
-        layout=widgets.Layout(padding="0px", width=button_width),
+        layout=ipywidgets.Layout(padding="0px", width=button_width),
     )
 
     def cleanup() -> None:
@@ -2950,8 +2999,8 @@ def time_slider(m=None):
                 vis_params = m.ee_layers[selected]["vis_params"]
                 if isinstance(ee_object, ee.Image):
                     palette_vbox.children = [
-                        widgets.HBox([classes, colormap]),
-                        widgets.HBox(
+                        ipywidgets.HBox([classes, colormap]),
+                        ipywidgets.HBox(
                             [palette, color_picker, add_color, del_color, reset_color]
                         ),
                     ]
@@ -2981,8 +3030,8 @@ def time_slider(m=None):
 
                     else:
                         palette_vbox.children = [
-                            widgets.HBox([classes, colormap]),
-                            widgets.HBox(
+                            ipywidgets.HBox([classes, colormap]),
+                            ipywidgets.HBox(
                                 [
                                     palette,
                                     color_picker,
@@ -3010,10 +3059,10 @@ def time_slider(m=None):
 
             else:
                 prebuilt_options.children = [
-                    widgets.HBox(
+                    ipywidgets.HBox(
                         [start_year, start_year_label, end_year, end_year_label]
                     ),
-                    widgets.HBox(
+                    ipywidgets.HBox(
                         [start_month, start_month_label, end_month, end_month_label]
                     ),
                     cloud,
@@ -3021,8 +3070,8 @@ def time_slider(m=None):
 
                 if selected == "MOD13A2.006 Terra Vegetation Indices":
                     palette_vbox.children = [
-                        widgets.HBox([classes, colormap]),
-                        widgets.HBox(
+                        ipywidgets.HBox([classes, colormap]),
+                        ipywidgets.HBox(
                             [
                                 palette,
                                 color_picker,
@@ -3091,23 +3140,25 @@ def time_slider(m=None):
 
     collection.observe(collection_changed, "value")
 
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         collection,
         region,
         bands_hbox,
-        widgets.HBox([vis_min, vis_max]),
-        widgets.HBox([opacity, opacity_label, gamma, gamma_label]),
+        ipywidgets.HBox([vis_min, vis_max]),
+        ipywidgets.HBox([opacity, opacity_label, gamma, gamma_label]),
         palette_vbox,
-        widgets.HBox([labels, speed, speed_label]),
+        ipywidgets.HBox([labels, speed, speed_label]),
         prebuilt_options,
-        widgets.HBox([apply_btn, reset_btn, close_btn]),
+        ipywidgets.HBox([apply_btn, reset_btn, close_btn]),
         output,
     ]
 
@@ -3151,91 +3202,103 @@ def time_slider(m=None):
 
 
 def plot_transect(m=None):
-    from bqplot import pyplot as plt
+    """Creates a widget for plotting transects.
+
+    Args:
+        m: A geemap Map instance.
+
+    Returns:
+        ipywidgets: The interactive GUI.
+    """
+    from bqplot import pyplot as bqplt
 
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Show or hide the toolbar",
         icon="line-chart",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    layer = widgets.Dropdown(
+    layer = ipywidgets.Dropdown(
         options=["Option 1", "Option 2", "Option 3"],
         value=None,
         description="Image:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style={"description_width": "initial"},
     )
 
-    band = widgets.Dropdown(
+    band = ipywidgets.Dropdown(
         options=["Option 1", "Option 2", "Option 3"],
         value=None,
         description="Band:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style={"description_width": "initial"},
     )
 
-    reducer = widgets.Dropdown(
+    reducer = ipywidgets.Dropdown(
         options=["mean", "median", "min", "max", "mode", "sum", "stdDev", "variance"],
         value="mean",
         description="Stats:",
-        layout=widgets.Layout(width="120px", padding=padding),
+        layout=ipywidgets.Layout(width="120px", padding=padding),
         style={"description_width": "initial"},
     )
 
-    segments = widgets.IntText(
+    segments = ipywidgets.IntText(
         value="100",
         description="Segments:",
         placeholder="Number of segments",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width="126px", padding=padding),
+        layout=ipywidgets.Layout(width="126px", padding=padding),
     )
 
-    dist_interval = widgets.Text(
+    dist_interval = ipywidgets.Text(
         value="",
         description="Distance interval (m):",
         placeholder="Optional",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    title = widgets.Text(
+    title = ipywidgets.Text(
         value="",
         description="Plot title:",
         placeholder="Plot title",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    xlabel = widgets.Text(
+    xlabel = ipywidgets.Text(
         value="",
         description="xlabel:",
         placeholder="x-axis",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width="123px", padding=padding),
+        layout=ipywidgets.Layout(width="123px", padding=padding),
     )
 
-    ylabel = widgets.Text(
+    ylabel = ipywidgets.Text(
         value="",
         description="ylabel:",
         placeholder="y-axis",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width="123px", padding=padding),
+        layout=ipywidgets.Layout(width="123px", padding=padding),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Plot", "Reset", "Close"],
         tooltips=["Plot transect", "Reset", "Close"],
@@ -3243,22 +3306,22 @@ def plot_transect(m=None):
     )
     buttons.style.button_width = "80px"
 
-    output = widgets.Output(
-        layout=widgets.Layout(max_width="500px", max_height="265px", padding=padding)
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(max_width="500px", max_height="265px", padding=padding)
     )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         layer,
         band,
-        widgets.HBox([reducer, segments]),
+        ipywidgets.HBox([reducer, segments]),
         dist_interval,
         title,
-        widgets.HBox([xlabel, ylabel]),
+        ipywidgets.HBox([xlabel, ylabel]),
         buttons,
     ]
 
@@ -3351,7 +3414,7 @@ def plot_transect(m=None):
                                 dist = float(dist_interval.value)
 
                             print("Computing ...")
-                            df = extract_transect(
+                            df = common.extract_transect(
                                 image,
                                 line,
                                 reducer.value,
@@ -3360,13 +3423,13 @@ def plot_transect(m=None):
                                 to_pandas=True,
                             )
                             output.outputs = ()
-                            fig = plt.figure(title=title.value)
+                            fig = bqplt.figure(title=title.value)
                             fig.layout.width = output.layout.max_width
                             fig.layout.height = output.layout.max_height
-                            plt.plot(df["distance"], df[reducer.value])
-                            plt.xlabel(xlabel.value)
-                            plt.ylabel(ylabel.value)
-                            plt.show()
+                            bqplt.plot(df["distance"], df[reducer.value])
+                            bqplt.xlabel(xlabel.value)
+                            bqplt.ylabel(ylabel.value)
+                            bqplt.show()
                     else:
                         print("Use drawing tool to draw a line")
         elif change["new"] == "Reset":
@@ -3392,31 +3455,43 @@ def plot_transect(m=None):
 
 
 def sankee_gui(m=None):
+    """Creates a widget for plotting Sankey diagrams.
+
+    Args:
+        m: A geemap Map instance.
+
+    Returns:
+        ipywidgets: The interactive GUI.
+    """
     import sankee
 
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="random",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    region = widgets.Dropdown(
+    region = ipywidgets.Dropdown(
         options=["User-drawn ROI"],
         value="User-drawn ROI",
         description="Region:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style={"description_width": "initial"},
     )
 
@@ -3453,27 +3528,27 @@ def sankee_gui(m=None):
     dataset_options = {dataset.name: dataset for dataset in sankee_datasets}
     default_dataset = sankee_datasets[0]
 
-    dataset = widgets.Dropdown(
+    dataset = ipywidgets.Dropdown(
         options=dataset_options.keys(),
         value=default_dataset.name,
         description="Dataset:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style={"description_width": "initial"},
     )
 
-    before = widgets.Dropdown(
+    before = ipywidgets.Dropdown(
         options=default_dataset.years,
         value=default_dataset.years[0],
         description="Before:",
-        layout=widgets.Layout(width="123px", padding=padding),
+        layout=ipywidgets.Layout(width="123px", padding=padding),
         style={"description_width": "initial"},
     )
 
-    after = widgets.Dropdown(
+    after = ipywidgets.Dropdown(
         options=default_dataset.years,
         value=default_dataset.years[-1],
         description="After:",
-        layout=widgets.Layout(width="123px", padding=padding),
+        layout=ipywidgets.Layout(width="123px", padding=padding),
         style={"description_width": "initial"},
     )
 
@@ -3486,29 +3561,29 @@ def sankee_gui(m=None):
 
     dataset.observe(dataset_changed, "value")
 
-    samples = widgets.IntText(
+    samples = ipywidgets.IntText(
         value=1000,
         description="Samples:",
         placeholder="The number of samples points to randomly generate for characterizing all images",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width="133px", padding=padding),
+        layout=ipywidgets.Layout(width="133px", padding=padding),
     )
 
-    classes = widgets.IntText(
+    classes = ipywidgets.IntText(
         value=6,
         description="Classes:",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width="113px", padding=padding),
+        layout=ipywidgets.Layout(width="113px", padding=padding),
     )
 
-    title = widgets.Text(
+    title = ipywidgets.Text(
         value="Land Cover Change",
         description="Title:",
         style={"description_width": "initial"},
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Apply", "Reset", "Close"],
         tooltips=["Apply", "Reset", "Close"],
@@ -3516,18 +3591,18 @@ def sankee_gui(m=None):
     )
     buttons.style.button_width = "80px"
 
-    output = widgets.Output(layout=widgets.Layout(padding=padding))
+    output = ipywidgets.Output(layout=ipywidgets.Layout(padding=padding))
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         region,
         dataset,
-        widgets.HBox([before, after]),
-        widgets.HBox([samples, classes]),
+        ipywidgets.HBox([before, after]),
+        ipywidgets.HBox([samples, classes]),
         title,
         buttons,
         output,
@@ -3545,32 +3620,34 @@ def sankee_gui(m=None):
         else:
             region.options = ["User-drawn ROI"] + list(m.ee_vector_layers.keys())
 
-        plot_close_btn = widgets.Button(
+        plot_close_btn = ipywidgets.Button(
             tooltip="Close the plot",
             icon="times",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 0px"
             ),
         )
 
         def plot_close_btn_clicked(b) -> None:
+            del b  # Unused.
             plot_widget.children = []
 
         plot_close_btn.on_click(plot_close_btn_clicked)
 
-        plot_reset_btn = widgets.Button(
+        plot_reset_btn = ipywidgets.Button(
             tooltip="Reset the plot",
             icon="home",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 0px"
             ),
         )
 
         def plot_reset_btn_clicked(b) -> None:
+            del b  # Unused.
             m.sankee_plot.update_layout(
                 width=600,
                 height=250,
-                margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
             )
             with plot_output:
                 plot_output.outputs = ()
@@ -3578,19 +3655,20 @@ def sankee_gui(m=None):
 
         plot_reset_btn.on_click(plot_reset_btn_clicked)
 
-        plot_fullscreen_btn = widgets.Button(
+        plot_fullscreen_btn = ipywidgets.Button(
             tooltip="Fullscreen the plot",
             icon="arrows-alt",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 0px"
             ),
         )
 
         def plot_fullscreen_btn_clicked(b) -> None:
+            del b  # Unused.
             m.sankee_plot.update_layout(
                 width=1030,
                 height=int(m.layout.height[:-2]) - 60,
-                margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
             )
             with plot_output:
                 plot_output.outputs = ()
@@ -3598,18 +3676,19 @@ def sankee_gui(m=None):
 
         plot_fullscreen_btn.on_click(plot_fullscreen_btn_clicked)
 
-        width_btn = widgets.Button(
+        width_btn = ipywidgets.Button(
             tooltip="Change plot width",
             icon="arrows-h",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 0px"
             ),
         )
 
         def width_btn_clicked(b) -> None:
+            del b  # Unused.
             m.sankee_plot.update_layout(
                 width=1030,
-                margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
             )
             with plot_output:
                 plot_output.outputs = ()
@@ -3617,18 +3696,19 @@ def sankee_gui(m=None):
 
         width_btn.on_click(width_btn_clicked)
 
-        height_btn = widgets.Button(
+        height_btn = ipywidgets.Button(
             tooltip="Change plot height",
             icon="arrows-v",
-            layout=widgets.Layout(
+            layout=ipywidgets.Layout(
                 height="28px", width="28px", padding="0px 0px 0px 0px"
             ),
         )
 
         def height_btn_clicked(b) -> None:
+            del b  # Unused.
             m.sankee_plot.update_layout(
                 height=int(m.layout.height[:-2]) - 60,
-                margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
             )
             with plot_output:
                 plot_output.outputs = ()
@@ -3636,7 +3716,7 @@ def sankee_gui(m=None):
 
         height_btn.on_click(height_btn_clicked)
 
-        width_slider = widgets.IntSlider(
+        width_slider = ipywidgets.IntSlider(
             value=600,
             min=400,
             max=1030,
@@ -3644,20 +3724,20 @@ def sankee_gui(m=None):
             description="",
             readout=False,
             continuous_update=False,
-            layout=widgets.Layout(width="100px", padding=padding),
+            layout=ipywidgets.Layout(width="100px", padding=padding),
             style={"description_width": "initial"},
         )
 
-        width_slider_label = widgets.Label(
-            "600", layout=widgets.Layout(padding="0px 10px 0px 0px")
+        width_slider_label = ipywidgets.Label(
+            "600", layout=ipywidgets.Layout(padding="0px 10px 0px 0px")
         )
-        jslink_slider_label(width_slider, width_slider_label)
+        common.jslink_slider_label(width_slider, width_slider_label)
 
         def width_changed(change) -> None:
             if change["new"]:
                 m.sankee_plot.update_layout(
                     width=width_slider.value,
-                    margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                    margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
                 )
                 with plot_output:
                     plot_output.outputs = ()
@@ -3665,7 +3745,7 @@ def sankee_gui(m=None):
 
         width_slider.observe(width_changed, "value")
 
-        height_slider = widgets.IntSlider(
+        height_slider = ipywidgets.IntSlider(
             value=250,
             min=200,
             max=int(m.layout.height[:-2]) - 60,
@@ -3673,18 +3753,18 @@ def sankee_gui(m=None):
             description="",
             readout=False,
             continuous_update=False,
-            layout=widgets.Layout(width="100px", padding=padding),
+            layout=ipywidgets.Layout(width="100px", padding=padding),
             style={"description_width": "initial"},
         )
 
-        height_slider_label = widgets.Label("250")
-        jslink_slider_label(height_slider, height_slider_label)
+        height_slider_label = ipywidgets.Label("250")
+        common.jslink_slider_label(height_slider, height_slider_label)
 
         def height_changed(change):
             if change["new"]:
                 m.sankee_plot.update_layout(
                     height=height_slider.value,
-                    margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                    margin={"l": 10, "r": 10, "b": 10, "t": 50, "pad": 5},
                 )
                 with plot_output:
                     plot_output.outputs = ()
@@ -3692,9 +3772,9 @@ def sankee_gui(m=None):
 
         height_slider.observe(height_changed, "value")
 
-        plot_output = widgets.Output()
+        plot_output = ipywidgets.Output()
 
-        plot_widget = widgets.VBox([plot_output])
+        plot_widget = ipywidgets.VBox([plot_output])
 
         sankee_control = ipyleaflet.WidgetControl(
             widget=plot_widget, position="bottomright"
@@ -3795,10 +3875,16 @@ def sankee_gui(m=None):
                         plot.update_layout(
                             width=600,
                             height=250,
-                            margin=dict(l=10, r=10, b=10, t=50, pad=5),
+                            margin={
+                                "l": 10,
+                                "r": 10,
+                                "b": 10,
+                                "t": 50,
+                                "pad": 5,
+                            },
                         )
                         plot_widget.children = [
-                            widgets.HBox(
+                            ipywidgets.HBox(
                                 [
                                     plot_close_btn,
                                     plot_reset_btn,
@@ -3850,10 +3936,10 @@ def sankee_gui(m=None):
         return toolbar_widget
 
 
-def _split_basemaps_tool_callback(map, selected, _) -> None:
+def _split_basemaps_tool_callback(m, selected, _) -> None:
     if selected:
         try:
-            split_basemaps(map, layers_dict=planet_tiles())
+            split_basemaps(m, layers_dict=common.planet_tiles())
         except Exception as e:
             print(e)
 
@@ -3861,7 +3947,18 @@ def _split_basemaps_tool_callback(map, selected, _) -> None:
 def split_basemaps(
     m, layers_dict=None, left_name=None, right_name=None, width="120px", **kwargs
 ):
+    """Splits the map into two panels with different basemaps.
+
+    Args:
+        m: A geemap Map instance.
+        layers_dict: A dictionary of basemaps to use.
+        left_name: The name of the left basemap.
+        right_name: The name of the right basemap.
+        width: The width of the dropdown ipywidgets.
+    """
     from .geemap import basemaps
+
+    del kwargs  # Unused.
 
     controls = m.controls
     layers = m.layers
@@ -3893,26 +3990,28 @@ def split_basemaps(
     m.add_control(control)
     m.dragging = False
 
-    left_dropdown = widgets.Dropdown(
-        options=keys, value=left_name, layout=widgets.Layout(width=width)
+    left_dropdown = ipywidgets.Dropdown(
+        options=keys, value=left_name, layout=ipywidgets.Layout(width=width)
     )
 
     left_control = ipyleaflet.WidgetControl(widget=left_dropdown, position="topleft")
     m.add_control(left_control)
 
-    right_dropdown = widgets.Dropdown(
-        options=keys, value=right_name, layout=widgets.Layout(width=width)
+    right_dropdown = ipywidgets.Dropdown(
+        options=keys, value=right_name, layout=ipywidgets.Layout(width=width)
     )
 
     right_control = ipyleaflet.WidgetControl(widget=right_dropdown, position="topright")
     m.add_control(right_control)
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         # button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
     def close_btn_click(change) -> None:
@@ -3939,6 +4038,7 @@ def split_basemaps(
             break
 
     def left_change(change) -> None:
+        del change  # Unused.
         # pytype: disable=attribute-error
         split_control.left_layer.url = layers_dict[left_dropdown.value].url
         # pytype: enable=attribute-error
@@ -3946,6 +4046,7 @@ def split_basemaps(
     left_dropdown.observe(left_change, "value")
 
     def right_change(change) -> None:
+        del change  # Unused.
         # pytype: disable=attribute-error
         split_control.right_layer.url = layers_dict[right_dropdown.value].url
         # pytype: enable=attribute-error
@@ -3953,8 +4054,8 @@ def split_basemaps(
     right_dropdown.observe(right_change, "value")
 
 
-def _open_help_page_callback(map, selected, _):
-    del map  # Unused.
+def _open_help_page_callback(m, selected, _):
+    del m  # Unused.
     if selected:
         webbrowser.open_new_tab("https://geemap.org")
 
@@ -3966,9 +4067,9 @@ def _cleanup_toolbar_item(func):
     # contains a "cleanup" property, a function that removes the widget from the
     # map. The decorator will handle construction and cleanup, and will also
     # un-toggle the associated toolbar item.
-    def wrapper(map, selected, item) -> None:
+    def wrapper(m, selected, item) -> None:
         if selected:
-            item.control = func(map, selected, item)
+            item.control = func(m, selected, item)
             if not hasattr(item.control, "toggle_off"):
                 setattr(item.control, "toggle_off", item.toggle_off)
                 if hasattr(item.control, "cleanup"):
@@ -3989,49 +4090,49 @@ def _cleanup_toolbar_item(func):
 
 
 @_cleanup_toolbar_item
-def _inspector_tool_callback(map, selected, item):
+def _inspector_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    map.add_inspector()
-    return map._inspector
+    m.add_inspector()
+    return m._inspector  # pylint: disable=protected-access
 
 
 @_cleanup_toolbar_item
-def _plotting_tool_callback(map, selected, item):
+def _plotting_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    ee_plot_gui(map)
-    return map._plot_dropdown_control
+    ee_plot_gui(m)
+    return m._plot_dropdown_control  # pylint: disable=protected-access
 
 
 @_cleanup_toolbar_item
-def _timelapse_tool_callback(map, selected, item):
+def _timelapse_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    timelapse_gui(map)
-    return map.tool_control
+    timelapse_gui(m)
+    return m.tool_control
 
 
 @_cleanup_toolbar_item
-def _convert_js_tool_callback(map, selected, item):
+def _convert_js_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    convert_js2py(map)
-    return map._convert_ctrl
+    convert_js2py(m)
+    return m._convert_ctrl  # pylint: disable=protected-access
 
 
 @_cleanup_toolbar_item
-def _basemap_tool_callback(map, selected, item):
+def _basemap_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    map.add_basemap_widget()
-    return map._basemap_selector
+    m.add_basemap_widget()
+    return m._basemap_selector  # pylint: disable=protected-access
 
 
 @_cleanup_toolbar_item
-def _open_data_tool_callback(map, selected, item):
+def _open_data_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    open_data_widget(map)
-    return map._tool_output_ctrl
+    open_data_widget(m)
+    return m._tool_output_ctrl  # pylint: disable=protected-access
 
 
 @_cleanup_toolbar_item
-def _whitebox_tool_callback(map, selected, item):
+def _whitebox_tool_callback(m, selected, item):
     del selected, item  # Unused.
     import whiteboxgui.whiteboxgui as wbt
 
@@ -4040,61 +4141,61 @@ def _whitebox_tool_callback(map, selected, item):
         tools_dict,
         max_width="800px",
         max_height="500px",
-        sandbox_path=map.sandbox_path,
+        sandbox_path=m.sandbox_path,
     )
     wbt_control = ipyleaflet.WidgetControl(widget=wbt_toolbox, position="bottomright")
-    setattr(wbt_control, "cleanup", lambda: map.remove_control(wbt_control))
-    map.whitebox = wbt_control
-    map.add(wbt_control)
+    setattr(wbt_control, "cleanup", lambda: m.remove_control(wbt_control))
+    m.whitebox = wbt_control
+    m.add(wbt_control)
     return wbt_control
 
 
 @_cleanup_toolbar_item
-def _gee_toolbox_tool_callback(map, selected, item):
+def _gee_toolbox_tool_callback(m, selected, item):
     del selected, item  # Unused.
     tools_dict = get_tools_dict()
     gee_toolbox = build_toolbox(tools_dict, max_width="800px", max_height="500px")
     geetoolbox_control = ipyleaflet.WidgetControl(
         widget=gee_toolbox, position="bottomright"
     )
-    map.geetoolbox = geetoolbox_control
-    map.add(geetoolbox_control)
+    m.geetoolbox = geetoolbox_control
+    m.add(geetoolbox_control)
     return gee_toolbox
 
 
 @_cleanup_toolbar_item
-def _time_slider_tool_callback(map, selected, item):
+def _time_slider_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    time_slider(map)
-    return map.tool_control
+    time_slider(m)
+    return m.tool_control
 
 
 @_cleanup_toolbar_item
-def _collect_samples_tool_callback(map, selected, item):
+def _collect_samples_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    collect_samples(map)
-    return map.training_ctrl
+    collect_samples(m)
+    return m.training_ctrl
 
 
 @_cleanup_toolbar_item
-def _plot_transect_tool_callback(map, selected, item):
+def _plot_transect_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    plot_transect(map)
-    return map.tool_control
+    plot_transect(m)
+    return m.tool_control
 
 
 @_cleanup_toolbar_item
-def _sankee_tool_callback(map, selected, item):
+def _sankee_tool_callback(m, selected, item):
     del selected, item  # Unused.
-    sankee_gui(map)
-    return map.tool_control
+    sankee_gui(m)
+    return m.tool_control
 
 
 @_cleanup_toolbar_item
-def _cog_stac_inspector_callback(map, selected, item):
+def _cog_stac_inspector_callback(m, selected, item):
     del selected, item  # Unused.
-    inspector_gui(map)
-    return map.tool_control
+    inspector_gui(m)
+    return m.tool_control
 
 
 _main_tools_cache: list[ToolbarItem] | None = None
@@ -4103,7 +4204,7 @@ _extra_tools_cache: list[ToolbarItem] | None = None
 
 def get_main_tools() -> list[ToolbarItem]:
     """Lazily create and return the main_tools list."""
-    global _main_tools_cache
+    global _main_tools_cache  # pylint: disable=global-statement
     if _main_tools_cache is None:
         _main_tools_cache = [
             ToolbarItem(
@@ -4137,7 +4238,7 @@ def get_main_tools() -> list[ToolbarItem]:
 
 def get_extra_tools() -> list[ToolbarItem]:
     """Lazily create and return the extra_tools list."""
-    global _extra_tools_cache
+    global _extra_tools_cache  # pylint: disable=global-statement
     if _extra_tools_cache is None:
         _extra_tools_cache = [
             ToolbarItem(
@@ -4257,10 +4358,10 @@ def plotly_toolbar(
     n_cols = 3
     n_rows = math.ceil(len(icons) / n_cols)
 
-    toolbar_grid = widgets.GridBox(
+    toolbar_grid = ipywidgets.GridBox(
         children=[
-            widgets.ToggleButton(
-                layout=widgets.Layout(
+            ipywidgets.ToggleButton(
+                layout=ipywidgets.Layout(
                     width="auto", height="auto", padding="0px 0px 0px 4px"
                 ),
                 button_style="primary",
@@ -4269,7 +4370,7 @@ def plotly_toolbar(
             )
             for i in range(len(icons))
         ],
-        layout=widgets.Layout(
+        layout=ipywidgets.Layout(
             width="115px",
             grid_template_columns=(icon_width + " ") * n_cols,
             grid_template_rows=(icon_height + " ") * n_rows,
@@ -4309,27 +4410,29 @@ def plotly_toolbar(
     for tool in toolbar_grid.children:
         tool.observe(tool_callback, "value")
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="wrench",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
     canvas.toolbar_button = toolbar_button
 
-    layers_button = widgets.ToggleButton(
+    layers_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Layers",
         icon="server",
-        layout=widgets.Layout(height="28px", width="72px"),
+        layout=ipywidgets.Layout(height="28px", width="72px"),
     )
     canvas.layers_button = layers_button
 
-    toolbar_widget = widgets.VBox(layout=widgets.Layout(overflow="hidden"))
+    toolbar_widget = ipywidgets.VBox(layout=ipywidgets.Layout(overflow="hidden"))
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox(layout=widgets.Layout(overflow="hidden"))
+    toolbar_header = ipywidgets.HBox(layout=ipywidgets.Layout(overflow="hidden"))
     toolbar_header.children = [layers_button, toolbar_button]
-    toolbar_footer = widgets.VBox(layout=widgets.Layout(overflow="hidden"))
+    toolbar_footer = ipywidgets.VBox(layout=ipywidgets.Layout(overflow="hidden"))
     toolbar_footer.children = [toolbar_grid]
 
     toolbar_event = ipyevents.Event(
@@ -4374,11 +4477,11 @@ def plotly_toolbar(
         if change["new"]:
             layer_names = list(m.get_layers().keys())
             layers_hbox = []
-            all_layers_chk = widgets.Checkbox(
+            all_layers_chk = ipywidgets.Checkbox(
                 value=True,
                 description="All layers on/off",
                 indent=False,
-                layout=widgets.Layout(height="18px", padding="0px 8px 25px 8px"),
+                layout=ipywidgets.Layout(height="18px", padding="0px 8px 25px 8px"),
             )
             all_layers_chk.layout.width = "30ex"
             layers_hbox.append(all_layers_chk)
@@ -4392,12 +4495,15 @@ def plotly_toolbar(
                 elif name in m.get_data_layers():
                     index = m.find_layer_index(name)
                     layer = m.data[index]
+                else:
+                    # This should never get here, but we'll skip this iteration in case we do.
+                    continue
 
-                layer_chk = widgets.Checkbox(
+                layer_chk = ipywidgets.Checkbox(
                     value=layer.visible,
                     description=name,
                     indent=False,
-                    layout=widgets.Layout(height="18px"),
+                    layout=ipywidgets.Layout(height="18px"),
                 )
                 layer_chk.layout.width = "25ex"
                 layer_chk_dict[name] = layer_chk
@@ -4409,20 +4515,20 @@ def plotly_toolbar(
                 else:
                     opacity = 1.0
 
-                layer_opacity = widgets.FloatSlider(
+                layer_opacity = ipywidgets.FloatSlider(
                     value=opacity,
                     description_tooltip=name,
                     min=0,
                     max=1,
                     step=0.01,
                     readout=False,
-                    layout=widgets.Layout(width="80px"),
+                    layout=ipywidgets.Layout(width="80px"),
                 )
 
-                layer_settings = widgets.ToggleButton(
+                layer_settings = ipywidgets.ToggleButton(
                     icon="gear",
                     tooltip=name,
-                    layout=widgets.Layout(
+                    layout=ipywidgets.Layout(
                         width="25px", height="25px", padding="0px 0px 0px 5px"
                     ),
                 )
@@ -4443,9 +4549,9 @@ def plotly_toolbar(
 
                 layer_opacity.observe(layer_opacity_change, "value")
 
-                hbox = widgets.HBox(
+                hbox = ipywidgets.HBox(
                     [layer_chk, layer_settings, layer_opacity],
-                    layout=widgets.Layout(padding="0px 8px 0px 8px"),
+                    layout=ipywidgets.Layout(padding="0px 8px 0px 8px"),
                 )
                 layers_hbox.append(hbox)
 
@@ -4472,6 +4578,11 @@ def plotly_toolbar(
 
 
 def plotly_tool_template(canvas):
+    """Creates a template for a Plotly-based tool widget.
+
+    Args:
+        canvas: The Plotly Map canvas object.
+    """
     container_widget = canvas.container_widget
     map_widget = canvas.map_widget
     map_width = "70%"
@@ -4481,29 +4592,35 @@ def plotly_tool_template(canvas):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # style = {"description_width": "initial"}
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="gears",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
     with output:
         print("To be implemented")
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         output,
     ]
@@ -4553,7 +4670,9 @@ def plotly_basemap_gui(canvas, map_min_width="78%", map_max_width="98%"):
     """Widget for changing basemaps.
 
     Args:
-        m (object): geemap.Map.
+        canvas (object): The plotly Map canvas.
+        map_min_width: The minimum width of the map.
+        map_max_width: The maximum width of the map.
     """
     from .plotlymap import basemaps
 
@@ -4567,20 +4686,20 @@ def plotly_basemap_gui(canvas, map_min_width="78%", map_max_width="98%"):
     value = "Esri.WorldTopoMap"
     m.add_basemap(value)
 
-    dropdown = widgets.Dropdown(
+    dropdown = ipywidgets.Dropdown(
         options=list(basemaps.keys()),
         value=value,
-        layout=widgets.Layout(width="200px"),
+        layout=ipywidgets.Layout(width="200px"),
     )
 
-    close_btn = widgets.Button(
+    close_btn = ipywidgets.Button(
         icon="times",
         tooltip="Close the basemap widget",
         button_style="primary",
-        layout=widgets.Layout(width="32px"),
+        layout=ipywidgets.Layout(width="32px"),
     )
 
-    basemap_widget = widgets.HBox([dropdown, close_btn])
+    basemap_widget = ipywidgets.HBox([dropdown, close_btn])
     container_widget.children = [basemap_widget]
 
     def on_click(change) -> None:
@@ -4591,6 +4710,7 @@ def plotly_basemap_gui(canvas, map_min_width="78%", map_max_width="98%"):
     dropdown.observe(on_click, "value")
 
     def close_click(change) -> None:
+        del change  # Unused.
         container_widget.children = []
         basemap_widget.close()
         map_widget.layout.width = map_max_width
@@ -4604,7 +4724,7 @@ def plotly_search_basemaps(canvas):
     """The widget for search XYZ tile services.
 
     Args:
-        m (plotlymap.Map, optional): The Plotly Map object. Defaults to None.
+        canvas (plotlymap.Map, optional): The Plotly Map object.
 
     Returns:
         ipywidgets: The tool GUI widget.
@@ -4623,54 +4743,59 @@ def plotly_search_basemaps(canvas):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     style = {"description_width": "initial"}
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="search",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    checkbox = widgets.Checkbox(
+    checkbox = ipywidgets.Checkbox(
         description="Search Quick Map Services (QMS)",
         indent=False,
-        layout=widgets.Layout(padding=padding, width=widget_width),
+        layout=ipywidgets.Layout(padding=padding, width=widget_width),
     )
 
-    providers = widgets.Dropdown(
+    providers = ipywidgets.Dropdown(
         options=[],
         value=None,
         description="XYZ Tile:",
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
         style=style,
     )
 
-    keyword = widgets.Text(
+    keyword = ipywidgets.Text(
         value="",
         description="Search keyword:",
         placeholder="OpenStreetMap",
         style=style,
-        layout=widgets.Layout(width=widget_width, padding=padding),
+        layout=ipywidgets.Layout(width=widget_width, padding=padding),
     )
 
     def search_callback(change) -> None:
+        del change  # Unused.
         providers.options = []
         if keyword.value != "":
-            tiles = search_xyz_services(keyword=keyword.value)
+            tiles = common.search_xyz_services(keyword=keyword.value)
             if checkbox.value:
-                tiles = tiles + search_qms(keyword=keyword.value)
+                tiles = tiles + common.search_qms(keyword=keyword.value)
             providers.options = tiles
 
     keyword.on_submit(search_callback)
 
-    buttons = widgets.ToggleButtons(
+    buttons = ipywidgets.ToggleButtons(
         value=None,
         options=["Search", "Reset", "Close"],
         tooltips=["Search", "Reset", "Close"],
@@ -4678,7 +4803,9 @@ def plotly_search_basemaps(canvas):
     )
     buttons.style.button_width = "80px"
 
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
     def providers_change(change) -> None:
         if change["new"] != "":
@@ -4707,11 +4834,11 @@ def plotly_search_basemaps(canvas):
 
     providers.observe(providers_change, "value")
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         checkbox,
         keyword,
@@ -4758,9 +4885,9 @@ def plotly_search_basemaps(canvas):
             providers.options = []
             output.outputs = ()
             if keyword.value != "":
-                tiles = search_xyz_services(keyword=keyword.value)
+                tiles = common.search_xyz_services(keyword=keyword.value)
                 if checkbox.value:
-                    tiles = tiles + search_qms(keyword=keyword.value)
+                    tiles = tiles + common.search_qms(keyword=keyword.value)
                 providers.options = tiles
             else:
                 with output:
@@ -4782,6 +4909,11 @@ def plotly_search_basemaps(canvas):
 
 
 def plotly_whitebox_gui(canvas):
+    """Widget for WhiteboxTools.
+
+    Args:
+        canvas (object): The plotly Map canvas.
+    """
     import whiteboxgui.whiteboxgui as wbt
 
     container_widget = canvas.container_widget
@@ -4793,21 +4925,27 @@ def plotly_whitebox_gui(canvas):
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
     # style = {"description_width": "initial"}
 
-    toolbar_button = widgets.ToggleButton(
+    toolbar_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Toolbar",
         icon="gears",
-        layout=widgets.Layout(width="28px", height="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            width="28px", height="28px", padding="0px 0px 0px 4px"
+        ),
     )
 
-    close_button = widgets.ToggleButton(
+    close_button = ipywidgets.ToggleButton(
         value=False,
         tooltip="Close the tool",
         icon="times",
         button_style="primary",
-        layout=widgets.Layout(height="28px", width="28px", padding="0px 0px 0px 4px"),
+        layout=ipywidgets.Layout(
+            height="28px", width="28px", padding="0px 0px 0px 4px"
+        ),
     )
-    output = widgets.Output(layout=widgets.Layout(width=widget_width, padding=padding))
+    output = ipywidgets.Output(
+        layout=ipywidgets.Layout(width=widget_width, padding=padding)
+    )
 
     tools_dict = wbt.get_wbt_dict()
     wbt_toolbox = wbt.build_toolbox(
@@ -4817,11 +4955,11 @@ def plotly_whitebox_gui(canvas):
         sandbox_path=os.getcwd(),
     )
 
-    toolbar_widget = widgets.VBox()
+    toolbar_widget = ipywidgets.VBox()
     toolbar_widget.children = [toolbar_button]
-    toolbar_header = widgets.HBox()
+    toolbar_header = ipywidgets.HBox()
     toolbar_header.children = [close_button, toolbar_button]
-    toolbar_footer = widgets.VBox()
+    toolbar_footer = ipywidgets.VBox()
     toolbar_footer.children = [
         wbt_toolbox,
         output,

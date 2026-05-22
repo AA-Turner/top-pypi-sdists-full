@@ -13,12 +13,13 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.server.v1 import chart_pb2 as chalk_dot_server_dot_v1_dot_chart__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n*chalk/server/v1/kube_cluster_insight.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1b\x63halk/server/v1/chart.proto"\x85\x02\n\x0cKubeNodePool\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12!\n\x0cmachine_type\x18\x02 \x01(\tR\x0bmachineType\x12!\n\x0c\x63urrent_size\x18\x03 \x01(\x05R\x0b\x63urrentSize\x12\x19\n\x08min_size\x18\x04 \x01(\x05R\x07minSize\x12\x19\n\x08max_size\x18\x05 \x01(\x05R\x07maxSize\x12/\n\x13\x61utoscaling_enabled\x18\x06 \x01(\x08R\x12\x61utoscalingEnabled\x12\x1c\n\tlocations\x18\x07 \x03(\tR\tlocations\x12\x16\n\x06status\x18\x08 \x01(\tR\x06status"\xa0\x03\n\x0bKubeCluster\x12@\n\x08provider\x18\x01 \x01(\x0e\x32$.chalk.server.v1.KubeClusterProviderR\x08provider\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n\x08location\x18\x03 \x01(\tR\x08location\x12,\n\x12project_or_account\x18\x04 \x01(\tR\x10projectOrAccount\x12\x16\n\x06status\x18\x05 \x01(\tR\x06status\x12-\n\x12kubernetes_version\x18\x06 \x01(\tR\x11kubernetesVersion\x12&\n\x0ftotal_max_nodes\x18\x07 \x01(\x05R\rtotalMaxNodes\x12.\n\x13total_current_nodes\x18\x08 \x01(\x05R\x11totalCurrentNodes\x12<\n\nnode_pools\x18\t \x03(\x0b\x32\x1d.chalk.server.v1.KubeNodePoolR\tnodePools\x12\x14\n\x05roles\x18\n \x03(\tR\x05roles"\x19\n\x17ListKubeClustersRequest"T\n\x18ListKubeClustersResponse\x12\x38\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x1c.chalk.server.v1.KubeClusterR\x08\x63lusters"\x8e\x01\n\x1cGetKubeClusterMetricsRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName\x12K\n\ntime_range\x18\x02 \x01(\x0e\x32,.chalk.server.v1.KubeClusterMetricsTimeRangeR\ttimeRange"w\n\x1dGetKubeClusterMetricsResponse\x12.\n\x06\x63harts\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.ChartR\x06\x63harts\x12&\n\x0ftotal_max_nodes\x18\x02 \x01(\x05R\rtotalMaxNodes*z\n\x13KubeClusterProvider\x12%\n!KUBE_CLUSTER_PROVIDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19KUBE_CLUSTER_PROVIDER_GKE\x10\x01\x12\x1d\n\x19KUBE_CLUSTER_PROVIDER_EKS\x10\x02*\xf0\x01\n\x1bKubeClusterMetricsTimeRange\x12/\n+KUBE_CLUSTER_METRICS_TIME_RANGE_UNSPECIFIED\x10\x00\x12&\n"KUBE_CLUSTER_METRICS_TIME_RANGE_1H\x10\x01\x12\'\n#KUBE_CLUSTER_METRICS_TIME_RANGE_24H\x10\x02\x12&\n"KUBE_CLUSTER_METRICS_TIME_RANGE_7D\x10\x03\x12\'\n#KUBE_CLUSTER_METRICS_TIME_RANGE_30D\x10\x04\x32\x8c\x02\n\x19KubeClusterInsightService\x12o\n\x10ListKubeClusters\x12(.chalk.server.v1.ListKubeClustersRequest\x1a).chalk.server.v1.ListKubeClustersResponse"\x06\x90\x02\x01\x80}\x02\x12~\n\x15GetKubeClusterMetrics\x12-.chalk.server.v1.GetKubeClusterMetricsRequest\x1a..chalk.server.v1.GetKubeClusterMetricsResponse"\x06\x90\x02\x01\x80}\x02\x42\xa0\x01\n\x13\x63om.chalk.server.v1B\x17KubeClusterInsightProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n*chalk/server/v1/kube_cluster_insight.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1b\x63halk/server/v1/chart.proto"\x85\x02\n\x0cKubeNodePool\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12!\n\x0cmachine_type\x18\x02 \x01(\tR\x0bmachineType\x12!\n\x0c\x63urrent_size\x18\x03 \x01(\x05R\x0b\x63urrentSize\x12\x19\n\x08min_size\x18\x04 \x01(\x05R\x07minSize\x12\x19\n\x08max_size\x18\x05 \x01(\x05R\x07maxSize\x12/\n\x13\x61utoscaling_enabled\x18\x06 \x01(\x08R\x12\x61utoscalingEnabled\x12\x1c\n\tlocations\x18\x07 \x03(\tR\tlocations\x12\x16\n\x06status\x18\x08 \x01(\tR\x06status"~\n#KubeClusterAutoscalingResourceLimit\x12#\n\rresource_type\x18\x01 \x01(\tR\x0cresourceType\x12\x18\n\x07minimum\x18\x02 \x01(\x03R\x07minimum\x12\x18\n\x07maximum\x18\x03 \x01(\x03R\x07maximum"\xe3\x03\n(KubeClusterGKENodeAutoprovisioningConfig\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12/\n\x13\x61utoscaling_profile\x18\x02 \x01(\tR\x12\x61utoscalingProfile\x12=\n\x1a\x61utoprovisioning_locations\x18\x03 \x03(\tR\x19\x61utoprovisioningLocations\x12\x36\n\x17\x64\x65\x66\x61ult_service_account\x18\x04 \x01(\tR\x15\x64\x65\x66\x61ultServiceAccount\x12\x30\n\x14\x64\x65\x66\x61ult_oauth_scopes\x18\x05 \x03(\tR\x12\x64\x65\x66\x61ultOauthScopes\x12/\n\x14\x64\x65\x66\x61ult_disk_size_gb\x18\x06 \x01(\x05R\x11\x64\x65\x66\x61ultDiskSizeGb\x12*\n\x11\x64\x65\x66\x61ult_disk_type\x18\x07 \x01(\tR\x0f\x64\x65\x66\x61ultDiskType\x12,\n\x12\x64\x65\x66\x61ult_image_type\x18\x08 \x01(\tR\x10\x64\x65\x66\x61ultImageType\x12\x38\n\x19\x64\x65\x66\x61ult_boot_disk_kms_key\x18\t \x01(\tR\x15\x64\x65\x66\x61ultBootDiskKmsKey"\x8d\x05\n\x0bKubeCluster\x12@\n\x08provider\x18\x01 \x01(\x0e\x32$.chalk.server.v1.KubeClusterProviderR\x08provider\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n\x08location\x18\x03 \x01(\tR\x08location\x12,\n\x12project_or_account\x18\x04 \x01(\tR\x10projectOrAccount\x12\x16\n\x06status\x18\x05 \x01(\tR\x06status\x12-\n\x12kubernetes_version\x18\x06 \x01(\tR\x11kubernetesVersion\x12&\n\x0ftotal_max_nodes\x18\x07 \x01(\x05R\rtotalMaxNodes\x12.\n\x13total_current_nodes\x18\x08 \x01(\x05R\x11totalCurrentNodes\x12<\n\nnode_pools\x18\t \x03(\x0b\x32\x1d.chalk.server.v1.KubeNodePoolR\tnodePools\x12\x14\n\x05roles\x18\n \x03(\tR\x05roles\x12t\n\x1b\x61utoscaling_resource_limits\x18\x0b \x03(\x0b\x32\x34.chalk.server.v1.KubeClusterAutoscalingResourceLimitR\x19\x61utoscalingResourceLimits\x12u\n\x19gke_node_autoprovisioning\x18\x0c \x01(\x0b\x32\x39.chalk.server.v1.KubeClusterGKENodeAutoprovisioningConfigR\x17gkeNodeAutoprovisioning"\x19\n\x17ListKubeClustersRequest"T\n\x18ListKubeClustersResponse\x12\x38\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x1c.chalk.server.v1.KubeClusterR\x08\x63lusters":\n\x15GetKubeClusterRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName"P\n\x16GetKubeClusterResponse\x12\x36\n\x07\x63luster\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.KubeClusterR\x07\x63luster"\xca\x03\n\x17UpdateGKEClusterRequest\x12G\n\x1dnode_autoprovisioning_enabled\x18\x01 \x01(\x08H\x00R\x1bnodeAutoprovisioningEnabled\x88\x01\x01\x12\x33\n\x13\x61utoscaling_min_cpu\x18\x02 \x01(\x03H\x01R\x11\x61utoscalingMinCpu\x88\x01\x01\x12\x33\n\x13\x61utoscaling_max_cpu\x18\x03 \x01(\x03H\x02R\x11\x61utoscalingMaxCpu\x88\x01\x01\x12\x39\n\x16\x61utoscaling_min_memory\x18\x04 \x01(\x03H\x03R\x14\x61utoscalingMinMemory\x88\x01\x01\x12\x39\n\x16\x61utoscaling_max_memory\x18\x05 \x01(\x03H\x04R\x14\x61utoscalingMaxMemory\x88\x01\x01\x42 \n\x1e_node_autoprovisioning_enabledB\x16\n\x14_autoscaling_min_cpuB\x16\n\x14_autoscaling_max_cpuB\x19\n\x17_autoscaling_min_memoryB\x19\n\x17_autoscaling_max_memory"\x19\n\x17UpdateEKSClusterRequest"\x19\n\x17UpdateAKSClusterRequest"\x8a\x02\n\x18UpdateKubeClusterRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName\x12<\n\x03gke\x18\x02 \x01(\x0b\x32(.chalk.server.v1.UpdateGKEClusterRequestH\x00R\x03gke\x12<\n\x03\x65ks\x18\x03 \x01(\x0b\x32(.chalk.server.v1.UpdateEKSClusterRequestH\x00R\x03\x65ks\x12<\n\x03\x61ks\x18\x04 \x01(\x0b\x32(.chalk.server.v1.UpdateAKSClusterRequestH\x00R\x03\x61ksB\x11\n\x0fprovider_update"S\n\x19UpdateKubeClusterResponse\x12\x36\n\x07\x63luster\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.KubeClusterR\x07\x63luster"\x8e\x01\n\x1cGetKubeClusterMetricsRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName\x12K\n\ntime_range\x18\x02 \x01(\x0e\x32,.chalk.server.v1.KubeClusterMetricsTimeRangeR\ttimeRange"w\n\x1dGetKubeClusterMetricsResponse\x12.\n\x06\x63harts\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.ChartR\x06\x63harts\x12&\n\x0ftotal_max_nodes\x18\x02 \x01(\x05R\rtotalMaxNodes*\x99\x01\n\x13KubeClusterProvider\x12%\n!KUBE_CLUSTER_PROVIDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19KUBE_CLUSTER_PROVIDER_GKE\x10\x01\x12\x1d\n\x19KUBE_CLUSTER_PROVIDER_EKS\x10\x02\x12\x1d\n\x19KUBE_CLUSTER_PROVIDER_AKS\x10\x03*\xf0\x01\n\x1bKubeClusterMetricsTimeRange\x12/\n+KUBE_CLUSTER_METRICS_TIME_RANGE_UNSPECIFIED\x10\x00\x12&\n"KUBE_CLUSTER_METRICS_TIME_RANGE_1H\x10\x01\x12\'\n#KUBE_CLUSTER_METRICS_TIME_RANGE_24H\x10\x02\x12&\n"KUBE_CLUSTER_METRICS_TIME_RANGE_7D\x10\x03\x12\'\n#KUBE_CLUSTER_METRICS_TIME_RANGE_30D\x10\x04\x32\x93\x04\n\x19KubeClusterInsightService\x12o\n\x10ListKubeClusters\x12(.chalk.server.v1.ListKubeClustersRequest\x1a).chalk.server.v1.ListKubeClustersResponse"\x06\x90\x02\x01\x80}\x02\x12i\n\x0eGetKubeCluster\x12&.chalk.server.v1.GetKubeClusterRequest\x1a\'.chalk.server.v1.GetKubeClusterResponse"\x06\x90\x02\x01\x80}\x02\x12\x99\x01\n\x11UpdateKubeCluster\x12).chalk.server.v1.UpdateKubeClusterRequest\x1a*.chalk.server.v1.UpdateKubeClusterResponse"-\x88}\x1a\x8a\xd3\x0e&\x08\x02\x12"Updated kube cluster configuration\x12~\n\x15GetKubeClusterMetrics\x12-.chalk.server.v1.GetKubeClusterMetricsRequest\x1a..chalk.server.v1.GetKubeClusterMetricsResponse"\x06\x90\x02\x01\x80}\x02\x42\xa0\x01\n\x13\x63om.chalk.server.v1B\x17KubeClusterInsightProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,26 +34,52 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name[
         "ListKubeClusters"
     ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name["GetKubeCluster"]._options = None
+    _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name[
+        "GetKubeCluster"
+    ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name["UpdateKubeCluster"]._options = None
+    _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name[
+        "UpdateKubeCluster"
+    ]._serialized_options = b'\210}\032\212\323\016&\010\002\022"Updated kube cluster configuration'
     _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name["GetKubeClusterMetrics"]._options = None
     _globals["_KUBECLUSTERINSIGHTSERVICE"].methods_by_name[
         "GetKubeClusterMetrics"
     ]._serialized_options = b"\220\002\001\200}\002"
-    _globals["_KUBECLUSTERPROVIDER"]._serialized_start = 1187
-    _globals["_KUBECLUSTERPROVIDER"]._serialized_end = 1309
-    _globals["_KUBECLUSTERMETRICSTIMERANGE"]._serialized_start = 1312
-    _globals["_KUBECLUSTERMETRICSTIMERANGE"]._serialized_end = 1552
-    _globals["_KUBENODEPOOL"]._serialized_start = 126
-    _globals["_KUBENODEPOOL"]._serialized_end = 387
-    _globals["_KUBECLUSTER"]._serialized_start = 390
-    _globals["_KUBECLUSTER"]._serialized_end = 806
-    _globals["_LISTKUBECLUSTERSREQUEST"]._serialized_start = 808
-    _globals["_LISTKUBECLUSTERSREQUEST"]._serialized_end = 833
-    _globals["_LISTKUBECLUSTERSRESPONSE"]._serialized_start = 835
-    _globals["_LISTKUBECLUSTERSRESPONSE"]._serialized_end = 919
-    _globals["_GETKUBECLUSTERMETRICSREQUEST"]._serialized_start = 922
-    _globals["_GETKUBECLUSTERMETRICSREQUEST"]._serialized_end = 1064
-    _globals["_GETKUBECLUSTERMETRICSRESPONSE"]._serialized_start = 1066
-    _globals["_GETKUBECLUSTERMETRICSRESPONSE"]._serialized_end = 1185
-    _globals["_KUBECLUSTERINSIGHTSERVICE"]._serialized_start = 1555
-    _globals["_KUBECLUSTERINSIGHTSERVICE"]._serialized_end = 1823
+    _globals["_KUBECLUSTERPROVIDER"]._serialized_start = 3077
+    _globals["_KUBECLUSTERPROVIDER"]._serialized_end = 3230
+    _globals["_KUBECLUSTERMETRICSTIMERANGE"]._serialized_start = 3233
+    _globals["_KUBECLUSTERMETRICSTIMERANGE"]._serialized_end = 3473
+    _globals["_KUBENODEPOOL"]._serialized_start = 153
+    _globals["_KUBENODEPOOL"]._serialized_end = 414
+    _globals["_KUBECLUSTERAUTOSCALINGRESOURCELIMIT"]._serialized_start = 416
+    _globals["_KUBECLUSTERAUTOSCALINGRESOURCELIMIT"]._serialized_end = 542
+    _globals["_KUBECLUSTERGKENODEAUTOPROVISIONINGCONFIG"]._serialized_start = 545
+    _globals["_KUBECLUSTERGKENODEAUTOPROVISIONINGCONFIG"]._serialized_end = 1028
+    _globals["_KUBECLUSTER"]._serialized_start = 1031
+    _globals["_KUBECLUSTER"]._serialized_end = 1684
+    _globals["_LISTKUBECLUSTERSREQUEST"]._serialized_start = 1686
+    _globals["_LISTKUBECLUSTERSREQUEST"]._serialized_end = 1711
+    _globals["_LISTKUBECLUSTERSRESPONSE"]._serialized_start = 1713
+    _globals["_LISTKUBECLUSTERSRESPONSE"]._serialized_end = 1797
+    _globals["_GETKUBECLUSTERREQUEST"]._serialized_start = 1799
+    _globals["_GETKUBECLUSTERREQUEST"]._serialized_end = 1857
+    _globals["_GETKUBECLUSTERRESPONSE"]._serialized_start = 1859
+    _globals["_GETKUBECLUSTERRESPONSE"]._serialized_end = 1939
+    _globals["_UPDATEGKECLUSTERREQUEST"]._serialized_start = 1942
+    _globals["_UPDATEGKECLUSTERREQUEST"]._serialized_end = 2400
+    _globals["_UPDATEEKSCLUSTERREQUEST"]._serialized_start = 2402
+    _globals["_UPDATEEKSCLUSTERREQUEST"]._serialized_end = 2427
+    _globals["_UPDATEAKSCLUSTERREQUEST"]._serialized_start = 2429
+    _globals["_UPDATEAKSCLUSTERREQUEST"]._serialized_end = 2454
+    _globals["_UPDATEKUBECLUSTERREQUEST"]._serialized_start = 2457
+    _globals["_UPDATEKUBECLUSTERREQUEST"]._serialized_end = 2723
+    _globals["_UPDATEKUBECLUSTERRESPONSE"]._serialized_start = 2725
+    _globals["_UPDATEKUBECLUSTERRESPONSE"]._serialized_end = 2808
+    _globals["_GETKUBECLUSTERMETRICSREQUEST"]._serialized_start = 2811
+    _globals["_GETKUBECLUSTERMETRICSREQUEST"]._serialized_end = 2953
+    _globals["_GETKUBECLUSTERMETRICSRESPONSE"]._serialized_start = 2955
+    _globals["_GETKUBECLUSTERMETRICSRESPONSE"]._serialized_end = 3074
+    _globals["_KUBECLUSTERINSIGHTSERVICE"]._serialized_start = 3476
+    _globals["_KUBECLUSTERINSIGHTSERVICE"]._serialized_end = 4007
 # @@protoc_insertion_point(module_scope)

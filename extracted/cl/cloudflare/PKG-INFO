@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cloudflare
-Version: 5.1.0
+Version: 5.2.0
 Summary: The official Python library for the cloudflare API
 Project-URL: Homepage, https://github.com/cloudflare/cloudflare-python
 Project-URL: Repository, https://github.com/cloudflare/cloudflare-python

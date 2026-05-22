@@ -590,3 +590,25 @@ def resolve_train_script(
 
     validate_train_script(source, train_fn.__name__, takes_argument)
     return source
+
+
+def resolve_script_entrypoint(script: str, entrypoint: Optional[str] = None) -> str:
+    """Determine the entry-point function name for a self-contained training script.
+
+    If ``entrypoint`` is provided, it is returned as-is (existence and arity are
+    verified later by :func:`validate_train_script`). Otherwise the script must
+    define exactly one top-level function, whose name is returned.
+    """
+    if entrypoint is not None:
+        return entrypoint
+    if not is_valid_python_code(script):
+        raise RuntimeError("Provided train script is not valid Python.")
+    tree = ast.parse(script)
+    top_level_fns = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
+    if not top_level_fns:
+        raise ValueError("train_script must define at least one top-level function.")
+    if len(top_level_fns) > 1:
+        raise ValueError(
+            f"train_script defines multiple top-level functions: {top_level_fns}. Specify an entrypoint function name with the 'entrypoint' parameter."
+        )
+    return top_level_fns[0]

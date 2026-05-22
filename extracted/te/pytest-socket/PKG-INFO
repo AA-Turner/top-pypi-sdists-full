@@ -1,31 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-socket
-Version: 0.7.0
+Version: 0.8.0
 Summary: Pytest Plugin to disable socket calls during tests
-Home-page: https://pypi.org/project/pytest-socket/
-License: MIT
 Author: Mike Fiedler
-Author-email: miketheman@gmail.com
-Requires-Python: >=3.8,<4.0
+Author-email: Mike Fiedler <miketheman@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Testing
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Topic :: Software Development :: Testing
-Requires-Dist: pytest (>=6.2.5)
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Typing :: Typed
+Requires-Dist: pytest>=7.0.0
+Requires-Python: >=3.10
+Project-URL: Homepage, https://pypi.org/project/pytest-socket/
+Project-URL: Repository, https://github.com/miketheman/pytest-socket
 Project-URL: Bug Tracker, https://github.com/miketheman/pytest-socket/issues
 Project-URL: Change Log, https://github.com/miketheman/pytest-socket/blob/main/CHANGELOG.md
 Project-URL: Funding, https://github.com/sponsors/miketheman
-Project-URL: Repository, https://github.com/miketheman/pytest-socket
 Description-Content-Type: text/markdown
 
 # pytest-socket
@@ -35,7 +36,6 @@ Description-Content-Type: text/markdown
 [![Tests](https://github.com/miketheman/pytest-socket/workflows/Python%20Tests/badge.svg)](https://github.com/miketheman/pytest-socket/actions?query=workflow%3A%22Python+Tests%22)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/miketheman/pytest-socket/main.svg)](https://results.pre-commit.ci/latest/github/miketheman/pytest-socket/main)
 [![Maintainability](https://api.codeclimate.com/v1/badges/1608a75b1c3a20211992/maintainability)](https://codeclimate.com/github/miketheman/pytest-socket/maintainability)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiketheman%2Fpytest-socket.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmiketheman%2Fpytest-socket?ref=badge_shield)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A plugin to use with Pytest to disable or restrict `socket` calls during
@@ -45,11 +45,17 @@ tests to ensure network calls are prevented.
 
 ## Features
 
-- Disables all network calls flowing through Python\'s `socket` interface.
+- Disables all network calls flowing through Python's `socket` interface,
+  including DNS resolution.
+- Restricts connections to an allow-list of hosts, IP addresses, or CIDR
+  network ranges.
+- Allows Unix domain sockets selectively, for example when testing async code.
+- Applies globally via CLI flags, or per-test via fixtures and markers.
 
 ## Requirements
 
-- [Pytest](https://github.com/pytest-dev/pytest) 6.2.5 or greater
+- [Pytest](https://github.com/pytest-dev/pytest) 7.0 or greater
+- Python 3.10 or greater
 
 ## Installation
 
@@ -60,11 +66,13 @@ from [PyPI](https://pypi.python.org/pypi):
 pip install pytest-socket
 ```
 
-or add to your `pyproject.toml` for [poetry](https://python-poetry.org/):
+or add to your `pyproject.toml` for [uv](https://docs.astral.sh/uv/):
 
-```ini
-[tool.poetry.dev-dependencies]
-pytest-socket = "*"
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest-socket",
+]
 ```
 
 ## Usage
@@ -73,21 +81,21 @@ Run `pytest --disable-socket`, tests should fail on any access to `socket` or
 libraries using socket with a `SocketBlockedError`.
 
 To add this flag as the default behavior, add this section to your
-[`pytest.ini`](https://docs.pytest.org/en/6.2.x/customize.html#pytest-ini):
+[`pytest.ini`](https://docs.pytest.org/en/stable/reference/customize.html#pytest-ini):
 
 ```ini
 [pytest]
 addopts = --disable-socket
 ```
 
-or add this to your [`setup.cfg`](https://docs.pytest.org/en/6.2.x/customize.html#setup-cfg):
+or add this to your [`setup.cfg`](https://docs.pytest.org/en/stable/reference/customize.html#setup-cfg):
 
 ```ini
 [tool:pytest]
 addopts = --disable-socket
 ```
 
-or update your [`conftest.py`](https://docs.pytest.org/en/6.2.x/writing_plugins.html#conftest-py-plugins) to include:
+or update your [`conftest.py`](https://docs.pytest.org/en/stable/how-to/writing_plugins.html#conftest-py-local-per-directory-plugins) to include:
 
 ```python
 from pytest_socket import disable_socket
@@ -134,6 +142,9 @@ or for whole test run
 addopts = --allow-hosts=127.0.0.1,127.0.1.1
 ```
 
+Entries may be hostnames, IP addresses, or CIDR network ranges such as
+`192.168.0.0/24`.
+
 ### Frequently Asked Questions
 
 Q: Why is network access disabled in some of my tests but not others?
@@ -160,8 +171,6 @@ Distributed under the terms of the
 [MIT](http://opensource.org/licenses/MIT) license, "pytest-socket" is
 free and open source software
 
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiketheman%2Fpytest-socket.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmiketheman%2Fpytest-socket?ref=badge_large)
-
 ## Issues
 
 If you encounter any problems, please [file an issue](https://github.com/miketheman/pytest-socket/issues)
@@ -180,3 +189,6 @@ This plugin came about due to the efforts by
 question](https://stackoverflow.com/a/30064664), then converted into a
 pytest plugin by [\@miketheman](https://github.com/miketheman).
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=miketheman/pytest-socket)](https://star-history.com/#miketheman/pytest-socket&Date)

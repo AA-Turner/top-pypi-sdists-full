@@ -6,7 +6,7 @@ of a scenario execution, including conversation history, turn tracking, and
 utility methods for inspecting the conversation.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, TYPE_CHECKING
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionMessageToolCallParam,
@@ -196,6 +196,48 @@ class ScenarioState(BaseModel):
                     if "function" in tool_call and tool_call["function"]["name"] == tool_name:
                         return tool_call  # type: ignore[return-value]
         return None
+
+    def set_effects(self, effects: List[Callable[[bytes], bytes]]) -> None:
+        """
+        Replace audio effects on every ``UserSimulatorAgent`` in the scenario.
+
+        Enables the ``proceed(on_turn=...)`` pattern for effects that vary
+        during a conversation (proposal §4.5 L548-557):
+
+        ```python
+        scenario.proceed(
+            turns=3,
+            on_turn=lambda s: s.set_effects(
+                [effects.background_noise("cafe", volume=0.1 * s.current_turn)]
+            ),
+        )
+        ```
+
+        The mutation takes effect on the *next* user turn. Agents other than
+        user simulators (adapters, judges) are ignored.
+        """
+        from .user_simulator_agent import UserSimulatorAgent
+
+        for agent in getattr(self._executor, "agents", []) or []:
+            if isinstance(agent, UserSimulatorAgent):
+                agent.audio_effects = list(effects)
+
+    @property
+    def timeline(self) -> List[Any]:
+        """
+        Voice events (``VoiceEvent``) captured so far during this scenario.
+
+        Enables the Example 6.5 callable-as-script-step pattern: a plain
+        Python function dropped into ``script=[...]`` can read
+        ``state.timeline`` mid-scenario to assert that preceding voice turns
+        produced the expected events (``tool_call``, ``user_interrupt``,
+        ``agent_start_speaking``, etc.). Empty for text-only scenarios.
+
+        Returns a snapshot list; mutating it does not affect the executor's
+        live timeline.
+        """
+        events = getattr(self._executor, "_voice_timeline", None)
+        return list(events) if events else []
 
     def has_tool_call(self, tool_name: str) -> bool:
         """

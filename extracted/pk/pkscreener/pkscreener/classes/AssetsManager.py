@@ -2134,7 +2134,7 @@ class PKAssetsManager:
                 sample_count = 0
                 for stock in list(stockDict.keys())[:10]:
                     stock_data = stockDict.get(stock)
-                    if stock_data and isinstance(stock_data, dict) and 'index' in stock_data and stock_data['index']:
+                    if stock_data is not None and isinstance(stock_data, dict) and 'index' in stock_data.keys() and stock_data['index']:
                         last_idx = str(stock_data['index'][-1])[:10] if stock_data['index'] else "N/A"
                         row_count = len(stock_data.get('data', []))
                         default_logger().debug(f"  {stock}: last_date={last_idx}, rows={row_count}")
@@ -2152,7 +2152,7 @@ class PKAssetsManager:
                 sample_count = 0
                 for stock in list(stockDict.keys())[:10]:
                     stock_data = stockDict.get(stock)
-                    if stock_data and isinstance(stock_data, dict) and 'index' in stock_data and stock_data['index']:
+                    if stock_data is not None and isinstance(stock_data, dict) and 'index' in stock_data.keys() and stock_data['index']:
                         last_idx = str(stock_data['index'][-1])[:10] if stock_data['index'] else "N/A"
                         row_count = len(stock_data.get('data', []))
                         default_logger().debug(f"  {stock}: last_date={last_idx}, rows={row_count}")

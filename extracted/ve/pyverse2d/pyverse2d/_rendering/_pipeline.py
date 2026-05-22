@@ -31,6 +31,7 @@ class SceneData:
     layers: données de layers de la scène
     """
     fbo: Framebuffer
+    previous_fbo: Framebuffer
     layers: dict[Layer, LayerData]
 
 @dataclass(slots=True, frozen=True)
@@ -142,6 +143,11 @@ class Pipeline:
         return self._context.fbo
     
     @property
+    def previous_fbo(self) -> Framebuffer:
+        """Frame précédente"""
+        return self._context.previous_fbo
+    
+    @property
     def z_groups(self) -> dict[int, Group]:
         """Groupes du ``Layer`` courant selon leur ``z-order``"""
         return self._context.z_groups
@@ -231,15 +237,18 @@ class Pipeline:
         # Création du cache si nécessaire
         if scene not in self._data:
             fbo = Framebuffer(screen.width, screen.height)
-            self._data[scene] = SceneData(fbo, {})
+            previous_fbo = Framebuffer(screen.width, screen.height)
+            self._data[scene] = SceneData(fbo, previous_fbo, {})
         else:
             fbo = self._data[scene].fbo
+            previous_fbo = self._data[scene].fbo
 
         # Assignation de la scene
         self._context.scene = scene
         self._context.viewport = scene.viewport
         self._context.main_camera = scene.camera
         self._context.fbo = fbo
+        self._context.previous_fbo = previous_fbo
 
         # Calcul des matrices de la scene
         Vp: Mat4 = scene.viewport.viewport_matrix()
@@ -328,6 +337,12 @@ class Pipeline:
             canvas.width,
             canvas.height,
         )
+        self._quad.blit(self._context.fbo.texture_id)
+
+        # Sauvegarde de le frame
+        prev_fbo = self._context.previous_fbo
+        prev_fbo.bind()
+        prev_fbo.clear()
         self._quad.blit(self._context.fbo.texture_id)
 
         # Nettoyage des caches temporaires
@@ -473,6 +488,7 @@ class _PipelineContext:
     # Configuration OpenGl
     gl_viewport: tuple = None
     fbo: Framebuffer = None
+    previous_fbo: Framebuffer = None
     batch: Batch = None
     z_groups: dict[int, Group] = None
 

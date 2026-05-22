@@ -15,14 +15,22 @@ dynamic = ["version"]
 name = "pytest-item-dict"
 description = "Get a hierarchical dict of session.items"
 keywords = [
-	"pytest",
-	"items",
+	"collection",
 	"dict",
-	"session.items",
-	"session",
 	"hierarchical",
 	"hierarchy",
+	"items",
+	"json",
+	"outcomes",
+	"plugin",
+	"pytest",
+	"report",
+	"reporting",
+	"session.items",
+	"session",
+	"test-results",
 	"tree",
+	"xml",
 ]
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.11"
@@ -31,7 +39,7 @@ maintainers = [{ name = "Adam Nogowski", email = "anogowski@live.com" }]
 license = { file = "LICENSE" }
 classifiers = [
 	"Framework :: Pytest",
-	"Development Status :: 4 - Beta",
+	"Development Status :: 5 - Production/Stable",
 	"Intended Audience :: Developers",
 	"Operating System :: OS Independent",
 	"Programming Language :: Python",
@@ -50,6 +58,8 @@ classifiers = [
 dependencies = ["pytest>=8.3.0"]
 [project.urls]
 Repository = "https://github.com/anogowski/pytest-item-dict"
+Documentation = "https://anogowski.github.io/pytest-item-dict/"
+Changelog = "https://github.com/anogowski/pytest-item-dict/blob/main/CHANGELOG.md"
 [project.entry-points.pytest11]
 item-dict = "pytest_item_dict.plugin"
 

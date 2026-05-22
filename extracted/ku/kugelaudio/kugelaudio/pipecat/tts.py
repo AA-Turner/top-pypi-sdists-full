@@ -292,6 +292,12 @@ class KugelAudioTTSService(TTSService):
         async with self._multi_session_lock:
             await self._close_multi_session()
 
+    async def _invoke_super_set_voice(self, voice: str) -> None:
+        """Call Pipecat's set_voice, awaiting when the installed version is async."""
+        result = super().set_voice(voice)
+        if inspect.isawaitable(result):
+            await result
+
     def can_generate_metrics(self) -> bool:
         """Check if this service can generate processing metrics.
 
@@ -347,8 +353,11 @@ class KugelAudioTTSService(TTSService):
         self._opts.model = model
         await super().set_model(model)
 
-    def set_voice(self, voice: str) -> None:
+    async def set_voice(self, voice: str) -> None:
         """Set the voice ID.
+
+        Closes the cached persistent multi-context WebSocket session before
+        returning so the next ``run_tts`` opens a connection with the new voice.
 
         Args:
             voice: The voice identifier (integer as string).
@@ -356,18 +365,9 @@ class KugelAudioTTSService(TTSService):
         previous_voice_id = self._opts.voice_id
         self._opts.voice_id = int(voice) if voice else None
         if self._opts.voice_id != previous_voice_id:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                if self._multi_session is not None:
-                    logger.warning(
-                        "set_voice() changed voice outside an event loop; "
-                        "existing Pipecat multi-context session will be reset on next use"
-                    )
-                self._multi_session_needs_reset = True
-            else:
-                loop.create_task(self._close_multi_session_locked())
-        super().set_voice(voice)
+            async with self._multi_session_lock:
+                await self._close_multi_session()
+        await self._invoke_super_set_voice(voice)
 
     async def cleanup(self) -> None:
         """Clean up resources when the service is stopped."""

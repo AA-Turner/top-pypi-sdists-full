@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.modeldeployment.v1.service_pb2 import (
+    CallModelRequest,
+    CallModelResponse,
     CreateModelScalingGroupRequest,
     CreateModelScalingGroupResponse,
     ListModelScalingGroupsRequest,
@@ -32,6 +34,13 @@ class ModelDeploymentServiceStub:
         ListModelScalingGroupsResponse,
     ]
     """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
+    CallModel: UnaryUnaryMultiCallable[
+        CallModelRequest,
+        CallModelResponse,
+    ]
+    """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
+    container's RemoteCallService over gRPC.
+    """
 
 class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -48,5 +57,14 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListModelScalingGroupsResponse:
         """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
+    @abstractmethod
+    def CallModel(
+        self,
+        request: CallModelRequest,
+        context: ServicerContext,
+    ) -> CallModelResponse:
+        """CallModel synchronously invokes a model deployed to a scaling group, forwarding the request to the
+        container's RemoteCallService over gRPC.
+        """
 
 def add_ModelDeploymentServiceServicer_to_server(servicer: ModelDeploymentServiceServicer, server: Server) -> None: ...

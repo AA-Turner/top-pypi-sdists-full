@@ -31,21 +31,25 @@ class SendPoll:
         chat_id: Union[int, str],
         question: Union[str, "types.FormattedText"],
         options: List[Union[str, "types.InputPollOption"]],
+        description: Optional[Union[str, "types.FormattedText"]] = None,
+        description_media: Optional["types.InputPollMedia"] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
         type: "enums.PollType" = enums.PollType.REGULAR,
         allows_multiple_answers: Optional[bool] = None,
         allows_revoting: Optional[bool] = None,
+        members_only: Optional[bool] = None,
+        country_codes: Optional[List[str]] = None,
         shuffle_options: Optional[bool] = None,
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
         explanation: Optional[Union[str, "types.FormattedText"]] = None,
+        explanation_media: Optional["types.InputPollMedia"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
         is_closed: Optional[bool] = None,
-        description: Optional[Union[str, "types.FormattedText"]] = None,
         disable_notification: Optional[bool] = None,
         protect_content: Optional[bool] = None,
         allow_paid_broadcast: Optional[bool] = None,
@@ -83,7 +87,13 @@ class SendPoll:
                 Only custom emoji entities are allowed to be added and only by Premium users.
 
             options (List of :obj:`~pyrogram.types.InputPollOption`):
-                List of 2-12 answer options.
+                List of 1-12 answer options.
+
+            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
+                Description of the poll to be sent, 0-1024 characters after entities parsing.
+
+            description_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the poll.
 
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
@@ -108,6 +118,15 @@ class SendPoll:
                 Pass True, if the poll allows to change chosen answer options.
                 Defaults to False for quizzes and to True for regular polls.
 
+            members_only (``bool``, *optional*):
+                Pass True, if voting is limited to users who have been members of the chat where the poll is being sent for more than 24 hours.
+                For channel chats only.
+
+            country_codes (List of ``str``, *optional*):
+                The list of 0-12 two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which users can vote in the poll.
+                For channel chats only.
+                If omitted or empty, then users from any country can participate in the poll.
+
             shuffle_options (``bool``, *optional*):
                 Pass True, if the poll options must be shown in random order.
 
@@ -123,6 +142,9 @@ class SendPoll:
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
 
+            explanation_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the explanation.
+
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
@@ -136,9 +158,6 @@ class SendPoll:
                 Pass True, if the poll needs to be immediately closed.
                 This can be useful for poll preview.
                 For bots only.
-
-            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
-                Description of the poll to be sent, 0-1024 characters after entities parsing.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -179,6 +198,7 @@ class SendPoll:
         Example:
             .. code-block:: python
 
+                # Regular poll
                 await app.send_poll(
                     chat_id=chat_id,
                     question="Is this a poll question?",
@@ -186,6 +206,26 @@ class SendPoll:
                         types.InputPollOption(text="Yes"),
                         types.InputPollOption(text="No"),
                         types.InputPollOption(text="Maybe")
+                    ]
+                )
+
+                # Poll with media
+                await app.send_poll(
+                    chat_id=chat_id,
+                    question="Where we are?",
+                    description_media=types.InputMediaPhoto("photo.jpg"),
+                    options=[
+                        types.InputPollOption(
+                            text="Maybe here?",
+                            media=types.InputMediaPhoto("photo1.jpg")
+                        ),
+                        types.InputPollOption(
+                            text="Or here?",
+                            media=types.Location(
+                                latitude=49.807760,
+                                longitude=73.088504
+                            ),
+                        ),
                     ]
                 )
         """
@@ -240,14 +280,18 @@ class SendPoll:
                         quiz=type == enums.PollType.QUIZ or False,
                         open_answers=False if type == enums.PollType.QUIZ and allow_adding_options else allow_adding_options,
                         revoting_disabled=not allows_revoting if allows_revoting is not None else (type == enums.PollType.QUIZ),
+                        subscribers_only=members_only,
+                        countries_iso2=country_codes,
                         shuffle_answers=shuffle_options,
                         hide_results_until_close=hide_results_until_closes,
                         close_period=open_period,
                         close_date=utils.datetime_to_timestamp(close_date)
                     ),
                     correct_answers=correct_option_ids,
+                    attached_media=await description_media.write(client=self) if description_media is not None else None,
                     solution=solution,
-                    solution_entities=solution_entities
+                    solution_entities=solution_entities,
+                    solution_media=await explanation_media.write(client=self) if explanation_media is not None else None
                 ),
                 message=message or "",
                 entities=entities or None,

@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 from urllib.parse import urlparse
 
 import dhooks_lite
+from requests.exceptions import HTTPError
 from simple_mq import SimpleMQ
 
 from django.contrib.auth.models import User
@@ -13,11 +14,10 @@ from django.contrib.auth.models import User
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.allianceauth import get_redis_client
 from app_utils.json import JSONDateTimeDecoder, JSONDateTimeEncoder
-from app_utils.logging import LoggerAddTag
 
 from structures import __title__
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 class DiscordWebhookMixin:
@@ -188,7 +188,7 @@ class DiscordWebhookMixin:
         try:
             success = self._send_message_to_webhook(message)
 
-        except OSError as ex:
+        except HTTPError as ex:
             logger.warning(
                 "Failed to send test notification to webhook %s: %s",
                 self,

@@ -19,8 +19,10 @@ from ._core import (
     Tag,
     TagAttrValue,
     Tagifiable,
+    TagifiedTag,
     TagList,
     TagNode,
+    is_tag_like,
 )
 from ._versions import versions
 
@@ -110,7 +112,7 @@ class JSXTag:
     def append(self, *args: TagNode) -> None:
         self.children.append(*args)
 
-    def tagify(self) -> Tag:
+    def tagify(self) -> "TagifiedTag":
         metadata_nodes: list[MetadataNode] = []
 
         # This function is recursively applied to the attributes and children. It does
@@ -119,10 +121,14 @@ class JSXTag:
         # metadata nodes. This could be done in two separate passes, but it's more
         # efficient to do it in one pass.
         def tagify_tagifiable_and_get_metadata(x: Any) -> Any:
-            if isinstance(x, Tagifiable) and not isinstance(x, (Tag, JSXTag)):
+            if isinstance(x, Tagifiable) and not isinstance(
+                x, (Tag, TagifiedTag, JSXTag)
+            ):
                 x = x.tagify()
             else:
-                x = copy.copy(x)
+                # cast: narrowed `x` carries Tag[Unknown] (because the source
+                # is Any); we don't use the parameter here, so widen to Any.
+                x = copy.copy(cast(Any, x))
             if isinstance(x, MetadataNode):
                 metadata_nodes.append(x)
             return x
@@ -161,7 +167,7 @@ class JSXTag:
             ]
         )
 
-        return Tag(
+        return TagifiedTag(
             "script",
             {
                 "type": "text/javascript",
@@ -214,7 +220,11 @@ def _render_react_js(x: TagNode, indent: int, eol: str) -> str:
 
     if isinstance(x, JSXTag):
         nm = x.name
-    elif isinstance(x, Tag):
+    elif is_tag_like(x):
+        # `Tag` and `TagifiedTag` both expose `.name` / `.attrs` / `.children`
+        # via the shared `_TagBase`. `TagifiedTag` shows up here because
+        # `_walk_attrs_and_children` calls `.tagify()` on bare `Tagifiable`
+        # subtrees and writes the results back into JSXTag children.
         nm = "'" + x.name + "'"
     else:
         raise TypeError("x must be a tag or JSXTag object. Did you run tagify()?")
@@ -255,7 +265,7 @@ def _render_react_js(x: TagNode, indent: int, eol: str) -> str:
 def _serialize_attr(x: object) -> str:
     if x is None:
         return "null"
-    if isinstance(x, Tag) or isinstance(x, JSXTag):
+    if isinstance(x, (Tag, TagifiedTag, JSXTag)):
         return _render_react_js(x, 0, "\n")
     if isinstance(x, (list, tuple)):
         return (
@@ -358,9 +368,7 @@ class jsx(str):
     """
 
     def __new__(cls, *args: str) -> "jsx":
-        return super().__new__(  # pyright: ignore[reportGeneralTypeIssues]
-            cls, "\n".join(args)
-        )
+        return super().__new__(cls, "\n".join(args))
 
     # jsx() + jsx() should return jsx()
     def __add__(self, other: "str | jsx") -> str:

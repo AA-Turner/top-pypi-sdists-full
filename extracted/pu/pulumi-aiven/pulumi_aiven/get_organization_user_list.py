@@ -98,7 +98,7 @@ def get_organization_user_list(id: Optional[_builtins.str] = None,
     import pulumi
     import pulumi_aiven as aiven
 
-    users = aiven.get_organization_user_list(name="Example organization")
+    example = aiven.get_organization_user_list(id="org1a23f456789")
     ```
 
 
@@ -119,10 +119,10 @@ def get_organization_user_list(id: Optional[_builtins.str] = None,
         name=pulumi.get(__ret__, 'name'),
         timeouts=pulumi.get(__ret__, 'timeouts'),
         users=pulumi.get(__ret__, 'users'))
-def get_organization_user_list_output(id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                      name: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                      timeouts: Optional[pulumi.Input[Optional[Union['GetOrganizationUserListTimeoutsArgs', 'GetOrganizationUserListTimeoutsArgsDict']]]] = None,
-                                      users: Optional[pulumi.Input[Optional[Sequence[Union['GetOrganizationUserListUserArgs', 'GetOrganizationUserListUserArgsDict']]]]] = None,
+def get_organization_user_list_output(id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                      name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                      timeouts: pulumi.Input[Optional[Optional[Union['GetOrganizationUserListTimeoutsArgs', 'GetOrganizationUserListTimeoutsArgsDict']]]] = None,
+                                      users: pulumi.Input[Optional[Optional[Sequence[Union['GetOrganizationUserListUserArgs', 'GetOrganizationUserListUserArgsDict']]]]] = None,
                                       opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetOrganizationUserListResult]:
     """
     Returns a list of [users in the organization](https://aiven.io/docs/platform/concepts/user-access-management), their profile details, and other data . This includes users you add to your organization and application users.
@@ -133,7 +133,7 @@ def get_organization_user_list_output(id: Optional[pulumi.Input[Optional[_builti
     import pulumi
     import pulumi_aiven as aiven
 
-    users = aiven.get_organization_user_list(name="Example organization")
+    example = aiven.get_organization_user_list(id="org1a23f456789")
     ```
 
 

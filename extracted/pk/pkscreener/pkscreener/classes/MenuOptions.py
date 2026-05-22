@@ -127,8 +127,36 @@ level1_P_MenuDict = {
     "2": "Define my custom Piped Scanner",
     "3": "Run Piped Scans Saved So Far",
     "4": "Predefined Piped Scanners for My Watchlist",
+    "5": "Profitable & Realistic Scanners",
     "M": "Back to the Top/Main menu",
 }
+# ----------------------------------------------------------------------
+# Sub‑menu for "Profitable & Realistic Scanners"
+# ----------------------------------------------------------------------
+level2_P_Profitable_MenuDict = {
+    "1": "Swing Entry – Volatility Contraction Breakout",
+    "2": "Breakout with Pullback Confirmation",
+    "3": "Oversold Reversal Setup",
+    "4": "Trend Continuation (Long)",
+    "5": "Short Sell (Bearish)",
+    "6": "Intraday Momentum Breakout",
+    "M": "Back to the Top/Main menu",
+}
+
+PROFITABLE_SCAN_VALUES = [
+    # 1: Volume | Momentum | VCP (Minervini) | ATR Trailing Stop (Buy) | Strong Buy
+    "--systemlaunched -a y -e -o 'X:12:9:2.5:>|X:0:31:>|X:0:7:8:>|X:12:30:1:>|X:0:44:'",
+    # 2: 52‑week high approaching | Bullish 10‑day high breakout | Price Action (BullCross 20EMA) | ATR Cross | Volume surge
+    "--systemlaunched -a y -e -o 'X:12:49:>|X:0:48:>|X:0:40:1:2:>|X:0:27:>|X:0:9:2.5:'",
+    # 3: RSI <30 | NR4 | Bullish Candlestick Pattern (Hammer) | Super Gainers | Strong Buy
+    "--systemlaunched -a y -e -o 'X:12:5:0:30:i 1m:>|X:0:6:6:>|X:0:7:7:1:>|X:0:42:15:>|X:0:44:'",
+    # 4: High Momentum | ATR Trailing Stop (Buy) | BullCross 20EMA | Volume gainers | 52‑week high breakout (today)
+    "--systemlaunched -a y -e -o 'X:12:31:>|X:0:30:1:>|X:0:7:9:5:>|X:0:9:2.5:>|X:0:17:'",
+    # 5: 52‑week low breakout | Death Cross (50/200 SMA) | MACD Histogram below 0 | Strong Sell | High volume on down day
+    "--systemlaunched -a y -e -o 'X:12:15:>|X:0:7:3:0.008:2:>|X:0:19:>|X:0:45:>|X:0:9:2.5:'",
+    # 6: Intraday Bid/Ask Build‑up | Bullish 10‑day high breakout (intraday) | High Momentum | ATR Cross (15m) | Volume surge (5x avg)
+    "--systemlaunched -a y -e -o 'X:12:29:>|X:0:48:i 5m:>|X:0:31:i 5m:>|X:0:27:i 15m:>|X:0:9:5:'",
+]
 LEVEL_1_DATA_DOWNLOADS = {
     "D": "Download Daily OHLCV Data for the Past Year",
     "I": "Download Intraday OHLCV Data for the Last Trading Day",
@@ -136,9 +164,74 @@ LEVEL_1_DATA_DOWNLOADS = {
     "S": "NSE Symbols with Sector/Industry Details",
     "M": "Back to the Top/Main menu",
 }
+
+# Better Combinations for Profitable & Realistic Outcomes
+# These new piped scanners follow a logical cascade:
+# Start with broad liquidity/volume – avoid illiquid stocks.
+# Add momentum or trend strength – confirm interest.
+# Apply pattern‑based entry (VCP, breakout, pullback).
+# Confirm with a volatility/trend filter (ATR trailing stop, moving average cross).
+# End with a risk‑aware filter (minimum confidence, volume surge).
+# 1. Swing Entry – Volatility Contraction Breakout
+# Volume gainers → High Momentum → VCP (Minervini) → ATR Trailing Stop (Buy) → Strong Buy Signals
+# Why it works:
+# Volume & momentum → only liquid, moving stocks.
+# VCP → identifies consolidation before a move.
+# ATR trailing stop → confirms price is above the stop (uptrend).
+# Strong Buy Signals → multi‑indicator final check.
+
+# 2. Breakout with Pullback Confirmation
+# 52‑week high approaching → Bullish 10‑day high breakout → Price Action (BullCross 20EMA) → ATR Cross → Volume surge
+# Why it works:
+# Approaching 52‑week high → potential major breakout.
+# 10‑day high breakout → short‑term confirmation.
+# BullCross 20EMA → trend alignment.
+# ATR Cross → volatility‑based entry.
+# Volume surge → institutional participation.
+
+# 3. Oversold Reversal Setup
+# text
+# RSI <30 → NR4 (Narrow Range) → Bullish Candlestick Pattern (e.g., Hammer) → Super Gainers (past 1‑day) → Strong Buy Signals
+# Why it works:
+# Oversold RSI → mean reversion opportunity.
+# NR4 → consolidation after a fall.
+# Bullish candlestick → immediate reversal sign.
+# Super Gainers → stock already showing strength.
+# Strong Buy Signals – confirm with multiple indicators.
+
+# 4. Trend Continuation (Long)
+# text
+# High Momentum → ATR Trailing Stop (Buy) → BullCross 20EMA → Volume gainers → 52‑week high breakout (today)
+# Why it works:
+# Momentum + trailing stop → already in uptrend.
+# BullCross EMA → short‑term trend alignment.
+# Volume gainers → buying pressure.
+# 52‑week high breakout → fresh high, potential runner.
+
+# 5. Short Sell (Bearish)
+# text
+# 52‑week low breakout → Death Cross (50/200 SMA) → MACD Histogram below 0 → Strong Sell Signals → High volume on down day
+# Why it works:
+# New 52‑week low → bearish context.
+# Death cross → long‑term trend down.
+# MACD negative → momentum down.
+# Strong Sell Signals → multi‑indicator sell.
+# High volume → distribution confirmed.
+
+# 6. Intraday Momentum Breakout
+# text
+# Intraday Bid/Ask Build‑up → Bullish 10‑day high breakout (intraday) → High Momentum → ATR Cross (15m) → Volume surge (5x avg)
+# Why it works:
+# Bid build‑up → accumulation.
+# 10‑day high breakout → short‑term resistance cleared.
+# Momentum + ATR cross → entry with volatility.
+# Volume surge → real buying, not a false breakout.
+
 PREDEFINED_SCAN_ALERT_MENU_KEYS = ["2"]
 PREDEFINED_SCAN_MENU_TEXTS = [
+    # good for catching strong trending moves.
     "Volume Scanners | High Momentum | Breaking Out Now | ATR Cross     ",  # 1
+
     "Volume Scanners | High Momentum | ATR Cross",                          # 2
     "Volume Scanners | High Momentum                                    ",  # 3
     "Volume Scanners | ATR Cross",                                          # 4
@@ -148,17 +241,24 @@ PREDEFINED_SCAN_MENU_TEXTS = [
     "High Momentum | ATR Cross",                                            # 8
     "High Momentum | ATR Trailing Stop                                  ",  # 9
     "ATR Cross | ATR Trailing Stop",                                        # 10
+    # excellent for anticipating explosive moves after low volatility.
     "TTM Sqeeze Buy | RSI b/w 0 to 54                                   ",  # 11
+
     "Volume Scanners | High Momentum | Breaking Out Now | ATR Cross | RSI b/w 0 to 54", # 12
     "Volume Scanners | ATR Cross | RSI b/w 0 to 54                      ",  # 13
+
+    # captures well‑known institutional accumulation patterns.
     "VCP (Mark Minervini) | Chart Patterns | MA Support",                   # 14
     "VCP | Chart Patterns | MA Support                                  ",  # 15
+
     "Already Breaking out | VCP (Minervini) | Chart Patterns | MA Support", # 16
     "ATR Trailing Stops | VCP (Minervini)                               ",  # 17
     "VCP | ATR Trailing Stops",                                             # 18
     "Nifty 50,Nifty Bank | VCP | ATR Trailing Stops                     ",  # 19
     "Volume Scanners | High Momentum | Breaking Out Now | ATR Cross | VCP | ATR Trailing Stops", # 20
+    # blends technical and fundamental filters.
     "BullCross-MA | Fair Value Buy Opportunities                        ",  # 21
+
     "VCP | Chart Patterns | MA Support | Bullish AVWAP",                    # 22
     "VCP (Mark Minervini) | Chart Patterns | MA Support | Bullish AVWAP ",  # 23
     "BullCross-VWAP | Volume Scanners",                                     # 24
@@ -174,6 +274,8 @@ PREDEFINED_SCAN_MENU_TEXTS = [
     "Bullish Today x PDO/PDC | High Momentum | ATR Cross                ",  # 34
     "Bullish Today x PDO/PDC | Breaking out now                         ",  # 35
     "High Momentum | ATR Cross | Super Gainers                          ",  # 36
+    "Volume | Momentum | VCP | ATR Trailing Stop | Strong Buy           ",  # 37
+
 ]
 PREDEFINED_SCAN_MENU_KEYS = [str(x) for x in range(1,len(PREDEFINED_SCAN_MENU_TEXTS)+1,1)]
 level2_P_MenuDict = {}
@@ -220,6 +322,8 @@ PREDEFINED_SCAN_MENU_VALUES =[
     "--systemlaunched -a y -e -o 'X:12:33:2:>|X:0:31:>|X:0:27:'",           # 34
     "--systemlaunched -a y -e -o 'X:12:33:2:>|X:0:23:'",                    # 35
     "--systemlaunched -a y -e -o 'X:12:31:>|X:0:27:>|X:0:42:'",             # 36
+    "--systemlaunched -a y -e -o 'X:12:9:2.5:>|X:0:31:>|X:12:7:4:>|X:12:30:1:>|X:0:44:'"
+
 ]
 PREDEFINED_PIPED_MENU_ANALYSIS_OPTIONS = []
 PREDEFINED_PIPED_MENU_OPTIONS = {}
@@ -1048,7 +1152,22 @@ class menus:
                                                          parent=selectedMenu,
                                                          checkUpdate=False)
                 elif selectedMenu.parent.menuKey in ["P"]:
-                    return self.renderMenuFromDictionary(dict=level2_P_MenuDict,
+                    if selectedMenu.menuKey == "5":
+                        return self.renderMenuFromDictionary(
+                            dict=level2_P_Profitable_MenuDict,
+                            exceptionKeys=["M"],
+                            coloredValues=["1"],
+                            defaultMenu="1",
+                            skip=skip,
+                            asList=asList,
+                            optionText=f"  [+]{self.addl_option_text} Select a profitable scanner:",
+                            renderStyle=renderStyle or MenuRenderStyle.TWO_PER_ROW,
+                            parent=selectedMenu,
+                            checkUpdate=False,
+                            subOnly=PREDEFINED_SCAN_MENU_KEYS   # or use the keys of level2_P_Profitable_MenuDict (excluding "M")
+                        )
+                    else:
+                        return self.renderMenuFromDictionary(dict=level2_P_MenuDict,
                                                          exceptionKeys=["M"],
                                                          coloredValues=(["1"] if not asList else []),
                                                          defaultMenu="1",

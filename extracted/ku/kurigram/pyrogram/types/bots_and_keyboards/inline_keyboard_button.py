@@ -16,12 +16,11 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Union, Optional
+from typing import Optional, Union
 
 import pyrogram
-from pyrogram import raw
-from pyrogram import types
-from pyrogram import enums
+from pyrogram import enums, raw, types
+
 from ..object import Object
 
 
@@ -139,7 +138,8 @@ class InlineKeyboardButton(Object):
                 button_style = enums.ButtonStyle.DANGER
             elif raw_style.bg_success:
                 button_style = enums.ButtonStyle.SUCCESS
-            elif raw_style.icon:
+
+            if raw_style.icon:
                 icon_custom_emoji_id = str(raw_style.icon)
 
         if isinstance(b, raw.types.KeyboardButtonCallback):

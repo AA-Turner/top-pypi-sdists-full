@@ -1,8 +1,8 @@
 [build-system]
 build-backend = "cmeel"
 requires = [
-  "cmeel-assimp >= 6.0.2, < 7",
-  "cmeel-boost ~= 1.89.0",
+  "cmeel-assimp >= 6.0.5, < 7",
+  "cmeel-boost ~= 1.90.0",
   "cmeel-octomap >= 1.9.8.2, < 2",
   "cmeel-qhull >= 8.0.2.1, < 8.0.3",
   "cmeel[build]",
@@ -13,17 +13,17 @@ requires = [
 [project]
 dependencies = [
   "cmeel-assimp >= 6.0.2, < 7",
-  "cmeel-boost ~= 1.89.0",
+  "cmeel-boost ~= 1.90.0",
   "cmeel-octomap >= 1.9.8.2, < 2",
   "cmeel-qhull >= 8.0.2.1, < 8.0.3",
 ]
 description = "An extension of the Flexible Collision Library"
 license = "BSD-3-Clause"
 name = "libcoal"
-version = "3.0.2"
+version = "3.0.3"
 
 [project.urls]
-changelog = "https://github.com/coal-library/coal/blob/master/CHANGELOG.md"
+changelog = "https://github.com/coal-library/coal/blob/devel/CHANGELOG.md"
 homepage = "https://github.com/cmake-wheel/libcoal"
 upstream = "https://github.com/coal-library/coal"
 

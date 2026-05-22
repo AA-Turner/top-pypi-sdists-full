@@ -575,6 +575,56 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(6)
         self.assertEqual(state["counter"], 0)
 
+    async def test_process_survives_same_key_concurrent_attempts(self) -> None:
+        # Sweep can re-enqueue a job whose original attempt is still winding
+        # down, leaving the worker with two concurrent ``process()`` calls
+        # for the same ``job.key``. Their ``job_task_contexts`` slots
+        # collide because ``Job.__hash__`` is keyed on ``.key``; without the
+        # scoped finally-pop the first attempt's cleanup removes the
+        # second's entry and the second crashes at the completion check.
+        a_entered = asyncio.Event()
+        b_entered = asyncio.Event()
+        a_finish = asyncio.Event()
+        b_finish = asyncio.Event()
+        calls = 0
+
+        async def handler(_ctx: Context) -> int:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                a_entered.set()
+                await a_finish.wait()
+            else:
+                b_entered.set()
+                await b_finish.wait()
+            return 1
+
+        self.worker.functions["slow_handler"] = handler
+
+        job_a = await self.enqueue("slow_handler", key="shared-key")
+        job_b = self.queue.copy(job_a)
+        self.assertEqual(job_a, job_b)
+        self.assertIsNot(job_a, job_b)
+
+        dequeue_mock = mock.AsyncMock(side_effect=[job_a, job_b])
+        with mock.patch.object(self.worker.queue, "dequeue", dequeue_mock):
+            task_a = asyncio.create_task(self.worker.process())
+            await a_entered.wait()
+            task_b = asyncio.create_task(self.worker.process())
+            await b_entered.wait()
+
+            # Finish A first so its ``finally`` runs before B's completion
+            # check -- the interleaving that crashes at worker.py:374.
+            a_finish.set()
+            await task_a
+
+            b_finish.set()
+            await task_b
+
+        self.assertEqual(self.worker.job_task_contexts, {})
+        await job_a.refresh()
+        self.assertEqual(job_a.status, Status.COMPLETE)
+
     async def test_cron_solo_worker(self) -> None:
         state = {"counter": 0}
 

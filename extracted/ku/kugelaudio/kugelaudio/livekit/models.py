@@ -17,10 +17,10 @@
 from typing import Literal
 
 # Available TTS models
-TTSModels = Literal["kugel-1-turbo", "kugel-1"]
+TTSModels = Literal["kugel-2-turbo", "kugel-2.5", "kugel-1-turbo", "kugel-1"]
 
-# Default model (fast)
-DEFAULT_MODEL: TTSModels = "kugel-1-turbo"
+# Default model (premium 7B; matches public API default)
+DEFAULT_MODEL: TTSModels = "kugel-2.5"
 
 # Supported sample rates
 # The model generates audio at 24kHz natively; other rates use server-side resampling

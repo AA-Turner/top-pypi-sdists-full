@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+import contextlib
 import logging
 from datetime import datetime
 from functools import partial
@@ -23,13 +24,19 @@ from typing import BinaryIO, Callable, Dict, List, Match, Optional, Union
 
 import pyrogram
 from pyrogram import enums, raw, types, utils
-from pyrogram.errors import ChannelForumMissing, ChannelPrivate, ChannelInvalid, MessageIdsEmpty, PeerIdInvalid, ChatAdminRequired
+from pyrogram.errors import (
+    ChannelForumMissing,
+    ChannelInvalid,
+    ChannelPrivate,
+    ChatAdminRequired,
+    MessageIdsEmpty,
+    PeerIdInvalid,
+)
 from pyrogram.parser import Parser
 from pyrogram.parser import utils as parser_utils
 
 from ..object import Object
 from ..update import Update
-import contextlib
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +92,11 @@ class Message(Object, Update):
 
         date (:py:obj:`~datetime.datetime`, *optional*):
             Date the message was sent.
+
+        guest_query_id (``str``, *optional*):
+            The unique identifier for the guest query.
+            Use this identifier with the method :meth:`~pyrogram.Client.answer_guest_query` to send a response message.
+            If non-empty, the message belongs to the chat where the guest bot was summoned, which may not coincide with other existing bot chats sharing the same identifier.
 
         chat (:obj:`~pyrogram.types.Chat`, *optional*):
             Conversation the message belongs to.
@@ -212,6 +224,10 @@ class Message(Object, Update):
 
         photo (:obj:`~pyrogram.types.Photo`, *optional*):
             Message is a photo, information about the photo.
+
+        live_photo (:obj:`~pyrogram.types.LivePhoto`, *optional*):
+            Message is a live photo, information about the live photo.
+            For backward compatibility, when this field is set, the photo field will also be set.
 
         sticker (:obj:`~pyrogram.types.Sticker`, *optional*):
             Message is a sticker, information about the sticker.
@@ -549,15 +565,6 @@ class Message(Object, Update):
         send_paid_messages_stars (``int``, *optional*):
             The number of Telegram Stars the sender paid to send the message.
 
-        raw (:obj:`~pyrogram.raw.types.Message`, *optional*):
-            The raw message object, as received from the Telegram API.
-
-        link (``str``, *property*):
-            Generate a link to this message, only for groups and channels.
-
-        content (``str``, *property*):
-            The text or caption content of the message.
-
         unread_media (``bool``, *optional*):
             True, if there are unread media attachments in this message.
 
@@ -589,7 +596,23 @@ class Message(Object, Update):
         summary_language_code (``str``, *optional*):
             IETF language tag of the message language on which it can be summarized.
             None if summary isn't available for the message.
+
+        guest_bot_caller_user (:obj:`~pyrogram.types.User`, *optional*):
+            For a message sent by a guest bot, this is the user whose original message triggered the bot's response.
+
+        guest_bot_caller_chat (:obj:`~pyrogram.types.Chat`, *optional*):
+            For a message sent by a guest bot, this is the chat whose original message triggered the bot's response.
+
+        raw (:obj:`~pyrogram.raw.types.Message`, *optional*):
+            The raw message object, as received from the Telegram API.
+
+        link (``str``, *property*):
+            Generate a link to this message, only for groups and channels.
+
+        content (``str``, *property*):
+            The text or caption content of the message.
     """
+    # TODO: replace media params to MessageContent class
     def __init__(
         self,
         *,
@@ -601,6 +624,7 @@ class Message(Object, Update):
         sender_business_bot: Optional["types.User"] = None,
         sender_tag: Optional[str] = None,
         date: Optional[datetime] = None,
+        guest_query_id: Optional[str] = None,
         chat: Optional["types.Chat"] = None,
         topic_message: Optional[bool] = None,
         automatic_forward: Optional[bool] = None,
@@ -642,6 +666,7 @@ class Message(Object, Update):
         audio: Optional["types.Audio"] = None,
         document: Optional["types.Document"] = None,
         photo: Optional["types.Photo"] = None,
+        live_photo: Optional["types.LivePhoto"] = None,
         sticker: Optional["types.Sticker"] = None,
         animation: Optional["types.Animation"] = None,
         game: Optional["types.Game"] = None,
@@ -759,6 +784,8 @@ class Message(Object, Update):
         channel_post: Optional[bool] = None,
         repeat_period: Optional[int] = None,
         summary_language_code: Optional[str] = None,
+        guest_bot_caller_user: Optional["types.User"] = None,
+        guest_bot_caller_chat: Optional["types.Chat"] = None,
         raw: Optional["raw.types.Message"] = None
     ):
         super().__init__(client)
@@ -770,6 +797,7 @@ class Message(Object, Update):
         self.sender_business_bot = sender_business_bot
         self.sender_tag = sender_tag
         self.date = date
+        self.guest_query_id = guest_query_id
         self.chat = chat
         self.topic_message = topic_message
         self.automatic_forward = automatic_forward
@@ -811,6 +839,7 @@ class Message(Object, Update):
         self.audio = audio
         self.document = document
         self.photo = photo
+        self.live_photo = live_photo
         self.sticker = sticker
         self.animation = animation
         self.game = game
@@ -921,6 +950,8 @@ class Message(Object, Update):
         self.channel_post = channel_post
         self.repeat_period = repeat_period
         self.summary_language_code = summary_language_code
+        self.guest_bot_caller_user = guest_bot_caller_user
+        self.guest_bot_caller_chat = guest_bot_caller_chat
         self.raw = raw
 
     @staticmethod
@@ -1416,10 +1447,11 @@ class Message(Object, Update):
         message: "raw.types.Message",
         users: Dict[int, "raw.base.User"],
         chats: Dict[int, "raw.base.Chat"],
-        topics: Dict[int, "raw.base.ForumTopic"] = None,
+        topics: Optional[Dict[int, "raw.base.ForumTopic"]] = None,
         is_scheduled: bool = False,
         replies: int = 1,
-        business_connection_id: str = None,
+        business_connection_id: Optional[str] = None,
+        guest_query_id: Optional[str] = None,
         raw_reply_to_message: "raw.base.Message" = None
     ) -> "Message":
         from_id = utils.get_raw_peer_id(message.from_id)
@@ -1464,6 +1496,7 @@ class Message(Object, Update):
             )
 
         photo = None
+        live_photo = None
         location = None
         contact = None
         venue = None
@@ -1492,8 +1525,22 @@ class Message(Object, Update):
 
         if media:
             if isinstance(media, raw.types.MessageMediaPhoto):
+                if media.live_photo:
+                    doc = media.video
+
+                    if isinstance(doc, raw.types.Document):
+                        attributes = {type(i): i for i in doc.attributes}
+
+                        if raw.types.DocumentAttributeVideo in attributes:
+                            video_attributes = attributes[raw.types.DocumentAttributeVideo]
+
+                            live_photo = types.LivePhoto._parse(client, doc, video_attributes)
+
+                    media_type = enums.MessageMediaType.LIVE_PHOTO
+                else:
+                    media_type = enums.MessageMediaType.PHOTO
+
                 photo = types.Photo._parse(client, media.photo, media.ttl_seconds)
-                media_type = enums.MessageMediaType.PHOTO
                 has_media_spoiler = media.spoiler
             elif isinstance(media, raw.types.MessageMediaGeo):
                 location = types.Location._parse(media.geo)
@@ -1572,7 +1619,7 @@ class Message(Object, Update):
                 media_type = enums.MessageMediaType.WEB_PAGE
                 web_page = types.WebPage._parse(client, media)
             elif isinstance(media, raw.types.MessageMediaPoll):
-                poll = types.Poll._parse(
+                poll = await types.Poll._parse(
                     client,
                     media,
                     description=types.FormattedText._parse(
@@ -1625,6 +1672,7 @@ class Message(Object, Update):
             id=message.id,
             effect_id=getattr(message, "effect", None),
             date=utils.timestamp_to_datetime(message.date),
+            guest_query_id=str(guest_query_id) if guest_query_id else None,
             chat=chat,
             from_user=from_user,
             sender_chat=sender_chat,
@@ -1669,6 +1717,7 @@ class Message(Object, Update):
             edit_hidden=message.edit_hide,
             media_group_id=message.grouped_id,
             photo=photo,
+            live_photo=live_photo,
             location=location,
             contact=contact,
             venue=venue,
@@ -1711,6 +1760,8 @@ class Message(Object, Update):
             channel_post=message.post,
             repeat_period=message.schedule_repeat_period,
             summary_language_code=message.summary_from_language,
+            guest_bot_caller_user=types.User._parse(client, users.get(utils.get_raw_peer_id(message.guestchat_via_from))),
+            guest_bot_caller_chat=types.Chat._parse_chat(client, chats.get(utils.get_raw_peer_id(message.guestchat_via_from))),
             raw=message,
             client=client
         )
@@ -1879,6 +1930,7 @@ class Message(Object, Update):
         is_scheduled: bool = False,
         replies: int = 1,
         business_connection_id: Optional[str] = None,
+        guest_query_id: Optional[str] = None,
         raw_reply_to_message: Optional["raw.base.Message"] = None
     ) -> "Message":
         if isinstance(message, raw.types.MessageEmpty):
@@ -1911,6 +1963,7 @@ class Message(Object, Update):
                 is_scheduled=is_scheduled,
                 replies=replies,
                 business_connection_id=business_connection_id,
+                guest_query_id=guest_query_id,
                 raw_reply_to_message=raw_reply_to_message
             )
 
@@ -5068,22 +5121,26 @@ class Message(Object, Update):
     async def reply_poll(
         self,
         question: "types.FormattedText",
-        options: List[Union[str, "types.FormattedText"]],
+        options: List[Union[str, "types.InputPollOption"]],
+        description: Optional["types.FormattedText"] = None,
+        description_media: Optional["types.InputPollMedia"] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
         type: "enums.PollType" = enums.PollType.REGULAR,
         allows_multiple_answers: Optional[bool] = None,
         allows_revoting: Optional[bool] = None,
+        members_only: Optional[bool] = None,
+        country_codes: Optional[List[str]] = None,
         shuffle_options: Optional[bool] = None,
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
         explanation: Optional["types.FormattedText"] = None,
+        explanation_media: Optional["types.InputPollMedia"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
         is_closed: Optional[bool] = None,
-        description: Optional["types.FormattedText"] = None,
         disable_notification: Optional[bool] = None,
         protect_content: Optional[bool] = None,
         allow_paid_broadcast: Optional[bool] = None,
@@ -5118,8 +5175,14 @@ class Message(Object, Update):
                 Poll question, 1-255 characters (up to 300 characters for bots).
                 Only custom emoji entities are allowed to be added and only by Premium users.
 
-            options (List of ``str`` | List of :obj:`~pyrogram.types.FormattedText`):
-                List of 2-12 answer options, each 1-100 characters.
+            options (List of :obj:`~pyrogram.types.InputPollOption`):
+                List of 1-12 answer options, each 1-100 characters.
+
+            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
+                Description of the poll to be sent, 0-1024 characters after entities parsing.
+
+            description_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the poll.
 
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
@@ -5144,6 +5207,15 @@ class Message(Object, Update):
                 Pass True, if the poll allows to change chosen answer options.
                 Defaults to False for quizzes and to True for regular polls.
 
+            members_only (``bool``, *optional*):
+                Pass True, if voting is limited to users who have been members of the chat where the poll is being sent for more than 24 hours.
+                For channel chats only.
+
+            country_codes (List of ``str``, *optional*):
+                The list of 0-12 two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which users can vote in the poll.
+                For channel chats only.
+                If omitted or empty, then users from any country can participate in the poll.
+
             shuffle_options (``bool``, *optional*):
                 Pass True, if the poll options must be shown in random order.
 
@@ -5159,6 +5231,9 @@ class Message(Object, Update):
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
 
+            explanation_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the explanation.
+
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
@@ -5172,9 +5247,6 @@ class Message(Object, Update):
                 Pass True, if the poll needs to be immediately closed.
                 This can be useful for poll preview.
                 For bots only.
-
-            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
-                Description of the poll to be sent, 0-1024 characters after entities parsing.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -5227,21 +5299,25 @@ class Message(Object, Update):
             chat_id=self.chat.id,
             question=question,
             options=options,
+            description=description,
+            description_media=description_media,
             message_thread_id=message_thread_id,
             business_connection_id=business_connection_id,
             is_anonymous=is_anonymous,
             type=type,
             allows_multiple_answers=allows_multiple_answers,
             allows_revoting=allows_revoting,
+            members_only=members_only,
+            country_codes=country_codes,
             shuffle_options=shuffle_options,
             allow_adding_options=allow_adding_options,
             hide_results_until_closes=hide_results_until_closes,
             correct_option_ids=correct_option_ids,
             explanation=explanation,
+            explanation_media=explanation_media,
             open_period=open_period,
             close_date=close_date,
             is_closed=is_closed,
-            description=description,
             disable_notification=disable_notification,
             protect_content=protect_content,
             allow_paid_broadcast=allow_paid_broadcast,
@@ -5256,22 +5332,26 @@ class Message(Object, Update):
     async def answer_poll(
         self,
         question: "types.FormattedText",
-        options: List["types.FormattedText"],
+        options: List[Union[str, "types.InputPollOption"]],
+        description: Optional["types.FormattedText"] = None,
+        description_media: Optional["types.InputPollMedia"] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
         type: "enums.PollType" = enums.PollType.REGULAR,
         allows_multiple_answers: Optional[bool] = None,
         allows_revoting: Optional[bool] = None,
+        members_only: Optional[bool] = None,
+        country_codes: Optional[List[str]] = None,
         shuffle_options: Optional[bool] = None,
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
         explanation: Optional["types.FormattedText"] = None,
+        explanation_media: Optional["types.InputPollMedia"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
         is_closed: Optional[bool] = None,
-        description: Optional["types.FormattedText"] = None,
         disable_notification: Optional[bool] = None,
         protect_content: Optional[bool] = None,
         allow_paid_broadcast: Optional[bool] = None,
@@ -5298,15 +5378,21 @@ class Message(Object, Update):
         Example:
             .. code-block:: python
 
-                await message.reply_poll("This is a poll", ["A", "B", "C"])
+                await message.answer_poll("This is a poll", ["A", "B", "C"])
 
         Parameters:
             question (``str`` | :obj:`~pyrogram.types.FormattedText`):
                 Poll question, 1-255 characters (up to 300 characters for bots).
                 Only custom emoji entities are allowed to be added and only by Premium users.
 
-            options (List of ``str`` | List of :obj:`~pyrogram.types.FormattedText`):
-                List of 2-12 answer options, each 1-100 characters.
+            options (List of :obj:`~pyrogram.types.InputPollOption`):
+                List of 1-12 answer options, each 1-100 characters.
+
+            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
+                Description of the poll to be sent, 0-1024 characters after entities parsing.
+
+            description_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the poll.
 
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
@@ -5331,6 +5417,15 @@ class Message(Object, Update):
                 Pass True, if the poll allows to change chosen answer options.
                 Defaults to False for quizzes and to True for regular polls.
 
+            members_only (``bool``, *optional*):
+                Pass True, if voting is limited to users who have been members of the chat where the poll is being sent for more than 24 hours.
+                For channel chats only.
+
+            country_codes (List of ``str``, *optional*):
+                The list of 0-12 two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which users can vote in the poll.
+                For channel chats only.
+                If omitted or empty, then users from any country can participate in the poll.
+
             shuffle_options (``bool``, *optional*):
                 Pass True, if the poll options must be shown in random order.
 
@@ -5346,6 +5441,9 @@ class Message(Object, Update):
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
 
+            explanation_media (:obj:`~pyrogram.types.InputPollMedia`, *optional*):
+                Media attached to the explanation.
+
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
@@ -5359,9 +5457,6 @@ class Message(Object, Update):
                 Pass True, if the poll needs to be immediately closed.
                 This can be useful for poll preview.
                 For bots only.
-
-            description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
-                Description of the poll to be sent, 0-1024 characters after entities parsing.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -5409,21 +5504,25 @@ class Message(Object, Update):
             chat_id=self.chat.id,
             question=question,
             options=options,
+            description=description,
+            description_media=description_media,
             message_thread_id=message_thread_id,
             business_connection_id=business_connection_id,
             is_anonymous=is_anonymous,
             type=type,
             allows_multiple_answers=allows_multiple_answers,
             allows_revoting=allows_revoting,
+            members_only=members_only,
+            country_codes=country_codes,
             shuffle_options=shuffle_options,
             allow_adding_options=allow_adding_options,
             hide_results_until_closes=hide_results_until_closes,
             correct_option_ids=correct_option_ids,
             explanation=explanation,
+            explanation_media=explanation_media,
             open_period=open_period,
             close_date=close_date,
             is_closed=is_closed,
-            description=description,
             disable_notification=disable_notification,
             protect_content=protect_content,
             allow_paid_broadcast=allow_paid_broadcast,
@@ -8578,7 +8677,7 @@ class Message(Object, Update):
     async def copy(
         self,
         chat_id: Union[int, str],
-        caption: str = None,
+        caption: Optional[str] = None,
         parse_mode: Optional["enums.ParseMode"] = None,
         caption_entities: Optional[List["types.MessageEntity"]] = None,
         disable_notification: Optional[bool] = None,
@@ -8614,7 +8713,7 @@ class Message(Object, Update):
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
                 For a contact that exists in your Telegram address book you can use his phone number (str).
 
-            caption (``string``, *optional*):
+            caption (``str``, *optional*):
                 New caption for media, 0-1024 characters after entities parsing.
                 If not specified, the original caption is kept.
                 Pass "" (empty string) to remove the caption.
@@ -8816,23 +8915,17 @@ class Message(Object, Update):
             else:
                 raise ValueError("Unknown media type")
 
-            if self.sticker or self.video_note:  # Sticker and VideoNote should have no caption
-                return await send_media(
-                    file_id=file_id,
-                    message_thread_id=message_thread_id
-                )
-            else:
-                if caption is None:
-                    caption = self.caption or ""
-                    caption_entities = self.caption_entities
+            if caption is None:
+                caption = self.caption or ""
+                caption_entities = self.caption_entities
 
-                return await send_media(
-                    file_id=file_id,
-                    caption=caption,
-                    parse_mode=parse_mode,
-                    caption_entities=caption_entities,
-                    message_thread_id=message_thread_id
-                )
+            return await send_media(
+                file_id=file_id,
+                caption=caption,
+                parse_mode=parse_mode,
+                caption_entities=caption_entities,
+                message_thread_id=message_thread_id
+            )
         else:
             raise ValueError("Can't copy this message")
 
@@ -8873,8 +8966,8 @@ class Message(Object, Update):
                 If not specified, the original caption is kept.
                 Pass "" (empty string) to remove the caption.
 
-                If a ``string`` is passed, it becomes a caption only for the first media.
-                If a list of ``string`` passed, each element becomes caption for each media element.
+                If a ``str`` is passed, it becomes a caption only for the first media.
+                If a list of ``str`` passed, each element becomes caption for each media element.
                 You can pass ``None`` in list to keep the original caption.
 
             disable_notification (``bool``, *optional*):

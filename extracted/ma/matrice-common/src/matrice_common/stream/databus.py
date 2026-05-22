@@ -38,6 +38,11 @@ logger = logging.getLogger(__name__)
 # /dev/shm is the canonical POSIX shared memory path; override via env var if needed.
 SHM_BASE_PATH = os.getenv("MATRICE_SHM_PATH", "/dev/shm")  # nosec B108
 
+# Physical-to-visible GPU index translator. Lives in cuda_shm_ring_buffer so
+# both modules share a single implementation. Safe to import — has no runtime
+# side effects when CUDA_VISIBLE_DEVICES is unset (identity passthrough).
+from matrice_common.stream.cuda_shm_ring_buffer import _cvd_remap  # noqa: E402
+
 # ─── Lazy imports (avoid hard dependency on cupy/torch at import time) ───────
 _cupy = None
 _torch = None
@@ -125,7 +130,7 @@ def _shm_bytes_to_gpu(
     # Upload to GPU
     cp = _get_cupy()
     if cp is not None:
-        with cp.cuda.Device(gpu_id):
+        with cp.cuda.Device(_cvd_remap(gpu_id)):
             gpu_data = cp.asarray(frame)
         # Wrap as torch if requested
         if target_format == DataFormat.TORCH:
@@ -577,7 +582,7 @@ class DataBusConsumer:
             raise RuntimeError("CuPy required for CUDA IPC consumer")
 
         # Warm GPU context
-        with cp.cuda.Device(self._gpu_id):
+        with cp.cuda.Device(_cvd_remap(self._gpu_id)):
             _ = cp.zeros(1, dtype=cp.uint8)
 
         import mmap as mmap_mod

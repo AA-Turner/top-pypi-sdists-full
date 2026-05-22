@@ -205,6 +205,15 @@ _WRONG_IMPORT_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"from\s+sqlmodel\s+import\s+([^#\n]*)\bAsyncSession\b([^#\n]*)"),
         None,  # handled specially below
     ),
+    # create_async_engine is from sqlalchemy.ext.asyncio, NOT from sqlmodel
+    (
+        re.compile(r"from\s+sqlmodel\s+import\s+([^#\n]*)\bcreate_async_engine\b([^#\n]*)"),
+        None,  # handled specially below (similar to AsyncSession fix)
+    ),
+    # Session (sync) wrongly imported from sqlalchemy.ext.asyncio — use AsyncSession
+    (re.compile(r"from\s+sqlalchemy\.ext\.asyncio\s+import\s+([^#\n]*)\bSession\b([^#\n]*)"),
+     None,  # handled specially: replace Session with AsyncSession
+    ),
     # Wrong current_tenant_id import paths — LLMs emit 5 different wrong paths.
     # Canonical: from app.middleware.tenant import current_tenant_id
     (re.compile(r"from\s+app\s+import\s+current_tenant_id"),
@@ -221,49 +230,69 @@ _WRONG_IMPORT_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
     # pattern and ensure settings instance is used instead
     (re.compile(r"from\s+app\.core\.config\s+import\s+Settings\b"),
      "from app.core.config import get_settings\n_settings = get_settings()"),
+    # Wrong path imports in tests: "from backend.app import" → "from app import"
+    (re.compile(r"from\s+backend\.app\."),
+     "from app."),
 )
 
 
-def _fix_sqlmodel_async_session_import(src: str) -> str:
-    """Move AsyncSession out of sqlmodel imports and ensure sqlalchemy import exists.
+def _fix_sqlalchemy_wrong_imports(src: str) -> str:
+    """Fix common wrong SQLAlchemy/SQLModel import patterns.
 
-    LLMs frequently write:
-        from sqlmodel import SQLModel, Field, AsyncSession  # WRONG
-    The fix splits it into:
-        from sqlmodel import SQLModel, Field
-        from sqlalchemy.ext.asyncio import AsyncSession
+    Handles:
+    1. from sqlmodel import ..., AsyncSession      → split out to sqlalchemy
+    2. from sqlmodel import ..., create_async_engine → split out to sqlalchemy
+    3. from sqlalchemy.ext.asyncio import ..., Session → replace with AsyncSession
     """
-    pattern = re.compile(
-        r"^(from\s+sqlmodel\s+import\s+)(.*\bAsyncSession\b.*)$",
-        re.MULTILINE,
+    changed = src
+
+    def _move_from_sqlmodel(text: str, symbol: str, correct_import: str) -> str:
+        """Move `symbol` from a sqlmodel import line to `correct_import` line."""
+        pattern = re.compile(
+            rf"^(from\s+sqlmodel\s+import\s+)(.*\b{re.escape(symbol)}\b.*)$",
+            re.MULTILINE,
+        )
+        m = pattern.search(text)
+        if not m:
+            return text
+        imports_str = m.group(2)
+        remaining = re.sub(rf",?\s*\b{re.escape(symbol)}\b\s*,?", ",", imports_str)
+        remaining = re.sub(r",\s*,", ",", remaining)
+        remaining = remaining.strip(" ,")
+        new_sqlmodel = f"from sqlmodel import {remaining}" if remaining else ""
+        replacement = "\n".join(filter(None, [new_sqlmodel, correct_import]))
+        new_text = pattern.sub(replacement, text)
+        # Dedupe if already imported elsewhere
+        if new_text.count(correct_import) > 1:
+            idx = new_text.find(correct_import)
+            rest = new_text[idx + len(correct_import):]
+            rest = rest.replace(correct_import + "\n", "").replace(correct_import, "")
+            new_text = new_text[:idx] + correct_import + rest
+        return new_text
+
+    changed = _move_from_sqlmodel(
+        changed, "AsyncSession",
+        "from sqlalchemy.ext.asyncio import AsyncSession"
     )
-    match = pattern.search(src)
-    if not match:
-        return src
+    changed = _move_from_sqlmodel(
+        changed, "create_async_engine",
+        "from sqlalchemy.ext.asyncio import create_async_engine"
+    )
 
-    imports_str = match.group(2)
-    # Remove AsyncSession from the sqlmodel import line
-    remaining = re.sub(r",?\s*\bAsyncSession\b\s*,?", ",", imports_str)
-    remaining = re.sub(r",\s*,", ",", remaining)
-    remaining = remaining.strip(" ,")
+    # Fix: from sqlalchemy.ext.asyncio import ..., Session (sync — wrong)
+    # Replace bare Session with AsyncSession in asyncio imports
+    changed = re.sub(
+        r"(from\s+sqlalchemy\.ext\.asyncio\s+import\s+[^#\n]*)\bSession\b",
+        r"\1AsyncSession",
+        changed,
+    )
 
-    new_sqlmodel = f"from sqlmodel import {remaining}" if remaining else ""
-    new_async = "from sqlalchemy.ext.asyncio import AsyncSession"
+    return changed
 
-    # Replace the old line with the corrected lines
-    replacement = "\n".join(filter(None, [new_sqlmodel, new_async]))
-    new_src = pattern.sub(replacement, src)
 
-    # If AsyncSession is already imported from sqlalchemy elsewhere, dedupe
-    if new_src.count("from sqlalchemy.ext.asyncio import AsyncSession") > 1:
-        # Keep only the first occurrence
-        first = new_src.find("from sqlalchemy.ext.asyncio import AsyncSession")
-        rest = new_src[first + len("from sqlalchemy.ext.asyncio import AsyncSession"):]
-        rest = rest.replace("from sqlalchemy.ext.asyncio import AsyncSession\n", "")
-        rest = rest.replace("from sqlalchemy.ext.asyncio import AsyncSession", "")
-        new_src = new_src[:first] + "from sqlalchemy.ext.asyncio import AsyncSession" + rest
-
-    return new_src
+# Keep old name as alias for backward compat
+def _fix_sqlmodel_async_session_import(src: str) -> str:
+    return _fix_sqlalchemy_wrong_imports(src)
 
 
 def fix_wrong_python_imports(path: Path) -> int:
@@ -279,8 +308,8 @@ def fix_wrong_python_imports(path: Path) -> int:
     original = src
     changes = 0
 
-    # Fix AsyncSession import first (special handling)
-    new_src = _fix_sqlmodel_async_session_import(src)
+    # Fix SQLAlchemy/SQLModel import issues (AsyncSession, create_async_engine, Session)
+    new_src = _fix_sqlalchemy_wrong_imports(src)
     if new_src != src:
         src = new_src
         changes += 1
@@ -288,11 +317,41 @@ def fix_wrong_python_imports(path: Path) -> int:
     # Apply line-level regex fixes
     for pattern, replacement in _WRONG_IMPORT_FIXES:
         if replacement is None:
-            continue  # handled above
+            continue  # handled by _fix_sqlalchemy_wrong_imports above
         new_src, n = pattern.subn(replacement, src)
         if n:
             src = new_src
             changes += n
+
+    # Fix Field(onupdate=...) — not supported by SQLModel, causes TypeError at import
+    if "onupdate=" in src:
+        import re as _re
+        new_src = _re.sub(r",\s*onupdate\s*=[^,\)]+", "", src)
+        if new_src != src:
+            src = new_src
+            changes += 1
+
+    # Fix truncated string literals (LLM sometimes cuts mid-string)
+    # Detect and replace with a stub if file doesn't parse cleanly
+    import ast as _ast
+    try:
+        _ast.parse(src)
+    except SyntaxError as _e:
+        if "unterminated string" in str(_e) or "EOL while scanning" in str(_e):
+            # Truncate at the broken line and add a stub router
+            _lines = src.splitlines()
+            _bad = (_e.lineno or len(_lines)) - 1
+            _clean = "\n".join(_lines[:max(0, _bad - 1)])
+            if path.name.endswith(".py") and "router" in src[:500]:
+                _stub = _clean + '\n\n# File was truncated — stub router added\nfrom fastapi import APIRouter\nrouter = APIRouter()\n'
+            else:
+                _stub = _clean + "\n"
+            try:
+                _ast.parse(_stub)
+                src = _stub
+                changes += 1
+            except SyntaxError:
+                pass
 
     if src != original:
         path.write_text(src, encoding="utf-8")

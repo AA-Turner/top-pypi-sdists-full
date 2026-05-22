@@ -423,10 +423,24 @@ def update(
         rprint(f"[yellow]Failed to update node id cache: {e}[/yellow]")
 
 
-@app.command(help="Run API workflow file using the ComfyUI launched by `comfy launch --background`")
-@tracking.track_command()
+@app.command(
+    help=(
+        "Run a workflow on the ComfyUI launched by `comfy launch --background`. "
+        "Accepts both ComfyUI API format and exported UI workflow JSON; "
+        "UI workflows are converted to API format client-side via /object_info."
+    )
+)
 def run(
-    workflow: Annotated[str, typer.Option(help="Path to the workflow API json file.")],
+    workflow: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "Path to the workflow JSON file. Both ComfyUI API format and "
+                "exported UI format are accepted; UI workflows are converted "
+                "to API format client-side."
+            )
+        ),
+    ],
     wait: Annotated[
         bool,
         typer.Option(help="If the command should wait until execution completes."),
@@ -444,9 +458,17 @@ def run(
         typer.Option(help="The port where the ComfyUI instance is running, e.g. 8188."),
     ] = None,
     timeout: Annotated[
-        int | None,
-        typer.Option(help="The timeout in seconds for the workflow execution."),
-    ] = 30,
+        int,
+        typer.Option(
+            help=(
+                "Per-event timeout in seconds: bails out if the server is silent "
+                "for this long. Also caps HTTP connect, /prompt POST, and websocket "
+                "handshake. NOT a wall-clock execution deadline — a workflow that "
+                "streams progress events faster than the timeout can run "
+                "indefinitely."
+            ),
+        ),
+    ] = 120,
     api_key: Annotated[
         str | None,
         typer.Option(
@@ -454,40 +476,99 @@ def run(
             envvar="COMFY_API_KEY",
             help=(
                 "Comfy API key for API Nodes (Partner Nodes). "
-                "Embedded in the prompt body as extra_data.api_key_comfy_org on POST /prompt. "
+                "Embedded in the POST /prompt request body as extra_data.api_key_comfy_org. "
                 "For scripting, prefer the COMFY_API_KEY environment variable so the secret "
                 "stays out of shell history."
             ),
         ),
     ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help=(
+                "Emit NDJSON events to stdout instead of human-readable output. "
+                "One JSON object per line, terminated by \\n. See docs/json-output.md "
+                "for the event reference and stability contract. In this mode, "
+                "--verbose has no effect and Rich progress is suppressed. "
+                "Workflow input accepts both API and UI format JSON (UI input "
+                "triggers a `converted` event before `queued`). The converted "
+                "workflow graph is always emitted as a `prompt_preview` event "
+                "before `queued`, so agents have a full audit trail of what "
+                "the CLI submitted."
+            ),
+        ),
+    ] = False,
+    print_prompt: Annotated[
+        bool,
+        typer.Option(
+            "--print-prompt",
+            help=(
+                "Print the API-format workflow graph that WOULD be sent to /prompt and exit. "
+                "Does not POST and does not execute. For UI-format input the workflow is "
+                "converted first (requires a reachable ComfyUI for /object_info); API input "
+                "is printed as-is with no server hit. In --json mode emits a `prompt_preview` "
+                "event; otherwise pretty-prints to stdout."
+            ),
+        ),
+    ] = False,
 ):
-    if api_key:
-        api_key = api_key.strip() or None
+    # Snapshot kwargs before the body mutates api_key/host/port — analytics should record what user actually supplied.
+    _track_props = tracking.filter_command_kwargs(dict(locals()))
+    tracking.track_event("execution_start", _track_props, mixpanel_name="run")
 
-    config = ConfigManager()
+    try:
+        if api_key:
+            api_key = api_key.strip() or None
 
-    if host:
-        s = host.split(":")
-        host = s[0]
-        if not port and len(s) == 2:
-            port = int(s[1])
+        config = ConfigManager()
 
-    local_paths = False
-    if config.background:
+        if host:
+            s = host.split(":")
+            host = s[0]
+            if not port and len(s) == 2:
+                port = int(s[1])
+
+        if config.background:
+            bg_host, bg_port = config.background[0], config.background[1]
+            if not host:
+                host = bg_host
+            if not port:
+                port = bg_port
+
         if not host:
-            host = config.background[0]
-            local_paths = True
-        if port:
-            local_paths = False
+            host = "127.0.0.1"
+        if not port:
+            port = 8188
+
+        run_inner.execute(
+            workflow,
+            host,
+            port,
+            wait,
+            verbose,
+            timeout,
+            api_key=api_key,
+            json_mode=json_output,
+            print_prompt=print_prompt,
+        )
+    except typer.Exit as e:
+        if (e.exit_code or 0) == 0:
+            tracking.track_event("execution_success", _track_props)
         else:
-            port = config.background[1]
-
-    if not host:
-        host = "127.0.0.1"
-    if not port:
-        port = 8188
-
-    run_inner.execute(workflow, host, port, wait, verbose, local_paths, timeout, api_key=api_key)
+            tracking.track_event(
+                "execution_error",
+                {**_track_props, "error_type": type(e).__name__, "exit_code": e.exit_code},
+            )
+        raise
+    except Exception as e:
+        tracking.track_event(
+            "execution_error",
+            {**_track_props, "error_type": type(e).__name__},
+        )
+        raise
+    else:
+        tracking.track_event("execution_success", _track_props)
 
 
 def validate_comfyui(_env_checker):

@@ -158,18 +158,12 @@ from domdf_python_tools.stringlist import StringList
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.config import ENUM
-from sphinx.ext.autodoc import (
-		ALL,
-		INSTANCEATTR,
-		ClassDocumenter,
-		Documenter,
-		ModuleDocumenter,
-		logger,
-		special_member_re
-		)
+from sphinx.environment import BuildEnvironment
+from sphinx.ext.autodoc import ALL, INSTANCEATTR, ClassDocumenter, Documenter, ModuleDocumenter, special_member_re
 from sphinx.ext.autodoc.directive import DocumenterBridge, process_documenter_options
-from sphinx.ext.autosummary import Autosummary, FakeDirective, autosummary_table
+from sphinx.ext.autosummary import Autosummary, autosummary_table
 from sphinx.locale import __
+from sphinx.util import logging
 from sphinx.util.inspect import getdoc, safe_getattr
 
 # this package
@@ -191,6 +185,8 @@ __all__ = (
 		"get_documenter",
 		"setup",
 		)
+
+logger = logging.getLogger("sphinx.ext.autodoc")
 
 if sphinx.version_info < (3, 5):
 	# 3rd party
@@ -218,6 +214,50 @@ else:  # pragma: no cover
 				members[name] = (name, INSTANCEATTR)
 
 		return sorted(list(members.values()))
+
+
+if sphinx.version_info < (9, 0):
+	# 3rd party
+	from sphinx.ext.autosummary import FakeDirective
+else:
+	# stdlib
+	from pathlib import Path
+
+	# 3rd party
+	from docutils.parsers.rst.states import Struct
+	from sphinx.config import Config
+	from sphinx.ext.autodoc._directive_options import _AutoDocumenterOptions  # type: ignore[import-not-found]
+	from sphinx.project import Project
+	from sphinx.registry import SphinxComponentRegistry
+
+	class FakeApplication:
+
+		verbosity = 0
+
+		def __init__(self) -> None:
+			self.doctreedir = Path()
+			self.events = None
+			self.extensions = {}  # type: ignore[var-annotated]
+			self.srcdir = Path()
+			self.config = Config()
+			self.project = Project('', {})
+			self.registry = SphinxComponentRegistry()
+
+	class FakeDirective(DocumenterBridge):  # type: ignore[no-redef]  # false positive
+
+		def __init__(self) -> None:
+			settings = Struct(tab_width=8)
+			document = Struct(settings=settings)
+
+			app = FakeApplication()
+			app.config.add("autodoc_class_signature", "mixed", "env", ())
+
+			env = BuildEnvironment(app)  # type: ignore[arg-type]
+			opts = _AutoDocumenterOptions()
+
+			state = Struct(document=document)
+
+			super().__init__(env, None, opts, 0, state)
 
 
 def add_autosummary(self, relative_ref_paths: bool = False) -> None:
@@ -427,6 +467,7 @@ def get_documenter(app: Sphinx, obj: Any, parent: Any) -> Type[Documenter]:
 	else:
 		parent_doc_cls = ModuleDocumenter
 
+	# For new implementation see: https://github.com/sphinx-doc/sphinx/commit/3dec8620aea3592cf032106f8f95c4a426c34632
 	if hasattr(parent, "__name__"):
 		parent_doc = parent_doc_cls(FakeDirective(), parent.__name__)
 	else:
@@ -589,10 +630,11 @@ class PatchedAutoSummModuleDocumenter(autodocsumm.AutoSummModuleDocumenter):
 
 			# give the user a chance to decide whether this member
 			# should be skipped
-			if self.env.app:
+			app = self.env.app
+			if app:
 				# let extensions preprocess docstrings
 				try:  # pylint: disable=R8203
-					skip_user = self.env.app.emit_firstresult(
+					skip_user = app.emit_firstresult(
 							"autodoc-skip-member",
 							self.objtype,
 							membername,
@@ -742,6 +784,16 @@ def _patch_filter_members() -> None:
 	Documenter.filter_members = _documenter_filter_members  # type: ignore[method-assign, assignment]
 
 
+def _after_config_inited(app: Sphinx, config: Any) -> None:
+	app.add_directive("autosummary", PatchedAutosummary, override=True)
+	app.add_directive("autoclasssumm", PatchedAutoDocSummDirective, override=True)
+	app.add_directive("automodulesumm", PatchedAutoDocSummDirective, override=True)
+
+	autodocsumm.AutosummaryDocumenter.add_autosummary = add_autosummary
+	allow_subclass_add(app, PatchedAutoSummModuleDocumenter)
+	allow_subclass_add(app, PatchedAutoSummClassDocumenter)
+
+
 @metadata_add_version
 def setup(app: Sphinx) -> SphinxExtMetadata:
 	"""
@@ -754,13 +806,8 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	app.setup_extension("autodocsumm")
 	app.setup_extension("sphinx_toolbox.latex")
 
-	app.add_directive("autosummary", PatchedAutosummary, override=True)
-	app.add_directive("autoclasssumm", PatchedAutoDocSummDirective, override=True)
-	app.add_directive("automodulesumm", PatchedAutoDocSummDirective, override=True)
-
-	autodocsumm.AutosummaryDocumenter.add_autosummary = add_autosummary
-	allow_subclass_add(app, PatchedAutoSummModuleDocumenter)
-	allow_subclass_add(app, PatchedAutoSummClassDocumenter)
+	# Run after sphinx.ext.autodoc._register_directives() and autodocsumm._after_config_inited().
+	app.connect("config-inited", _after_config_inited, priority=610)  # autodocsumm is 600
 
 	app.add_config_value(
 			"autodocsumm_member_order",

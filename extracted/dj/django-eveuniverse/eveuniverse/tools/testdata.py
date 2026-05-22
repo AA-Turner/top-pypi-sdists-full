@@ -10,13 +10,11 @@ from typing import Iterable, List, NamedTuple, Optional, Union
 
 from django.core.serializers.json import DjangoJSONEncoder
 
-from eveuniverse import __title__
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.models import EveSolarSystem, EveStargate
 from eveuniverse.models.base import EveUniverseBaseModel
-from eveuniverse.utils import LoggerAddTag
 
-logger = LoggerAddTag(logging.getLogger(__name__), __title__)
+logger = logging.getLogger(__name__)
 
 
 class ModelSpec(NamedTuple):
@@ -46,10 +44,13 @@ def create_testdata(spec: List[ModelSpec], filepath: Union[str, Path]) -> None:
     """
 
     _clear_database()
-    print()
 
+    print("Initializing ESI client ...")
     _check_if_esi_is_available()
+
+    print("Loading data from ESI. This can take a while...")
     _load_data_per_spec(spec)
+
     _dump_all_data_into_file(Path(filepath))
 
 
@@ -60,7 +61,6 @@ def _clear_database():
 
 
 def _check_if_esi_is_available():
-    print("Initializing ESI client ...")
     if not is_esi_online():
         raise RuntimeError("ESI not online")
 
@@ -90,24 +90,27 @@ def _load_data_per_spec(spec: List[ModelSpec]):
 def _dump_all_data_into_file(filepath: Path):
     data = OrderedDict()
     for model_class in EveUniverseBaseModel.all_models():
-        if model_class.objects.count() > 0 and model_class.__name__ != "EveUnit":
-            logger.info(
-                "Collecting %d rows for %s",
-                model_class.objects.count(),
-                model_class.__name__,
-            )
-            my_data = list(model_class.objects.all().values())
-            for row in my_data:
-                try:
-                    del row["last_updated"]
-                except KeyError:
-                    pass
+        if model_class.objects.count() == 0 or model_class.__name__ == "EveUnit":
+            continue
 
-            data[model_class.__name__] = my_data
+        logger.info(
+            "Collecting %d rows for %s",
+            model_class.objects.count(),
+            model_class.__name__,
+        )
+        my_data = list(model_class.objects.all().values())
+        for row in my_data:
+            try:
+                del row["last_updated"]
+            except KeyError:
+                pass
 
-    print(f"Writing testdata to: {filepath}")
+        data[model_class.__name__] = my_data
+
     with filepath.open("w", encoding="utf-8") as file:
         json.dump(data, file, cls=DjangoJSONEncoder, indent=4, sort_keys=True)
+
+    print(f"Stored testdata in: {filepath}")
 
 
 def load_testdata_from_dict(testdata: dict) -> None:

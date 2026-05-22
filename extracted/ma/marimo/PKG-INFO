@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.23.6
+Version: 0.23.7
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -26,6 +26,7 @@ Requires-Dist: tomlkit>=0.12.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: uvicorn>=0.22.0
 Requires-Dist: starlette>=0.37.2
+Requires-Dist: python-multipart>=0.0.18
 Requires-Dist: websockets>=14.2.0
 Requires-Dist: loro>=1.10.0
 Requires-Dist: typing-extensions>=4.4.0 ; python_full_version < '3.11'
@@ -403,6 +404,13 @@ a greater movement toward reactive dataflow programming. From
 [React](https://github.com/facebook/react), the ideas of functional,
 declarative, and reactive programming are transforming a broad range of tools
 for the better.
+
+Finally, we would like to acknowledge [Bennet
+Meyers](https://bmeyers.github.io/about/) and [David
+Chassin](https://www.chassin.org/about/) for believing in marimo from the very
+beginning: this work was supported in part by U.S. DOE Office of Critical
+Minerals and Energy Innovation (CMEI) Integrated Energy Systems Office (IESO),
+Agreement 34368.
 
 <p align="right">
   <img src="https://raw.githubusercontent.com/marimo-team/marimo/main/docs/_static/marimo-logotype-horizontal.png" height="200px">

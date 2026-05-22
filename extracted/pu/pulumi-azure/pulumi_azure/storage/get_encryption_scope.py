@@ -115,7 +115,7 @@ def get_encryption_scope(name: Optional[_builtins.str] = None,
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param _builtins.str name: The name of this Storage Encryption Scope.
@@ -133,8 +133,8 @@ def get_encryption_scope(name: Optional[_builtins.str] = None,
         name=pulumi.get(__ret__, 'name'),
         source=pulumi.get(__ret__, 'source'),
         storage_account_id=pulumi.get(__ret__, 'storage_account_id'))
-def get_encryption_scope_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                                storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_encryption_scope_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                                storage_account_id: pulumi.Input[Optional[_builtins.str]] = None,
                                 opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetEncryptionScopeResult]:
     """
     Use this data source to access information about an existing Storage Encryption Scope.
@@ -157,7 +157,7 @@ def get_encryption_scope_output(name: Optional[pulumi.Input[_builtins.str]] = No
     <!-- This section is generated, changes will be overwritten -->
     This data source uses the following Azure API Providers:
 
-    * `Microsoft.Storage` - 2025-06-01
+    * `Microsoft.Storage` - 2025-08-01
 
 
     :param _builtins.str name: The name of this Storage Encryption Scope.

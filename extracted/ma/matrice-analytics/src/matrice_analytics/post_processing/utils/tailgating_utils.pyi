@@ -1,0 +1,53 @@
+"""Auto-generated stub for module: tailgating_utils."""
+from typing import Any, List, Optional, Tuple
+
+from .geometry_utils import point_in_polygon
+
+# Constants
+logger: Any
+
+# Functions
+def analyze_passage(crossings: List[Any], allowed_persons: int, max_follow_dt: float) -> Any: ...
+def compute_entry_normal(p1: Any, p2: Any, secured_side_point: Any) -> Any:
+    """
+    Normal pointing into secured zone.
+    """
+    ...
+def detect_crossing(prev_pt: Any, curr_pt: Any, line_p1: Any, line_p2: Any, secured_zone: Any, min_motion_magnitude: Any = 0.002, line_intersection_tolerance: Any = 0.02, enable_direction_validation: Any = True, entry_normal: Any = None) -> Any: ...
+def motion_vector(p0: Any, p1: Any) -> Tuple[float, float]: ...
+def normalize(v: Tuple[float, float]) -> Tuple[float, float]: ...
+def segment_intersects_line(p0: Any, p1: Any, l0: Any, l1: Any) -> Any:
+    """
+    Segment intersection test.
+    """
+    ...
+def signed_distance(point: Any, p1: Any, p2: Any) -> float:
+    """
+    Signed distance from infinite line.
+    """
+    ...
+
+# Classes
+class AccessEvent:
+    ...
+class AccessEventManager:
+    # Manages access-window lifecycle only.
+    # No geometry. No analytics.
+
+    def add_crossing(self: Any, event: Any, crossing: Any) -> Any: ...
+
+    def can_open(self: Any, door: Any, now_ts: float) -> bool: ...
+
+    def close_event(self: Any, door: Any, cooldown_sec: float, now_ts: float) -> Optional[Any]: ...
+
+    def open_event(self: Any, door: Any, access_window_sec: float, now_ts: float) -> Any: ...
+
+    def should_close(self: Any, event: Any, _door: Any, now_ts: float, silence_timeout_sec: float) -> bool: ...
+
+class CrossingRecord:
+    ...
+class DoorRuntime:
+    def __init__(self: Any, door_id: Any) -> None: ...
+
+class PassageAnalysisResult:
+    ...

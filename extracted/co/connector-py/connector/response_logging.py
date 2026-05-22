@@ -25,6 +25,9 @@ DENYLISTED_HEADERS = {
     "access-key",
     "access_key",
     "exo_cert_thumbprint",
+    "external-id",
+    "external_id",
+    "externalid",
 }
 REDACTION_VALUE = "[REDACTED]"
 HTTP_SUCCESS_CONTENT_PREVIEW_MAX_LENGTH = 8 * 1024
@@ -32,7 +35,7 @@ HTTP_ERROR_CONTENT_PREVIEW_MAX_LENGTH = 12 * 1024
 TRUNCATION_SEPARATOR = "...[truncated]..."
 SENSITIVE_FIELDS_PATTERN = (
     r"(access_token|refresh_token|temporary_password|token|api[_-]?key|client[_-]?secret|"
-    r"password|secret|auth[_-]?token|jwt|bearer|"
+    r"password|secret|auth[_-]?token|jwt|bearer|external[_-]?id|"
     r"ssn|social[_-]?security|tax[_-]?id|ein|"
     r"national[_-]?id|passport[_-]?number|driver[_-]?license|"
     r"date[_-]?of[_-]?birth|birth[_-]?date|dob|"

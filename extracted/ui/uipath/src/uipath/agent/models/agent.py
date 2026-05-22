@@ -112,6 +112,7 @@ class AgentToolType(str, CaseInsensitiveEnum):
     PROCESS = "Process"
     API = "Api"
     PROCESS_ORCHESTRATION = "ProcessOrchestration"
+    FLOW = "Flow"
     INTEGRATION = "Integration"
     INTERNAL = "Internal"
     IXP = "Ixp"
@@ -188,6 +189,7 @@ class AgentToolArgumentPropertiesVariant(str, CaseInsensitiveEnum):
     ARGUMENT = "argument"
     STATIC = "static"
     TEXT_BUILDER = "textBuilder"
+    ARRAY_BUILDER = "arrayBuilder"
 
 
 class TextTokenType(str, CaseInsensitiveEnum):
@@ -276,11 +278,21 @@ class AgentToolTextBuilderArgumentProperties(BaseAgentToolArgumentProperties):
     tokens: List[TextToken]
 
 
+class AgentToolArrayBuilderArgumentProperties(BaseCfg):
+    """Agent array builder argument properties model."""
+
+    variant: Literal[AgentToolArgumentPropertiesVariant.ARRAY_BUILDER] = Field(
+        default=AgentToolArgumentPropertiesVariant.ARRAY_BUILDER,
+        frozen=True,
+    )
+
+
 AgentToolArgumentProperties = Annotated[
     Union[
         AgentToolStaticArgumentProperties,
         AgentToolArgumentArgumentProperties,
         AgentToolTextBuilderArgumentProperties,
+        AgentToolArrayBuilderArgumentProperties,
     ],
     Field(discriminator="variant"),
     _case_insensitive_enum_validator("variant", AgentToolArgumentPropertiesVariant),
@@ -779,6 +791,7 @@ class AgentProcessToolResourceConfig(BaseAgentToolResourceConfig):
         AgentToolType.PROCESS,
         AgentToolType.API,
         AgentToolType.PROCESS_ORCHESTRATION,
+        AgentToolType.FLOW,
     ]
     output_schema: Dict[str, Any] = Field(EMPTY_SCHEMA, alias="outputSchema")
     properties: AgentProcessToolProperties
@@ -1322,6 +1335,7 @@ class AgentDefinition(BaseModel):
             "process": "Process",
             "api": "Api",
             "processorchestration": "ProcessOrchestration",
+            "flow": "Flow",
             "integration": "Integration",
             "internal": "Internal",
             "ixp": "Ixp",

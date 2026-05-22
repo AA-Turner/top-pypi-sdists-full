@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sinter
-Version: 1.15.0
+Version: 1.16.0
 Summary: Samples stim circuits and decodes them using pymatching.
 Author: Craig Gidney
 Author-email: craig.gidney@gmail.com

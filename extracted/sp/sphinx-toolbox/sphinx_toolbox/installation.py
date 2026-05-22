@@ -40,7 +40,7 @@ Usage
 
 		The name of the project on PyPI.
 
-	.. rst:directive:option:: conda
+	.. rst:directive:option:: anaconda
 		:type: flag
 
 		Flag to indicate the project can be installed with Conda.
@@ -177,7 +177,6 @@ import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # 3rd party
-import dict2css
 import sphinx.environment
 from docutils import nodes
 from docutils.parsers.rst import directives
@@ -527,12 +526,13 @@ class InstallationDirective(SphinxDirective):
 		Create the installation node.
 		"""
 
-		assert self.env.app.builder is not None
+		builder = self.env.app.builder
+		assert builder is not None
 
 		if self.arguments:
 			self.options["project_name"] = self.arguments[0]
 
-		if self.env.app.builder.format.lower() == "html":
+		if builder.format.lower() == "html":
 			return self.run_html()
 		else:
 			return self.run_generic()
@@ -698,7 +698,7 @@ def copy_asset_files(app: Sphinx, exception: Optional[Exception] = None) -> None
 
 	static_dir = PathPlus(app.outdir) / "_static"
 	static_dir.maybe_make(parents=True)
-	dict2css.dump(_css.installation_styles, static_dir / "sphinx_toolbox_installation.css", minify=True)
+	_css.dump_css(_css.installation_styles, static_dir / "sphinx_toolbox_installation.css", minify=True)
 
 	(static_dir / "sphinx_toolbox_installation.js").write_lines([
 			"// Based on https://github.com/executablebooks/sphinx-tabs/blob/master/sphinx_tabs/static/tabs.js",

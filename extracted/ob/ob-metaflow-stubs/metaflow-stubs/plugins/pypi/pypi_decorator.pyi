@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-21T04:04:58.863725                                                            #
+# MF version: 2.19.29.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-05-21T21:10:55.339221                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -29,6 +29,8 @@ class PyPIStepDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     python : str, optional, default: None
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
     """
     def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
@@ -52,6 +54,8 @@ class PyPIFlowDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
     python : str, optional, default: None
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
     """
     def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...

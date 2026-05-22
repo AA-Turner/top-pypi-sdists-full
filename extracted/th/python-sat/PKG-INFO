@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-sat
-Version: 1.9.dev3
+Version: 1.9.dev4
 Summary: A Python library for prototyping with SAT oracles
 Home-page: https://github.com/pysathq/pysat
 Author: Alexey Ignatiev, Joao Marques-Silva, Antonio Morgado

@@ -42,7 +42,10 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "DatasetSchemaTypeType",
+    "DatasetStatusType",
     "DescriptorTypeType",
+    "DraftStatusType",
     "EndpointIpAddressTypeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
@@ -70,6 +73,9 @@ __all__ = (
     "ListCodeInterpretersPaginatorName",
     "ListConfigurationBundleVersionsPaginatorName",
     "ListConfigurationBundlesPaginatorName",
+    "ListDatasetExamplesPaginatorName",
+    "ListDatasetVersionsPaginatorName",
+    "ListDatasetsPaginatorName",
     "ListEvaluatorsPaginatorName",
     "ListGatewayRulesPaginatorName",
     "ListGatewayTargetsPaginatorName",
@@ -200,7 +206,14 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+DatasetSchemaTypeType = Literal[
+    "AGENTCORE_EVALUATION_PREDEFINED_V1", "AGENTCORE_EVALUATION_SIMULATED_V1"
+]
+DatasetStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
+DraftStatusType = Literal["MODIFIED", "UNMODIFIED"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
@@ -251,6 +264,9 @@ ListBrowsersPaginatorName = Literal["list_browsers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
 ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
+ListDatasetExamplesPaginatorName = Literal["list_dataset_examples"]
+ListDatasetVersionsPaginatorName = Literal["list_dataset_versions"]
+ListDatasetsPaginatorName = Literal["list_datasets"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
 ListGatewayRulesPaginatorName = Literal["list_gateway_rules"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
@@ -797,6 +813,9 @@ PaginatorName = Literal[
     "list_code_interpreters",
     "list_configuration_bundle_versions",
     "list_configuration_bundles",
+    "list_dataset_examples",
+    "list_dataset_versions",
+    "list_datasets",
     "list_evaluators",
     "list_gateway_rules",
     "list_gateway_targets",

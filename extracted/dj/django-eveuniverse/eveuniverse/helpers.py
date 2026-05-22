@@ -4,8 +4,6 @@ import hashlib
 import json
 from typing import Any, Dict, Optional
 
-from django.db import models
-
 # CCP uses a non-standard factor to calculate light years
 # See also: https://gitlab.com/ErikKalkoken/django-eveuniverse/-/issues/16
 METERS_PER_LY = 9_460_000_000_000_000
@@ -19,19 +17,6 @@ def meters_to_ly(value: float) -> Optional[float]:
 def meters_to_au(value: float) -> Optional[float]:
     """Convert meters into AU."""
     return float(value) / 149_597_870_691 if value is not None else None
-
-
-def get_or_create_esi_or_none(
-    prop_name: str, dct: dict, model_class: type
-) -> Optional[models.Model]:
-    """Create a new eveuniverse object from a dictionary entry and return it
-    or return None if the prop name is not in the dict.
-
-    :meta private:
-    """
-    if eve_id := dct.get(prop_name):
-        return model_class.objects.get_or_create_esi(id=eve_id)[0]  # type: ignore
-    return None
 
 
 class EveEntityNameResolver:

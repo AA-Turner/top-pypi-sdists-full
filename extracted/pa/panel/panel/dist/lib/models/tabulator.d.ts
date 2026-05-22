@@ -37,6 +37,7 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _updating_sort: boolean;
     _updating_page_size: boolean;
     _selection_updating: boolean;
+    _selection_pending: boolean;
     _last_selected_row: any;
     _initializing: boolean;
     _lastVerticalScrollbarTopPosition: number;
@@ -44,11 +45,15 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _applied_styles: boolean;
     _building: boolean;
     _redrawing: boolean;
-    _debounced_redraw: any;
+    /** Coalesced resize redraw; waits for `this.root.ready` (Bokeh view async chain) before redrawing. */
+    _resize_pending: boolean;
+    _resize_flush: Promise<void> | null;
     _restore_scroll: boolean | "horizontal" | "vertical";
     _updating_scroll: boolean;
     _is_scrolling: boolean;
     _automatic_page_size: boolean;
+    _last_after_resize_el_width: number | null;
+    _last_after_resize_el_height: number | null;
     connect_signals(): void;
     get groupBy(): boolean | ((data: any) => string);
     get sorters(): any[];
@@ -57,7 +62,15 @@ export declare class DataTabulatorView extends HTMLBoxView {
     get is_drawing(): boolean;
     after_layout(): void;
     after_resize(): void;
+    /**
+     * Defer Tabulator redraw until the Bokeh root view’s `ready` promise settles — it chains async
+     * work from connected signals (similar in spirit to waiting out `has_finished` / layout churn)
+     * without polling `root.is_idle`.
+     */
+    private _request_resize_redraw;
+    private _flush_resize_when_root_ready;
     _resize_redraw(): void;
+    private _has_active_editor;
     stylesheets(): StyleSheetLike[];
     setCSSClasses(el: HTMLDivElement): void;
     remove(): void;

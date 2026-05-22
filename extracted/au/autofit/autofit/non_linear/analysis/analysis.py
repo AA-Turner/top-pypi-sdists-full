@@ -99,11 +99,6 @@ class Analysis(ABC):
         aux data via ``register_instance_pytree(FitImaging, no_flatten=...)``
         in PyAutoLens).
 
-        ``fit_from`` is defined by Analysis subclasses (e.g. ``AnalysisImaging``),
-        not the base class — this method is only callable on subclasses that
-        provide it. Downstream visualizers should prefer this over calling
-        ``fit_from`` directly so the JIT seam stays in one place.
-
         For the JIT path to succeed, the ``Fit*`` return type (and every
         nested autoarray / galaxy / lens type it carries) must be pytree-
         registered. That wiring lives in each analysis subclass (see

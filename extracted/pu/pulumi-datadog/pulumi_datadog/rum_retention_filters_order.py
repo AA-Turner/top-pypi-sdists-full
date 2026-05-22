@@ -58,8 +58,8 @@ class RumRetentionFiltersOrderArgs:
 @pulumi.input_type
 class _RumRetentionFiltersOrderState:
     def __init__(__self__, *,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention_filter_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention_filter_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering RumRetentionFiltersOrder resources.
 
@@ -73,26 +73,26 @@ class _RumRetentionFiltersOrderState:
 
     @_builtins.property
     @pulumi.getter(name="applicationId")
-    def application_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def application_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         RUM application ID.
         """
         return pulumi.get(self, "application_id")
 
     @application_id.setter
-    def application_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def application_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "application_id", value)
 
     @_builtins.property
     @pulumi.getter(name="retentionFilterIds")
-    def retention_filter_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def retention_filter_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         RUM retention filter ID list. The order of IDs in this attribute defines the order of RUM retention filters.
         """
         return pulumi.get(self, "retention_filter_ids")
 
     @retention_filter_ids.setter
-    def retention_filter_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def retention_filter_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "retention_filter_ids", value)
 
 
@@ -102,8 +102,8 @@ class RumRetentionFiltersOrder(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention_filter_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention_filter_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         Provides a Datadog RumRetentionFiltersOrder resource. This is used to manage the order of Datadog RUM retention filters. Please note that retention_filter_ids should contain all IDs of retention filters, including the default ones created internally for a given RUM application.
@@ -126,18 +126,18 @@ class RumRetentionFiltersOrder(pulumi.CustomResource):
             application_id=datadog_rum_application["myRumApplication"]["id"],
             name="testing.rum.retention_filter",
             event_type="action",
-            sample_rate=60,
+            sample_rate=float(60),
             query="@session.has_replay:true",
             enabled=True)
         # Create a new rum_retention_filters_order resource for reordering.
         # Please note that the IDs of all default retention filters have the prefix 'default', and you need to populate the retention_filter_ids field with all retention filter IDs.
         my_rum_retention_filters_order = datadog.RumRetentionFiltersOrder("my_rum_retention_filters_order",
             application_id=datadog_rum_application["myRumApplication"]["id"],
-            retention_filter_ids=std.index.concat(input=[
-                [rf.id for rf in my_retention_filters.retention_filters if std.index.startswith(input=rf.id,
+            retention_filter_ids=std.concat(input=[
+                [rf.id for rf in my_retention_filters.retention_filters if std.startswith(input=rf.id,
                     prefix="default")["result"]],
                 [new_rum_retention_filter.id],
-                [rf.id for rf in my_retention_filters.retention_filters if not std.index.startswith(input=rf.id,
+                [rf.id for rf in my_retention_filters.retention_filters if not std.startswith(input=rf.id,
                     prefix="default")["result"] and rf.id != _arg0_],
             ])["result"])
         ```
@@ -183,18 +183,18 @@ class RumRetentionFiltersOrder(pulumi.CustomResource):
             application_id=datadog_rum_application["myRumApplication"]["id"],
             name="testing.rum.retention_filter",
             event_type="action",
-            sample_rate=60,
+            sample_rate=float(60),
             query="@session.has_replay:true",
             enabled=True)
         # Create a new rum_retention_filters_order resource for reordering.
         # Please note that the IDs of all default retention filters have the prefix 'default', and you need to populate the retention_filter_ids field with all retention filter IDs.
         my_rum_retention_filters_order = datadog.RumRetentionFiltersOrder("my_rum_retention_filters_order",
             application_id=datadog_rum_application["myRumApplication"]["id"],
-            retention_filter_ids=std.index.concat(input=[
-                [rf.id for rf in my_retention_filters.retention_filters if std.index.startswith(input=rf.id,
+            retention_filter_ids=std.concat(input=[
+                [rf.id for rf in my_retention_filters.retention_filters if std.startswith(input=rf.id,
                     prefix="default")["result"]],
                 [new_rum_retention_filter.id],
-                [rf.id for rf in my_retention_filters.retention_filters if not std.index.startswith(input=rf.id,
+                [rf.id for rf in my_retention_filters.retention_filters if not std.startswith(input=rf.id,
                     prefix="default")["result"] and rf.id != _arg0_],
             ])["result"])
         ```
@@ -223,8 +223,8 @@ class RumRetentionFiltersOrder(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention_filter_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention_filter_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -250,8 +250,8 @@ class RumRetentionFiltersOrder(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            application_id: Optional[pulumi.Input[_builtins.str]] = None,
-            retention_filter_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'RumRetentionFiltersOrder':
+            application_id: pulumi.Input[Optional[_builtins.str]] = None,
+            retention_filter_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'RumRetentionFiltersOrder':
         """
         Get an existing RumRetentionFiltersOrder resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.

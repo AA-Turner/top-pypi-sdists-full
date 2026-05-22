@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 from modelscope.hub.snapshot_download import snapshot_download
 from modelscope.metainfo import DEFAULT_MODEL_FOR_PIPELINE
 from modelscope.models.base import Model
+from modelscope.utils.automodel_utils import check_model_from_owner_group
 from modelscope.utils.config import ConfigDict, check_config
 from modelscope.utils.constant import (DEFAULT_MODEL_REVISION, Invoke, Tasks,
                                        ThirdParty)
@@ -117,6 +118,10 @@ def pipeline(task: str = None,
     if task is None and pipeline_name is None:
         raise ValueError('task or pipeline_name is required')
 
+    model_id = model[0] if isinstance(model,
+                                      list) and len(model) > 0 else model
+    _model_trusted = check_model_from_owner_group(model_id)
+    trust_remote_code = trust_remote_code or _model_trusted
     pipeline_props = None
     if pipeline_name is None:
         # get default pipeline for this task
@@ -245,10 +250,13 @@ def pipeline(task: str = None,
     if preprocessor is not None:
         cfg.preprocessor = preprocessor
 
-    return build_pipeline(
-        cfg,
-        task_name=task,
-        default_args={'trust_remote_code': trust_remote_code})
+    if _model_trusted:
+        return build_pipeline(cfg, task_name=task)
+    else:
+        return build_pipeline(
+            cfg,
+            task_name=task,
+            default_args={'trust_remote_code': trust_remote_code})
 
 
 def add_default_pipeline_info(task: str,

@@ -60,6 +60,9 @@ def message(message: ChatCompletionMessageParam) -> ScriptStep:
 
 def user(
     content: Optional[Union[str, ChatCompletionMessageParam]] = None,
+    *,
+    voice_style: Optional[str] = None,
+    audio_effects: Optional[List[Callable[[bytes], bytes]]] = None,
 ) -> ScriptStep:
     """
     Generate or specify a user message in the conversation.
@@ -107,11 +110,19 @@ def user(
         )
         ```
     """
-    return lambda state: state._executor.user(content)
+    # Return a sync closure whose result is the executor coroutine — matches
+    # the existing shape of every other script step (``agent``, ``judge``,
+    # ``message``) so static inspection (``inspect.iscoroutinefunction``) of
+    # the returned step stays consistent across the DSL.
+    return lambda state: state._executor.user(
+        content, voice_style=voice_style, audio_effects=audio_effects
+    )
 
 
 def agent(
     content: Optional[Union[str, ChatCompletionMessageParam]] = None,
+    *,
+    wait: bool = True,
 ) -> ScriptStep:
     """
     Generate or specify an agent response in the conversation.
@@ -158,7 +169,7 @@ def agent(
         )
         ```
     """
-    return lambda state: state._executor.agent(content)
+    return lambda state: state._executor.agent(content, wait=wait)
 
 
 def judge(

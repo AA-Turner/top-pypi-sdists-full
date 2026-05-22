@@ -4277,10 +4277,48 @@ or replace freely; future sessions will respect your edits._
         if (cwd / "CLAUDE.md").exists():
             return
 
-        # Create default AGENTS.md — simplified for Gemma 4
-        agents_md = cwd / "AGENTS.md"
+        # Detect whether the cwd already has a substantial Python
+        # codebase. Two profiles → two different AGENTS.md contents.
+        # Without this split the model received scaffold-from-scratch
+        # instructions even in test_harness cases that explicitly say
+        # "DO NOT scaffold from scratch — modify the existing files."
+        # Observed 2026-05-21 in P1-B1, P2-B1, P3-B1: model created
+        # NEW __init__.py / __main__.py on top of the seeded ones,
+        # then got confused about which files were real.
+        existing_pkg = False
         try:
-            agents_md.write_text(
+            py_files = [
+                p for p in cwd.rglob("*.py")
+                if "__pycache__" not in p.parts
+                and ".git" not in p.parts
+                and ".drydock" not in p.parts
+            ][:15]
+            existing_pkg = len(py_files) >= 5
+        except OSError:
+            pass
+
+        agents_md = cwd / "AGENTS.md"
+        if existing_pkg:
+            content = (
+                "# Project Instructions\n\n"
+                "This project ALREADY EXISTS — do NOT scaffold from scratch.\n"
+                "Read existing files with read_file BEFORE editing them.\n\n"
+                "## Workflow\n"
+                "1. Read the user's request carefully\n"
+                "2. Use `glob` or `ls` to see the layout\n"
+                "3. read_file the modules you'll change\n"
+                "4. search_replace for targeted edits (preferred), "
+                "write_file ONLY for new files\n"
+                "5. Run the project's tests (e.g. `pytest -q`) to verify\n\n"
+                "## Rules\n"
+                "- NEVER overwrite an existing module without reading it first\n"
+                "- Use absolute imports: `from package.module import X`\n"
+                "- Match the project's existing style and patterns\n"
+                "- NEVER ask 'should I proceed' — JUST DO IT\n"
+                "- When tests pass, stop. Don't keep editing.\n"
+            )
+        else:
+            content = (
                 "# Project Instructions\n\n"
                 "DO NOT ask for confirmation. ACT IMMEDIATELY. Start writing code NOW.\n"
                 "If there is a PRD.md, read it then create the files.\n\n"
@@ -4298,7 +4336,12 @@ or replace freely; future sessions will respect your edits._
                 "- NEVER ask 'should I proceed' or 'would you like me to' — JUST DO IT\n"
                 "- After creating a file, immediately create the next one\n"
             )
-            logger.info("Auto-created AGENTS.md in %s", cwd)
+        try:
+            agents_md.write_text(content)
+            logger.info(
+                "Auto-created AGENTS.md in %s (%s mode)",
+                cwd, "modify" if existing_pkg else "scaffold",
+            )
         except (OSError, PermissionError):
             pass  # Non-critical — read-only filesystem or no permissions
 

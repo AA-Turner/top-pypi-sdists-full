@@ -8,11 +8,11 @@ build-backend = "scikit_build_core.build"
 [tool.scikit-build]
 wheel.packages = ["src/pikepdf"]
 cmake.build-type = "Release"
-wheel.py-api = "cp312"
+wheel.py-api = "cp314"
 
 [project]
 name = "pikepdf"
-version = "10.7.0"
+version = "10.7.1"
 description = "Read, write, repair, and transform PDFs in Python, powered by qpdf"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -139,6 +139,9 @@ norecursedirs = [
 ]
 testpaths = ["tests"]
 addopts = "-n auto"
+markers = [
+  "abi3_smoke: a small subset of tests that exercise pikepdf's C extension surface without touching optional Pillow/lxml/numpy runtime paths. Selected with `-m abi3_smoke` for the abi3 debug-Python CI job (where building those native deps from sdist is impractical). Default pytest runs include these tests like any other.",
+]
 
 [tool.coverage.run]
 concurrency = ["multiprocessing"]

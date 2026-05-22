@@ -1,251 +1,185 @@
 """RBAC verifier — Layer 2 of the RBAC verification framework.
 
 Provides types for representing verification results, the core `compare_cell()`
-comparison function, and `VerificationReport` with JSON serialisation.
+comparison function, `VerificationReport` with JSON serialisation, and the
+`verify()` async function that boots the app in-process against a disposable
+PostgreSQL database, seeds role users and baseline rows, probes every
+(role, entity, operation) matrix cell, and reports PASS/VIOLATION/WARNING per cell.
 
-The full `verify()` async function (which starts a live server and probes
-endpoints) is stubbed here. The types and comparison logic are the critical
-pieces for unit testing.
+This module re-exports every public symbol from the two sub-modules so all
+existing ``from dazzle.rbac.verifier import X`` import statements continue
+to work unchanged.
 """
 
 from __future__ import annotations  # required: forward reference
 
-import json
-from dataclasses import dataclass
-from enum import StrEnum
+import logging
 from pathlib import Path
-from typing import Any
 
-from dazzle.rbac.audit import AccessDecisionRecord
-from dazzle.rbac.matrix import AccessMatrix, PolicyDecision
+# ---------------------------------------------------------------------------
+# Re-exports from verification_harness (private helpers — also re-exported
+# so callers that reach into private symbols via `from dazzle.rbac.verifier
+# import _X` keep working without modification)
+# ---------------------------------------------------------------------------
+from dazzle.rbac.verification_harness import (
+    _CSRF_COOKIE,
+    _CSRF_HEADER,
+    _PROBE_VERBS,
+    _SUPERUSER_EMAIL,
+    _SUPERUSER_PASSWORD,
+    _VERIFIER_PASSWORD,
+    _build_asgi_app,
+    _BuiltApp,
+    _create_capable_role,
+    _csrf_headers,
+    _DisposableDatabase,
+    _minimal_body_for_entity,
+    _open_role_client,
+    _probe_all_cells,
+    _probe_cell,
+    _probe_transport,
+    _ProbeResult,
+    _scope_create_overlay,
+    _seed_baseline_rows,
+    _seed_role_users,
+    _verifier_app_context,
+    _VerifierContext,
+)
 
+# ---------------------------------------------------------------------------
+# Re-exports from verification_types (pure result types — cheap to import)
+# ---------------------------------------------------------------------------
+from dazzle.rbac.verification_types import (
+    CellResult,
+    VerificationReport,
+    VerifiedCell,
+    compare_cell,
+)
 
-class CellResult(StrEnum):
-    """The verification outcome for a single (role, entity, operation) cell."""
+__all__ = [
+    # Public types
+    "CellResult",
+    "VerifiedCell",
+    "VerificationReport",
+    "compare_cell",
+    "verify",
+    # Re-exported private helpers (importers rely on these)
+    "_SUPERUSER_EMAIL",
+    "_SUPERUSER_PASSWORD",
+    "_VERIFIER_PASSWORD",
+    "_BuiltApp",
+    "_CSRF_COOKIE",
+    "_CSRF_HEADER",
+    "_DisposableDatabase",
+    "_ProbeResult",
+    "_PROBE_VERBS",
+    "_VerifierContext",
+    "_build_asgi_app",
+    "_create_capable_role",
+    "_csrf_headers",
+    "_minimal_body_for_entity",
+    "_open_role_client",
+    "_probe_all_cells",
+    "_probe_cell",
+    "_probe_transport",
+    "_scope_create_overlay",
+    "_seed_baseline_rows",
+    "_seed_role_users",
+    "_verifier_app_context",
+]
 
-    PASS = "PASS"
-    """Observed behaviour matches the expected policy decision."""
-
-    VIOLATION = "VIOLATION"
-    """Observed behaviour contradicts the expected policy decision."""
-
-    WARNING = "WARNING"
-    """Observed behaviour is technically consistent but warrants review."""
-
-
-@dataclass
-class VerifiedCell:
-    """Verification result for a single (role, entity, operation) triple."""
-
-    role: str
-    entity: str
-    operation: str
-    expected: PolicyDecision
-    observed_status: int
-    observed_count: int | None
-    result: CellResult
-    audit_records: list[AccessDecisionRecord]
-    detail: str
-
-    def to_dict(self) -> dict[str, object]:
-        d: dict[str, object] = {
-            "role": self.role,
-            "entity": self.entity,
-            "operation": self.operation,
-            "expected": self.expected.value,
-            "observed_status": self.observed_status,
-            "observed_count": self.observed_count,
-            "result": self.result.value,
-            "audit_records": [r.to_dict() for r in self.audit_records],
-            "detail": self.detail,
-        }
-        return d
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> VerifiedCell:
-        records = [AccessDecisionRecord(**r) for r in d.get("audit_records", [])]
-        return cls(
-            role=d["role"],
-            entity=d["entity"],
-            operation=d["operation"],
-            expected=PolicyDecision(d["expected"]),
-            observed_status=d["observed_status"],
-            observed_count=d.get("observed_count"),
-            result=CellResult(d["result"]),
-            audit_records=records,
-            detail=d.get("detail", ""),
-        )
-
-
-@dataclass
-class VerificationReport:
-    """Full RBAC verification report produced by `verify()`."""
-
-    app_name: str
-    timestamp: str
-    dazzle_version: str
-    matrix: AccessMatrix | None
-    cells: list[VerifiedCell]
-    total: int
-    passed: int
-    violated: int
-    warnings: int
-
-    def to_json(self) -> dict[str, object]:
-        """Return a JSON-serialisable representation of the report."""
-        matrix_json = self.matrix.to_json() if self.matrix is not None else None
-        return {
-            "app_name": self.app_name,
-            "timestamp": self.timestamp,
-            "dazzle_version": self.dazzle_version,
-            "matrix": matrix_json,
-            "cells": [c.to_dict() for c in self.cells],
-            "total": self.total,
-            "passed": self.passed,
-            "violated": self.violated,
-            "warnings": self.warnings,
-        }
-
-    def save(self, path: Path) -> None:
-        """Serialise the report to *path* as JSON."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self.to_json(), indent=2, default=str))
-
-    @classmethod
-    def load(cls, path: Path) -> VerificationReport:
-        """Deserialise a report previously saved with `.save()`."""
-        raw = json.loads(path.read_text())
-
-        # Reconstruct AccessMatrix if present.
-        matrix: AccessMatrix | None = None
-        if raw.get("matrix") is not None:
-            m = raw["matrix"]
-            cells_dict: dict[tuple[str, str, str], PolicyDecision] = {}
-            for c in m.get("cells", []):
-                cells_dict[(c["role"], c["entity"], c["operation"])] = PolicyDecision(c["decision"])
-            from dazzle.rbac.matrix import PolicyWarning
-
-            warnings = [
-                PolicyWarning(
-                    kind=w["kind"],
-                    entity=w["entity"],
-                    role=w["role"],
-                    operation=w["operation"],
-                    message=w["message"],
-                )
-                for w in m.get("warnings", [])
-            ]
-            matrix = AccessMatrix(
-                cells=cells_dict,
-                warnings=warnings,
-                roles=m.get("roles", []),
-                entities=m.get("entities", []),
-                operations=m.get("operations", []),
-            )
-
-        cells = [VerifiedCell.from_dict(c) for c in raw.get("cells", [])]
-
-        return cls(
-            app_name=raw["app_name"],
-            timestamp=raw["timestamp"],
-            dazzle_version=raw["dazzle_version"],
-            matrix=matrix,
-            cells=cells,
-            total=raw["total"],
-            passed=raw["passed"],
-            violated=raw["violated"],
-            warnings=raw["warnings"],
-        )
-
-
-def compare_cell(
-    expected: PolicyDecision,
-    observed_status: int,
-    observed_count: int | None,
-    *,
-    total: int | None = None,
-) -> CellResult:
-    """Compare an observed HTTP response against an expected policy decision.
-
-    Comparison table
-    ----------------
-    DENY            + 403                              → PASS
-    DENY            + 200                              → VIOLATION
-    PERMIT          + 200                              → PASS
-    PERMIT          + 403                              → VIOLATION
-    PERMIT_FILTERED + 200 + 0 < count < total          → PASS
-    PERMIT_FILTERED + 200 + count == total             → VIOLATION  (unfiltered)
-    PERMIT_FILTERED + 200 + count == 0                 → WARNING
-    PERMIT_UNPROTECTED + 200                           → PASS
-    PERMIT_UNPROTECTED + 403                           → VIOLATION
-
-    Any (expected, observed) combination not explicitly listed above
-    is treated as WARNING.
-    """
-    if expected == PolicyDecision.DENY:
-        if observed_status == 403:
-            return CellResult.PASS
-        if observed_status == 200:
-            return CellResult.VIOLATION
-        return CellResult.WARNING
-
-    if expected == PolicyDecision.PERMIT:
-        if observed_status == 200:
-            return CellResult.PASS
-        if observed_status == 403:
-            return CellResult.VIOLATION
-        return CellResult.WARNING
-
-    if expected == PolicyDecision.PERMIT_FILTERED:
-        if observed_status == 200:
-            if observed_count is None:
-                # Can't determine filtering without a count — treat as warning.
-                return CellResult.WARNING
-            if total is not None and observed_count == total:
-                return CellResult.VIOLATION  # unfiltered
-            if observed_count == 0:
-                return CellResult.WARNING
-            return CellResult.PASS
-        return CellResult.WARNING
-
-    if expected == PolicyDecision.PERMIT_UNPROTECTED:
-        if observed_status == 200:
-            return CellResult.PASS
-        if observed_status == 403:
-            return CellResult.VIOLATION
-        return CellResult.WARNING
-
-    return CellResult.WARNING
+_logger = logging.getLogger(__name__)
 
 
 async def verify(
     project_root: Path,
     *,
-    host: str = "localhost",
-    port: int = 8000,
+    server_database_url: str | None = None,
 ) -> VerificationReport:
-    """Run Layer 2 dynamic RBAC verification against a live server.
+    """Run Layer-2 dynamic RBAC verification.
 
-    This is a stub — the full server lifecycle + HTTP probing implementation
-    is deferred to a follow-up task.  Returns a placeholder report with zero
-    cells so that callers can handle the result type consistently.
+    Provisions a disposable database, boots the app in-process, probes
+    every (role, entity, operation) matrix cell as the relevant role, and
+    compares observed behaviour against the static matrix.
     """
     import importlib.metadata
+    import os
     from datetime import UTC, datetime
+
+    from dazzle.core.appspec_loader import load_project_appspec
+    from dazzle.rbac.audit import NullAuditSink, set_audit_sink
+    from dazzle.rbac.matrix import generate_access_matrix
 
     try:
         version = importlib.metadata.version("dazzle-dsl")
     except importlib.metadata.PackageNotFoundError:
         version = "unknown"
+    now = datetime.now(UTC).isoformat()
 
+    server_url = server_database_url or os.environ.get("DATABASE_URL")
+    if not server_url:
+        raise RuntimeError(
+            "dynamic RBAC verification requires a PostgreSQL server — set "
+            "DATABASE_URL (the verifier creates and drops its own scratch DB)."
+        )
+
+    appspec = load_project_appspec(project_root)
+    matrix = generate_access_matrix(appspec)
+
+    cells: list[VerifiedCell] = []
+    try:
+        async with _DisposableDatabase(server_url) as db_url:
+            async with _verifier_app_context(project_root, db_url) as ctx:
+                creds = await _seed_role_users(ctx.auth_store, roles=list(matrix.roles))
+                # All probe/seed clients ride a transport over the same booted
+                # app, but with raise_app_exceptions=False so a server-side 500
+                # surfaces as a status code instead of crashing the run.
+                transport = _probe_transport(ctx.transport)
+                # Baseline rows are seeded by a create-capable role-user, not
+                # the roles-less bootstrap superuser (which every create gate
+                # rejects with 403).
+                baseline = await _seed_baseline_rows(
+                    transport=transport,
+                    base_url="http://verifier.local",
+                    matrix=matrix,
+                    creds=creds,
+                    entities=list(matrix.entities),
+                    appspec=ctx.appspec,
+                )
+                cells = await _probe_all_cells(ctx, matrix, creds, baseline, transport=transport)
+    except Exception as exc:
+        # App-boot / database-provisioning failure — return an empty report
+        # rather than raising, so callers can render a consistent result.
+        # The `error` field disambiguates this from a clean run of an app
+        # with zero cells: a zeroed report with `error` set means the
+        # verifier could not run, not that everything passed.
+        _logger.error("verify() boot failed: %s", exc, exc_info=True)
+        return VerificationReport(
+            app_name=str(project_root),
+            timestamp=now,
+            dazzle_version=version,
+            matrix=matrix,
+            cells=[],
+            total=0,
+            passed=0,
+            violated=0,
+            warnings=0,
+            error=repr(exc),
+        )
+    finally:
+        set_audit_sink(NullAuditSink())
+
+    passed = sum(1 for c in cells if c.result == CellResult.PASS)
+    violated = sum(1 for c in cells if c.result == CellResult.VIOLATION)
+    warnings = sum(1 for c in cells if c.result == CellResult.WARNING)
     return VerificationReport(
         app_name=str(project_root),
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=now,
         dazzle_version=version,
-        matrix=None,
-        cells=[],
-        total=0,
-        passed=0,
-        violated=0,
-        warnings=0,
+        matrix=matrix,
+        cells=cells,
+        total=len(cells),
+        passed=passed,
+        violated=violated,
+        warnings=warnings,
     )

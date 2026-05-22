@@ -34,7 +34,7 @@ Serializer for cascading style sheets.
 # stdlib
 import re
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Literal, Mapping, Optional, Union
 
 # 3rd party
 from domdf_python_tools.words import TAB
@@ -56,10 +56,9 @@ DefaultInterface = Union[
 	Callable[[Any], Serializable]
 	]
 
-ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
+ESCAPE = re.compile(r'[\x00-\x1f\\\b\f\n\r\t]')
 ESCAPE_DCT = {
 		'\\': "\\\\",
-		'"': '\\"',
 		'\x08': "\\b",
 		'\x0c': "\\f",
 		'\n': "\\n",
@@ -82,11 +81,13 @@ class CSSSerializer:
 	:param minify: Minify the CSS. Overrides all other options.
 	:param sort_keys: Sort dictionary keys alphabetically.
 	:param check_circular: Check for circular references.
+	:param none_style: Whether to represent :py:obj:`None` as ``None`` or ``none``.
 
 	.. versionchanged:: 0.5.0  New implementation. Output may differ slightly from previous css-parser based one.
+	.. versionchanged:: 0.6.0  Added ``none_style`` option.
 
 	.. autosummary-widths:: 1/4
-	"""
+	"""  # noqa: SXL001
 
 	def __init__(
 			self,
@@ -97,6 +98,7 @@ class CSSSerializer:
 			minify: bool = False,
 			sort_keys: bool = False,
 			check_circular: bool = True,  # default: Optional[DefaultInterface] = None,
+			none_style: Union[Literal["none"], Literal["None"]] = "none",
 			) -> None:
 		self._set_options(
 				indent=indent,
@@ -104,6 +106,7 @@ class CSSSerializer:
 				indent_closing_brace=indent_closing_brace,
 				minify=minify,
 				sort_keys=sort_keys,
+				none_style=none_style,
 				)
 
 		if check_circular:
@@ -121,10 +124,12 @@ class CSSSerializer:
 			indent_closing_brace: bool = False,
 			minify: bool = False,
 			sort_keys: bool = False,
+			none_style: Union[Literal["none"], Literal["None"]] = "none",
 			) -> None:
 
 		self._sort_keys: bool = sort_keys
 		self._indent_str: str = (None if minify else indent) or ''
+		self.none_style = none_style
 
 		if minify:
 			self._key_separator: str = ':'
@@ -223,7 +228,7 @@ class CSSSerializer:
 		elif obj is False:
 			yield "false"
 		elif obj is None:
-			yield "none"
+			yield self.none_style  # either none (default; preferred) or None
 		elif isinstance(obj, int):
 			yield repr(obj)
 		elif isinstance(obj, float):

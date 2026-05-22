@@ -156,7 +156,7 @@ class _TTSOptions:
     max_new_tokens: int
     api_key: str
     base_url: str
-    word_timestamps: bool = True
+    word_timestamps: bool = False
     normalize: bool = True
     language: str | None = None
 
@@ -520,6 +520,7 @@ class TTS(tts.TTS):
         cfg_scale: float = 2.0,
         max_new_tokens: int = 2048,
         normalize: bool = True,
+        word_timestamps: bool = False,
         language: str | None = None,
         region: str | None = None,
         base_url: str | None = None,
@@ -542,6 +543,11 @@ class TTS(tts.TTS):
             max_new_tokens: Maximum tokens to generate. Defaults to 2048.
             normalize: Apply loudness normalization to the output audio. Defaults
                 to True.
+            word_timestamps: Request per-chunk word-level timestamps for aligned
+                transcript / barge-in. Defaults to False (matches the HTTP SDK).
+                Enable only when your model supports server-side alignment;
+                ``kugel-2.5`` and ``kugel-2-turbo`` may return a post-processing
+                error when this is True.
             language: ISO 639-1 language code for text normalization (e.g. "de",
                 "en", "fr"). When set, skips server-side auto-detection saving
                 ~60-150ms per request. Supported: de, en, fr, es, it, pt, nl, pl,
@@ -557,7 +563,7 @@ class TTS(tts.TTS):
         super().__init__(
             capabilities=tts.TTSCapabilities(
                 streaming=True,
-                aligned_transcript=True,
+                aligned_transcript=word_timestamps,
             ),
             sample_rate=sample_rate,
             num_channels=1,
@@ -587,6 +593,7 @@ class TTS(tts.TTS):
             cfg_scale=cfg_scale,
             max_new_tokens=max_new_tokens,
             normalize=normalize,
+            word_timestamps=word_timestamps,
             language=language,
             api_key=clean_key,
             base_url=resolved_url,
@@ -667,6 +674,7 @@ class TTS(tts.TTS):
         cfg_scale: NotGivenOr[float] = NOT_GIVEN,
         max_new_tokens: NotGivenOr[int] = NOT_GIVEN,
         normalize: NotGivenOr[bool] = NOT_GIVEN,
+        word_timestamps: NotGivenOr[bool] = NOT_GIVEN,
         language: NotGivenOr[str | None] = NOT_GIVEN,
     ) -> None:
         """Update TTS options dynamically.
@@ -677,6 +685,7 @@ class TTS(tts.TTS):
             cfg_scale: CFG scale for generation.
             max_new_tokens: Maximum tokens to generate.
             normalize: Apply loudness normalization to the output audio.
+            word_timestamps: Enable or disable word-level timestamps.
             language: ISO 639-1 language code for text normalization (e.g. "de").
         """
         changed = False
@@ -694,6 +703,9 @@ class TTS(tts.TTS):
             changed = True
         if is_given(normalize) and normalize != self._opts.normalize:
             self._opts.normalize = normalize
+            changed = True
+        if is_given(word_timestamps) and word_timestamps != self._opts.word_timestamps:
+            self._opts.word_timestamps = word_timestamps
             changed = True
         if is_given(language):
             validated = _validate_language(language)

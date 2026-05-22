@@ -5,11 +5,11 @@ from dataclasses import dataclass
 
 # ======================================== GLSL ========================================
 GLSL_MASK: str = """
-uniform int   u_mask_type;    // 0 = plein écran, 1 = cercle, 2 = rectangle
-uniform vec2  u_mask_center;  // centre en pixels framebuffer
-uniform float u_mask_radius;  // rayon en pixels framebuffer   (Circle)
-uniform vec2  u_mask_half;    // demi-extents en pixels framebuffer (Rect)
-uniform float u_mask_blend;   // largeur du fondu en pixels framebuffer
+uniform int u_mask_type; // 0 = plein écran, 1 = cercle, 2 = rectangle
+uniform vec2 u_mask_center; // centre en pixels framebuffer
+uniform float u_mask_radius; // rayon en pixels framebuffer (Circle)
+uniform vec2 u_mask_half; // demi-extents en pixels framebuffer (Rect)
+uniform float u_mask_blend; // largeur du fondu en pixels framebuffer
 
 float compute_mask() {
     if (u_mask_type == 0) return 1.0;
@@ -20,7 +20,7 @@ float compute_mask() {
     }
 
     // SDF rectangle
-    vec2  d2   = abs(gl_FragCoord.xy - u_mask_center) - u_mask_half;
+    vec2 d2 = abs(gl_FragCoord.xy - u_mask_center) - u_mask_half;
     float dist = length(max(d2, 0.0)) + min(max(d2.x, d2.y), 0.0);
     return 1.0 - smoothstep(0.0, max(u_mask_blend, 1.0), dist);
 }
@@ -34,7 +34,7 @@ class MaskData:
     Toutes les valeurs sont en **coordonnées framebuffer** (pixels).
 
     Args:
-        type: type de masque — ``0`` plein écran, ``1`` cercle, ``2`` rectangle
+        type: type de masque: ``0`` plein écran, ``1`` cercle, ``2`` rectangle
         center_x: abscisse du centre
         center_y: ordonnée du centre
         radius: rayon *(Circle)*
@@ -51,17 +51,16 @@ class MaskData:
     blend: float = 0.0
 
     def as_uniforms(self) -> dict[str, object]:
-        """Retourne un dict prêt à être dépaqueté dans ``pipeline.apply_shader``"""
+        """Retourne un dict des uniforms"""
         return {
-            "u_mask_type":   self.type,
+            "u_mask_type": self.type,
             "u_mask_center": (self.center_x, self.center_y),
             "u_mask_radius": self.radius,
-            "u_mask_half":   (self.half_w, self.half_h),
-            "u_mask_blend":  self.blend,
+            "u_mask_half": (self.half_w, self.half_h),
+            "u_mask_blend": self.blend,
         }
 
-
-# Sentinel : effet plein écran, aucun masque
+# ======================================== SENTINELS ========================================
 MASK_FULL: MaskData = MaskData(type=0)
 
 # ======================================== EXPORTS ========================================

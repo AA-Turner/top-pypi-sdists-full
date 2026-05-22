@@ -1,5 +1,5 @@
-_SENTRY_TRACEBACK_FILE="___SENTRY_TRACEBACK_FILE___"
-_SENTRY_LOG_FILE="___SENTRY_LOG_FILE___"
+_SENTRY_TRACEBACK_FILE=___SENTRY_TRACEBACK_FILE___
+_SENTRY_LOG_FILE=___SENTRY_LOG_FILE___
 
 if [ "${SENTRY_CLI_NO_EXIT_TRAP-0}" != 1 ]; then
   trap _sentry_exit_trap EXIT
@@ -32,7 +32,7 @@ _sentry_err_trap() {
   echo "@exit_code:${_exit_code}" >> "$_SENTRY_TRACEBACK_FILE"
 
   : >> "$_SENTRY_LOG_FILE"
-  export SENTRY_LAST_EVENT=$(___SENTRY_CLI___ bash-hook --send-event --traceback "$_SENTRY_TRACEBACK_FILE" ___SENTRY_TAGS___ ___SENTRY_RELEASE___ --log "$_SENTRY_LOG_FILE" ___SENTRY_NO_ENVIRON___)
+  export SENTRY_LAST_EVENT=$(___SENTRY_CLI___ bash-hook --send-event --traceback "$_SENTRY_TRACEBACK_FILE" ___SENTRY_TAGS___ ___SENTRY_RELEASE___ ___SENTRY_ALLOW_XCODE_INFOPLIST_PREPROCESSING___ --log "$_SENTRY_LOG_FILE")
   rm -f "$_SENTRY_TRACEBACK_FILE" "$_SENTRY_LOG_FILE"
 }
 

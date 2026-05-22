@@ -153,6 +153,7 @@ __all__ = (
     "FlatInvocationsType",
     "FlowDefinitionStatusType",
     "FrameworkType",
+    "HomeEfsFileSystemCreationType",
     "HubContentSortByType",
     "HubContentStatusType",
     "HubContentSupportStatusType",
@@ -1165,6 +1166,7 @@ FlowDefinitionStatusType = Literal["Active", "Deleting", "Failed", "Initializing
 FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
+HomeEfsFileSystemCreationType = Literal["Disabled", "Enabled"]
 HubContentSortByType = Literal["CreationTime", "HubContentName", "HubContentStatus"]
 HubContentStatusType = Literal[
     "Available",

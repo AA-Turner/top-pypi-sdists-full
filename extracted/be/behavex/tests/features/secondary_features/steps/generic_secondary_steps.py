@@ -59,6 +59,15 @@ def given_passing_condition(context):
     context.condition = 'pass'
     logging.info('a passing condition')
 
+
+@given('the userdata key "{key}" equals "{expected_value}"')
+def given_userdata_key_equals(context, key, expected_value):
+    actual = context.config.userdata.get(key)
+    assert actual == expected_value, (
+        f"Expected userdata['{key}'] = '{expected_value}' but got '{actual}'. "
+        f"The 'define' parameter was likely not applied from the config file."
+    )
+
 @given('image attachments are set to ONLY_ON_FAILURE condition')
 def given_image_attachments_only_on_failure(context):
     """Set image attachments to ONLY_ON_FAILURE condition"""
@@ -69,6 +78,19 @@ def given_image_attachments_only_on_failure(context):
         logging.info('Image attachments set to ONLY_ON_FAILURE condition')
     except (ImportError, ModuleNotFoundError):
         logging.warning('behavex-images not available, skipping attachment condition setup')
+
+
+@given('image attachments are set to ALWAYS condition')
+def given_image_attachments_always(context):
+    """Set image attachments to ALWAYS condition so images are saved even for passing tests"""
+    try:
+        from behavex_images import image_attachments
+        from behavex_images.image_attachments import AttachmentsCondition
+        image_attachments.set_attachments_condition(context, AttachmentsCondition.ALWAYS)
+        logging.info('Image attachments set to ALWAYS condition')
+    except (ImportError, ModuleNotFoundError):
+        logging.warning('behavex-images not available, skipping attachment condition setup')
+
 
 @then('a failing condition is performed')
 def then_failing_condition_performed(context):
@@ -305,3 +327,23 @@ def step_see_critical_processing(context):
     assert context.critical_condition, "Critical condition was not established"
     assert context.critical_action, "Critical action was not executed"
     logging.info("Critical processing verified")
+
+
+# ---------- Evidence Attachment Steps ----------
+
+@given('I attach a file to the scenario evidence path')
+def step_attach_file_to_evidence(context):
+    evidence_dir = context.evidence_path
+    evidence_file = os.path.join(evidence_dir, 'evidence_sample.txt')
+    with open(evidence_file, 'w') as f:
+        f.write('evidence content')
+    context.evidence_file_path = evidence_file
+    logging.info(f"Evidence file written to: {evidence_file}")
+
+
+@then('the evidence file should exist in the evidence folder')
+def step_evidence_file_exists(context):
+    assert hasattr(context, 'evidence_file_path'), "evidence_file_path not set"
+    assert os.path.exists(context.evidence_file_path), \
+        f"Evidence file not found at: {context.evidence_file_path}"
+    logging.info("Evidence file exists as expected")

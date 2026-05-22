@@ -24,15 +24,12 @@ from sqlalchemy.sql.selectable import Lateral, SelectState
 
 from snowflake.sqlalchemy._constants import DIALECT_NAME
 from snowflake.sqlalchemy.compat import IS_VERSION_20, args_reducer, string_types
-from snowflake.sqlalchemy.custom_commands import (
-    AWSBucket,
-    AzureContainer,
-    ExternalStage,
-)
+from snowflake.sqlalchemy.custom_commands import CloudStorageLocation, ExternalStage
 
 from ._constants import NOT_NULL
 from .exc import (
     CustomOptionsAreOnlySupportedOnSnowflakeTables,
+    SnowflakeWarning,
     UnexpectedOptionTypeError,
 )
 from .functions import flatten
@@ -134,7 +131,15 @@ https://docs.snowflake.com/en/release-notes/bcr-bundles/2023_04/bcr-1057
 # handle Snowflake BCR bcr-1057
 @CompileState.plugin_for("default", "select")
 class SnowflakeSelectState(SelectState):
+    def __init__(self, statement, compiler, **kw):
+        self._is_snowflake = (
+            compiler is not None and compiler.dialect.name == DIALECT_NAME
+        )
+        super().__init__(statement, compiler, **kw)
+
     def _setup_joins(self, args, raw_columns):
+        if not self._is_snowflake:
+            return super()._setup_joins(args, raw_columns)
         for right, onclause, left, flags in args:
             isouter = flags["isouter"]
             full = flags["full"]
@@ -177,11 +182,10 @@ class SnowflakeSelectState(SelectState):
 
     @sa_util.preload_module("sqlalchemy.sql.util")
     def _join_determine_implicit_left_side(self, raw_columns, left, right, onclause):
-        """When join conditions don't express the left side explicitly,
-        determine if an existing FROM or entity in this query
-        can serve as the left hand side.
-
-        """
+        if not self._is_snowflake:
+            return super()._join_determine_implicit_left_side(
+                raw_columns, left, right, onclause
+            )
 
         replace_from_obj_index = None
 
@@ -238,24 +242,28 @@ class SnowflakeSelectState(SelectState):
 # handle Snowflake BCR bcr-1057
 @sql.base.CompileState.plugin_for("orm", "select")
 class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
+    # Default must be True on SA 1.4 (no _init_global_attributes hook there)
+    # so that the BCR-1057 code paths remain active as they were pre-PR.
+    # On SA 2.0 this default is overwritten by _init_global_attributes.
+    _is_snowflake = not IS_VERSION_20
+
+    def _init_global_attributes(self, statement, compiler, **kw):
+        # SA 2.0 entrypoint for setting _is_snowflake. SA 1.4 does not call
+        # this hook; on SA 1.4 _is_snowflake defaults to True below so the
+        # pre-PR BCR-1057 code paths remain active (the with_loader_criteria
+        # regression fixed by this PR is an SA 2.0-only scenario).
+        self._is_snowflake = (
+            compiler is not None and compiler.dialect.name == DIALECT_NAME
+        )
+        super()._init_global_attributes(statement, compiler, **kw)
+
     def _join_determine_implicit_left_side(
         self, entities_collection, left, right, onclause
     ):
-        """When join conditions don't express the left side explicitly,
-        determine if an existing FROM or entity in this query
-        can serve as the left hand side.
-
-        """
-
-        # when we are here, it means join() was called without an ORM-
-        # specific way of telling us what the "left" side is, e.g.:
-        #
-        # join(RightEntity)
-        #
-        # or
-        #
-        # join(RightEntity, RightEntity.foo == LeftEntity.bar)
-        #
+        if not self._is_snowflake:
+            return super()._join_determine_implicit_left_side(
+                entities_collection, left, right, onclause
+            )
 
         r_info = inspect(right)
 
@@ -350,11 +358,10 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
     def _join_left_to_right(
         self, entities_collection, left, right, onclause, prop, outerjoin, full
     ):
-        """given raw "left", "right", "onclause" parameters consumed from
-        a particular key within _join(), add a real ORMJoin object to
-        our _from_obj list (or augment an existing one)
-
-        """
+        if not self._is_snowflake:
+            return super()._join_left_to_right(
+                entities_collection, left, right, onclause, prop, outerjoin, full
+            )
 
         if left is None:
             # left not given (e.g. no relationship object/name specified)
@@ -488,6 +495,8 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
         )
 
     def _split_schema_by_dot(self, schema):
+        # Each entry is (value, was_quoted) where was_quoted=True means the
+        # value was enclosed in double-quotes in the original string.
         ret = []
         idx = 0
         pre_idx = 0
@@ -495,28 +504,44 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
         while idx < len(schema):
             if not in_quote:
                 if schema[idx] == "." and pre_idx < idx:
-                    ret.append(schema[pre_idx:idx])
+                    ret.append((schema[pre_idx:idx], False))
                     pre_idx = idx + 1
                 elif schema[idx] == '"':
                     in_quote = True
                     pre_idx = idx + 1
             else:
-                if schema[idx] == '"' and pre_idx < idx:
-                    ret.append(schema[pre_idx:idx])
-                    in_quote = False
-                    pre_idx = idx + 1
+                if schema[idx] == '"':
+                    # SQL double-quote escape: "" inside a quoted identifier is a
+                    # literal " character (e.g. "my""schema" → my"schema).
+                    if idx + 1 < len(schema) and schema[idx + 1] == '"':
+                        idx += 1  # skip the second quote; keep accumulating
+                    elif pre_idx < idx:
+                        value = schema[pre_idx:idx].replace('""', '"')
+                        ret.append((value, True))
+                        in_quote = False
+                        pre_idx = idx + 1
             idx += 1
             if pre_idx < len(schema) and schema[pre_idx] == ".":
                 pre_idx += 1
         if pre_idx < idx:
-            ret.append(schema[pre_idx:idx])
+            ret.append((schema[pre_idx:idx], False))
 
-        # convert the returning strings back to quoted_name types, and assign the original 'quote' attribute on it
-        quoted_ret = [
-            quoted_name(value, quote=getattr(schema, "quote", None)) for value in ret
+        # Parts found inside "..." get ``quote=True`` only when the dialect
+        # was constructed with ``case_sensitive_identifiers=True``.  Without
+        # that opt-in we fall back to the input schema's ``.quote`` attribute
+        # (``None`` for a plain str) so the preparer's ``_requires_quotes``
+        # heuristic keeps its pre-existing behaviour — avoids a silent BCR
+        # for users who pass ``'"myschema"'`` and previously saw the inner
+        # quotes stripped by the heuristic.
+        schema_quote = getattr(schema, "quote", None)
+        case_sensitive = getattr(self.dialect, "_case_sensitive_identifiers", False)
+        return [
+            quoted_name(
+                value,
+                quote=True if (was_quoted and case_sensitive) else schema_quote,
+            )
+            for value, was_quoted in ret
         ]
-
-        return quoted_ret
 
 
 class SnowflakeCompiler(compiler.SQLCompiler):
@@ -588,12 +613,7 @@ class SnowflakeCompiler(compiler.SQLCompiler):
         from_ = None
         if isinstance(copy_into.from_, Table):
             from_ = copy_into.from_.name
-        # this is intended to catch AWSBucket and AzureContainer
-        elif (
-            isinstance(copy_into.from_, AWSBucket)
-            or isinstance(copy_into.from_, AzureContainer)
-            or isinstance(copy_into.from_, ExternalStage)
-        ):
+        elif isinstance(copy_into.from_, (CloudStorageLocation, ExternalStage)):
             from_ = copy_into.from_._compiler_dispatch(self, **kw)
         # everything else (selects, etc.)
         else:
@@ -726,6 +746,25 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             encryption if azure_container.encryption_used else "",
         )
 
+    def visit_gcs_bucket(self, gcs_bucket, **kw):
+        encryption_list = list(gcs_bucket.encryption_used.items())
+        if kw.get("deterministic", False):
+            encryption_list.sort(key=operator.itemgetter(0))
+        encryption = "ENCRYPTION=({})".format(
+            " ".join(
+                f"{n}='{v}'" if isinstance(v, string_types) else f"{n}={v}"
+                for n, v in encryption_list
+            )
+        )
+        uri = "'gcs://{}{}'".format(
+            gcs_bucket.bucket, f"/{gcs_bucket.path}" if gcs_bucket.path else ""
+        )
+        return (
+            uri,
+            "",
+            encryption if gcs_bucket.encryption_used else "",
+        )
+
     def visit_external_stage(self, external_stage, **kw):
         if external_stage.file_format is None:
             return (
@@ -840,12 +879,13 @@ class SnowflakeCompiler(compiler.SQLCompiler):
         )
 
     def visit_truediv_binary(self, binary, operator, **kw):
-        if self.dialect.div_is_floordiv:
+        if self.dialect.div_is_floordiv and IS_VERSION_20:
             warnings.warn(
                 "div_is_floordiv value will be changed to False in a future release. This will generate a behavior change on true and floor division. Please review https://docs.sqlalchemy.org/en/20/changelog/whatsnew_20.html#python-division-operator-performs-true-division-for-all-backends-added-floor-division",
                 PendingDeprecationWarning,
                 stacklevel=2,
             )
+            return super().visit_truediv_binary(binary, operator, **kw)
         return (
             self.process(binary.left, **kw) + " / " + self.process(binary.right, **kw)
         )
@@ -917,10 +957,19 @@ class SnowflakeExecutionContext(default.DefaultExecutionContext):
         return self.cursor.rowcount
 
 
+# Tracks (table_name, column_name) pairs for which the Identity-on-PK warning
+# has already been emitted this session, preventing duplicate output when the
+# same table schema is compiled repeatedly (e.g. inside ORM session loops).
+_identity_pk_warned: set = set()
+
+
 class SnowflakeDDLCompiler(compiler.DDLCompiler):
     def denormalize_column_name(self, name):
         if name is None:
             return None
+        if isinstance(name, quoted_name) and name.quote is True:
+            # Caller explicitly requested quoting — preserve case by quoting.
+            return self.preparer.quote_identifier(name)
         elif name.lower() == name and not self.preparer._requires_quotes(name.lower()):
             # no quote as case insensitive
             return name
@@ -962,6 +1011,20 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
                 colspec.append("AUTOINCREMENT")
 
         if has_identity:
+            if column.primary_key:
+                key = (column.table.name, column.name)
+                if key not in _identity_pk_warned:
+                    _identity_pk_warned.add(key)
+                    warnings.warn(
+                        f"Column '{column.name}' uses Identity() as a primary key. "
+                        "Snowflake does not support retrieving the last inserted identity "
+                        "value via the Python connector, which will cause a FlushError "
+                        "during SQLAlchemy ORM flush operations. "
+                        f"Use Sequence() instead: Column('{column.name}', Integer, "
+                        "Sequence('seq_name'), primary_key=True)",
+                        SnowflakeWarning,
+                        stacklevel=2,
+                    )
             colspec.append(self.process(column.identity))
 
         return " ".join(colspec)

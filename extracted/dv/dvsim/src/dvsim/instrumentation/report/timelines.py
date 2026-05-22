@@ -18,24 +18,22 @@ mpl.use("Agg")
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import plotly.colors as pc
 import plotly.graph_objects as go
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure as MplFigure
 from matplotlib.ticker import MaxNLocator
 from typing_extensions import Self, override
 
-from dvsim.instrumentation import InstrumentationResults
-from dvsim.instrumentation.records import ConcreteJobTimingMetrics
+from dvsim.instrumentation.records import ConcreteJobTimingMetrics, InstrumentationResults
 from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,
     InstrumentationVisualizer,
-    RenderProfile,
+    get_default_color_map,
     make_job_metadata_hover,
-    make_repeating_color_map,
     render_plotly_figure,
 )
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.logging import log
 from dvsim.utils import format_time_as_hms as format_time
 from dvsim.utils import format_time_metric
@@ -168,7 +166,7 @@ class TimelineBarChart(InstrumentationVisualizer):
             key = "all" if metadata is None else metadata.target
             categories[key].append(job_id)
         categories = dict(sorted(categories.items()))
-        color_map = make_repeating_color_map(categories, pc.qualitative.Plotly)
+        color_map = get_default_color_map(list(categories.keys()))
 
         # Get the information for all bars & traces to render in the figure
         figure_info: dict[str, list[BarInfo]] = defaultdict(list)

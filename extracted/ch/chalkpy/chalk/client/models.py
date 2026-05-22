@@ -2046,6 +2046,11 @@ class GetRegisteredModelVersionResponse(BaseModel):
 
 class CreateModelTrainingJobResponse(BaseModel):
     success: bool
+    task_id: Optional[str] = None
+    """The server-side task id for the training run. This is the value to pass
+    as ``run_id`` to ``ChalkClient.promote_model_artifact`` when promoting an
+    artifact produced by this run. Optional for backwards compatibility with
+    callers that constructed the response manually."""
 
 
 class ScheduledQueryRunStatus(str, Enum):

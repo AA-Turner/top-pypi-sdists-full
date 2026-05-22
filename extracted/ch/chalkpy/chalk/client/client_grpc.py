@@ -142,6 +142,7 @@ from chalk.client.client_headers import (
     CHALK_GRPC_TRACE_ID_HEADER,
 )
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
+from chalk.client.exc import ChalkCustomException
 from chalk.client.model_image import (
     build_chalk_model_handler_image,
     build_inferred_image,
@@ -3863,8 +3864,12 @@ class ChalkGRPCClient:
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
-    ) -> CreateAggregateBackfillJobResponse:
-        """Trigger an aggregate backfill job.
+        allow_empty_tiles: bool | None = None,
+        exact: bool = False,
+        enable_profiling: bool = False,
+        resource_group: str | None = None,
+    ) -> list[CreateAggregateBackfillJobResponse]:
+        """Trigger one or more aggregate backfill jobs.
 
         Parameters
         ----------
@@ -3881,23 +3886,85 @@ class ChalkGRPCClient:
         store_offline : bool, optional
             If `True`, store materialized aggregate values in the offline store.
             Requires both `lower_bound` and `upper_bound`.
+        allow_empty_tiles : bool, optional
+            If `True`, allow empty tiles when storing tiles offline.
+            Requires `store_offline=True`.
+        exact : bool, optional
+            If `True`, execute the underlying SQL source to determine the exact
+            number of rows that need to migrate.
+        enable_profiling : bool, optional
+            If `True`, enable profiling while running the backfill jobs.
+        resource_group : str, optional
+            Resource group to use for the created backfill jobs.
         """
-        from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobRequest
+        from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AggregateBackfillUserParams
+        from chalk._gen.chalk.aggregate.v1.service_pb2 import (
+            CreateAggregateBackfillJobRequest,
+            PlanAggregateBackfillRequest,
+        )
 
         if store_offline is True and (lower_bound is None or upper_bound is None):
             raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
+        if allow_empty_tiles is True and store_offline is not True:
+            raise ValueError("When `allow_empty_tiles=True`, `store_offline=True` must also be specified.")
 
-        req = CreateAggregateBackfillJobRequest(
-            features=features,
-            lower_bound=timestamp_pb2.Timestamp(seconds=int(lower_bound.timestamp())) if lower_bound else None,
-            upper_bound=timestamp_pb2.Timestamp(seconds=int(upper_bound.timestamp())) if upper_bound else None,
-            resolver=resolver or "",
-            query_tags=query_tags or [],
+        plan_request = PlanAggregateBackfillRequest(
+            params=AggregateBackfillUserParams(
+                features=features,
+                lower_bound=datetime_to_proto_timestamp(lower_bound) if lower_bound else None,
+                upper_bound=datetime_to_proto_timestamp(upper_bound) if upper_bound else None,
+                resolver=resolver,
+                exact=exact,
+                tags=query_tags or [],
+            )
         )
-        if store_offline is not None:
-            req.store_offline = store_offline
 
-        return self._stub_refresher.call_aggregate_stub(lambda stub: stub.CreateAggregateBackfillJob(req, timeout=None))
+        plan_response = self._stub_refresher.call_aggregate_stub(
+            lambda stub: stub.PlanAggregateBackfill(plan_request, timeout=None)
+        )
+        if plan_response.errors:
+            raise ChalkCustomException(
+                "Failed to plan aggregate backfill.",
+                detail="\n".join(plan_response.errors),
+            )
+
+        create_responses: list[CreateAggregateBackfillJobResponse] = []
+        for backfill_with_estimate in plan_response.backfills:
+            backfill = backfill_with_estimate.backfill
+            create_request = CreateAggregateBackfillJobRequest(
+                resolver=backfill.resolver,
+                bucket_feature=backfill.datetime_feature,
+                enable_profiling=enable_profiling,
+                aggregate_backfill_id=plan_response.aggregate_backfill_id,
+                query_tags=query_tags or [],
+            )
+
+            for series in backfill.series:
+                for rule in series.rules:
+                    create_request.features.extend(rule.dependent_features)
+
+            if backfill.HasField("lower_bound"):
+                create_request.lower_bound.CopyFrom(backfill.lower_bound)
+            if backfill.HasField("upper_bound"):
+                create_request.upper_bound.CopyFrom(backfill.upper_bound)
+            if store_offline is not None:
+                create_request.store_offline = store_offline
+            if allow_empty_tiles is not None:
+                create_request.allow_empty_tiles = allow_empty_tiles
+            if resource_group is not None:
+                create_request.resource_group = resource_group
+
+            create_response = self._stub_refresher.call_aggregate_stub(
+                lambda stub, req=create_request: stub.CreateAggregateBackfillJob(req, timeout=None)
+            )
+            if create_response.errors:
+                raise ChalkCustomException(
+                    "Failed to create aggregate backfill job.",
+                    errors=[ChalkErrorConverter.chalk_error_decode(err) for err in create_response.errors],
+                )
+            create_responses.append(create_response)
+
+        return create_responses
 
     def _ensure_model_image(
         self, model_name: str, model_version: int, validate: bool = True

@@ -2977,7 +2977,7 @@ class ChalkClient:
     def train_model(
         self,
         experiment_name: str,
-        train_fn: Callable[[], None],
+        train_fn: Optional[Callable[[], None]] = None,
         config: Optional[Mapping[str, float | str | bool | int]] = None,
         branch: Optional[Union[BranchId, ellipsis]] = ...,
         resources: Optional[ResourceRequests] = None,
@@ -2985,18 +2985,31 @@ class ChalkClient:
         enable_profiling: bool = False,
         max_retries: int = 0,
         train_script: Optional[str] = None,
+        entrypoint: Optional[str] = None,
     ) -> CreateModelTrainingJobResponse:
-        """Train a model using a provided training function.
+        """Train a model using a provided training function or self-contained script.
 
         Parameters
         ----------
         experiment_name : str
             The name of the experiment for this training run.
-        train_fn : Callable[[], None]
-            A callable training function.
+        train_fn : Optional[Callable[[], None]]
+            A callable training function. Use this in Jupyter notebooks or when importing
+            a function from a script. Either ``train_fn`` or ``train_script`` must be provided.
+        train_script : Optional[str]
+            A self-contained Python script string. May be supplied alone, in which case
+            the entrypoint is the script's single top-level function (use ``entrypoint``
+            to disambiguate when multiple are defined). May also be supplied alongside
+            ``train_fn`` to override the source that would otherwise be reconstructed
+            from the notebook or read from the function's defining ``.py`` file; the
+            script must then define a top-level function matching ``train_fn.__name__``.
+        entrypoint : Optional[str]
+            The name of the top-level function in ``train_script`` to use as the entrypoint.
+            Required when ``train_script`` defines more than one top-level function.
+            Only valid with ``train_script``.
         config: Optional[Mapping[str, float | str | bool | int]]
             Optional configuration parameters for the training job. If this is supplied, then
-            the train_fn must take one argument.
+            the train function must take one argument.
         branch : Optional[Union[BranchId, ellipsis]]
             The branch to use for the training job.
         resources : Optional[ResourceRequests]
@@ -3009,12 +3022,6 @@ class ChalkClient:
             Whether to enable profiling for the training job.
         max_retries : int
             Maximum number of retries for the training job.
-        train_script : Optional[str]
-            Optional raw Python source to ship to the trainer. If provided it is used
-            verbatim (after validating it compiles and defines a top-level function
-            matching ``train_fn.__name__``). When omitted: inside a Jupyter notebook
-            the client reconstructs the script from executed cells; outside a
-            notebook it reads the full ``.py`` file in which ``train_fn`` is defined.
 
         Returns
         -------
@@ -3043,8 +3050,12 @@ class ChalkClient:
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
+        allow_empty_tiles: bool | None = None,
+        exact: bool = False,
+        enable_profiling: bool = False,
+        resource_group: str | None = None,
     ) -> Any:
-        """Trigger an aggregate backfill job.
+        """Trigger one or more aggregate backfill jobs.
 
         Parameters
         ----------
@@ -3061,6 +3072,21 @@ class ChalkClient:
         store_offline : bool, optional
             If `True`, store materialized aggregate values in the offline store.
             Requires both `lower_bound` and `upper_bound`.
+        allow_empty_tiles : bool, optional
+            If `True`, allow empty tiles when storing tiles offline.
+            Requires `store_offline=True`.
+        exact : bool, optional
+            If `True`, execute the underlying SQL source to determine the exact
+            number of rows that need to migrate.
+        enable_profiling : bool, optional
+            If `True`, enable profiling while running the backfill jobs.
+        resource_group : str, optional
+            Resource group to use for the created backfill jobs.
+
+        Returns
+        -------
+        list
+            A list of aggregate backfill job responses, one per planned backfill job.
         """
         ...
 

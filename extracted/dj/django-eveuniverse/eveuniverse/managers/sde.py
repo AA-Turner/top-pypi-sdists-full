@@ -8,11 +8,9 @@ import requests
 from django.core.cache import cache
 from django.db import models
 
-from eveuniverse import __title__
 from eveuniverse.app_settings import EVEUNIVERSE_API_SDE_URL
-from eveuniverse.utils import LoggerAddTag
 
-logger = LoggerAddTag(logging.getLogger(__name__), __title__)
+logger = logging.getLogger(__name__)
 
 
 class _ApiCacheManager(ABC):
