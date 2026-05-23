@@ -5,13 +5,12 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+import math
 import platform
-from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final
 
-from bleak.backends.scanner import AdvertisementDataCallback
 from bleak_retry_connector import (
     NO_RSSI_VALUE,
     AllocationChangeEvent,
@@ -31,12 +30,17 @@ from .advertisement_tracker import (
     TRACKER_BUFFERING_WOBBLE_SECONDS,
     AdvertisementTracker,
 )
+from .auto_scheduler import ActiveScanRequest, AutoScanScheduler
 from .channels.bluez import CONNECTION_ERRORS, MGMTBluetoothCtl
 from .const import (
     ADV_RSSI_SWITCH_THRESHOLD,
     CALLBACK_TYPE,
+    DEFAULT_ACTIVE_SCAN_DURATION,
+    DEFAULT_ACTIVE_SCAN_INTERVAL,
     FAILED_ADAPTER_MAC,
     FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS,
+    MIN_ACTIVE_SCAN_DURATION,
+    MIN_ACTIVE_SCAN_INTERVAL,
     UNAVAILABLE_TRACK_SECONDS,
 )
 from .models import (
@@ -51,8 +55,10 @@ from .usage import install_multiple_bleak_catcher, uninstall_multiple_bleak_catc
 from .util import async_reset_adapter
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from bleak.backends.device import BLEDevice
-    from bleak.backends.scanner import AdvertisementData
+    from bleak.backends.scanner import AdvertisementData, AdvertisementDataCallback
 
     from .base_scanner import BaseHaScanner
     from .scanner import HaScanner
@@ -118,6 +124,7 @@ class BluetoothManager:
         "_all_history",
         "_allocations",
         "_allocations_callbacks",
+        "_auto_scheduler",
         "_bleak_callbacks",
         "_bluetooth_adapters",
         "_cancel_allocation_callbacks",
@@ -209,6 +216,7 @@ class BluetoothManager:
         ] = {}
         self._subclass_discover_info = self._discover_service_info
         self._mgmt_ctl: MGMTBluetoothCtl | None = None
+        self._auto_scheduler = AutoScanScheduler(self)
         if (
             self._discover_service_info.__func__  # type: ignore[attr-defined]
             is BluetoothManager._discover_service_info
@@ -355,7 +363,11 @@ class BluetoothManager:
 
     async def async_setup(self) -> None:
         """Set up the bluetooth manager."""
-        from .central_manager import CentralBluetoothManager
+        # Deferred to avoid the circular import that a top-level
+        # ``from .central_manager import CentralBluetoothManager``
+        # would create (central_manager itself imports BluetoothManager
+        # under TYPE_CHECKING but only this method writes through it).
+        from .central_manager import CentralBluetoothManager  # noqa: PLC0415
 
         if CentralBluetoothManager.manager is None:
             CentralBluetoothManager.manager = self
@@ -363,17 +375,17 @@ class BluetoothManager:
         await self._async_refresh_adapters()
         install_multiple_bleak_catcher()
         self.async_setup_unavailable_tracking()
+        self._auto_scheduler.start(self._loop)
         if not IS_LINUX:
             return
         self._mgmt_ctl = MGMTBluetoothCtl(10.0, self._side_channel_scanners)
         try:
             await self._mgmt_ctl.setup()
-        except PermissionError as ex:
-            _LOGGER.error(
-                "Missing required permissions for Bluetooth management: %s. "
+        except PermissionError:
+            _LOGGER.exception(
+                "Missing required permissions for Bluetooth management. "
                 "Automatic adapter recovery is unavailable. "
-                "Add NET_ADMIN and NET_RAW capabilities to the container to enable it",
-                ex,
+                "Add NET_ADMIN and NET_RAW capabilities to the container to enable it"
             )
             self._mgmt_ctl = None
         except CONNECTION_ERRORS as ex:
@@ -389,6 +401,7 @@ class BluetoothManager:
         if self._cancel_unavailable_tracking:
             self._cancel_unavailable_tracking.cancel()
             self._cancel_unavailable_tracking = None
+        self._auto_scheduler.stop()
         uninstall_multiple_bleak_catcher()
         self._cancel_allocation_callbacks()
         if self._mgmt_ctl:
@@ -444,7 +457,7 @@ class BluetoothManager:
             loop.time() + UNAVAILABLE_TRACK_SECONDS, self._async_check_unavailable
         )
 
-    def _async_check_unavailable(self) -> None:
+    def _async_check_unavailable(self) -> None:  # noqa: C901
         """Watch for unavailable devices and cleanup state history."""
         monotonic_now = monotonic_time_coarse()
         connectable_history = self._connectable_history
@@ -513,6 +526,26 @@ class BluetoothManager:
 
         This method is intended to be overridden by subclasses.
         """
+
+    def _should_keep_previous_adv(
+        self,
+        old_info: BluetoothServiceInfoBleak,
+        new_info: BluetoothServiceInfoBleak,
+    ) -> bool:
+        """
+        Return True when ``old_info`` should win over ``new_info``.
+
+        Only relevant when ``old_info`` came from a different still-scanning
+        source. The ``is not / !=`` ordering is a PyObject_RichCompare
+        short-circuit that dominates this hot path; keep it intact.
+        """
+        return (
+            new_info.source is not old_info.source
+            and new_info.source != old_info.source
+            and (scanner := self._sources.get(old_info.source)) is not None
+            and scanner.scanning
+            and self._prefer_previous_adv_from_different_source(old_info, new_info)
+        )
 
     def _prefer_previous_adv_from_different_source(
         self,
@@ -703,7 +736,9 @@ class BluetoothManager:
         """
         self._scanner_adv_received(service_info)
 
-    def _scanner_adv_received(self, service_info: BluetoothServiceInfoBleak) -> None:
+    def _scanner_adv_received(  # noqa: C901
+        self, service_info: BluetoothServiceInfoBleak
+    ) -> None:
         """
         Handle a new advertisement from any scanner (internal cdef path).
 
@@ -761,42 +796,22 @@ class BluetoothManager:
         #                       connectable scanner
         #
         if (
-            (old_service_info := self._all_history.get(service_info.address))
-            is not None
-            and service_info.source is not old_service_info.source
-            and service_info.source != old_service_info.source
-            and (scanner := self._sources.get(old_service_info.source)) is not None
-            and scanner.scanning
-            and self._prefer_previous_adv_from_different_source(
-                old_service_info, service_info
-            )
+            old_service_info := self._all_history.get(service_info.address)
+        ) is not None and self._should_keep_previous_adv(
+            old_service_info, service_info
         ):
             # If we are rejecting the new advertisement and the device is connectable
             # but not in the connectable history or the connectable source is the same
             # as the new source, we need to add it to the connectable history
             if service_info.connectable:
                 if old_connectable_service_info is not None and (
-                    # If its the same as the preferred source, we are done
-                    # as we know we prefer the old advertisement
-                    # from the check above
-                    (old_connectable_service_info is old_service_info)
-                    # If the old connectable source is different from the preferred
-                    # source, we need to check it as well to see if we prefer
-                    # the old connectable advertisement
-                    or (
-                        old_connectable_service_info.source is not service_info.source
-                        and old_connectable_service_info.source != service_info.source
-                        and (
-                            connectable_scanner := self._sources.get(
-                                old_connectable_service_info.source
-                            )
-                        )
-                        is not None
-                        and connectable_scanner.scanning
-                        and self._prefer_previous_adv_from_different_source(
-                            old_connectable_service_info,
-                            service_info,
-                        )
+                    # If it's the same as the preferred source, we're done; we know
+                    # we prefer the old advertisement from the check above.
+                    old_connectable_service_info is old_service_info
+                    # Otherwise the old connectable came from a different source;
+                    # re-run the predicate against the connectable history entry.
+                    or self._should_keep_previous_adv(
+                        old_connectable_service_info, service_info
                     )
                 ):
                     return
@@ -809,6 +824,18 @@ class BluetoothManager:
             self._connectable_history[service_info.address] = service_info
 
         self._all_history[service_info.address] = service_info
+
+        # Hand the advertisement to the auto-scan scheduler right after
+        # _all_history is updated. Ownership-flip detection (a different
+        # scanner taking over a device's source) needs to fire even when
+        # the advertisement payload is identical to the previous one;
+        # the data-comparison short-circuit below would otherwise hide
+        # that flip from the scheduler. Local-typed assignment so
+        # cython.locals casts to AutoScanScheduler and the call is a
+        # direct vtable dispatch even though _auto_scheduler is stored
+        # untyped on BluetoothManager.
+        auto_scheduler = self._auto_scheduler
+        auto_scheduler.on_advertisement(service_info)
 
         # Track advertisement intervals to determine when we need to
         # switch adapters or mark a device as unavailable
@@ -995,6 +1022,7 @@ class BluetoothManager:
             self.slot_manager.remove_adapter(scanner.adapter)
         if (idx := scanner.adapter_idx) is not None:
             self._side_channel_scanners.pop(idx, None)
+        self._auto_scheduler.remove_scanner(scanner)
         self._async_on_scanner_registration(scanner, HaScannerRegistrationEvent.REMOVED)
 
     def async_register_scanner(
@@ -1022,6 +1050,7 @@ class BluetoothManager:
             self.async_on_allocation_changed(
                 self.slot_manager.get_allocations(scanner.adapter)
             )
+        self._auto_scheduler.add_scanner(scanner)
         self._async_on_scanner_registration(scanner, HaScannerRegistrationEvent.ADDED)
         return partial(
             self._async_unregister_scanner_internal, scanners, scanner, connection_slots
@@ -1042,6 +1071,63 @@ class BluetoothManager:
             )
 
         return partial(self._bleak_callbacks.remove, callback_entry)
+
+    def async_register_active_scan(
+        self,
+        address: str,
+        scan_interval: float | None = None,
+        scan_duration: float | None = None,
+    ) -> CALLBACK_TYPE:
+        """
+        Declare an on-demand active-scan need for a specific address.
+
+        Colon-form MAC addresses are normalized to upper-case to
+        match BlueZ / ESPHome / Shelly source addresses; UUIDs (no
+        colons, used by macOS CoreBluetooth) are passed through
+        as-is since CoreBluetooth preserves case on its source
+        addresses.
+
+        ``scan_interval`` / ``scan_duration`` default to
+        DEFAULT_ACTIVE_SCAN_INTERVAL (300s, 5 min) and
+        DEFAULT_ACTIVE_SCAN_DURATION (10s); pass smaller values to
+        get a tighter cadence. The effective window is clamped to
+        [AUTO_WINDOW_MIN_DURATION, AUTO_WINDOW_MAX_DURATION]
+        (5s..30s) and coalesced with other due requests for the
+        scanner; very large ``scan_duration`` values are capped.
+        ``scan_interval`` is measured between window starts (not
+        between successive windows). ACTIVE / PASSIVE scanners
+        ignore the request. Returns a cancel callable.
+        """
+        if not address:
+            msg = "address must be a non-empty string"
+            raise ValueError(msg)
+        if scan_interval is None:
+            scan_interval = DEFAULT_ACTIVE_SCAN_INTERVAL
+        if scan_duration is None:
+            scan_duration = DEFAULT_ACTIVE_SCAN_DURATION
+        # Reject non-finite values explicitly: NaN compared to anything
+        # returns False, so a NaN would slip past the lower-bound
+        # checks below and end up in _needs and call_later as a NaN
+        # due-time / duration, busy-looping the worker.
+        if not math.isfinite(scan_interval) or scan_interval < MIN_ACTIVE_SCAN_INTERVAL:
+            msg = (
+                f"scan_interval must be a finite number >= "
+                f"{MIN_ACTIVE_SCAN_INTERVAL:.0f}s"
+            )
+            raise ValueError(msg)
+        if not math.isfinite(scan_duration) or scan_duration < MIN_ACTIVE_SCAN_DURATION:
+            msg = (
+                f"scan_duration must be a finite number >= "
+                f"{MIN_ACTIVE_SCAN_DURATION:.0f}s"
+            )
+            raise ValueError(msg)
+        # MAC addresses (colon-form) get upper-cased to match BlueZ /
+        # ESPHome conventions; UUIDs (macOS CoreBluetooth) pass
+        # through as-is.
+        normalized = address.upper() if ":" in address else address
+        request = ActiveScanRequest(normalized, scan_interval, scan_duration)
+        self._auto_scheduler.add_request(request)
+        return partial(self._auto_scheduler.remove_request, request)
 
     def async_release_connection_slot(self, device: BLEDevice) -> None:
         """Release a connection slot."""
@@ -1071,6 +1157,35 @@ class BluetoothManager:
             self.slot_manager.get_allocations(event.adapter)
         )
 
+    def _unregister_source_callback(
+        self,
+        callbacks_dict: dict[Any, set[Callable[..., None]]],
+        source: object,
+        callback: Callable[..., None],
+    ) -> None:
+        """Unregister a source-keyed callback."""
+        if (callbacks := callbacks_dict.get(source)) is not None:
+            callbacks.discard(callback)
+            if not callbacks:
+                del callbacks_dict[source]
+
+    def _dispatch_source_callbacks(
+        self,
+        callbacks_dict: dict[Any, set[Callable[..., None]]],
+        source: object,
+        payload: object,
+        label: str,
+    ) -> None:
+        """Dispatch payload to source-specific and global (None) callbacks."""
+        for source_key in (source, None):
+            if not (callbacks := callbacks_dict.get(source_key)):
+                continue
+            for callback_ in callbacks.copy():
+                try:
+                    callback_(payload)
+                except Exception:  # pylint: disable=broad-except
+                    _LOGGER.exception("Error in %s", label)
+
     def async_on_allocation_changed(self, allocations: Allocations) -> None:
         """Call allocation callbacks."""
         source = self._adapter_sources.get(allocations.adapter, allocations.adapter)
@@ -1081,33 +1196,23 @@ class BluetoothManager:
             allocated=allocations.allocated,
         )
         self._allocations[source] = ha_slot_allocations
-        for source_key in (source, None):
-            if not (
-                allocation_callbacks := self._allocations_callbacks.get(source_key)
-            ):
-                continue
-            for callback_ in allocation_callbacks:
-                try:
-                    callback_(ha_slot_allocations)
-                except Exception:
-                    _LOGGER.exception("Error in allocation callback")
+        self._dispatch_source_callbacks(
+            self._allocations_callbacks,
+            source,
+            ha_slot_allocations,
+            "allocation callback",
+        )
 
     def _async_on_scanner_registration(
         self, scanner: BaseHaScanner, event: HaScannerRegistrationEvent
     ) -> None:
         """Call scanner callbacks."""
-        for source_key in (scanner.source, None):
-            if not (
-                scanner_callbacks := self._scanner_registration_callbacks.get(
-                    source_key
-                )
-            ):
-                continue
-            for callback_ in scanner_callbacks:
-                try:
-                    callback_(HaScannerRegistration(event, scanner))
-                except Exception:
-                    _LOGGER.exception("Error in scanner callback")
+        self._dispatch_source_callbacks(
+            self._scanner_registration_callbacks,
+            scanner.source,
+            HaScannerRegistration(event, scanner),
+            "scanner callback",
+        )
 
     def async_current_allocations(
         self, source: str | None = None
@@ -1126,15 +1231,12 @@ class BluetoothManager:
     ) -> CALLBACK_TYPE:
         """Register a callback to be called when an allocations change."""
         self._allocations_callbacks.setdefault(source, set()).add(callback)
-        return partial(self._async_unregister_allocation_callback, callback, source)
-
-    def _async_unregister_allocation_callback(
-        self, callback: Callable[[HaBluetoothSlotAllocations], None], source: str | None
-    ) -> None:
-        if (callbacks := self._allocations_callbacks.get(source)) is not None:
-            callbacks.discard(callback)
-            if not callbacks:
-                del self._allocations_callbacks[source]
+        return partial(
+            self._unregister_source_callback,
+            self._allocations_callbacks,
+            source,
+            callback,
+        )
 
     def async_register_scanner_registration_callback(
         self, callback: Callable[[HaScannerRegistration], None], source: str | None
@@ -1142,16 +1244,11 @@ class BluetoothManager:
         """Register a callback to be called when a scanner is added or removed."""
         self._scanner_registration_callbacks.setdefault(source, set()).add(callback)
         return partial(
-            self._async_unregister_scanner_registration_callback, callback, source
+            self._unregister_source_callback,
+            self._scanner_registration_callbacks,
+            source,
+            callback,
         )
-
-    def _async_unregister_scanner_registration_callback(
-        self, callback: Callable[[HaScannerRegistration], None], source: str | None
-    ) -> None:
-        if (callbacks := self._scanner_registration_callbacks.get(source)) is not None:
-            callbacks.discard(callback)
-            if not callbacks:
-                del self._scanner_registration_callbacks[source]
 
     def async_current_scanners(self) -> list[BaseHaScanner]:
         """Return the current scanners."""
@@ -1163,32 +1260,21 @@ class BluetoothManager:
         """Register a callback to be called when a scanner mode changes."""
         self._scanner_mode_change_callbacks.setdefault(source, set()).add(callback)
         return partial(
-            self._async_unregister_scanner_mode_change_callback, callback, source
+            self._unregister_source_callback,
+            self._scanner_mode_change_callbacks,
+            source,
+            callback,
         )
-
-    def _async_unregister_scanner_mode_change_callback(
-        self, callback: Callable[[HaScannerModeChange], None], source: str | None
-    ) -> None:
-        """Unregister a scanner mode change callback."""
-        if (callbacks := self._scanner_mode_change_callbacks.get(source)) is not None:
-            callbacks.discard(callback)
-            if not callbacks:
-                del self._scanner_mode_change_callbacks[source]
 
     def scanner_mode_changed(self, scanner: BaseHaScanner) -> None:
         """Notify callbacks that a scanner's mode has changed."""
-        mode_change = HaScannerModeChange(
-            scanner=scanner,
-            requested_mode=scanner.requested_mode,
-            current_mode=scanner.current_mode,
+        self._dispatch_source_callbacks(
+            self._scanner_mode_change_callbacks,
+            scanner.source,
+            HaScannerModeChange(
+                scanner=scanner,
+                requested_mode=scanner.requested_mode,
+                current_mode=scanner.current_mode,
+            ),
+            "scanner mode change callback",
         )
-        for source_key in (scanner.source, None):
-            if not (
-                mode_callbacks := self._scanner_mode_change_callbacks.get(source_key)
-            ):
-                continue
-            for callback_ in mode_callbacks:
-                try:
-                    callback_(mode_change)
-                except Exception:  # pylint: disable=broad-except
-                    _LOGGER.exception("Error in scanner mode change callback")

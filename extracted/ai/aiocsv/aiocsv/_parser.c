@@ -1,4 +1,4 @@
-// © Copyright 2020-2025 Mikołaj Kuranowski
+// © Copyright 2020-2026 Mikołaj Kuranowski
 // SPDX-License-Identifier: MIT
 
 #include <assert.h>
@@ -22,71 +22,6 @@
 // ************************
 // * PYTHON API BACKPORTS *
 // ************************
-
-#if PY_VERSION_HEX < 0x030A0000
-
-#define Py_TPFLAGS_IMMUTABLETYPE 0
-#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
-
-typedef enum {
-    PYGEN_RETURN = 0,
-    PYGEN_ERROR = -1,
-    PYGEN_NEXT = 1,
-} PySendResult;
-
-static inline PyObject* Py_NewRef(PyObject* o) {
-    Py_INCREF(o);
-    return o;
-}
-
-static PyObject* _fetch_stop_iteration_value(void) {
-    PyObject* exc_type;
-    PyObject* exc_value;
-    PyObject* exc_traceback;
-    PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
-
-    assert(exc_type);
-    assert(PyErr_ExceptionMatches(PyExc_StopIteration));
-
-    PyErr_NormalizeException(&exc_type, &exc_value, &exc_traceback);
-    assert(PyObject_TypeCheck(exc_value, (PyTypeObject*)PyExc_StopIteration));
-
-    PyErr_Clear();
-
-    PyObject* value = ((PyStopIterationObject*)exc_value)->value;
-    Py_INCREF(value);
-    Py_XDECREF(exc_type);
-    Py_XDECREF(exc_value);
-    Py_XDECREF(exc_traceback);
-    return value;
-}
-
-static PySendResult PyIter_Send(PyObject* iter, PyObject* arg, PyObject** presult) {
-    assert(arg);
-    assert(presult);
-
-    // Ensure arg is Py_None
-    if (arg != Py_None) {
-        PyErr_SetString(
-            PyExc_SystemError,
-            "aiocsv's PyIter_Send backport doesn't support sending values other than None");
-        return PYGEN_ERROR;
-    }
-
-    // Ensure iter is an iterator
-    if (!PyIter_Check(iter)) {
-        PyErr_Format(PyExc_TypeError, "%R is not an iterator", Py_TYPE(iter));
-        return PYGEN_ERROR;
-    }
-
-    *presult = (Py_TYPE(iter)->tp_iternext)(iter);
-    if (*presult) return PYGEN_NEXT;
-    if (!PyErr_ExceptionMatches(PyExc_StopIteration)) return PYGEN_ERROR;
-    *presult = _fetch_stop_iteration_value();
-    return PYGEN_RETURN;
-}
-
-#endif
 
 #if PY_VERSION_HEX < 0x030D0000
 
@@ -227,6 +162,9 @@ typedef struct {
     /// C-friendly representation of the csv dialect.
     Dialect dialect;
 
+    /// ID of the thread that has created the _Parser, to ensure it's not shared threads
+    unsigned long thread_id;
+
     /// Limit for the field size
     long field_size_limit;
 
@@ -351,6 +289,7 @@ static int Parser_traverse(Parser* self, visitproc visit, void* arg) {
 static int Parser_clear(Parser* self) {
     Py_CLEAR(self->reader);
     Py_CLEAR(self->current_read);
+    Py_CLEAR(self->buffer_str);
     Py_CLEAR(self->record_so_far);
     return 0;
 }
@@ -359,6 +298,8 @@ static PyObject* Parser_new(PyTypeObject* subtype, PyObject* args, PyObject* kwa
     ModuleState* state = PyType_GetModuleState(subtype);
     Parser* self = PyObject_GC_New(Parser, subtype);
     if (!self) return NULL;
+
+    self->thread_id = PyThread_get_thread_ident();
 
     // Zero-initialize all custom Parser fields. In case the initialization fails,
     // we need to ensure the deallocator doesn't stumble on garbage values.
@@ -755,9 +696,14 @@ static int Parser_finalize_read(Parser* self, PyObject* unicode) {
         PyErr_Format(PyExc_TypeError, "reader.read() returned %R, expected str", Py_TYPE(unicode));
         FINISH_WITH(0);
     }
+
+#if PY_VERSION_HEX < 0x030C0000
+    // PyUnicode_READY is a guaranteed no-op starting with 3.12, but before that other
+    // modules may produce strings using the deprecated path that requires preparation.
     if (PyUnicode_READY(unicode)) {
         FINISH_WITH(0);
     }
+#endif
 
     Py_ssize_t len = PyUnicode_GET_LENGTH(unicode);
     assert(len >= 0);
@@ -776,6 +722,12 @@ ret:
 }
 
 static PyObject* Parser_next(Parser* self) {
+    // Prevent _Parser from being shared across threads
+    if (self->thread_id != PyThread_get_thread_ident()) {
+        PyErr_SetString(PyExc_RuntimeError, "aiocsv._parser.Parser instance must not be shared across threads");
+        return NULL;
+    }
+
     // Loop until a record has been successfully parsed or EOF has been hit
     PyObject* record = NULL;
     while (!record && (self->buffer_str || !self->eof)) {
@@ -818,12 +770,6 @@ static PyObject* Parser_next(Parser* self) {
 }
 
 // *** Type Specification ***
-
-// TODO: Once support 3.8 is dropped, the "Parser" function can be replaced by
-//       normal .tp_new and .tp_init members on the "_Parser" type.
-//       Starting with 3.9 it's possible to access modules state from the _Parser type
-//       with PyType_GetModuleState, but on 3.8 the module needs to be passed around directly
-//       from the fake constructor-function.
 
 static PyMemberDef ParserMembers[] = {
     {"line_num", T_UINT, offsetof(Parser, line_num), READONLY,
@@ -929,6 +875,9 @@ static PyModuleDef_Slot ModuleSlots[] = {
     {Py_mod_exec, module_exec},
 #if PY_VERSION_HEX >= 0x030C0000
     {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
+#endif
+#if PY_VERSION_HEX >= 0x030D0000
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
 #endif
     {0, NULL},
 };

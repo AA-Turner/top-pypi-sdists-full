@@ -4,9 +4,9 @@ use pyo3::IntoPyObjectExt;
 
 use crate::pyinstant::ToTimeVec;
 use crate::pytle::PyTLE;
-use satkit::sgp4 as psgp4;
 use numpy::PyArray1;
 use numpy::PyArrayMethods;
+use satkit::sgp4 as psgp4;
 
 use anyhow::{bail, Result};
 
@@ -81,7 +81,8 @@ fn epoch_from_val(val: &Bound<'_, PyAny>) -> Result<satkit::Instant> {
         Ok(instant.0)
     } else if val.is_instance_of::<PyString>() {
         let s: String = val.extract()?;
-        satkit::Instant::from_rfc3339(&s).map_err(|e| anyhow::anyhow!("Invalid epoch string: {}", e))
+        satkit::Instant::from_rfc3339(&s)
+            .map_err(|e| anyhow::anyhow!("Invalid epoch string: {}", e))
     } else if val.is_instance_of::<PyDateTime>() {
         let tm: Py<PyDateTime> = val.extract().unwrap();
         pyo3::Python::attach(|py| {
@@ -389,12 +390,12 @@ pub fn sgp4(
         let tmarray = time.to_time_vec()?;
         let results: Vec<psgp4::SGP4State> = plist
             .iter()
-            .map(|item| {
+            .map(|item| -> Result<psgp4::SGP4State> {
                 if item.is_instance_of::<PyTLE>() {
                     let mut stle: PyRefMut<PyTLE> = item.extract().map_err(|e| {
                         pyo3::exceptions::PyValueError::new_err(format!("Invalid TLE: {}", e))
                     })?;
-                    psgp4::sgp4(&mut stle.0, tmarray.as_slice())
+                    Ok(psgp4::sgp4(&mut stle.0, tmarray.as_slice())?)
                 } else if item.is_instance_of::<PyDict>() {
                     let dict: &Bound<'_, PyDict> = item.cast().map_err(|e| {
                         pyo3::exceptions::PyValueError::new_err(format!(
@@ -403,7 +404,7 @@ pub fn sgp4(
                         ))
                     })?;
                     let mut omm = omm_from_pydict(dict)?;
-                    psgp4::sgp4(&mut omm, tmarray.as_slice())
+                    Ok(psgp4::sgp4(&mut omm, tmarray.as_slice())?)
                 } else {
                     bail!("Invalid TLE in list");
                 }

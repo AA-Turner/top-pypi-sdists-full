@@ -25,9 +25,10 @@ class SecurityFeedbackArgs:
                  feedback_id: pulumi.Input[_builtins.str],
                  feedback_type: pulumi.Input[_builtins.str],
                  org_id: pulumi.Input[_builtins.str],
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 reason: Optional[pulumi.Input[_builtins.str]] = None):
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 reason: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a SecurityFeedback resource.
 
@@ -39,6 +40,12 @@ class SecurityFeedbackArgs:
         :param pulumi.Input[_builtins.str] org_id: The Apigee Organization associated with the Apigee Security Feedback,
                in the format `organizations/{{org_name}}`.
         :param pulumi.Input[_builtins.str] comment: Optional text the user can provide for additional, unstructured context.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the feedback.
         :param pulumi.Input[_builtins.str] reason: The reason for the feedback.
                Possible values are: `INTERNAL_SYSTEM`, `NON_RISK_CLIENT`, `NAT`, `PENETRATION_TEST`, `OTHER`.
@@ -49,6 +56,8 @@ class SecurityFeedbackArgs:
         pulumi.set(__self__, "org_id", org_id)
         if comment is not None:
             pulumi.set(__self__, "comment", comment)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if reason is not None:
@@ -107,31 +116,48 @@ class SecurityFeedbackArgs:
 
     @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional text the user can provide for additional, unstructured context.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the feedback.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def reason(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def reason(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reason for the feedback.
         Possible values are: `INTERNAL_SYSTEM`, `NON_RISK_CLIENT`, `NAT`, `PENETRATION_TEST`, `OTHER`.
@@ -139,28 +165,35 @@ class SecurityFeedbackArgs:
         return pulumi.get(self, "reason")
 
     @reason.setter
-    def reason(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def reason(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "reason", value)
 
 
 @pulumi.input_type
 class _SecurityFeedbackState:
     def __init__(__self__, *,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_contexts: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]] = None,
-                 feedback_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 reason: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_contexts: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]] = None,
+                 feedback_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 reason: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SecurityFeedback resources.
 
         :param pulumi.Input[_builtins.str] comment: Optional text the user can provide for additional, unstructured context.
         :param pulumi.Input[_builtins.str] create_time: The time when this specific feedback id was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the feedback.
         :param pulumi.Input[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]] feedback_contexts: One or more attribute/value pairs for constraining the feedback.
                Structure is documented below.
@@ -179,6 +212,8 @@ class _SecurityFeedbackState:
             pulumi.set(__self__, "comment", comment)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if feedback_contexts is not None:
@@ -198,43 +233,60 @@ class _SecurityFeedbackState:
 
     @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional text the user can provide for additional, unstructured context.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when this specific feedback id was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the feedback.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="feedbackContexts")
-    def feedback_contexts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]]:
+    def feedback_contexts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]]:
         """
         One or more attribute/value pairs for constraining the feedback.
         Structure is documented below.
@@ -242,24 +294,24 @@ class _SecurityFeedbackState:
         return pulumi.get(self, "feedback_contexts")
 
     @feedback_contexts.setter
-    def feedback_contexts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]]):
+    def feedback_contexts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityFeedbackFeedbackContextArgs']]]]):
         pulumi.set(self, "feedback_contexts", value)
 
     @_builtins.property
     @pulumi.getter(name="feedbackId")
-    def feedback_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def feedback_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID of the security feedback.
         """
         return pulumi.get(self, "feedback_id")
 
     @feedback_id.setter
-    def feedback_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def feedback_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "feedback_id", value)
 
     @_builtins.property
     @pulumi.getter(name="feedbackType")
-    def feedback_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def feedback_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of feedback being submitted.
         Possible values are: `EXCLUDED_DETECTION`.
@@ -267,12 +319,12 @@ class _SecurityFeedbackState:
         return pulumi.get(self, "feedback_type")
 
     @feedback_type.setter
-    def feedback_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def feedback_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "feedback_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the security feedback resource,
         in the format `organizations/{{org_name}}/securityFeedback/{{feedback_id}}`.
@@ -280,12 +332,12 @@ class _SecurityFeedbackState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee Organization associated with the Apigee Security Feedback,
         in the format `organizations/{{org_name}}`.
@@ -293,12 +345,12 @@ class _SecurityFeedbackState:
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def reason(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def reason(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reason for the feedback.
         Possible values are: `INTERNAL_SYSTEM`, `NON_RISK_CLIENT`, `NAT`, `PENETRATION_TEST`, `OTHER`.
@@ -306,19 +358,19 @@ class _SecurityFeedbackState:
         return pulumi.get(self, "reason")
 
     @reason.setter
-    def reason(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def reason(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "reason", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when this specific feedback id was updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -328,13 +380,14 @@ class SecurityFeedback(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_contexts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
-                 feedback_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 reason: Optional[pulumi.Input[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_contexts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
+                 feedback_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 reason: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a feedback report from an Advanced API Security customer.
@@ -419,6 +472,12 @@ class SecurityFeedback(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] comment: Optional text the user can provide for additional, unstructured context.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the feedback.
         :param pulumi.Input[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]] feedback_contexts: One or more attribute/value pairs for constraining the feedback.
                Structure is documented below.
@@ -531,13 +590,14 @@ class SecurityFeedback(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_contexts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
-                 feedback_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 feedback_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 reason: Optional[pulumi.Input[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_contexts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
+                 feedback_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 feedback_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 reason: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -548,6 +608,7 @@ class SecurityFeedback(pulumi.CustomResource):
             __props__ = SecurityFeedbackArgs.__new__(SecurityFeedbackArgs)
 
             __props__.__dict__["comment"] = comment
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             if feedback_contexts is None and not opts.urn:
                 raise TypeError("Missing required property 'feedback_contexts'")
@@ -575,16 +636,17 @@ class SecurityFeedback(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            comment: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            feedback_contexts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
-            feedback_id: Optional[pulumi.Input[_builtins.str]] = None,
-            feedback_type: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            reason: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'SecurityFeedback':
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            feedback_contexts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]]] = None,
+            feedback_id: pulumi.Input[Optional[_builtins.str]] = None,
+            feedback_type: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            reason: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'SecurityFeedback':
         """
         Get an existing SecurityFeedback resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -594,6 +656,12 @@ class SecurityFeedback(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] comment: Optional text the user can provide for additional, unstructured context.
         :param pulumi.Input[_builtins.str] create_time: The time when this specific feedback id was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the feedback.
         :param pulumi.Input[Sequence[pulumi.Input[Union['SecurityFeedbackFeedbackContextArgs', 'SecurityFeedbackFeedbackContextArgsDict']]]] feedback_contexts: One or more attribute/value pairs for constraining the feedback.
                Structure is documented below.
@@ -614,6 +682,7 @@ class SecurityFeedback(pulumi.CustomResource):
 
         __props__.__dict__["comment"] = comment
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["feedback_contexts"] = feedback_contexts
         __props__.__dict__["feedback_id"] = feedback_id
@@ -639,6 +708,19 @@ class SecurityFeedback(pulumi.CustomResource):
         The time when this specific feedback id was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

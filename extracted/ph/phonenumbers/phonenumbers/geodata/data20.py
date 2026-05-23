@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861508035':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
+ '861508036':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
+ '861508037':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
+ '861508038':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
+ '861508039':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
+ '861508040':{'en': 'Quanzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u6cc9\u5dde\u5e02')},
+ '861508041':{'en': 'Quanzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u6cc9\u5dde\u5e02')},
  '861508042':{'en': 'Quanzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u6cc9\u5dde\u5e02')},
  '861508043':{'en': 'Quanzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u6cc9\u5dde\u5e02')},
  '861508044':{'en': 'Quanzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u6cc9\u5dde\u5e02')},
@@ -10012,11 +10019,4 @@ data = {
  '861534379':{'en': 'Luoyang, Henan', 'zh': u('\u6cb3\u5357\u7701\u6d1b\u9633\u5e02')},
  '861534380':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
  '861534381':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
- '861534382':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
- '861534383':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
- '861534384':{'en': 'Shangqiu, Henan', 'zh': u('\u6cb3\u5357\u7701\u5546\u4e18\u5e02')},
- '861534385':{'en': 'Shangqiu, Henan', 'zh': u('\u6cb3\u5357\u7701\u5546\u4e18\u5e02')},
- '861534386':{'en': 'Shangqiu, Henan', 'zh': u('\u6cb3\u5357\u7701\u5546\u4e18\u5e02')},
- '861534387':{'en': 'Pingdingshan, Henan', 'zh': u('\u6cb3\u5357\u7701\u5e73\u9876\u5c71\u5e02')},
- '861534388':{'en': 'Pingdingshan, Henan', 'zh': u('\u6cb3\u5357\u7701\u5e73\u9876\u5c71\u5e02')},
 }

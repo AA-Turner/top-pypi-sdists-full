@@ -22,10 +22,11 @@ class TenantArgs:
                  location: pulumi.Input[_builtins.str],
                  saas: pulumi.Input[_builtins.str],
                  tenant_id: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 consumer_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 consumer_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Tenant resource.
 
@@ -44,6 +45,12 @@ class TenantArgs:
                The relationship with a consumer resource can be used by App Lifecycle Manager for
                retrieving consumer-defined settings and policies such as maintenance
                policies (using Unified Maintenance Policy API).
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
                similar to Kubernetes resource labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -58,6 +65,8 @@ class TenantArgs:
             pulumi.set(__self__, "annotations", annotations)
         if consumer_resource is not None:
             pulumi.set(__self__, "consumer_resource", consumer_resource)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
         if project is not None:
@@ -103,7 +112,7 @@ class TenantArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Annotations is an unstructured key-value map stored with a resource that
         may be set by external tools to store and retrieve arbitrary metadata.
@@ -115,12 +124,12 @@ class TenantArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="consumerResource")
-    def consumer_resource(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def consumer_resource(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the consumer resource this SaaS Tenant is representing.
         The relationship with a consumer resource can be used by App Lifecycle Manager for
@@ -130,12 +139,29 @@ class TenantArgs:
         return pulumi.get(self, "consumer_resource")
 
     @consumer_resource.setter
-    def consumer_resource(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def consumer_resource(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "consumer_resource", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels on the resource, which can be used for categorization.
         similar to Kubernetes resource labels.
@@ -145,12 +171,12 @@ class TenantArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -158,27 +184,28 @@ class TenantArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _TenantState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 consumer_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 saas: Optional[pulumi.Input[_builtins.str]] = None,
-                 tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 consumer_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 saas: pulumi.Input[Optional[_builtins.str]] = None,
+                 tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Tenant resources.
 
@@ -193,6 +220,12 @@ class _TenantState:
                retrieving consumer-defined settings and policies such as maintenance
                policies (using Unified Maintenance Policy API).
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
@@ -226,6 +259,8 @@ class _TenantState:
             pulumi.set(__self__, "consumer_resource", consumer_resource)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_annotations is not None:
             pulumi.set(__self__, "effective_annotations", effective_annotations)
         if effective_labels is not None:
@@ -251,7 +286,7 @@ class _TenantState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Annotations is an unstructured key-value map stored with a resource that
         may be set by external tools to store and retrieve arbitrary metadata.
@@ -263,12 +298,12 @@ class _TenantState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="consumerResource")
-    def consumer_resource(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def consumer_resource(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the consumer resource this SaaS Tenant is representing.
         The relationship with a consumer resource can be used by App Lifecycle Manager for
@@ -278,48 +313,65 @@ class _TenantState:
         return pulumi.get(self, "consumer_resource")
 
     @consumer_resource.setter
-    def consumer_resource(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def consumer_resource(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "consumer_resource", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels on the resource, which can be used for categorization.
         similar to Kubernetes resource labels.
@@ -329,24 +381,24 @@ class _TenantState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name (full URI of the resource) following the standard naming
         scheme:
@@ -355,12 +407,12 @@ class _TenantState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -368,12 +420,12 @@ class _TenantState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -381,12 +433,12 @@ class _TenantState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def saas(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def saas(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the Saas that defines the product (managed service) that
         the producer wants to manage with App Lifecycle Manager. Part of the
@@ -395,24 +447,24 @@ class _TenantState:
         return pulumi.get(self, "saas")
 
     @saas.setter
-    def saas(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def saas(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "saas", value)
 
     @_builtins.property
     @pulumi.getter(name="tenantId")
-    def tenant_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def tenant_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID value for the new tenant.
         """
         return pulumi.get(self, "tenant_id")
 
     @tenant_id.setter
-    def tenant_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def tenant_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "tenant_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the resource. UID is unique in the time
         and space for this resource within the scope of the service. It is
@@ -423,12 +475,12 @@ class _TenantState:
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was last updated. Any
         change to the resource made by users must refresh this value.
@@ -437,7 +489,7 @@ class _TenantState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -447,13 +499,14 @@ class Tenant(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 consumer_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 saas: Optional[pulumi.Input[_builtins.str]] = None,
-                 tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 consumer_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 saas: pulumi.Input[Optional[_builtins.str]] = None,
+                 tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The Tenant resource represents the service producer's view of a service instance created for a consumer. It enables the association between the service producer's managed resources and the end consumer.
@@ -511,6 +564,12 @@ class Tenant(pulumi.CustomResource):
                The relationship with a consumer resource can be used by App Lifecycle Manager for
                retrieving consumer-defined settings and policies such as maintenance
                policies (using Unified Maintenance Policy API).
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
                similar to Kubernetes resource labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -588,13 +647,14 @@ class Tenant(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 consumer_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 saas: Optional[pulumi.Input[_builtins.str]] = None,
-                 tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 consumer_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 saas: pulumi.Input[Optional[_builtins.str]] = None,
+                 tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -606,6 +666,7 @@ class Tenant(pulumi.CustomResource):
 
             __props__.__dict__["annotations"] = annotations
             __props__.__dict__["consumer_resource"] = consumer_resource
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -636,20 +697,21 @@ class Tenant(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            consumer_resource: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            saas: Optional[pulumi.Input[_builtins.str]] = None,
-            tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Tenant':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            consumer_resource: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            saas: pulumi.Input[Optional[_builtins.str]] = None,
+            tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Tenant':
         """
         Get an existing Tenant resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -668,6 +730,12 @@ class Tenant(pulumi.CustomResource):
                retrieving consumer-defined settings and policies such as maintenance
                policies (using Unified Maintenance Policy API).
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
@@ -702,6 +770,7 @@ class Tenant(pulumi.CustomResource):
         __props__.__dict__["annotations"] = annotations
         __props__.__dict__["consumer_resource"] = consumer_resource
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -746,6 +815,19 @@ class Tenant(pulumi.CustomResource):
         The timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")

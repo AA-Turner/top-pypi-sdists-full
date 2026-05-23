@@ -22,10 +22,11 @@ __all__ = ['GenericServiceArgs', 'GenericService']
 class GenericServiceArgs:
     def __init__(__self__, *,
                  service_id: pulumi.Input[_builtins.str],
-                 basic_service: Optional[pulumi.Input['GenericServiceBasicServiceArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 basic_service: pulumi.Input[Optional['GenericServiceBasicServiceArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a GenericService resource.
 
@@ -35,6 +36,12 @@ class GenericServiceArgs:
                Valid values of service types and services labels are described at
                https://cloud.google.com/stackdriver/docs/solutions/slo-monitoring/api/api-structures#basic-svc-w-basic-sli
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this Service.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -48,6 +55,8 @@ class GenericServiceArgs:
         pulumi.set(__self__, "service_id", service_id)
         if basic_service is not None:
             pulumi.set(__self__, "basic_service", basic_service)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if project is not None:
@@ -70,7 +79,7 @@ class GenericServiceArgs:
 
     @_builtins.property
     @pulumi.getter(name="basicService")
-    def basic_service(self) -> Optional[pulumi.Input['GenericServiceBasicServiceArgs']]:
+    def basic_service(self) -> pulumi.Input[Optional['GenericServiceBasicServiceArgs']]:
         """
         A well-known service type, defined by its service type and service labels.
         Valid values of service types and services labels are described at
@@ -80,24 +89,41 @@ class GenericServiceArgs:
         return pulumi.get(self, "basic_service")
 
     @basic_service.setter
-    def basic_service(self, value: Optional[pulumi.Input['GenericServiceBasicServiceArgs']]):
+    def basic_service(self, value: pulumi.Input[Optional['GenericServiceBasicServiceArgs']]):
         pulumi.set(self, "basic_service", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name used for UI elements listing this Service.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -105,12 +131,12 @@ class GenericServiceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="userLabels")
-    def user_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def user_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels which have been used to annotate the service. Label keys must start
         with a letter. Label keys and values may contain lowercase letters,
@@ -122,20 +148,21 @@ class GenericServiceArgs:
         return pulumi.get(self, "user_labels")
 
     @user_labels.setter
-    def user_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def user_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "user_labels", value)
 
 
 @pulumi.input_type
 class _GenericServiceState:
     def __init__(__self__, *,
-                 basic_service: Optional[pulumi.Input['GenericServiceBasicServiceArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 telemetries: Optional[pulumi.Input[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 basic_service: pulumi.Input[Optional['GenericServiceBasicServiceArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 telemetries: pulumi.Input[Optional[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering GenericService resources.
 
@@ -143,6 +170,12 @@ class _GenericServiceState:
                Valid values of service types and services labels are described at
                https://cloud.google.com/stackdriver/docs/solutions/slo-monitoring/api/api-structures#basic-svc-w-basic-sli
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this Service.
         :param pulumi.Input[_builtins.str] name: The full resource name for this service. The syntax is:
                projects/[PROJECT_ID]/services/[SERVICE_ID].
@@ -161,6 +194,8 @@ class _GenericServiceState:
         """
         if basic_service is not None:
             pulumi.set(__self__, "basic_service", basic_service)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if name is not None:
@@ -176,7 +211,7 @@ class _GenericServiceState:
 
     @_builtins.property
     @pulumi.getter(name="basicService")
-    def basic_service(self) -> Optional[pulumi.Input['GenericServiceBasicServiceArgs']]:
+    def basic_service(self) -> pulumi.Input[Optional['GenericServiceBasicServiceArgs']]:
         """
         A well-known service type, defined by its service type and service labels.
         Valid values of service types and services labels are described at
@@ -186,24 +221,41 @@ class _GenericServiceState:
         return pulumi.get(self, "basic_service")
 
     @basic_service.setter
-    def basic_service(self, value: Optional[pulumi.Input['GenericServiceBasicServiceArgs']]):
+    def basic_service(self, value: pulumi.Input[Optional['GenericServiceBasicServiceArgs']]):
         pulumi.set(self, "basic_service", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name used for UI elements listing this Service.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The full resource name for this service. The syntax is:
         projects/[PROJECT_ID]/services/[SERVICE_ID].
@@ -211,12 +263,12 @@ class _GenericServiceState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -224,12 +276,12 @@ class _GenericServiceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceId")
-    def service_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional service ID to use. If not given, the server will generate a
         service ID.
@@ -237,12 +289,12 @@ class _GenericServiceState:
         return pulumi.get(self, "service_id")
 
     @service_id.setter
-    def service_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def telemetries(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]]:
+    def telemetries(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]]:
         """
         Configuration for how to query telemetry on a Service.
         Structure is documented below.
@@ -250,12 +302,12 @@ class _GenericServiceState:
         return pulumi.get(self, "telemetries")
 
     @telemetries.setter
-    def telemetries(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]]):
+    def telemetries(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GenericServiceTelemetryArgs']]]]):
         pulumi.set(self, "telemetries", value)
 
     @_builtins.property
     @pulumi.getter(name="userLabels")
-    def user_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def user_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels which have been used to annotate the service. Label keys must start
         with a letter. Label keys and values may contain lowercase letters,
@@ -267,7 +319,7 @@ class _GenericServiceState:
         return pulumi.get(self, "user_labels")
 
     @user_labels.setter
-    def user_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def user_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "user_labels", value)
 
 
@@ -277,11 +329,12 @@ class GenericService(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 basic_service: Optional[pulumi.Input[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 basic_service: pulumi.Input[Optional[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         A Service is a discrete, autonomous, and network-accessible unit,
@@ -343,6 +396,12 @@ class GenericService(pulumi.CustomResource):
                Valid values of service types and services labels are described at
                https://cloud.google.com/stackdriver/docs/solutions/slo-monitoring/api/api-structures#basic-svc-w-basic-sli
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this Service.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -430,11 +489,12 @@ class GenericService(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 basic_service: Optional[pulumi.Input[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 basic_service: pulumi.Input[Optional[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -445,6 +505,7 @@ class GenericService(pulumi.CustomResource):
             __props__ = GenericServiceArgs.__new__(GenericServiceArgs)
 
             __props__.__dict__["basic_service"] = basic_service
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["project"] = project
             if service_id is None and not opts.urn:
@@ -463,13 +524,14 @@ class GenericService(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            basic_service: Optional[pulumi.Input[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            service_id: Optional[pulumi.Input[_builtins.str]] = None,
-            telemetries: Optional[pulumi.Input[Sequence[pulumi.Input[Union['GenericServiceTelemetryArgs', 'GenericServiceTelemetryArgsDict']]]]] = None,
-            user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'GenericService':
+            basic_service: pulumi.Input[Optional[Union['GenericServiceBasicServiceArgs', 'GenericServiceBasicServiceArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            service_id: pulumi.Input[Optional[_builtins.str]] = None,
+            telemetries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['GenericServiceTelemetryArgs', 'GenericServiceTelemetryArgsDict']]]]] = None,
+            user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'GenericService':
         """
         Get an existing GenericService resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -481,6 +543,12 @@ class GenericService(pulumi.CustomResource):
                Valid values of service types and services labels are described at
                https://cloud.google.com/stackdriver/docs/solutions/slo-monitoring/api/api-structures#basic-svc-w-basic-sli
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this Service.
         :param pulumi.Input[_builtins.str] name: The full resource name for this service. The syntax is:
                projects/[PROJECT_ID]/services/[SERVICE_ID].
@@ -502,6 +570,7 @@ class GenericService(pulumi.CustomResource):
         __props__ = _GenericServiceState.__new__(_GenericServiceState)
 
         __props__.__dict__["basic_service"] = basic_service
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
@@ -520,6 +589,19 @@ class GenericService(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "basic_service")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

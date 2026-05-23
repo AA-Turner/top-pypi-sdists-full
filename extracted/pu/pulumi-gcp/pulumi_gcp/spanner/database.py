@@ -22,15 +22,16 @@ __all__ = ['DatabaseArgs', 'Database']
 class DatabaseArgs:
     def __init__(__self__, *,
                  instance: pulumi.Input[_builtins.str],
-                 database_dialect: Optional[pulumi.Input[_builtins.str]] = None,
-                 ddls: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 default_time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_drop_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 encryption_config: Optional[pulumi.Input['DatabaseEncryptionConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_retention_period: Optional[pulumi.Input[_builtins.str]] = None):
+                 database_dialect: pulumi.Input[Optional[_builtins.str]] = None,
+                 ddls: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 default_time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_drop_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 encryption_config: pulumi.Input[Optional['DatabaseEncryptionConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_retention_period: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Database resource.
 
@@ -48,6 +49,12 @@ class DatabaseArgs:
                to prior statements will create a plan that marks the resource for recreation.
         :param pulumi.Input[_builtins.str] default_time_zone: The default time zone for the database. The default time zone must be a valid name
                from the tz database. Default value is "America/Los_angeles".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` that would delete the instance will fail.
         :param pulumi.Input[_builtins.bool] enable_drop_protection: Whether drop protection is enabled for this database. Defaults to false.
@@ -76,6 +83,8 @@ class DatabaseArgs:
             pulumi.set(__self__, "ddls", ddls)
         if default_time_zone is not None:
             pulumi.set(__self__, "default_time_zone", default_time_zone)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if enable_drop_protection is not None:
@@ -103,7 +112,7 @@ class DatabaseArgs:
 
     @_builtins.property
     @pulumi.getter(name="databaseDialect")
-    def database_dialect(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database_dialect(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The dialect of the Cloud Spanner Database.
         If it is not provided, "GOOGLE_STANDARD_SQL" will be used.
@@ -112,12 +121,12 @@ class DatabaseArgs:
         return pulumi.get(self, "database_dialect")
 
     @database_dialect.setter
-    def database_dialect(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database_dialect(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database_dialect", value)
 
     @_builtins.property
     @pulumi.getter
-    def ddls(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def ddls(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         An optional list of DDL statements to run inside the database. Statements can create
         tables, indexes, etc.
@@ -131,12 +140,12 @@ class DatabaseArgs:
         return pulumi.get(self, "ddls")
 
     @ddls.setter
-    def ddls(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def ddls(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "ddls", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultTimeZone")
-    def default_time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The default time zone for the database. The default time zone must be a valid name
         from the tz database. Default value is "America/Los_angeles".
@@ -144,12 +153,29 @@ class DatabaseArgs:
         return pulumi.get(self, "default_time_zone")
 
     @default_time_zone.setter
-    def default_time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_time_zone", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow the provider to destroy the instance. Unless this field is set to false
         in state, a `destroy` or `update` that would delete the instance will fail.
@@ -157,12 +183,12 @@ class DatabaseArgs:
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="enableDropProtection")
-    def enable_drop_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_drop_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether drop protection is enabled for this database. Defaults to false.
         Drop protection is different from
@@ -175,12 +201,12 @@ class DatabaseArgs:
         return pulumi.get(self, "enable_drop_protection")
 
     @enable_drop_protection.setter
-    def enable_drop_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_drop_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_drop_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="encryptionConfig")
-    def encryption_config(self) -> Optional[pulumi.Input['DatabaseEncryptionConfigArgs']]:
+    def encryption_config(self) -> pulumi.Input[Optional['DatabaseEncryptionConfigArgs']]:
         """
         Encryption configuration for the database
         Structure is documented below.
@@ -188,12 +214,12 @@ class DatabaseArgs:
         return pulumi.get(self, "encryption_config")
 
     @encryption_config.setter
-    def encryption_config(self, value: Optional[pulumi.Input['DatabaseEncryptionConfigArgs']]):
+    def encryption_config(self, value: pulumi.Input[Optional['DatabaseEncryptionConfigArgs']]):
         pulumi.set(self, "encryption_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the database, which cannot be changed after the
         instance is created. Values are of the form `[a-z][-_a-z0-9]*[a-z0-9]`.
@@ -201,12 +227,12 @@ class DatabaseArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -214,12 +240,12 @@ class DatabaseArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="versionRetentionPeriod")
-    def version_retention_period(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version_retention_period(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The retention period for the database. The retention period must be between 1 hour
         and 7 days, and can be specified in days, hours, minutes, or seconds. For example,
@@ -230,24 +256,25 @@ class DatabaseArgs:
         return pulumi.get(self, "version_retention_period")
 
     @version_retention_period.setter
-    def version_retention_period(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version_retention_period(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version_retention_period", value)
 
 
 @pulumi.input_type
 class _DatabaseState:
     def __init__(__self__, *,
-                 database_dialect: Optional[pulumi.Input[_builtins.str]] = None,
-                 ddls: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 default_time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_drop_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 encryption_config: Optional[pulumi.Input['DatabaseEncryptionConfigArgs']] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_retention_period: Optional[pulumi.Input[_builtins.str]] = None):
+                 database_dialect: pulumi.Input[Optional[_builtins.str]] = None,
+                 ddls: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 default_time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_drop_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 encryption_config: pulumi.Input[Optional['DatabaseEncryptionConfigArgs']] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_retention_period: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Database resources.
 
@@ -264,6 +291,12 @@ class _DatabaseState:
                to prior statements will create a plan that marks the resource for recreation.
         :param pulumi.Input[_builtins.str] default_time_zone: The default time zone for the database. The default time zone must be a valid name
                from the tz database. Default value is "America/Los_angeles".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` that would delete the instance will fail.
         :param pulumi.Input[_builtins.bool] enable_drop_protection: Whether drop protection is enabled for this database. Defaults to false.
@@ -293,6 +326,8 @@ class _DatabaseState:
             pulumi.set(__self__, "ddls", ddls)
         if default_time_zone is not None:
             pulumi.set(__self__, "default_time_zone", default_time_zone)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if enable_drop_protection is not None:
@@ -312,7 +347,7 @@ class _DatabaseState:
 
     @_builtins.property
     @pulumi.getter(name="databaseDialect")
-    def database_dialect(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database_dialect(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The dialect of the Cloud Spanner Database.
         If it is not provided, "GOOGLE_STANDARD_SQL" will be used.
@@ -321,12 +356,12 @@ class _DatabaseState:
         return pulumi.get(self, "database_dialect")
 
     @database_dialect.setter
-    def database_dialect(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database_dialect(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database_dialect", value)
 
     @_builtins.property
     @pulumi.getter
-    def ddls(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def ddls(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         An optional list of DDL statements to run inside the database. Statements can create
         tables, indexes, etc.
@@ -340,12 +375,12 @@ class _DatabaseState:
         return pulumi.get(self, "ddls")
 
     @ddls.setter
-    def ddls(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def ddls(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "ddls", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultTimeZone")
-    def default_time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The default time zone for the database. The default time zone must be a valid name
         from the tz database. Default value is "America/Los_angeles".
@@ -353,12 +388,29 @@ class _DatabaseState:
         return pulumi.get(self, "default_time_zone")
 
     @default_time_zone.setter
-    def default_time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_time_zone", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow the provider to destroy the instance. Unless this field is set to false
         in state, a `destroy` or `update` that would delete the instance will fail.
@@ -366,12 +418,12 @@ class _DatabaseState:
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="enableDropProtection")
-    def enable_drop_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_drop_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether drop protection is enabled for this database. Defaults to false.
         Drop protection is different from
@@ -384,12 +436,12 @@ class _DatabaseState:
         return pulumi.get(self, "enable_drop_protection")
 
     @enable_drop_protection.setter
-    def enable_drop_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_drop_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_drop_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="encryptionConfig")
-    def encryption_config(self) -> Optional[pulumi.Input['DatabaseEncryptionConfigArgs']]:
+    def encryption_config(self) -> pulumi.Input[Optional['DatabaseEncryptionConfigArgs']]:
         """
         Encryption configuration for the database
         Structure is documented below.
@@ -397,24 +449,24 @@ class _DatabaseState:
         return pulumi.get(self, "encryption_config")
 
     @encryption_config.setter
-    def encryption_config(self, value: Optional[pulumi.Input['DatabaseEncryptionConfigArgs']]):
+    def encryption_config(self, value: pulumi.Input[Optional['DatabaseEncryptionConfigArgs']]):
         pulumi.set(self, "encryption_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The instance to create the database on.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the database, which cannot be changed after the
         instance is created. Values are of the form `[a-z][-_a-z0-9]*[a-z0-9]`.
@@ -422,12 +474,12 @@ class _DatabaseState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -435,24 +487,24 @@ class _DatabaseState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An explanation of the status of the database.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="versionRetentionPeriod")
-    def version_retention_period(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version_retention_period(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The retention period for the database. The retention period must be between 1 hour
         and 7 days, and can be specified in days, hours, minutes, or seconds. For example,
@@ -463,7 +515,7 @@ class _DatabaseState:
         return pulumi.get(self, "version_retention_period")
 
     @version_retention_period.setter
-    def version_retention_period(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version_retention_period(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version_retention_period", value)
 
 
@@ -473,16 +525,17 @@ class Database(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 database_dialect: Optional[pulumi.Input[_builtins.str]] = None,
-                 ddls: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 default_time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_drop_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 encryption_config: Optional[pulumi.Input[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_retention_period: Optional[pulumi.Input[_builtins.str]] = None,
+                 database_dialect: pulumi.Input[Optional[_builtins.str]] = None,
+                 ddls: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 default_time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_drop_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 encryption_config: pulumi.Input[Optional[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_retention_period: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Cloud Spanner Database which is hosted on a Spanner instance.
@@ -558,6 +611,12 @@ class Database(pulumi.CustomResource):
                to prior statements will create a plan that marks the resource for recreation.
         :param pulumi.Input[_builtins.str] default_time_zone: The default time zone for the database. The default time zone must be a valid name
                from the tz database. Default value is "America/Los_angeles".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` that would delete the instance will fail.
         :param pulumi.Input[_builtins.bool] enable_drop_protection: Whether drop protection is enabled for this database. Defaults to false.
@@ -660,16 +719,17 @@ class Database(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 database_dialect: Optional[pulumi.Input[_builtins.str]] = None,
-                 ddls: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 default_time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_drop_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 encryption_config: Optional[pulumi.Input[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_retention_period: Optional[pulumi.Input[_builtins.str]] = None,
+                 database_dialect: pulumi.Input[Optional[_builtins.str]] = None,
+                 ddls: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 default_time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_drop_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 encryption_config: pulumi.Input[Optional[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_retention_period: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -682,6 +742,7 @@ class Database(pulumi.CustomResource):
             __props__.__dict__["database_dialect"] = database_dialect
             __props__.__dict__["ddls"] = ddls
             __props__.__dict__["default_time_zone"] = default_time_zone
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             __props__.__dict__["enable_drop_protection"] = enable_drop_protection
             __props__.__dict__["encryption_config"] = encryption_config
@@ -702,17 +763,18 @@ class Database(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            database_dialect: Optional[pulumi.Input[_builtins.str]] = None,
-            ddls: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            default_time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            enable_drop_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            encryption_config: Optional[pulumi.Input[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            version_retention_period: Optional[pulumi.Input[_builtins.str]] = None) -> 'Database':
+            database_dialect: pulumi.Input[Optional[_builtins.str]] = None,
+            ddls: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            default_time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            enable_drop_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            encryption_config: pulumi.Input[Optional[Union['DatabaseEncryptionConfigArgs', 'DatabaseEncryptionConfigArgsDict']]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            version_retention_period: pulumi.Input[Optional[_builtins.str]] = None) -> 'Database':
         """
         Get an existing Database resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -733,6 +795,12 @@ class Database(pulumi.CustomResource):
                to prior statements will create a plan that marks the resource for recreation.
         :param pulumi.Input[_builtins.str] default_time_zone: The default time zone for the database. The default time zone must be a valid name
                from the tz database. Default value is "America/Los_angeles".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow the provider to destroy the instance. Unless this field is set to false
                in state, a `destroy` or `update` that would delete the instance will fail.
         :param pulumi.Input[_builtins.bool] enable_drop_protection: Whether drop protection is enabled for this database. Defaults to false.
@@ -763,6 +831,7 @@ class Database(pulumi.CustomResource):
         __props__.__dict__["database_dialect"] = database_dialect
         __props__.__dict__["ddls"] = ddls
         __props__.__dict__["default_time_zone"] = default_time_zone
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["enable_drop_protection"] = enable_drop_protection
         __props__.__dict__["encryption_config"] = encryption_config
@@ -806,6 +875,19 @@ class Database(pulumi.CustomResource):
         from the tz database. Default value is "America/Los_angeles".
         """
         return pulumi.get(self, "default_time_zone")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

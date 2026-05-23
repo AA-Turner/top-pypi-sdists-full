@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861883078':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
+ '861883079':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
+ '861883080':{'en': 'Hengshui, Hebei', 'zh': u('\u6cb3\u5317\u7701\u8861\u6c34\u5e02')},
+ '861883081':{'en': 'Hengshui, Hebei', 'zh': u('\u6cb3\u5317\u7701\u8861\u6c34\u5e02')},
+ '861883082':{'en': 'Hengshui, Hebei', 'zh': u('\u6cb3\u5317\u7701\u8861\u6c34\u5e02')},
+ '861883083':{'en': 'Hengshui, Hebei', 'zh': u('\u6cb3\u5317\u7701\u8861\u6c34\u5e02')},
+ '861883084':{'en': 'Hengshui, Hebei', 'zh': u('\u6cb3\u5317\u7701\u8861\u6c34\u5e02')},
  '861883085':{'en': 'Handan, Hebei', 'zh': u('\u6cb3\u5317\u7701\u90af\u90f8\u5e02')},
  '861883086':{'en': 'Handan, Hebei', 'zh': u('\u6cb3\u5317\u7701\u90af\u90f8\u5e02')},
  '861883087':{'en': 'Handan, Hebei', 'zh': u('\u6cb3\u5317\u7701\u90af\u90f8\u5e02')},
@@ -10012,11 +10019,4 @@ data = {
  '9171624':{'en': 'Chhindwara, Madhya Pradesh'},
  '9171625':{'en': 'Chhindwara, Madhya Pradesh'},
  '9171626':{'en': 'Chhindwara, Madhya Pradesh'},
- '9171627':{'en': 'Chhindwara, Madhya Pradesh'},
- '9171642':{'en': 'Pandhurna, Madhya Pradesh'},
- '9171643':{'en': 'Pandhurna, Madhya Pradesh'},
- '9171644':{'en': 'Pandhurna, Madhya Pradesh'},
- '9171645':{'en': 'Pandhurna, Madhya Pradesh'},
- '9171646':{'en': 'Pandhurna, Madhya Pradesh'},
- '9171647':{'en': 'Pandhurna, Madhya Pradesh'},
 }

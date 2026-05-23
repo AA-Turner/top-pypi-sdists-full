@@ -23,18 +23,25 @@ class NetworkAttachmentArgs:
     def __init__(__self__, *,
                  connection_preference: pulumi.Input[_builtins.str],
                  subnetworks: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 producer_accept_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 producer_reject_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 producer_accept_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 producer_reject_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NetworkAttachment resource.
 
         :param pulumi.Input[_builtins.str] connection_preference: The connection preference of service attachment. The value can be set to ACCEPT_AUTOMATIC. An ACCEPT_AUTOMATIC service attachment is one that always accepts the connection from consumer forwarding rules.
                Possible values are: `ACCEPT_AUTOMATIC`, `ACCEPT_MANUAL`, `INVALID`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] subnetworks: An array of URLs where each entry is the URL of a subnet provided by the service consumer to use for endpoints in the producers that connect to this network attachment.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] producer_accept_lists: Projects that are allowed to connect to this network attachment. The project can be specified using its id or number.
@@ -45,6 +52,8 @@ class NetworkAttachmentArgs:
         """
         pulumi.set(__self__, "connection_preference", connection_preference)
         pulumi.set(__self__, "subnetworks", subnetworks)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
@@ -84,56 +93,73 @@ class NetworkAttachmentArgs:
         pulumi.set(self, "subnetworks", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="producerAcceptLists")
-    def producer_accept_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def producer_accept_lists(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Projects that are allowed to connect to this network attachment. The project can be specified using its id or number.
         """
         return pulumi.get(self, "producer_accept_lists")
 
     @producer_accept_lists.setter
-    def producer_accept_lists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def producer_accept_lists(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "producer_accept_lists", value)
 
     @_builtins.property
     @pulumi.getter(name="producerRejectLists")
-    def producer_reject_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def producer_reject_lists(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Projects that are not allowed to connect to this network attachment. The project can be specified using its id or number.
         """
         return pulumi.get(self, "producer_reject_lists")
 
     @producer_reject_lists.setter
-    def producer_reject_lists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def producer_reject_lists(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "producer_reject_lists", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -141,40 +167,41 @@ class NetworkAttachmentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
 @pulumi.input_type
 class _NetworkAttachmentState:
     def __init__(__self__, *,
-                 connection_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]] = None,
-                 connection_preference: Optional[pulumi.Input[_builtins.str]] = None,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 producer_accept_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 producer_reject_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link_with_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetworks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 connection_endpoints: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]] = None,
+                 connection_preference: pulumi.Input[Optional[_builtins.str]] = None,
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 producer_accept_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 producer_reject_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link_with_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetworks: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering NetworkAttachment resources.
 
@@ -183,6 +210,12 @@ class _NetworkAttachmentState:
         :param pulumi.Input[_builtins.str] connection_preference: The connection preference of service attachment. The value can be set to ACCEPT_AUTOMATIC. An ACCEPT_AUTOMATIC service attachment is one that always accepts the connection from consumer forwarding rules.
                Possible values are: `ACCEPT_AUTOMATIC`, `ACCEPT_MANUAL`, `INVALID`.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. A hash of the contents stored in this object. This
                field is used in optimistic locking. An up-to-date fingerprint must be provided in order to patch.
@@ -205,6 +238,8 @@ class _NetworkAttachmentState:
             pulumi.set(__self__, "connection_preference", connection_preference)
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if fingerprint is not None:
@@ -232,7 +267,7 @@ class _NetworkAttachmentState:
 
     @_builtins.property
     @pulumi.getter(name="connectionEndpoints")
-    def connection_endpoints(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]]:
+    def connection_endpoints(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]]:
         """
         An array of connections for all the producers connected to this network attachment.
         Structure is documented below.
@@ -240,12 +275,12 @@ class _NetworkAttachmentState:
         return pulumi.get(self, "connection_endpoints")
 
     @connection_endpoints.setter
-    def connection_endpoints(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]]):
+    def connection_endpoints(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkAttachmentConnectionEndpointArgs']]]]):
         pulumi.set(self, "connection_endpoints", value)
 
     @_builtins.property
     @pulumi.getter(name="connectionPreference")
-    def connection_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def connection_preference(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The connection preference of service attachment. The value can be set to ACCEPT_AUTOMATIC. An ACCEPT_AUTOMATIC service attachment is one that always accepts the connection from consumer forwarding rules.
         Possible values are: `ACCEPT_AUTOMATIC`, `ACCEPT_MANUAL`, `INVALID`.
@@ -253,36 +288,53 @@ class _NetworkAttachmentState:
         return pulumi.get(self, "connection_preference")
 
     @connection_preference.setter
-    def connection_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def connection_preference(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "connection_preference", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fingerprint of this resource. A hash of the contents stored in this object. This
         field is used in optimistic locking. An up-to-date fingerprint must be provided in order to patch.
@@ -290,36 +342,36 @@ class _NetworkAttachmentState:
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the resource.
         """
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URL of the network which the Network Attachment belongs to. Practically it is inferred by fetching the network of the first subnetwork associated.
         Because it is required that all the subnetworks must be from the same network, it is assured that the Network Attachment belongs to the same network as all the subnetworks.
@@ -327,36 +379,36 @@ class _NetworkAttachmentState:
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter(name="producerAcceptLists")
-    def producer_accept_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def producer_accept_lists(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Projects that are allowed to connect to this network attachment. The project can be specified using its id or number.
         """
         return pulumi.get(self, "producer_accept_lists")
 
     @producer_accept_lists.setter
-    def producer_accept_lists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def producer_accept_lists(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "producer_accept_lists", value)
 
     @_builtins.property
     @pulumi.getter(name="producerRejectLists")
-    def producer_reject_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def producer_reject_lists(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Projects that are not allowed to connect to this network attachment. The project can be specified using its id or number.
         """
         return pulumi.get(self, "producer_reject_lists")
 
     @producer_reject_lists.setter
-    def producer_reject_lists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def producer_reject_lists(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "producer_reject_lists", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -364,55 +416,55 @@ class _NetworkAttachmentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         URL of the region where the network attachment resides. This field applies only to the region resource. You must specify this field as part of the HTTP request URL. It is not settable as a field in the request body.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-defined URL for the resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLinkWithId")
-    def self_link_with_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link_with_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-defined URL for this resource's resource id.
         """
         return pulumi.get(self, "self_link_with_id")
 
     @self_link_with_id.setter
-    def self_link_with_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link_with_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link_with_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def subnetworks(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def subnetworks(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         An array of URLs where each entry is the URL of a subnet provided by the service consumer to use for endpoints in the producers that connect to this network attachment.
         """
         return pulumi.get(self, "subnetworks")
 
     @subnetworks.setter
-    def subnetworks(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def subnetworks(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "subnetworks", value)
 
 
@@ -422,14 +474,15 @@ class NetworkAttachment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 connection_preference: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 producer_accept_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 producer_reject_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetworks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 connection_preference: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 producer_accept_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 producer_reject_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetworks: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         A network attachment is a resource that lets a producer Virtual Private Cloud (VPC) network initiate connections to a consumer VPC network through a Private Service Connect interface.
@@ -539,6 +592,12 @@ class NetworkAttachment(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] connection_preference: The connection preference of service attachment. The value can be set to ACCEPT_AUTOMATIC. An ACCEPT_AUTOMATIC service attachment is one that always accepts the connection from consumer forwarding rules.
                Possible values are: `ACCEPT_AUTOMATIC`, `ACCEPT_MANUAL`, `INVALID`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression a-z? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] producer_accept_lists: Projects that are allowed to connect to this network attachment. The project can be specified using its id or number.
@@ -673,14 +732,15 @@ class NetworkAttachment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 connection_preference: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 producer_accept_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 producer_reject_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetworks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 connection_preference: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 producer_accept_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 producer_reject_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetworks: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -693,6 +753,7 @@ class NetworkAttachment(pulumi.CustomResource):
             if connection_preference is None and not opts.urn:
                 raise TypeError("Missing required property 'connection_preference'")
             __props__.__dict__["connection_preference"] = connection_preference
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["name"] = name
             __props__.__dict__["producer_accept_lists"] = producer_accept_lists
@@ -719,21 +780,22 @@ class NetworkAttachment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            connection_endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NetworkAttachmentConnectionEndpointArgs', 'NetworkAttachmentConnectionEndpointArgsDict']]]]] = None,
-            connection_preference: Optional[pulumi.Input[_builtins.str]] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            kind: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            producer_accept_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            producer_reject_lists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link_with_id: Optional[pulumi.Input[_builtins.str]] = None,
-            subnetworks: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'NetworkAttachment':
+            connection_endpoints: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NetworkAttachmentConnectionEndpointArgs', 'NetworkAttachmentConnectionEndpointArgsDict']]]]] = None,
+            connection_preference: pulumi.Input[Optional[_builtins.str]] = None,
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            kind: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            producer_accept_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            producer_reject_lists: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link_with_id: pulumi.Input[Optional[_builtins.str]] = None,
+            subnetworks: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'NetworkAttachment':
         """
         Get an existing NetworkAttachment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -746,6 +808,12 @@ class NetworkAttachment(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] connection_preference: The connection preference of service attachment. The value can be set to ACCEPT_AUTOMATIC. An ACCEPT_AUTOMATIC service attachment is one that always accepts the connection from consumer forwarding rules.
                Possible values are: `ACCEPT_AUTOMATIC`, `ACCEPT_MANUAL`, `INVALID`.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. A hash of the contents stored in this object. This
                field is used in optimistic locking. An up-to-date fingerprint must be provided in order to patch.
@@ -769,6 +837,7 @@ class NetworkAttachment(pulumi.CustomResource):
         __props__.__dict__["connection_endpoints"] = connection_endpoints
         __props__.__dict__["connection_preference"] = connection_preference
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["fingerprint"] = fingerprint
         __props__.__dict__["kind"] = kind
@@ -808,6 +877,19 @@ class NetworkAttachment(pulumi.CustomResource):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

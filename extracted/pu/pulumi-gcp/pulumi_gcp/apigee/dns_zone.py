@@ -25,7 +25,8 @@ class DnsZoneArgs:
                  dns_zone_id: pulumi.Input[_builtins.str],
                  domain: pulumi.Input[_builtins.str],
                  org_id: pulumi.Input[_builtins.str],
-                 peering_config: pulumi.Input['DnsZonePeeringConfigArgs']):
+                 peering_config: pulumi.Input['DnsZonePeeringConfigArgs'],
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DnsZone resource.
 
@@ -36,12 +37,20 @@ class DnsZoneArgs:
                in the format `organizations/{{org_name}}`.
         :param pulumi.Input['DnsZonePeeringConfigArgs'] peering_config: Peering zone config
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         """
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "dns_zone_id", dns_zone_id)
         pulumi.set(__self__, "domain", domain)
         pulumi.set(__self__, "org_id", org_id)
         pulumi.set(__self__, "peering_config", peering_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
 
     @_builtins.property
     @pulumi.getter
@@ -105,19 +114,43 @@ class DnsZoneArgs:
     def peering_config(self, value: pulumi.Input['DnsZonePeeringConfigArgs']):
         pulumi.set(self, "peering_config", value)
 
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
 
 @pulumi.input_type
 class _DnsZoneState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_zone_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 peering_config: Optional[pulumi.Input['DnsZonePeeringConfigArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_zone_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 peering_config: pulumi.Input[Optional['DnsZonePeeringConfigArgs']] = None):
         """
         Input properties used for looking up and filtering DnsZone resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for the zone.
         :param pulumi.Input[_builtins.str] dns_zone_id: ID of the dns zone.
         :param pulumi.Input[_builtins.str] domain: Doamin for the zone.
@@ -128,6 +161,8 @@ class _DnsZoneState:
         :param pulumi.Input['DnsZonePeeringConfigArgs'] peering_config: Peering zone config
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dns_zone_id is not None:
@@ -142,44 +177,61 @@ class _DnsZoneState:
             pulumi.set(__self__, "peering_config", peering_config)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description for the zone.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="dnsZoneId")
-    def dns_zone_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dns_zone_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the dns zone.
         """
         return pulumi.get(self, "dns_zone_id")
 
     @dns_zone_id.setter
-    def dns_zone_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dns_zone_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dns_zone_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def domain(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def domain(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Doamin for the zone.
         """
         return pulumi.get(self, "domain")
 
     @domain.setter
-    def domain(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def domain(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "domain", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Dns Zone in the following format:
         organizations/{organization}/dnsZones/{dnsZone}.
@@ -187,12 +239,12 @@ class _DnsZoneState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee Organization associated with the Apigee instance,
         in the format `organizations/{{org_name}}`.
@@ -200,12 +252,12 @@ class _DnsZoneState:
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter(name="peeringConfig")
-    def peering_config(self) -> Optional[pulumi.Input['DnsZonePeeringConfigArgs']]:
+    def peering_config(self) -> pulumi.Input[Optional['DnsZonePeeringConfigArgs']]:
         """
         Peering zone config
         Structure is documented below.
@@ -213,7 +265,7 @@ class _DnsZoneState:
         return pulumi.get(self, "peering_config")
 
     @peering_config.setter
-    def peering_config(self, value: Optional[pulumi.Input['DnsZonePeeringConfigArgs']]):
+    def peering_config(self, value: pulumi.Input[Optional['DnsZonePeeringConfigArgs']]):
         pulumi.set(self, "peering_config", value)
 
 
@@ -223,11 +275,12 @@ class DnsZone(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_zone_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 peering_config: Optional[pulumi.Input[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_zone_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 peering_config: pulumi.Input[Optional[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None,
                  __props__=None):
         """
         Apigee Dns Zone.
@@ -281,6 +334,12 @@ class DnsZone(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for the zone.
         :param pulumi.Input[_builtins.str] dns_zone_id: ID of the dns zone.
         :param pulumi.Input[_builtins.str] domain: Doamin for the zone.
@@ -360,11 +419,12 @@ class DnsZone(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_zone_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 peering_config: Optional[pulumi.Input[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_zone_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 peering_config: pulumi.Input[Optional[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -374,6 +434,7 @@ class DnsZone(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = DnsZoneArgs.__new__(DnsZoneArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if description is None and not opts.urn:
                 raise TypeError("Missing required property 'description'")
             __props__.__dict__["description"] = description
@@ -400,12 +461,13 @@ class DnsZone(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            dns_zone_id: Optional[pulumi.Input[_builtins.str]] = None,
-            domain: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            peering_config: Optional[pulumi.Input[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None) -> 'DnsZone':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            dns_zone_id: pulumi.Input[Optional[_builtins.str]] = None,
+            domain: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            peering_config: pulumi.Input[Optional[Union['DnsZonePeeringConfigArgs', 'DnsZonePeeringConfigArgsDict']]] = None) -> 'DnsZone':
         """
         Get an existing DnsZone resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -413,6 +475,12 @@ class DnsZone(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for the zone.
         :param pulumi.Input[_builtins.str] dns_zone_id: ID of the dns zone.
         :param pulumi.Input[_builtins.str] domain: Doamin for the zone.
@@ -427,6 +495,7 @@ class DnsZone(pulumi.CustomResource):
 
         __props__ = _DnsZoneState.__new__(_DnsZoneState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["dns_zone_id"] = dns_zone_id
         __props__.__dict__["domain"] = domain
@@ -434,6 +503,19 @@ class DnsZone(pulumi.CustomResource):
         __props__.__dict__["org_id"] = org_id
         __props__.__dict__["peering_config"] = peering_config
         return DnsZone(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

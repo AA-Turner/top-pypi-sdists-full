@@ -19,12 +19,13 @@ __all__ = ['AccountArgs', 'Account']
 @pulumi.input_type
 class AccountArgs:
     def __init__(__self__, *,
-                 account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Account resource.
 
@@ -33,6 +34,12 @@ class AccountArgs:
                must be 6-30 characters long, and match the regular expression `a-z`
                to comply with RFC1035. Changing this forces a new service account to be created.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A text description of the service account.
                Must be less than or equal to 256 UTF-8 bytes.
         :param pulumi.Input[_builtins.bool] disabled: Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
@@ -46,6 +53,8 @@ class AccountArgs:
             pulumi.set(__self__, "account_id", account_id)
         if create_ignore_already_exists is not None:
             pulumi.set(__self__, "create_ignore_already_exists", create_ignore_already_exists)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -57,7 +66,7 @@ class AccountArgs:
 
     @_builtins.property
     @pulumi.getter(name="accountId")
-    def account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The account id that is used to generate the service
         account email address and a stable unique id. It is unique within a project,
@@ -67,24 +76,41 @@ class AccountArgs:
         return pulumi.get(self, "account_id")
 
     @account_id.setter
-    def account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createIgnoreAlreadyExists")
-    def create_ignore_already_exists(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def create_ignore_already_exists(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, skip service account creation if a service account with the same email already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
 
     @create_ignore_already_exists.setter
-    def create_ignore_already_exists(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def create_ignore_already_exists(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "create_ignore_already_exists", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A text description of the service account.
         Must be less than or equal to 256 UTF-8 bytes.
@@ -92,12 +118,12 @@ class AccountArgs:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
         Must be set after creation to disable a service account.
@@ -105,12 +131,12 @@ class AccountArgs:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name for the service account.
         Can be updated without creating a new resource.
@@ -118,12 +144,12 @@ class AccountArgs:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project that the service account will be created in.
         Defaults to the provider project configuration.
@@ -131,23 +157,24 @@ class AccountArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AccountState:
     def __init__(__self__, *,
-                 account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 email: Optional[pulumi.Input[_builtins.str]] = None,
-                 member: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 unique_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 email: pulumi.Input[Optional[_builtins.str]] = None,
+                 member: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 unique_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Account resources.
 
@@ -156,6 +183,12 @@ class _AccountState:
                must be 6-30 characters long, and match the regular expression `a-z`
                to comply with RFC1035. Changing this forces a new service account to be created.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A text description of the service account.
                Must be less than or equal to 256 UTF-8 bytes.
         :param pulumi.Input[_builtins.bool] disabled: Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
@@ -175,6 +208,8 @@ class _AccountState:
             pulumi.set(__self__, "account_id", account_id)
         if create_ignore_already_exists is not None:
             pulumi.set(__self__, "create_ignore_already_exists", create_ignore_already_exists)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -194,7 +229,7 @@ class _AccountState:
 
     @_builtins.property
     @pulumi.getter(name="accountId")
-    def account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The account id that is used to generate the service
         account email address and a stable unique id. It is unique within a project,
@@ -204,24 +239,41 @@ class _AccountState:
         return pulumi.get(self, "account_id")
 
     @account_id.setter
-    def account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createIgnoreAlreadyExists")
-    def create_ignore_already_exists(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def create_ignore_already_exists(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, skip service account creation if a service account with the same email already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
 
     @create_ignore_already_exists.setter
-    def create_ignore_already_exists(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def create_ignore_already_exists(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "create_ignore_already_exists", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A text description of the service account.
         Must be less than or equal to 256 UTF-8 bytes.
@@ -229,12 +281,12 @@ class _AccountState:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
         Must be set after creation to disable a service account.
@@ -242,12 +294,12 @@ class _AccountState:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name for the service account.
         Can be updated without creating a new resource.
@@ -255,12 +307,12 @@ class _AccountState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The e-mail address of the service account. This value
         should be referenced from any `organizations_get_iam_policy` data sources
@@ -269,36 +321,36 @@ class _AccountState:
         return pulumi.get(self, "email")
 
     @email.setter
-    def email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "email", value)
 
     @_builtins.property
     @pulumi.getter
-    def member(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def member(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Identity of the service account in the form `serviceAccount:{email}`. This value is often used to refer to the service account in order to grant IAM permissions.
         """
         return pulumi.get(self, "member")
 
     @member.setter
-    def member(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def member(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "member", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The fully-qualified name of the service account.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project that the service account will be created in.
         Defaults to the provider project configuration.
@@ -306,19 +358,19 @@ class _AccountState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="uniqueId")
-    def unique_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def unique_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the service account.
         """
         return pulumi.get(self, "unique_id")
 
     @unique_id.setter
-    def unique_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def unique_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "unique_id", value)
 
 
@@ -328,12 +380,13 @@ class Account(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Allows management of a Google Cloud service account.
@@ -369,6 +422,12 @@ class Account(pulumi.CustomResource):
                must be 6-30 characters long, and match the regular expression `a-z`
                to comply with RFC1035. Changing this forces a new service account to be created.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A text description of the service account.
                Must be less than or equal to 256 UTF-8 bytes.
         :param pulumi.Input[_builtins.bool] disabled: Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
@@ -426,12 +485,13 @@ class Account(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -443,6 +503,7 @@ class Account(pulumi.CustomResource):
 
             __props__.__dict__["account_id"] = account_id
             __props__.__dict__["create_ignore_already_exists"] = create_ignore_already_exists
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["disabled"] = disabled
             __props__.__dict__["display_name"] = display_name
@@ -463,16 +524,17 @@ class Account(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            account_id: Optional[pulumi.Input[_builtins.str]] = None,
-            create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            email: Optional[pulumi.Input[_builtins.str]] = None,
-            member: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            unique_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'Account':
+            account_id: pulumi.Input[Optional[_builtins.str]] = None,
+            create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            email: pulumi.Input[Optional[_builtins.str]] = None,
+            member: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            unique_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'Account':
         """
         Get an existing Account resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -485,6 +547,12 @@ class Account(pulumi.CustomResource):
                must be 6-30 characters long, and match the regular expression `a-z`
                to comply with RFC1035. Changing this forces a new service account to be created.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A text description of the service account.
                Must be less than or equal to 256 UTF-8 bytes.
         :param pulumi.Input[_builtins.bool] disabled: Whether a service account is disabled or not. Defaults to `false`. This field has no effect during creation.
@@ -506,6 +574,7 @@ class Account(pulumi.CustomResource):
 
         __props__.__dict__["account_id"] = account_id
         __props__.__dict__["create_ignore_already_exists"] = create_ignore_already_exists
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["display_name"] = display_name
@@ -534,6 +603,19 @@ class Account(pulumi.CustomResource):
         If set to true, skip service account creation if a service account with the same email already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

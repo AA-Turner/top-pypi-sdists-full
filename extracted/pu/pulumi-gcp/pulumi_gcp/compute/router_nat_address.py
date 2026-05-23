@@ -22,9 +22,10 @@ class RouterNatAddressArgs:
                  nat_ips: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
                  router: pulumi.Input[_builtins.str],
                  router_nat: pulumi.Input[_builtins.str],
-                 drain_nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 drain_nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RouterNatAddress resource.
 
@@ -32,6 +33,12 @@ class RouterNatAddressArgs:
                natIpAllocateOption is set to MANUAL_ONLY.
         :param pulumi.Input[_builtins.str] router: The name of the Cloud Router in which the referenced NAT service is configured.
         :param pulumi.Input[_builtins.str] router_nat: The name of the Nat service in which this address will be configured.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be
                valid static external IPs that have been assigned to the NAT.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -41,6 +48,8 @@ class RouterNatAddressArgs:
         pulumi.set(__self__, "nat_ips", nat_ips)
         pulumi.set(__self__, "router", router)
         pulumi.set(__self__, "router_nat", router_nat)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if drain_nat_ips is not None:
             pulumi.set(__self__, "drain_nat_ips", drain_nat_ips)
         if project is not None:
@@ -86,8 +95,25 @@ class RouterNatAddressArgs:
         pulumi.set(self, "router_nat", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="drainNatIps")
-    def drain_nat_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def drain_nat_ips(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of URLs of the IP resources to be drained. These IPs must be
         valid static external IPs that have been assigned to the NAT.
@@ -95,12 +121,12 @@ class RouterNatAddressArgs:
         return pulumi.get(self, "drain_nat_ips")
 
     @drain_nat_ips.setter
-    def drain_nat_ips(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def drain_nat_ips(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "drain_nat_ips", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -108,34 +134,41 @@ class RouterNatAddressArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Region where the NAT service reside.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
 @pulumi.input_type
 class _RouterNatAddressState:
     def __init__(__self__, *,
-                 drain_nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 router_nat: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 drain_nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 router_nat: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RouterNatAddress resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be
                valid static external IPs that have been assigned to the NAT.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat
@@ -146,6 +179,8 @@ class _RouterNatAddressState:
         :param pulumi.Input[_builtins.str] router: The name of the Cloud Router in which the referenced NAT service is configured.
         :param pulumi.Input[_builtins.str] router_nat: The name of the Nat service in which this address will be configured.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if drain_nat_ips is not None:
             pulumi.set(__self__, "drain_nat_ips", drain_nat_ips)
         if nat_ips is not None:
@@ -160,8 +195,25 @@ class _RouterNatAddressState:
             pulumi.set(__self__, "router_nat", router_nat)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="drainNatIps")
-    def drain_nat_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def drain_nat_ips(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of URLs of the IP resources to be drained. These IPs must be
         valid static external IPs that have been assigned to the NAT.
@@ -169,12 +221,12 @@ class _RouterNatAddressState:
         return pulumi.get(self, "drain_nat_ips")
 
     @drain_nat_ips.setter
-    def drain_nat_ips(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def drain_nat_ips(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "drain_nat_ips", value)
 
     @_builtins.property
     @pulumi.getter(name="natIps")
-    def nat_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def nat_ips(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat
         natIpAllocateOption is set to MANUAL_ONLY.
@@ -182,12 +234,12 @@ class _RouterNatAddressState:
         return pulumi.get(self, "nat_ips")
 
     @nat_ips.setter
-    def nat_ips(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def nat_ips(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "nat_ips", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -195,43 +247,43 @@ class _RouterNatAddressState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Region where the NAT service reside.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def router(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def router(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Cloud Router in which the referenced NAT service is configured.
         """
         return pulumi.get(self, "router")
 
     @router.setter
-    def router(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def router(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "router", value)
 
     @_builtins.property
     @pulumi.getter(name="routerNat")
-    def router_nat(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def router_nat(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Nat service in which this address will be configured.
         """
         return pulumi.get(self, "router_nat")
 
     @router_nat.setter
-    def router_nat(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def router_nat(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "router_nat", value)
 
 
@@ -241,12 +293,13 @@ class RouterNatAddress(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 drain_nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 router_nat: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 drain_nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 router_nat: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A resource used to set the list of IP addresses to be used in a NAT service and manage the draining of destroyed IPs.
@@ -284,6 +337,12 @@ class RouterNatAddress(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be
                valid static external IPs that have been assigned to the NAT.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat
@@ -349,12 +408,13 @@ class RouterNatAddress(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 drain_nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 router_nat: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 drain_nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 router_nat: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -364,6 +424,7 @@ class RouterNatAddress(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = RouterNatAddressArgs.__new__(RouterNatAddressArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["drain_nat_ips"] = drain_nat_ips
             if nat_ips is None and not opts.urn:
                 raise TypeError("Missing required property 'nat_ips'")
@@ -386,12 +447,13 @@ class RouterNatAddress(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            drain_nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            nat_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            router: Optional[pulumi.Input[_builtins.str]] = None,
-            router_nat: Optional[pulumi.Input[_builtins.str]] = None) -> 'RouterNatAddress':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            drain_nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            nat_ips: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            router: pulumi.Input[Optional[_builtins.str]] = None,
+            router_nat: pulumi.Input[Optional[_builtins.str]] = None) -> 'RouterNatAddress':
         """
         Get an existing RouterNatAddress resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -399,6 +461,12 @@ class RouterNatAddress(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be
                valid static external IPs that have been assigned to the NAT.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat
@@ -413,6 +481,7 @@ class RouterNatAddress(pulumi.CustomResource):
 
         __props__ = _RouterNatAddressState.__new__(_RouterNatAddressState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["drain_nat_ips"] = drain_nat_ips
         __props__.__dict__["nat_ips"] = nat_ips
         __props__.__dict__["project"] = project
@@ -420,6 +489,19 @@ class RouterNatAddress(pulumi.CustomResource):
         __props__.__dict__["router"] = router
         __props__.__dict__["router_nat"] = router_nat
         return RouterNatAddress(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="drainNatIps")

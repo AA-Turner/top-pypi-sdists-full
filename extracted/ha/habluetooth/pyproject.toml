@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "habluetooth"
-version = "6.2.1"
+version = "6.4.0"
 license = "Apache-2.0"
 description = "High availability Bluetooth"
 authors = [{ name = "J. Nick Koston", email = "bluetooth@koston.org" }]
@@ -49,6 +49,7 @@ pytest = ">=9.0.3,<10"
 pytest-cov = ">=3,<8"
 pytest-asyncio = ">=0.23.6,<1.4.0"
 pytest-codspeed = ">=5.0.2,<6.0.0"
+pytest-timeout = ">=2.3.1"
 freezegun = "^1.5.5"
 dbus-fast = ">=4.3.0"
 
@@ -90,6 +91,7 @@ addopts = "-v -Wdefault --cov=habluetooth --cov-report=term-missing:skip-covered
 pythonpath = ["src"]
 log_cli="true"
 log_level="NOTSET"
+timeout = 5
 
 [tool.coverage.run]
 branch = true
@@ -109,27 +111,65 @@ line-length = 88
 
 [tool.ruff.lint]
 ignore = [
-    "E721", # type checks for cython
-    "D203", # 1 blank line required before class docstring
-    "D212", # Multi-line docstring summary should start at the first line
-    "D100", # Missing docstring in public module
-    "D104", # Missing docstring in public package
-    "D107", # Missing docstring in `__init__`
-    "D401", # First line of docstring should be in imperative mood
+    "E721",    # type checks for cython
+    "D203",    # 1 blank line required before class docstring
+    "D212",    # Multi-line docstring summary should start at the first line
+    "D100",    # Missing docstring in public module
+    "D104",    # Missing docstring in public package
+    "D107",    # Missing docstring in `__init__`
+    "D401",    # First line of docstring should be in imperative mood
+    "ASYNC109", # ``timeout`` is part of our bleak-compatible public API
+    "TRY003",  # too many to fix; long messages outside the exception class
 ]
 select = [
-    "B",   # flake8-bugbear
-    "D",   # flake8-docstrings
-    "C4",  # flake8-comprehensions
-    "S",   # flake8-bandit
-    "F",   # pyflake
-    "E",   # pycodestyle
-    "W",   # pycodestyle
-    "UP",  # pyupgrade
-    "I",   # isort
-    "RUF", # ruff specific
-    "RET", # return
-    "SIM", # simplify
+    "A",    # flake8-builtins
+    "ASYNC", # flake8-async
+    "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except
+    "C4",   # flake8-comprehensions
+    "C90",  # mccabe complexity
+    "D",    # flake8-docstrings
+    "DTZ",  # flake8-datetimez
+    "E",    # pycodestyle
+    "EM",   # flake8-errmsg
+    "ERA",  # eradicate
+    "EXE",  # flake8-executable
+    "F",    # pyflake
+    "FA",   # flake8-future-annotations
+    "FIX",  # flake8-fixme
+    "FLY",  # flynt
+    "FURB", # refurb
+    "G",    # flake8-logging-format
+    "I",    # isort
+    "ICN",  # flake8-import-conventions
+    "INP",  # flake8-no-pep420
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "N",    # pep8-naming
+    "NPY",  # numpy-specific rules
+    "PERF", # Perflint
+    "PGH",  # pygrep-hooks
+    "PIE",  # flake8-pie
+    "PLC",  # pylint convention
+    "PLW",  # pylint warnings
+    "PT",   # flake8-pytest-style
+    "PTH",  # flake8-use-pathlib
+    "PYI",  # flake8-pyi
+    "Q",    # flake8-quotes
+    "RET",  # return
+    "RSE",  # flake8-raise
+    "RUF",  # ruff specific
+    "S",    # flake8-bandit
+    "SIM",  # simplify
+    "SLOT", # flake8-slots
+    "T10",  # flake8-debugger
+    "T20",  # flake8-print
+    "TC",   # flake8-type-checking
+    "TD",   # flake8-todos
+    "TRY",  # tryceratops
+    "UP",   # pyupgrade
+    "W",    # pycodestyle
+    "YTT",  # flake8-2020
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -143,7 +183,10 @@ select = [
 ]
 "setup.py" = ["D100"]
 "conftest.py" = ["D100"]
-"docs/conf.py" = ["D100"]
+# Sphinx config: ``copyright`` is the Sphinx convention, file is not a package
+"docs/conf.py" = ["D100", "A001", "INP001"]
+# Example scripts intentionally use print and aren't a package
+"examples/*" = ["INP001", "T201"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["habluetooth", "tests"]

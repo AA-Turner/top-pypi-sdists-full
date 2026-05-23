@@ -7,6 +7,7 @@ import os
 import re
 import threading
 import time
+from base64 import urlsafe_b64decode
 from typing import Any, Optional
 
 import requests
@@ -15,6 +16,7 @@ from azure.identity import AzureCliCredential, ClientSecretCredential
 from dbt_common.exceptions import DbtRuntimeError
 
 from dbt.adapters.events.logging import AdapterLogger
+from dbt.adapters.fabricspark._http_utils import parse_retry_after
 from dbt.adapters.fabricspark.credentials import FabricSparkCredentials
 
 logger = AdapterLogger("Microsoft Fabric-Spark")
@@ -181,11 +183,42 @@ def get_default_access_token(credentials: FabricSparkCredentials) -> AccessToken
     out : AccessToken
         The access token.
     """
-    expires_on = 1845972874
+    derived_expiry = _extract_expiry_from_jwt(credentials.accessToken)
+    expires_on = derived_expiry or int(time.time())
 
-    # Create an AccessToken instance
+    if derived_expiry is None:
+        logger.debug(
+            "Could not derive token expiry from credentials.accessToken; "
+            "forcing immediate refresh for int_tests auth."
+        )
+
     accessToken = AccessToken(token=credentials.accessToken, expires_on=expires_on)
     return accessToken
+
+
+def _extract_expiry_from_jwt(token: Optional[str]) -> Optional[int]:
+    """Best-effort extraction of JWT `exp` claim."""
+    if not token:
+        return None
+
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+
+        payload = parts[1]
+        payload_with_padding = payload + "=" * (-len(payload) % 4)
+        claims = json.loads(urlsafe_b64decode(payload_with_padding))
+        exp = claims.get("exp")
+        if isinstance(exp, int) and exp > 0:
+            return exp
+        if isinstance(exp, float) and exp > 0:
+            return int(exp)
+    except (json.JSONDecodeError, TypeError, UnicodeDecodeError, ValueError):
+        logger.debug("Unable to parse JWT expiry from credentials.accessToken.")
+        return None
+
+    return None
 
 
 def _load_custom_credential(credentials: FabricSparkCredentials) -> Any:
@@ -367,33 +400,6 @@ def get_headers(credentials: FabricSparkCredentials, tokenPrint: bool = False) -
     return headers
 
 
-def _parse_retry_after(response: requests.Response) -> float:
-    """Extract wait time from Retry-After header or 429 response body.
-
-    Falls back to 0 if no hint is found.
-    """
-    header = response.headers.get("Retry-After", "")
-    if header:
-        try:
-            return float(header)
-        except ValueError:
-            pass
-    # Fabric 429 body sometimes includes a retry-after timestamp in the message
-    try:
-        body = response.json()
-        msg = body.get("message", "")
-        # Fabric 429 body includes a timestamp like "...until: 4/17/2026 12:22:35 PM (UTC)"
-        if "until:" in msg:
-            ts_str = msg.split("until:")[1].strip().rstrip(")")
-            ts_str = ts_str.replace("(UTC", "").strip()
-            target = dt.datetime.strptime(ts_str, "%m/%d/%Y %I:%M:%S %p")
-            delta = (target - dt.datetime.utcnow()).total_seconds()
-            return max(delta, 0)
-    except Exception:
-        pass
-    return 0
-
-
 def get_lakehouse_properties(credentials: FabricSparkCredentials) -> dict:
     """Fetch lakehouse properties from the Fabric REST API.
 
@@ -424,7 +430,7 @@ def get_lakehouse_properties(credentials: FabricSparkCredentials) -> dict:
         try:
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code == 429:
-                retry_after = _parse_retry_after(response)
+                retry_after = parse_retry_after(response)
                 wait = max(retry_after, 2**attempt * 2)  # at least 2, 4, 8, 16, 32s
                 logger.debug(
                     f"Lakehouse properties API returned 429, "

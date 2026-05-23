@@ -15,7 +15,26 @@ from typing import (
     cast,
 )
 
-from langchain_community.chat_models.ollama import ChatOllama
+try:
+    from langchain_community.chat_models.ollama import ChatOllama
+except ImportError as e:
+    _IMPORT_ERROR = e
+
+    class ChatOllama:  # type: ignore[no-redef]
+        """Stub for environments where `langchain-community` no longer ships
+        `langchain_community.chat_models.ollama` (removed in 0.4.2)."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "`OllamaFunctions` depends on `langchain_community.chat_models."
+                "ollama.ChatOllama`, which was removed in "
+                "`langchain-community>=0.4.2`. Use `langchain_ollama.ChatOllama`"
+                " directly instead. Note: `langchain-experimental` is being "
+                "sunset; see "
+                "https://github.com/langchain-ai/langchain-experimental/issues/87."
+            ) from _IMPORT_ERROR
+
+
 from langchain_core._api import deprecated
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,

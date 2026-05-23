@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars
-Version: 1.40.1
+Version: 1.41.0
 Summary: Blazingly fast DataFrame library
 Author-email: Ritchie Vink <ritchie46@gmail.com>
 License: Copyright (c) 2025 Ritchie Vink
@@ -47,11 +47,11 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: polars-runtime-32==1.40.1
+Requires-Dist: polars-runtime-32==1.41.0
 Provides-Extra: rt64
-Requires-Dist: polars-runtime-64==1.40.1; extra == "rt64"
+Requires-Dist: polars-runtime-64==1.41.0; extra == "rt64"
 Provides-Extra: rtcompat
-Requires-Dist: polars-runtime-compat==1.40.1; extra == "rtcompat"
+Requires-Dist: polars-runtime-compat==1.41.0; extra == "rtcompat"
 Provides-Extra: polars-cloud
 Requires-Dist: polars_cloud>=0.4.0; extra == "polars-cloud"
 Provides-Extra: numpy
@@ -86,7 +86,7 @@ Requires-Dist: polars[adbc,connectorx,sqlalchemy]; extra == "database"
 Provides-Extra: fsspec
 Requires-Dist: fsspec; extra == "fsspec"
 Provides-Extra: deltalake
-Requires-Dist: deltalake>=1.0.0; extra == "deltalake"
+Requires-Dist: deltalake!=1.5.*,>=1.0.0; extra == "deltalake"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg>=0.7.1; extra == "iceberg"
 Provides-Extra: async

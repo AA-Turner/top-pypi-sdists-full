@@ -23,14 +23,15 @@ class EndpointPolicyArgs:
     def __init__(__self__, *,
                  endpoint_matcher: pulumi.Input['EndpointPolicyEndpointMatcherArgs'],
                  type: pulumi.Input[_builtins.str],
-                 authorization_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 traffic_port_selector: Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']] = None):
+                 authorization_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 traffic_port_selector: pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']] = None):
         """
         The set of arguments for constructing a EndpointPolicy resource.
 
@@ -40,6 +41,12 @@ class EndpointPolicyArgs:
                Possible values are: `SIDECAR_PROXY`, `GRPC_SERVER`.
         :param pulumi.Input[_builtins.str] authorization_policy: This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         :param pulumi.Input[_builtins.str] client_tls_policy: A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the TcpRoute resource.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -57,6 +64,8 @@ class EndpointPolicyArgs:
             pulumi.set(__self__, "authorization_policy", authorization_policy)
         if client_tls_policy is not None:
             pulumi.set(__self__, "client_tls_policy", client_tls_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -98,43 +107,60 @@ class EndpointPolicyArgs:
 
     @_builtins.property
     @pulumi.getter(name="authorizationPolicy")
-    def authorization_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def authorization_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         """
         return pulumi.get(self, "authorization_policy")
 
     @authorization_policy.setter
-    def authorization_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def authorization_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "authorization_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="clientTlsPolicy")
-    def client_tls_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_tls_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
         """
         return pulumi.get(self, "client_tls_policy")
 
     @client_tls_policy.setter
-    def client_tls_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_tls_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_tls_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A free-text description of the resource. Max length 1024 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the TcpRoute resource.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -143,24 +169,24 @@ class EndpointPolicyArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the EndpointPolicy resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -168,24 +194,24 @@ class EndpointPolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serverTlsPolicy")
-    def server_tls_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def server_tls_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A URL referring to ServerTlsPolicy resource. ServerTlsPolicy is used to determine the authentication policy to be applied to terminate the inbound traffic at the identified backends.
         """
         return pulumi.get(self, "server_tls_policy")
 
     @server_tls_policy.setter
-    def server_tls_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def server_tls_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "server_tls_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="trafficPortSelector")
-    def traffic_port_selector(self) -> Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']]:
+    def traffic_port_selector(self) -> pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']]:
         """
         Port selector for the (matched) endpoints. If no port selector is provided, the matched config is applied to all ports.
         Structure is documented below.
@@ -193,33 +219,40 @@ class EndpointPolicyArgs:
         return pulumi.get(self, "traffic_port_selector")
 
     @traffic_port_selector.setter
-    def traffic_port_selector(self, value: Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']]):
+    def traffic_port_selector(self, value: pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']]):
         pulumi.set(self, "traffic_port_selector", value)
 
 
 @pulumi.input_type
 class _EndpointPolicyState:
     def __init__(__self__, *,
-                 authorization_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 endpoint_matcher: Optional[pulumi.Input['EndpointPolicyEndpointMatcherArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 server_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 traffic_port_selector: Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 authorization_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 endpoint_matcher: pulumi.Input[Optional['EndpointPolicyEndpointMatcherArgs']] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 server_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 traffic_port_selector: pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EndpointPolicy resources.
 
         :param pulumi.Input[_builtins.str] authorization_policy: This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         :param pulumi.Input[_builtins.str] client_tls_policy: A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
         :param pulumi.Input[_builtins.str] create_time: Time the TcpRoute was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input['EndpointPolicyEndpointMatcherArgs'] endpoint_matcher: Required. A matcher that selects endpoints to which the policies should be applied.
@@ -245,6 +278,8 @@ class _EndpointPolicyState:
             pulumi.set(__self__, "client_tls_policy", client_tls_policy)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -270,67 +305,84 @@ class _EndpointPolicyState:
 
     @_builtins.property
     @pulumi.getter(name="authorizationPolicy")
-    def authorization_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def authorization_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         """
         return pulumi.get(self, "authorization_policy")
 
     @authorization_policy.setter
-    def authorization_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def authorization_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "authorization_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="clientTlsPolicy")
-    def client_tls_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_tls_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
         """
         return pulumi.get(self, "client_tls_policy")
 
     @client_tls_policy.setter
-    def client_tls_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_tls_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_tls_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the TcpRoute was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A free-text description of the resource. Max length 1024 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="endpointMatcher")
-    def endpoint_matcher(self) -> Optional[pulumi.Input['EndpointPolicyEndpointMatcherArgs']]:
+    def endpoint_matcher(self) -> pulumi.Input[Optional['EndpointPolicyEndpointMatcherArgs']]:
         """
         Required. A matcher that selects endpoints to which the policies should be applied.
         Structure is documented below.
@@ -338,12 +390,12 @@ class _EndpointPolicyState:
         return pulumi.get(self, "endpoint_matcher")
 
     @endpoint_matcher.setter
-    def endpoint_matcher(self, value: Optional[pulumi.Input['EndpointPolicyEndpointMatcherArgs']]):
+    def endpoint_matcher(self, value: pulumi.Input[Optional['EndpointPolicyEndpointMatcherArgs']]):
         pulumi.set(self, "endpoint_matcher", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the TcpRoute resource.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -352,24 +404,24 @@ class _EndpointPolicyState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the EndpointPolicy resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -377,12 +429,12 @@ class _EndpointPolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -390,24 +442,24 @@ class _EndpointPolicyState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="serverTlsPolicy")
-    def server_tls_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def server_tls_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A URL referring to ServerTlsPolicy resource. ServerTlsPolicy is used to determine the authentication policy to be applied to terminate the inbound traffic at the identified backends.
         """
         return pulumi.get(self, "server_tls_policy")
 
     @server_tls_policy.setter
-    def server_tls_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def server_tls_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "server_tls_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="trafficPortSelector")
-    def traffic_port_selector(self) -> Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']]:
+    def traffic_port_selector(self) -> pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']]:
         """
         Port selector for the (matched) endpoints. If no port selector is provided, the matched config is applied to all ports.
         Structure is documented below.
@@ -415,12 +467,12 @@ class _EndpointPolicyState:
         return pulumi.get(self, "traffic_port_selector")
 
     @traffic_port_selector.setter
-    def traffic_port_selector(self, value: Optional[pulumi.Input['EndpointPolicyTrafficPortSelectorArgs']]):
+    def traffic_port_selector(self, value: pulumi.Input[Optional['EndpointPolicyTrafficPortSelectorArgs']]):
         pulumi.set(self, "traffic_port_selector", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of endpoint policy. This is primarily used to validate the configuration.
         Possible values are: `SIDECAR_PROXY`, `GRPC_SERVER`.
@@ -428,19 +480,19 @@ class _EndpointPolicyState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the TcpRoute was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -450,16 +502,17 @@ class EndpointPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 authorization_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matcher: Optional[pulumi.Input[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 traffic_port_selector: Optional[pulumi.Input[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 authorization_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matcher: pulumi.Input[Optional[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 traffic_port_selector: pulumi.Input[Optional[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         EndpointPolicy is a resource that helps apply desired configuration on the endpoints that match specific criteria.
@@ -540,6 +593,12 @@ class EndpointPolicy(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] authorization_policy: This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         :param pulumi.Input[_builtins.str] client_tls_policy: A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']] endpoint_matcher: Required. A matcher that selects endpoints to which the policies should be applied.
                Structure is documented below.
@@ -651,16 +710,17 @@ class EndpointPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 authorization_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matcher: Optional[pulumi.Input[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 traffic_port_selector: Optional[pulumi.Input[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 authorization_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matcher: pulumi.Input[Optional[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 traffic_port_selector: pulumi.Input[Optional[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -672,6 +732,7 @@ class EndpointPolicy(pulumi.CustomResource):
 
             __props__.__dict__["authorization_policy"] = authorization_policy
             __props__.__dict__["client_tls_policy"] = client_tls_policy
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if endpoint_matcher is None and not opts.urn:
                 raise TypeError("Missing required property 'endpoint_matcher'")
@@ -700,20 +761,21 @@ class EndpointPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            authorization_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            client_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            endpoint_matcher: Optional[pulumi.Input[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            server_tls_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            traffic_port_selector: Optional[pulumi.Input[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'EndpointPolicy':
+            authorization_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            client_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            endpoint_matcher: pulumi.Input[Optional[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            server_tls_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            traffic_port_selector: pulumi.Input[Optional[Union['EndpointPolicyTrafficPortSelectorArgs', 'EndpointPolicyTrafficPortSelectorArgsDict']]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'EndpointPolicy':
         """
         Get an existing EndpointPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -724,6 +786,12 @@ class EndpointPolicy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] authorization_policy: This field specifies the URL of AuthorizationPolicy resource that applies authorization policies to the inbound traffic at the matched endpoints.
         :param pulumi.Input[_builtins.str] client_tls_policy: A URL referring to a ClientTlsPolicy resource. ClientTlsPolicy can be set to specify the authentication for traffic from the proxy to the actual endpoints.
         :param pulumi.Input[_builtins.str] create_time: Time the TcpRoute was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Union['EndpointPolicyEndpointMatcherArgs', 'EndpointPolicyEndpointMatcherArgsDict']] endpoint_matcher: Required. A matcher that selects endpoints to which the policies should be applied.
@@ -750,6 +818,7 @@ class EndpointPolicy(pulumi.CustomResource):
         __props__.__dict__["authorization_policy"] = authorization_policy
         __props__.__dict__["client_tls_policy"] = client_tls_policy
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["endpoint_matcher"] = endpoint_matcher
@@ -786,6 +855,19 @@ class EndpointPolicy(pulumi.CustomResource):
         Time the TcpRoute was created in UTC.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

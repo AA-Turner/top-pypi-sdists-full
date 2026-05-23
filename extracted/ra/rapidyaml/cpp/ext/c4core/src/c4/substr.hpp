@@ -12,16 +12,10 @@
 #include "c4/error.hpp"
 #include "c4/substr_fwd.hpp"
 
-#ifdef __clang__
-#   pragma clang diagnostic push
-#   pragma clang diagnostic ignored "-Wold-style-cast"
-#elif defined(__GNUC__)
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wtype-limits" // disable warnings on size_t>=0, used heavily in assertions below. These assertions are a preparation step for providing the index type as a template parameter.
-#   pragma GCC diagnostic ignored "-Wuseless-cast"
-#   pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
-
+C4_SUPPRESS_WARNING_GCC_CLANG_PUSH
+C4_SUPPRESS_WARNING_GCC_CLANG("-Wold-style-cast")
+C4_SUPPRESS_WARNING_GCC("-Wuseless-cast")
+C4_SUPPRESS_WARNING_GCC("-Wtype-limits") // disable warnings on size_t>=0, used heavily in assertions below. These assertions are a preparation step for providing the index type as a template parameter.
 
 namespace c4 {
 
@@ -47,6 +41,7 @@ static inline void _do_reverse(C *C4_RESTRICT first, C *C4_RESTRICT last)
 } // namespace detail
 /** @endcond */
 
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -70,7 +65,7 @@ static inline void _do_reverse(C *C4_RESTRICT first, C *C4_RESTRICT last)
  * in rapidyaml's documentation.
  */
 template<class C>
-struct C4CORE_EXPORT basic_substring // NOLINT(cppcoreguidelines-special-member-functions,hicpp-special-member-functions)
+struct basic_substring // NOLINT(cppcoreguidelines-special-member-functions,hicpp-special-member-functions)
 {
 public:
 
@@ -164,12 +159,12 @@ public:
      * @warning the end pointer MUST BE larger than or equal to the begin pointer
      * @warning the input string need not be zero terminated. */
     C4_ALWAYS_INLINE void assign(C *beg_, C *end_) noexcept { C4_ASSERT(end_ >= beg_); str = (beg_); len = static_cast<size_t>(end_ - beg_); }
-    /** Assign from a C-string (zero-terminated string)
+    /** Assign from a C-string (zero-terminated string of type const C* or C*)
      * @warning the input string must be zero terminated.
      * @warning will call strlen()
      * @note this overload uses SFINAE to prevent it from overriding the array ctor
-     * @see For a more detailed explanation on why the plain overloads cannot
-     * coexist, see http://cplusplus.bordoon.com/specializeForCharacterArrays.html */
+     * @see For a more detailed explanation on why the plain pointer overloads cannot
+     * coexist with the array overloads, see http://cplusplus.bordoon.com/specializeForCharacterArrays.html */
     template<class U, typename std::enable_if<std::is_same<U, C*>::value || std::is_same<U, NCC_*>::value, int>::type=0>
     C4_ALWAYS_INLINE void assign(U s_) noexcept { str = (s_); len = (s_ ? strlen(s_) : 0); }
 
@@ -177,12 +172,12 @@ public:
      * @warning the input string need not be zero terminated. */
     template<size_t N>
     C4_ALWAYS_INLINE basic_substring& operator= (C (&s_)[N]) noexcept { str = (s_); len = (N-1); return *this; }
-    /** Assign from a C-string (zero-terminated string)
+    /** Assign from a C-string (zero-terminated string of type const C* or C*)
      * @warning the input string MUST BE zero terminated.
      * @warning will call strlen()
      * @note this overload uses SFINAE to prevent it from overriding the array ctor
-     * @see For a more detailed explanation on why the plain overloads cannot
-     * coexist, see http://cplusplus.bordoon.com/specializeForCharacterArrays.html */
+     * @see For a more detailed explanation on why the plain pointer overloads cannot
+     * coexist with the array overloads, see http://cplusplus.bordoon.com/specializeForCharacterArrays.html */
     template<class U, typename std::enable_if<std::is_same<U, C*>::value || std::is_same<U, NCC_*>::value, int>::type=0>
     C4_ALWAYS_INLINE basic_substring& operator= (U s_) noexcept { str = s_; len = s_ ? strlen(s_) : 0; return *this; }
 
@@ -223,7 +218,7 @@ public:
     /** @name Comparison methods */
     /** @{ */
 
-    C4_PURE int compare(C const c) const noexcept
+    C4_ALWAYS_INLINE C4_PURE int compare(C const c) const noexcept
     {
         C4_XASSERT((str != nullptr) || len == 0);
         if(C4_LIKELY(str != nullptr && len > 0))
@@ -2187,7 +2182,6 @@ public:
 
 }; // template class basic_substring
 
-
 #undef C4_REQUIRE_RW
 
 
@@ -2346,10 +2340,6 @@ inline OStream& operator<< (OStream& os, basic_substring<C> s)
 } // namespace c4
 
 
-#ifdef __clang__
-#   pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#   pragma GCC diagnostic pop
-#endif
+C4_SUPPRESS_WARNING_GCC_CLANG_POP
 
 #endif /* _C4_SUBSTR_HPP_ */

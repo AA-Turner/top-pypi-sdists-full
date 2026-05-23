@@ -21,15 +21,22 @@ __all__ = ['AiDeploymentResourcePoolArgs', 'AiDeploymentResourcePool']
 @pulumi.input_type
 class AiDeploymentResourcePoolArgs:
     def __init__(__self__, *,
-                 dedicated_resources: Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 dedicated_resources: pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AiDeploymentResourcePool resource.
 
         :param pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs'] dedicated_resources: The underlying dedicated resources that the deployment resource pool uses.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -37,6 +44,8 @@ class AiDeploymentResourcePoolArgs:
         """
         if dedicated_resources is not None:
             pulumi.set(__self__, "dedicated_resources", dedicated_resources)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -46,7 +55,7 @@ class AiDeploymentResourcePoolArgs:
 
     @_builtins.property
     @pulumi.getter(name="dedicatedResources")
-    def dedicated_resources(self) -> Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']]:
+    def dedicated_resources(self) -> pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']]:
         """
         The underlying dedicated resources that the deployment resource pool uses.
         Structure is documented below.
@@ -54,24 +63,41 @@ class AiDeploymentResourcePoolArgs:
         return pulumi.get(self, "dedicated_resources")
 
     @dedicated_resources.setter
-    def dedicated_resources(self, value: Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']]):
+    def dedicated_resources(self, value: pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']]):
         pulumi.set(self, "dedicated_resources", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -79,36 +105,43 @@ class AiDeploymentResourcePoolArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region of deployment resource pool. eg us-central1
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
 @pulumi.input_type
 class _AiDeploymentResourcePoolState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 dedicated_resources: Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 dedicated_resources: pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AiDeploymentResourcePool resources.
 
         :param pulumi.Input[_builtins.str] create_time: A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
         :param pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs'] dedicated_resources: The underlying dedicated resources that the deployment resource pool uses.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -118,6 +151,8 @@ class _AiDeploymentResourcePoolState:
             pulumi.set(__self__, "create_time", create_time)
         if dedicated_resources is not None:
             pulumi.set(__self__, "dedicated_resources", dedicated_resources)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -127,19 +162,19 @@ class _AiDeploymentResourcePoolState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dedicatedResources")
-    def dedicated_resources(self) -> Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']]:
+    def dedicated_resources(self) -> pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']]:
         """
         The underlying dedicated resources that the deployment resource pool uses.
         Structure is documented below.
@@ -147,24 +182,41 @@ class _AiDeploymentResourcePoolState:
         return pulumi.get(self, "dedicated_resources")
 
     @dedicated_resources.setter
-    def dedicated_resources(self, value: Optional[pulumi.Input['AiDeploymentResourcePoolDedicatedResourcesArgs']]):
+    def dedicated_resources(self, value: pulumi.Input[Optional['AiDeploymentResourcePoolDedicatedResourcesArgs']]):
         pulumi.set(self, "dedicated_resources", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -172,19 +224,19 @@ class _AiDeploymentResourcePoolState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region of deployment resource pool. eg us-central1
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
@@ -194,10 +246,11 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 dedicated_resources: Optional[pulumi.Input[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 dedicated_resources: pulumi.Input[Optional[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         'DeploymentResourcePool can be shared by multiple deployed models,
@@ -256,6 +309,12 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']] dedicated_resources: The underlying dedicated resources that the deployment resource pool uses.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -335,10 +394,11 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 dedicated_resources: Optional[pulumi.Input[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 dedicated_resources: pulumi.Input[Optional[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -349,6 +409,7 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
             __props__ = AiDeploymentResourcePoolArgs.__new__(AiDeploymentResourcePoolArgs)
 
             __props__.__dict__["dedicated_resources"] = dedicated_resources
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["name"] = name
             __props__.__dict__["project"] = project
             __props__.__dict__["region"] = region
@@ -363,11 +424,12 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            dedicated_resources: Optional[pulumi.Input[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None) -> 'AiDeploymentResourcePool':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            dedicated_resources: pulumi.Input[Optional[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None) -> 'AiDeploymentResourcePool':
         """
         Get an existing AiDeploymentResourcePool resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -378,6 +440,12 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
         :param pulumi.Input[Union['AiDeploymentResourcePoolDedicatedResourcesArgs', 'AiDeploymentResourcePoolDedicatedResourcesArgsDict']] dedicated_resources: The underlying dedicated resources that the deployment resource pool uses.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^a-z?$/`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -389,6 +457,7 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
 
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["dedicated_resources"] = dedicated_resources
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         __props__.__dict__["region"] = region
@@ -410,6 +479,19 @@ class AiDeploymentResourcePool(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "dedicated_resources")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

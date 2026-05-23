@@ -1,33 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-resource-deployments
-Version: 1.0.0b1
-Summary: Microsoft Azure Resource Deployments Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 1.0.0b2
+Summary: Microsoft Azure Deployments Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Resource Deployments Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -38,7 +36,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -86,8 +84,29 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 1.0.0b2 (2026-05-21)
+
+### Features Added
+
+  - Client `DeploymentsMgmtClient` added parameter `cloud_setting` in method `__init__`
+  - Client `DeploymentsMgmtClient` added method `send_request`
+  - Model `DeploymentExtended` added property `system_data`
+  - Added model `CloudError`
+  - Added enum `CreatedByType`
+  - Added model `ExtensionResource`
+  - Added model `Resource`
+  - Added model `SystemData`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `WhatIfOperationResult` moved instance variable `changes`, `potential_changes` and `diagnostics` under property `properties` whose type is `WhatIfOperationProperties`
+
+### Other Changes
+
+  - Deleted model `DeploymentExtendedFilter`/`ResourceProviderOperationDisplayProperties`/`SubResource` which actually were not used by SDK users
 
 ## 1.0.0b1 (2025-06-20)
 

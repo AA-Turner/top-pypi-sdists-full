@@ -5,6 +5,7 @@ authors.workspace = true
 categories.workspace = true
 documentation.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 license.workspace = true
@@ -16,6 +17,9 @@ readme = "README.md"
 pyo3 = { workspace = true, features = [] }
 pyo3-async-runtimes.workspace = true
 tokio.workspace = true
+
+[features]
+experimental-async = ["pyo3/experimental-async"]
 
 [lints]
 workspace = true

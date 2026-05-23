@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 3.0.0
+Version: 3.0.1
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/

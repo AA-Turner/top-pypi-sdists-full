@@ -8,7 +8,7 @@ import re as _re
 import shutil
 from typing import TYPE_CHECKING, ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from drydock.core.tools.base import (
     BaseTool,
@@ -85,6 +85,29 @@ class GrepArgs(BaseModel):
     use_default_ignore: bool = Field(
         default=True, description="Whether to respect .gitignore and .ignore files."
     )
+    case_insensitive: bool = Field(
+        default=False,
+        description="Case-insensitive match (same as `grep -i` / `rg -i`). "
+        "Default is smart-case for ripgrep (lowercase pattern → case-insensitive).",
+    )
+
+    @field_validator("pattern", mode="before")
+    @classmethod
+    def _strip_flag_prefix(cls, v):
+        # Models often emit pattern="-n foo" or pattern="-rn foo"
+        # thinking grep CLI flags map onto the tool's pattern field.
+        # Strip a leading flag token (single-letter `-X` or grouped
+        # `-XYZ`) so the actual search term works. Observed 2026-05-22:
+        # operator reported "grep -n doesn't work" — the tool already
+        # emits line numbers, but pattern="-n term" would search for
+        # the literal text "-n term" which never matches.
+        if isinstance(v, str) and len(v) > 2 and v.startswith("-"):
+            head, _, rest = v.partition(" ")
+            # Only strip if the head looks like a short-flag bundle
+            # (no embedded special chars besides letters).
+            if rest and head[1:].isalpha():
+                return rest
+        return v
 
 
 class GrepResult(BaseModel):
@@ -194,7 +217,7 @@ class Grep(
             "rg",
             "--line-number",
             "--no-heading",
-            "--smart-case",
+            "--smart-case" if not args.case_insensitive else "--ignore-case",
             "--no-binary",
             # Request one extra to detect truncation
             "--max-count",
@@ -218,7 +241,7 @@ class Grep(
 
         cmd = ["grep", "-r", "-n", "-I", "-E", f"--max-count={max_matches + 1}"]
 
-        if args.pattern.islower():
+        if args.case_insensitive or args.pattern.islower():
             cmd.append("-i")
 
         for pattern in exclude_patterns:

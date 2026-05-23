@@ -21,14 +21,21 @@ __all__ = ['ApiKeyArgs', 'ApiKey']
 @pulumi.input_type
 class ApiKeyArgs:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 restrictions: Optional[pulumi.Input['ApiKeyRestrictionsArgs']] = None,
-                 service_account_email: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 restrictions: pulumi.Input[Optional['ApiKeyRestrictionsArgs']] = None,
+                 service_account_email: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ApiKey resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable display name of this API key. Modifiable by user.
         :param pulumi.Input[_builtins.str] name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
                
@@ -39,6 +46,8 @@ class ApiKeyArgs:
         :param pulumi.Input['ApiKeyRestrictionsArgs'] restrictions: Key restrictions.
         :param pulumi.Input[_builtins.str] service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See [Documentation](https://cloud.google.com/docs/authentication/api-keys?#api-keys-bound-sa) for more details.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if name is not None:
@@ -51,20 +60,37 @@ class ApiKeyArgs:
             pulumi.set(__self__, "service_account_email", service_account_email)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable display name of this API key. Modifiable by user.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
 
@@ -75,59 +101,66 @@ class ApiKeyArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def restrictions(self) -> Optional[pulumi.Input['ApiKeyRestrictionsArgs']]:
+    def restrictions(self) -> pulumi.Input[Optional['ApiKeyRestrictionsArgs']]:
         """
         Key restrictions.
         """
         return pulumi.get(self, "restrictions")
 
     @restrictions.setter
-    def restrictions(self, value: Optional[pulumi.Input['ApiKeyRestrictionsArgs']]):
+    def restrictions(self, value: pulumi.Input[Optional['ApiKeyRestrictionsArgs']]):
         pulumi.set(self, "restrictions", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccountEmail")
-    def service_account_email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account_email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See [Documentation](https://cloud.google.com/docs/authentication/api-keys?#api-keys-bound-sa) for more details.
         """
         return pulumi.get(self, "service_account_email")
 
     @service_account_email.setter
-    def service_account_email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account_email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account_email", value)
 
 
 @pulumi.input_type
 class _ApiKeyState:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_string: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 restrictions: Optional[pulumi.Input['ApiKeyRestrictionsArgs']] = None,
-                 service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_string: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 restrictions: pulumi.Input[Optional['ApiKeyRestrictionsArgs']] = None,
+                 service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ApiKey resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable display name of this API key. Modifiable by user.
         :param pulumi.Input[_builtins.str] key_string: Output only. An encrypted and signed value held by this key. This field can be accessed only through the `GetKeyString` method.
         :param pulumi.Input[_builtins.str] name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
@@ -140,6 +173,8 @@ class _ApiKeyState:
         :param pulumi.Input[_builtins.str] service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See [Documentation](https://cloud.google.com/docs/authentication/api-keys?#api-keys-bound-sa) for more details.
         :param pulumi.Input[_builtins.str] uid: Output only. Unique id in UUID4 format.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if key_string is not None:
@@ -156,32 +191,49 @@ class _ApiKeyState:
             pulumi.set(__self__, "uid", uid)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable display name of this API key. Modifiable by user.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="keyString")
-    def key_string(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_string(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. An encrypted and signed value held by this key. This field can be accessed only through the `GetKeyString` method.
         """
         return pulumi.get(self, "key_string")
 
     @key_string.setter
-    def key_string(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_string(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_string", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
 
@@ -192,55 +244,55 @@ class _ApiKeyState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def restrictions(self) -> Optional[pulumi.Input['ApiKeyRestrictionsArgs']]:
+    def restrictions(self) -> pulumi.Input[Optional['ApiKeyRestrictionsArgs']]:
         """
         Key restrictions.
         """
         return pulumi.get(self, "restrictions")
 
     @restrictions.setter
-    def restrictions(self, value: Optional[pulumi.Input['ApiKeyRestrictionsArgs']]):
+    def restrictions(self, value: pulumi.Input[Optional['ApiKeyRestrictionsArgs']]):
         pulumi.set(self, "restrictions", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccountEmail")
-    def service_account_email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account_email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See [Documentation](https://cloud.google.com/docs/authentication/api-keys?#api-keys-bound-sa) for more details.
         """
         return pulumi.get(self, "service_account_email")
 
     @service_account_email.setter
-    def service_account_email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account_email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account_email", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Unique id in UUID4 format.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
 
@@ -250,11 +302,12 @@ class ApiKey(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 restrictions: Optional[pulumi.Input[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
-                 service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 restrictions: pulumi.Input[Optional[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
+                 service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The Apikeys Key resource
@@ -389,6 +442,12 @@ class ApiKey(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable display name of this API key. Modifiable by user.
         :param pulumi.Input[_builtins.str] name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
                
@@ -551,11 +610,12 @@ class ApiKey(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 restrictions: Optional[pulumi.Input[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
-                 service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 restrictions: pulumi.Input[Optional[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
+                 service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -565,6 +625,7 @@ class ApiKey(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = ApiKeyArgs.__new__(ApiKeyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["name"] = name
             __props__.__dict__["project"] = project
@@ -584,13 +645,14 @@ class ApiKey(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            key_string: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            restrictions: Optional[pulumi.Input[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
-            service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None) -> 'ApiKey':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            key_string: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            restrictions: pulumi.Input[Optional[Union['ApiKeyRestrictionsArgs', 'ApiKeyRestrictionsArgsDict']]] = None,
+            service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None) -> 'ApiKey':
         """
         Get an existing ApiKey resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -598,6 +660,12 @@ class ApiKey(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable display name of this API key. Modifiable by user.
         :param pulumi.Input[_builtins.str] key_string: Output only. An encrypted and signed value held by this key. This field can be accessed only through the `GetKeyString` method.
         :param pulumi.Input[_builtins.str] name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: `a-z?`.
@@ -614,6 +682,7 @@ class ApiKey(pulumi.CustomResource):
 
         __props__ = _ApiKeyState.__new__(_ApiKeyState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["key_string"] = key_string
         __props__.__dict__["name"] = name
@@ -622,6 +691,19 @@ class ApiKey(pulumi.CustomResource):
         __props__.__dict__["service_account_email"] = service_account_email
         __props__.__dict__["uid"] = uid
         return ApiKey(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

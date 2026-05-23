@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: restate-sdk
-Version: 0.18.0
+Version: 0.18.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks

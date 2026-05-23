@@ -6291,7 +6291,10 @@ def _extract_and_write_files(
         # SEARCH: line (or end of output) as the file's contents. The
         # `seen` set later in the loop prevents double-extraction when a
         # higher-priority fenced pattern already matched the same filepath.
-        r"(?ms)^FILE:\s*(\S+)\s*\n((?:(?!^(?:FILE:|RUN:|READ:|SEARCH:|EDIT:)\b).)*)",
+        # Simplified fenceless pattern: matches content between FILE: markers.
+        # Previous complex lookahead only matched the first file; this
+        # lookahead-based split correctly captures all files.
+        r"FILE:\s*([^\n]+)\n(.*?)(?=\nFILE:|\Z)",
     ]
 
     pending_filepaths: list[str] = []
@@ -6300,6 +6303,28 @@ def _extract_and_write_files(
             raw_fp = m.group(1).strip().rstrip(":")
             pending_filepaths.append(_normalize_workspace_relative_path(raw_fp, cwd))
     pending_modules = _pending_modules_for_files(pending_filepaths)
+
+    # ── Greenfield detection ─────────────────────────────────────────────────
+    # Check BEFORE any writes happen. If the workspace has < 15 source files
+    # we are scaffolding a new project. In that case:
+    #   1. Skip directory-existence validation — ALL dirs are new by definition
+    #   2. Skip suspicious-import and import-existence checks — modules haven't
+    #      been written yet; rejecting them creates an impossible chicken-and-egg
+    #      situation where nothing ever gets written.
+    # This check runs once per batch and is NOT re-evaluated as files are
+    # written, preventing the "first file creates dir → blocks all siblings" bug.
+    _skip_patterns = {".git", "node_modules", "__pycache__", ".sage", ".env", "dist", "build"}
+    _src_count = 0
+    try:
+        for _item in cwd.rglob("*"):
+            if _item.is_file() and not any(p in _item.parts for p in _skip_patterns):
+                if _item.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java"}:
+                    _src_count += 1
+                    if _src_count >= 15:
+                        break
+    except Exception:
+        pass
+    _is_greenfield_batch = _src_count < 15
 
     for pattern in file_block_patterns:
         for m in re.finditer(pattern, output, re.DOTALL):
@@ -6316,11 +6341,15 @@ def _extract_and_write_files(
 
             # ══════════════════════════════════════════════════════════════════════════
             # VALIDATE FILE PATH AGAINST ACTUAL CODEBASE STRUCTURE
+            # Skip for greenfield batches — directory-existence checks cause a
+            # chicken-and-egg problem: the first file creates a dir, then every
+            # subsequent file in any new subdir is blocked by "dir doesn't exist".
             # ══════════════════════════════════════════════════════════════════════════
-            is_valid_path, path_error = _validate_file_path_against_codebase(fp, cwd)
-            if not is_valid_path:
-                renderer.debug_warning(f"REJECTED FILE PATH '{fp}': {path_error}")
-                continue
+            if not _is_greenfield_batch:
+                is_valid_path, path_error = _validate_file_path_against_codebase(fp, cwd)
+                if not is_valid_path:
+                    renderer.debug_warning(f"REJECTED FILE PATH '{fp}': {path_error}")
+                    continue
 
             # Enforce READ-before-write for existing files
             normalized_fp = fp[2:] if fp.startswith("./") else fp
@@ -6339,44 +6368,52 @@ def _extract_and_write_files(
 
             # Validate imports for ALL Python files (not just tests)
             if fp.endswith(".py"):
-                # First check for hallucinated code patterns
-                is_hallucinated, hallucination_reason = _is_likely_hallucinated_code(
-                    content,
-                    cwd,
-                    pending_modules=pending_modules,
-                )
-                if is_hallucinated:
-                    renderer.debug_warning(
-                        f"REJECTED {fp}: {hallucination_reason}. "
-                        "Check AVAILABLE MODULES list before importing!"
+                # Skip hallucination + import checks for greenfield batches.
+                # In a new project, ALL internal modules are "missing" by
+                # definition — rejecting them makes writing a project impossible.
+                if not _is_greenfield_batch:
+                    is_hallucinated, hallucination_reason = _is_likely_hallucinated_code(
+                        content,
+                        cwd,
+                        pending_modules=pending_modules,
                     )
-                    continue
+                    if is_hallucinated:
+                        renderer.debug_warning(
+                            f"REJECTED {fp}: {hallucination_reason}. "
+                            "Check AVAILABLE MODULES list before importing!"
+                        )
+                        continue
 
-                # Then validate all imports
-                is_valid, missing = _validate_imports_in_content(
-                    content,
-                    cwd,
-                    pending_modules=pending_modules,
-                )
-                if not is_valid:
-                    # More specific error message based on file type
-                    if "test_" in fp or fp.startswith("tests/"):
-                        renderer.debug_warning(
-                            f"REJECTED test file {fp}: imports non-existent modules: {', '.join(missing)}. "
-                            "Use SEARCH: to find actual modules in this codebase first."
-                        )
-                    else:
-                        renderer.debug_warning(
-                            f"REJECTED {fp}: imports non-existent modules: {', '.join(missing)}. "
-                            "Either the modules don't exist or you need to create them first."
-                        )
-                    continue
+                    is_valid, missing = _validate_imports_in_content(
+                        content,
+                        cwd,
+                        pending_modules=pending_modules,
+                    )
+                    if not is_valid:
+                        if "test_" in fp or fp.startswith("tests/"):
+                            renderer.debug_warning(
+                                f"REJECTED test file {fp}: imports non-existent modules: {', '.join(missing)}. "
+                                "Use SEARCH: to find actual modules in this codebase first."
+                            )
+                        else:
+                            renderer.debug_warning(
+                                f"REJECTED {fp}: imports non-existent modules: {', '.join(missing)}. "
+                                "Either the modules don't exist or you need to create them first."
+                            )
+                        continue
 
             # Check for hallucinated duplicates of existing files
             is_duplicate, duplicate_reason = _detect_hallucinated_duplicate(fp, content, cwd)
             if is_duplicate:
                 renderer.debug_warning(f"REJECTED {fp}: {duplicate_reason}")
                 continue
+
+            # Strip SCAFFOLD_COMPLETE signal if it was accidentally captured
+            # as file content by the fenceless pattern (happens when the model
+            # outputs SCAFFOLD_COMPLETE between two FILE: blocks with no fence).
+            content_stripped = content.strip()
+            if content_stripped == "SCAFFOLD_COMPLETE":
+                content = ""  # treat as empty file (e.g. __init__.py)
 
             result = _write_file(fp, content, cwd, protected_files=protected_files)
             if result:
@@ -8829,68 +8866,60 @@ def _implementation_archetype_hints(task_prompt: str) -> str:
 
 
 def _suggest_target_paths_for_task(cwd: Path, task_prompt: str) -> str:
-    """Heuristic paths so small local models know where to edit (esp. Vite + Firebase)."""
+    """Return paths that ACTUALLY EXIST in the current workspace relevant to the task.
+
+    IMPORTANT: Only suggest paths that exist on disk.  Never inject hardcoded
+    paths from a different project — that causes the model to write files with
+    wrong paths (e.g. sage-ai paths appearing in an advertisement_platform repo).
+    """
     t = (task_prompt or "").lower()
     p = cwd.resolve()
     lines: list[str] = []
-    if any(
-        x in t
-        for x in (
-            "firebase",
-            "vite",
-            "auth",
-            "sign in",
-            "signin",
-            "password",
-            ".env",
-            "google",
-            "apple",
-            "forgot",
-            "oauth",
-            "login",
-        )
-    ):
-        check = [
-            "ai-platform/frontend/src/firebase/auth.js",
-            "ai-platform/frontend/src/firebase/Login.jsx",
-            "ai-platform/frontend/src/firebase/AuthContext.jsx",
-            "ai-platform/frontend/.env",
-            "ai-platform/frontend/.env.example",
-            "ai-platform/frontend/vite.config.ts",
+
+    # Detect greenfield / new-project tasks — no paths exist yet, skip hints
+    _greenfield_kws = [
+        "full platform", "full project", "full app", "full stack", "from scratch",
+        "brand new", "new platform", "new project", "monorepo", "entire platform",
+        "build a ", "create a ",
+    ]
+    if sum(1 for k in _greenfield_kws if k in t) >= 1 or len(task_prompt) > 600:
+        return ""  # Greenfield: no existing files to hint at
+
+    # Only suggest files that are verified to exist in THIS workspace
+    auth_keywords = ("firebase", "vite", "auth", "sign in", "signin", "password",
+                     ".env", "oauth", "login")
+    if any(x in t for x in auth_keywords):
+        candidates = [
+            "src/firebase/auth.js", "src/firebase/auth.ts",
+            "frontend/src/firebase/auth.js", "frontend/src/firebase/auth.ts",
+            "src/auth.js", "src/auth.ts",
+            "frontend/.env", "frontend/.env.example",
+            ".env", ".env.example",
         ]
-        for rel in check:
-            if (p / rel).is_file() or (p / rel).is_dir():
-                lines.append(f"- {rel} (in workspace)")
-        if not lines and (p / "ai-platform" / "frontend").is_dir():
-            lines.append(
-                "- Web app root is likely `ai-platform/frontend/` (Vite, Firebase under `src/firebase/`)"
-            )
-    if any(
-        x in t
-        for x in (
-            "sage cli",
-            "sage-ai",
-            "openrouter",
-            "groq",
-            "gemini",
-            "anthropic",
-            "api key",
-            "credential",
-            "missing key",
-            "invalid api key",
-            "~/.sage",
-        )
-    ):
-        for rel in (
-            "ai-platform/sage/core/credentials.py",
-            "ai-platform/sage/config.py",
-            "sage/core/credentials.py",
-            "sage/config.py",
-        ):
+        for rel in candidates:
             if (p / rel).is_file():
-                lines.append(f"- {rel} (SAGE provider / auth mapping)")
-    if not lines and (p / "sage" / "main.py").is_file():
-        lines.append("- SAGE code: `sage/main.py` and `sage/core/`")
+                lines.append(f"- {rel}")
+
+    sage_keywords = ("sage cli", "sage-ai", "openrouter", "groq", "gemini",
+                     "anthropic", "api key", "credential", "missing key", "~/.sage")
+    if any(x in t for x in sage_keywords):
+        for rel in ("sage/core/credentials.py", "sage/config.py",
+                    "sage/main.py", "core/credentials.py"):
+            if (p / rel).is_file():
+                lines.append(f"- {rel}")
+
+    # Generic fallback: scan top-level structure of the ACTUAL project
+    if not lines:
+        try:
+            top = sorted(
+                r.relative_to(p)
+                for r in p.iterdir()
+                if not r.name.startswith(".") and r.name not in ("node_modules", "__pycache__")
+            )
+            lines = [f"- {r}" for r in top[:10]]
+        except Exception:
+            pass
+
     return "\n".join(lines[:12])
 
 
@@ -8902,9 +8931,56 @@ def _build_implementation_completion_nudge(
     *,
     path_hints: str = "",
 ) -> str:
-    """Hard nudge for weak models that only READ/SEARCH and never emit FILE: blocks."""
+    """Hard nudge for models that only produce prose and never emit FILE: blocks."""
+    # Detect greenfield — completely different nudge needed
+    _gf_kws = [
+        "full platform", "full project", "full app", "full stack", "from scratch",
+        "brand new", "new platform", "new project", "monorepo", "entire platform",
+        "entire project", "end-to-end", "all features", "complete platform",
+        "build a ", "create a ",
+    ]
+    _is_gf = sum(1 for k in _gf_kws if k in task_prompt.lower()) >= 1 or len(task_prompt) > 600
+
+    if _is_gf:
+        return f"""SAGE ENFORCEMENT — NEW PROJECT SCAFFOLD (attempt {attempt}/{max_rounds})
+
+You are building a **brand-new project from scratch**. No files exist yet — you must CREATE them all.
+
+Your previous response contained only prose/markdown. That is NOT how SAGE saves files.
+The ONLY way to create files is the `FILE:` block format shown below.
+
+Start writing the project files NOW using this exact format:
+
+FILE: package.json
+```json
+{{
+  "name": "advertisement-platform",
+  ...complete file contents...
+}}
+```
+
+FILE: services/backend/pyproject.toml
+```toml
+...complete file contents...
+```
+
+FILE: services/backend/app/main.py
+```python
+...complete file contents...
+```
+
+RULES:
+- Start with root config files (package.json, pyproject.toml, docker-compose.yml, etc.)
+- Then backend source, then frontend source, then tests LAST
+- Every FILE: block must contain COMPLETE file contents — no stubs or TODOs
+- Do NOT write architecture docs or markdown — ONLY FILE: blocks
+- After writing as many files as fit in this response, more batches will be requested
+
+Begin with the root config files now.
+"""
+
     hint_block = (
-        f"\nLikely paths in this repo (read then edit — emit FULL `FILE:` contents):\n{path_hints}\n"
+        f"\nExisting paths in this project you may need to edit:\n{path_hints}\n"
         if path_hints.strip()
         else "\n"
     )
@@ -10317,6 +10393,123 @@ def _build_multistep_phase_prompts(
             ),
         ]
 
+    # ── Greenfield / large-scope detection ──────────────────────────────────
+    # For new full-project scaffolds the 4-phase TDD pipeline is wrong:
+    #   1. planning → nothing to read in an empty directory
+    #   2. analysis → "don't write code yet" wastes context tokens
+    #   3. testing  → writes tests that import non-existent modules → immediate failures
+    #   4. implementation → context window is crowded; model produces prose, not 500 files
+    #
+    # Instead: 2 phases — plan the structure, then scaffold EVERYTHING (config +
+    # implementation + tests) in one response.  Tests are written LAST so every
+    # module they import already exists in the same response.
+    _greenfield_signals = [
+        "full platform", "full project", "full app", "full stack",
+        "from scratch", "brand new", "new platform", "new project",
+        "new application", "build a ", "create a ", "entire platform",
+        "entire project", "entire application", "end-to-end",
+        "monorepo", "all features", "complete platform",
+    ]
+    task_lower = task_prompt.lower()
+    _is_greenfield = (
+        sum(1 for s in _greenfield_signals if s in task_lower) >= 1
+        or len(task_prompt) > 600
+    )
+
+    if _is_greenfield:
+        workspace_note = (
+            f"# WORKSPACE\n{_build_workspace_access_note(cwd, max_files=20)}\n\n"
+            if cwd else ""
+        )
+        return [
+            (
+                "planning",
+                (
+                    f"TASK: {task_prompt}\n\n"
+                    "⚠️ THIS IS A BRAND-NEW GREENFIELD PROJECT. The workspace is EMPTY.\n"
+                    "Do NOT issue READ:, SEARCH:, or RUN: commands — there is NOTHING to explore.\n\n"
+                    "Your ONLY job: output a FILE_MANIFEST listing EVERY file to be created.\n\n"
+                    "FLAT DIRECTORY STRUCTURE — use EXACTLY this layout (no root package.json):\n\n"
+                    "  docker-compose.yml        ← root (NO package.json at root)\n"
+                    "  .github/workflows/ci.yml\n"
+                    "  .gitignore\n"
+                    "  .env.example\n"
+                    "  README.md\n\n"
+                    "  mobile/                   ← React Native (Expo) platform\n"
+                    "    package.json            ← Expo/React Native deps ONLY for mobile\n"
+                    "    app.json\n"
+                    "    App.tsx\n"
+                    "    screens/HomeScreen.tsx\n"
+                    "    screens/CampaignScreen.tsx\n"
+                    "    components/AdCard.tsx\n"
+                    "    components/SocialPlatformPicker.tsx\n"
+                    "    hooks/useAI.ts\n"
+                    "    __tests__/App.test.tsx\n\n"
+                    "  web/                      ← Bun.js SSR server\n"
+                    "    package.json            ← Bun deps ONLY for web\n"
+                    "    bunfig.toml\n"
+                    "    src/server.ts\n"
+                    "    src/routes/index.ts\n\n"
+                    "  backend/                  ← FastAPI Python backend\n"
+                    "    pyproject.toml          ← Python deps ONLY for backend\n"
+                    "    database.py             ← engine + get_db (NEVER put in main.py)\n"
+                    "    main.py                 ← FastAPI() + routers only\n"
+                    "    models/user.py\n"
+                    "    models/ad.py\n"
+                    "    routers/ads.py          ← import get_db from database, NEVER from main\n"
+                    "    routers/auth.py\n"
+                    "    connectors/facebook.py\n"
+                    "    connectors/tiktok.py\n"
+                    "    connectors/instagram.py\n"
+                    "    connectors/youtube.py\n"
+                    "    tasks/celery_app.py\n"
+                    "    tasks/ai_tasks.py\n"
+                    "    tasks/social_tasks.py\n"
+                    "    tests/conftest.py\n"
+                    "    tests/test_api.py\n\n"
+                    "CRITICAL RULES:\n"
+                    "- NO root package.json — each platform has its OWN package.json in its subdir\n"
+                    "- mobile/ has mobile/package.json, web/ has web/package.json, backend/ has pyproject.toml\n"
+                    "- backend/database.py: engine, SessionLocal, Base = declarative_base(), def get_db()\n"
+                    "- backend/main.py: FastAPI() + include_router() ONLY — NO engine/Base/database code\n"
+                    "- backend/models/*.py: from ..database import Base (NOT 'from . import Base')\n"
+                    "- backend/routers/*.py: from ..database import get_db — NEVER from main\n"
+                    "- backend/tests/conftest.py: sys.path.insert(0, backend_dir_path)\n"
+                    "- backend/tests/*.py: from main import app — absolute import\n"
+                    "- __init__.py = EMPTY\n\n"
+                    "Output FILE_MANIFEST: one path per line. No code. No READ:/SEARCH:. ONLY the list."
+                ),
+            ),
+            (
+                "implementation",
+                (
+                    f"TASK: {task_prompt}\n\n"
+                    "Now write the FIRST BATCH of files using FILE: blocks.\n\n"
+                    "STRUCTURE (no root package.json):\n"
+                    "  docker-compose.yml, .gitignore, .env.example, README.md  ← root only\n"
+                    "  mobile/package.json   ← Expo/RN deps (mobile platform only)\n"
+                    "  web/package.json      ← Bun.js deps (web platform only)\n"
+                    "  backend/pyproject.toml ← Python deps (backend only)\n\n"
+                    "OUTPUT ORDER:\n"
+                    "  1. Root: docker-compose.yml, .gitignore, .env.example, README.md (NO package.json)\n"
+                    "  2. backend/database.py FIRST, then main.py, models/, routers/, connectors/, tasks/, tests/\n"
+                    "  3. mobile/: package.json, app.json, App.tsx, screens/, components/, hooks/, __tests__/\n"
+                    "  4. web/: package.json, bunfig.toml, src/server.ts, src/routes/\n"
+                    "  5. .github/workflows/ci.yml\n\n"
+                    "ARCHITECTURE (prevents circular imports):\n"
+                    "- backend/database.py: engine, SessionLocal, Base=declarative_base(), def get_db()\n"
+                    "- backend/main.py: FastAPI() + include_router() ONLY\n"
+                    "- backend/models/*.py: from ..database import Base (NOT from . import Base)\n"
+                    "- backend/routers/*.py: from ..database import get_db — NEVER from main\n"
+                    "- backend/tests/conftest.py: sys.path.insert(0, path_to_backend_dir)\n"
+                    "- backend/tests/test_*.py: from main import app\n"
+                    "- mobile/: View, Text, TouchableOpacity (React Native, not plain React)\n\n"
+                    "RULES: Complete contents. __init__.py=EMPTY. More batches follow.\n"
+                    "Start with docker-compose.yml and backend/database.py now."
+                ),
+            ),
+        ]
+
     return [
         (
             "planning",
@@ -10448,14 +10641,38 @@ def _build_tool_followup_prompt(
             "Do NOT ask for confirmation — just make the change.\n"
         )
 
+    # Detect greenfield so we don't re-inject TDD instructions mid-scaffold
+    _task_lower = (_get_current_task_prompt() or "").lower()
+    _greenfield_kws = [
+        "full platform", "full project", "full app", "full stack", "from scratch",
+        "brand new", "new platform", "new project", "monorepo", "entire platform",
+        "entire project", "end-to-end", "all features", "complete platform",
+        "build a ", "create a ",
+    ]
+    _is_greenfield_followup = (
+        sum(1 for k in _greenfield_kws if k in _task_lower) >= 1
+        or len(_task_lower) > 600
+    )
+
+    if _is_greenfield_followup:
+        return (
+            f"Here are the results of your tool commands:\n\n{tool_context}\n\n"
+            "Continue scaffolding the project. Output the next batch of FILE: blocks.\n"
+            "RULES:\n"
+            "- Config and implementation files BEFORE any test files\n"
+            "- Test files only after all modules they import are already written\n"
+            "- Every FILE: block must contain COMPLETE file contents — no stubs\n"
+            "- Do NOT re-explain the architecture — just output FILE: blocks\n"
+        )
+
     return (
         f"Here are the results of your tool commands:\n\n{tool_context}\n\n"
         "Now continue with your implementation.\n"
         "You already have real workspace evidence from the tool results above.\n"
         "Do NOT ask the user to provide file contents, outputs, or confirmation.\n"
-        "If this task involves new logic or changed behavior, follow TDD:\n"
-        "1. Write failing tests FIRST using FILE: blocks.\n"
-        "2. Write the implementation using FILE: blocks.\n"
+        "If this task involves new logic or changed behavior:\n"
+        "1. Write the implementation FILE: blocks first.\n"
+        "2. Write tests that import from the implementation you just wrote.\n"
         "3. Use RUN: commands for the relevant tests.\n"
         "4. Do NOT answer with prose-only plans or assumptions.\n"
         "For simple updates (config, strings, domain changes), just output FILE: blocks directly.\n"
@@ -11005,6 +11222,21 @@ def _expand_prompt(user_input: str) -> str:
             )
 
     # ── Build/create from scratch ──────────────────────────
+    # Detect large greenfield requests (new full platforms / apps) by looking for
+    # multiple major components described in the prompt.  For these we must NOT
+    # write tests-first — the implementation doesn't exist yet so any test that
+    # imports from it will immediately fail with ModuleNotFoundError, triggering
+    # an infinite fix loop.  Instead we scaffold everything together in one pass.
+    _greenfield_signals = [
+        "full platform", "full project", "full app", "full stack",
+        "from scratch", "brand new", "new platform", "new project",
+        "new application", "build a", "create a", "entire platform",
+        "entire project", "entire application", "end-to-end",
+        "monorepo", "all features", "complete platform",
+    ]
+    _large_scope = sum(
+        1 for s in _greenfield_signals if s in lower
+    ) >= 1 or len(lower) > 600  # very long prompt = multi-component request
     build_triggers = [
         "create",
         "build",
@@ -11017,15 +11249,30 @@ def _expand_prompt(user_input: str) -> str:
     ]
     for trigger in build_triggers:
         if trigger in lower and len(lower) > len(trigger) + 5:  # Only if there's substance
+            if _large_scope:
+                return (
+                    f"{user_input}\n\n"
+                    "INSTRUCTIONS — FULL PROJECT SCAFFOLD (do NOT write tests before implementation):\n"
+                    "1. List every component / layer that needs to be built.\n"
+                    "2. Output ALL files in a single response using FILE: blocks:\n"
+                    "   a. Project config files first (package.json, pyproject.toml, Dockerfile, etc.)\n"
+                    "   b. Implementation files (complete, working code — not stubs)\n"
+                    "   c. Test files LAST, after every module they import already exists\n"
+                    "3. Every FILE: block must contain COMPLETE file contents — no '# TODO', no placeholders.\n"
+                    "4. Tests must only import modules that are also output in this same response.\n"
+                    "5. Include a ```bash block at the end to install deps and run the full test suite.\n"
+                    "CRITICAL: Never write tests that import a module you haven't also written in this response."
+                )
             return (
                 f"{user_input}\n\n"
                 "INSTRUCTIONS: Think step by step:\n"
                 "1. What exactly needs to be built? List the components.\n"
                 "2. What existing code can you build on? Check the project files.\n"
-                "3. Write tests first for the core functionality\n"
-                "4. Write the implementation\n"
+                "3. Write the implementation files first (complete, working code)\n"
+                "4. Write tests that import from the implementation files you just wrote\n"
                 "5. Include ```bash blocks to verify everything works\n"
-                "Use FILE: blocks for every file."
+                "Use FILE: blocks for every file.\n"
+                "CRITICAL: Tests must only import modules that exist in the project or that you are also writing."
             )
 
     return user_input
@@ -11412,6 +11659,10 @@ class SAGEAgent:
         )
         self.minimal_output = renderer.get_output_mode() == "clean"
         self._current_execution_context = None
+        # Saved greenfield FILE_MANIFEST — populated by _execute_multistep during
+        # the planning phase and consumed by the continuation loop in
+        # execute_task_prompt.  Stored on the agent so it survives engine trimming.
+        self._greenfield_manifest: list[str] = []
 
     def send_to_model(
         self,
@@ -11679,7 +11930,7 @@ class SAGEAgent:
             return [], "\n".join(clean_response).strip()
 
         # ── Step 1: Execute tool commands (READ, SEARCH, RUN) ──
-        if tool_depth >= 6:
+        if tool_depth >= 20:
             self.renderer.warning(
                 "Tool loop depth limit reached. Requesting direct FILE: output next step."
             )
@@ -11799,7 +12050,31 @@ class SAGEAgent:
             )
             return [], response
 
-        # ── Step 1: Execute tool commands ──
+        # ── Step 1a: Write FILE: blocks BEFORE executing tool commands ────────
+        # CRITICAL: If the model emits FILE: blocks AND RUN:/READ: commands in
+        # the same response (common in scaffold responses: "FILE: x.py … RUN:
+        # pytest"), the old order (tool commands first → early return on followup)
+        # caused the FILE: blocks to NEVER be written.  Writing files first
+        # ensures scaffold files land on disk regardless of what tool commands
+        # follow.  Tool commands (READ:/SEARCH:) that need file content to exist
+        # first will still work correctly because the files are now on disk before
+        # we process them.
+        _pre_tool_written: list[str] = []
+        if "FILE:" in response:
+            self.renderer.set_bottom_dock_status("Writing files to disk...")
+            _pre_tool_written = _extract_and_write_files(
+                response, self.cwd, protected_files=self._protected, files_read=self.files_read
+            )
+            if _pre_tool_written:
+                self.last_written = _pre_tool_written
+                self.all_written.extend(_pre_tool_written)
+                self.renderer.print_files_written(_pre_tool_written)
+                files_summary = f"Wrote {len(_pre_tool_written)} file(s): {', '.join(_pre_tool_written)}"
+                _add_to_conversation_memory(
+                    self.cwd, "assistant", files_summary, files_written=_pre_tool_written
+                )
+
+        # ── Step 1b: Execute tool commands ──
         from sage.core.tools import ToolType
 
         structured_calls = _extract_tool_commands_structured(response)
@@ -11876,7 +12151,7 @@ class SAGEAgent:
                         )
 
                     if followup:
-                        return self.process_response(
+                        followup_written, followup_response = self.process_response(
                             followup,
                             tool_depth + 1,
                             send_fn=send,
@@ -11884,12 +12159,22 @@ class SAGEAgent:
                             or hide_readonly_followup,
                             phase_name=phase_name,
                         )
+                        # CRITICAL: include files written in Step 1a (before tool processing)
+                        # so they appear in the return value even when returning via followup.
+                        # Without this, the caller sees written=[] and fires the nudge even
+                        # though docker-compose.yml, .gitignore etc. are already on disk.
+                        combined = _pre_tool_written + [
+                            f for f in followup_written if f not in set(_pre_tool_written)
+                        ]
+                        return combined, followup_response
 
-        # ── Step 2: Write FILE: blocks ──
+        # ── Step 2: Write FILE: blocks (skip if already written in Step 1a) ──
+        # Step 1a already handled FILE: extraction when both FILE: and tool
+        # commands were present.  Only run again if Step 1a didn't fire.
         if "FILE:" in response:
             self.renderer.set_bottom_dock_status("Writing files to disk...")
 
-        written = _extract_and_write_files(
+        written = _pre_tool_written if _pre_tool_written else _extract_and_write_files(
             response, self.cwd, protected_files=self._protected, files_read=self.files_read
         )
         if written:
@@ -12041,18 +12326,43 @@ class SAGEAgent:
                 fix_prompt += f"\nCurrent file contents:\n\n{file_context}\n\n"
             if smart_context:
                 fix_prompt += smart_context + "\n\n"
-            fix_prompt += (
-                "RULES FOR THIS FIX:\n"
-                "1. Read the ACTUAL error message above — do not guess.\n"
-                "2. Fix ONLY the specific error — do not rewrite unrelated code.\n"
-                "3. If a module doesn't exist, check AVAILABLE PROJECT MODULES above.\n"
-                "4. If a test imports a non-existent module, fix the implementation or import path; do NOT delete tests unless explicitly asked.\n"
-                "5. Output corrected FILE: blocks with COMPLETE file contents.\n"
-                "6. Try a DIFFERENT approach if your previous fix didn't work."
+            # Detect "module not found" errors — the fix is to CREATE the missing
+            # module, not to patch the test.  Flag this so we can adjust the
+            # prompt and use a larger token budget (creating a module is much
+            # bigger than patching a test).
+            _missing_module = bool(
+                re.search(
+                    r"ModuleNotFoundError|No module named|ImportError|Cannot find module",
+                    output,
+                    re.IGNORECASE,
+                )
             )
+            if _missing_module:
+                fix_prompt += (
+                    "RULES FOR THIS FIX:\n"
+                    "1. The error is a MISSING MODULE — the implementation file does not exist yet.\n"
+                    "2. Do NOT modify the test file. CREATE the missing implementation module(s) instead.\n"
+                    "3. Write COMPLETE, working implementation files using FILE: blocks.\n"
+                    "4. Include every class, function, and import the test expects — no stubs or TODOs.\n"
+                    "5. If the test references many modules, write all of them in this response.\n"
+                    "6. After writing the implementation, the existing test should pass as-is."
+                )
+            else:
+                fix_prompt += (
+                    "RULES FOR THIS FIX:\n"
+                    "1. Read the ACTUAL error message above — do not guess.\n"
+                    "2. Fix ONLY the specific error — do not rewrite unrelated code.\n"
+                    "3. If a module doesn't exist, check AVAILABLE PROJECT MODULES above.\n"
+                    "4. If a test imports a non-existent module, fix the implementation or import path; do NOT delete tests unless explicitly asked.\n"
+                    "5. Output corrected FILE: blocks with COMPLETE file contents.\n"
+                    "6. Try a DIFFERENT approach if your previous fix didn't work."
+                )
 
-            # Fix responses only need FILE: blocks — cap tokens to reduce cloud latency.
-            fix_response = self.send_to_model(fix_prompt, max_tokens=2048)
+            # Missing-module fixes may need to write entire implementation files —
+            # use a much larger token budget.  All other fixes stay capped small to
+            # reduce cloud latency.
+            _fix_max_tokens = 8192 if _missing_module else 2048
+            fix_response = self.send_to_model(fix_prompt, max_tokens=_fix_max_tokens)
             if not fix_response:
                 break
 
@@ -12062,10 +12372,45 @@ class SAGEAgent:
                 files_written=new_written,
             )
             if stall_reason:
+                # Before giving up, try a hard "jolt" with a completely
+                # different framing — the model may be stuck in a rut.
+                # Only abandon if the jolt also fails to write anything.
                 self.renderer.warning(
-                    "Validation auto-fix hit a no-progress blocker — stopping retry loop.\n"
-                    f"Reason: {stall_reason}"
+                    f"Fix loop stalled ({stall_reason}) — trying a fresh approach..."
                 )
+                jolt_prompt = (
+                    f"The previous fix attempts for this error have not worked.\n"
+                    f"Error still occurring:\n```\n{_summarize_test_output(output, max_chars=2000)}\n```\n\n"
+                    "Take a completely different approach:\n"
+                    "1. Ignore everything you wrote before.\n"
+                    "2. Re-read the error from scratch — what is the REAL root cause?\n"
+                    "3. Output FILE: blocks with a fundamentally different fix.\n"
+                    "4. If the error is a missing module, CREATE that module with full implementations.\n"
+                    "5. If tests reference non-existent code, write the missing code.\n"
+                    "Do NOT repeat the same fix. Try something completely different."
+                )
+                jolt_max_tokens = 8192 if _missing_module else 4096
+                jolt_response = self.send_to_model(jolt_prompt, max_tokens=jolt_max_tokens)
+                if jolt_response:
+                    jolt_written, _ = self.process_response(jolt_response)
+                    if jolt_written:
+                        new_written = jolt_written
+                        # Reset the tracker so the jolt's files get a fair
+                        # chance before the loop checks progress again.
+                        progress_tracker = _RetryProgressTracker()
+                        current_written = jolt_written
+                        validation = _auto_validate(current_written, self.cwd)
+                        if validation is None:
+                            break
+                        cmd_name, output = validation
+                        has_errors = _has_errors(output)
+                        self.renderer.print_test_results(output, passed=not has_errors)
+                        if not has_errors:
+                            self.renderer.success("Fixed by jolt approach!")
+                            break
+                        continue
+                # Jolt also produced nothing — genuinely stuck, stop.
+                self.renderer.warning("Jolt also produced no changes — stopping fix loop.")
                 for fp in current_written:
                     target = self.cwd / fp
                     if target.exists() and _is_broken_test_file(fp, output):
@@ -12102,8 +12447,7 @@ class SAGEAgent:
             return []
 
         if max_rounds is None:
-            # Local models are slow — 2 nudges max to avoid 30-min waits
-            max_rounds = 2 if self.is_local else 4
+            max_rounds = 3 if self.is_local else 12
 
         base_test = (self.full_project_test_cmd or "").strip() or _default_test_command(self.cwd)
         test_cmd = _resolve_implementation_test_command(self.cwd, task_prompt, base_test)
@@ -12267,20 +12611,18 @@ class SAGEAgent:
                 if stats.estimated_tokens > stats.max_tokens * 0.75:
                     self.renderer.warning(
                         f"Context at {stats.estimated_tokens:,}/{stats.max_tokens:,} tokens "
-                        f"({stats.usage_percent:.0f}%) — compacting before retry"
+                        f"({stats.usage_percent:.0f}%) — compacting to continue"
                     )
                     self.engine.compact()
-                    # Also auto-compress aggressively for small models — if
-                    # we're past 75% on a 3B-class model, the next call is
-                    # going to fail outright.
                     self.engine.maybe_compress_for_model(self.model_id, budget_chars=12000)
-                    # Stop retrying — let the user respond rather than burn
-                    # more tokens. Surface a clear message.
-                    self.renderer.info(
-                        "Skipping further retries — the prompt is too long for this model's "
-                        "context window. Try a smaller prompt, or run `sage compact`."
-                    )
-                    break
+                    # Only hard-stop when truly out of space (>92%) — otherwise
+                    # compact and keep working so the task finishes.
+                    if stats.estimated_tokens > stats.max_tokens * 0.92:
+                        self.renderer.info(
+                            "Context window nearly full — stopping retries. "
+                            "Run `sage compact` then continue."
+                        )
+                        break
 
                 nudge = _build_readonly_exploration_nudge(
                     phase_name,
@@ -12426,6 +12768,151 @@ class SAGEAgent:
 
             # 3. Update plan status to completed
             self._sync_plan_task_status(phase_name, "completed", classification)
+
+            # ── Save FILE_MANIFEST immediately after planning phase ──────────
+            # The manifest must be saved here — before any engine trimming —
+            # so execute_task_prompt's continuation loop can use it even after
+            # engine._messages has been condensed between batches.
+            if phase_name == "planning" and phase_response and not self._greenfield_manifest:
+                mstart = phase_response.find("FILE_MANIFEST:")
+                if mstart != -1:
+                    for ml in phase_response[mstart + 14:].strip().splitlines():
+                        ml = ml.strip()
+                        if ml and "." in ml and not ml.startswith("#") and "/" in ml:
+                            self._greenfield_manifest.append(ml)
+
+        # ── Greenfield batch-continuation loop ──────────────────────────────
+        # A single model response can output ~40-60 files at 65K tokens.
+        # Large projects (300+ files) need multiple passes.  Keep asking
+        # "write the next batch" until the model signals completion or stops
+        # producing new files.  This runs only for greenfield requests.
+        _gf_signals = [
+            "full platform", "full project", "full app", "full stack",
+            "from scratch", "brand new", "new platform", "new project",
+            "new application", "build a ", "create a ", "entire platform",
+            "entire project", "entire application", "end-to-end",
+            "monorepo", "all features", "complete platform",
+        ]
+        _task_lower_gf = task_prompt.lower()
+        _is_greenfield_task = (
+            sum(1 for s in _gf_signals if s in _task_lower_gf) >= 1
+            or len(task_prompt) > 600
+        )
+
+        # Greenfield continuation was moved to execute_task_prompt (after the
+        # nudge writes the first batch).  No inner loop needed here anymore.
+        if False and _is_greenfield_task:
+            _manifest_files: list[str] = []
+            _MAX_CONTINUATION_ROUNDS = 0
+            for _cont_round in range(1, _MAX_CONTINUATION_ROUNDS + 1):
+                # Trim engine history so context doesn't overflow between rounds.
+                if len(self.engine._messages) > 6:
+                    self.engine._messages[:] = (
+                        self.engine._messages[:1]
+                        + self.engine._messages[-4:]
+                    )
+
+                _written_set = set(all_step_written)
+                _files_written_str = "\n".join(
+                    f"  {fp}" for fp in all_step_written[:60]
+                )
+                _overflow = (
+                    f"\n  ... and {len(all_step_written) - 60} more"
+                    if len(all_step_written) > 60
+                    else ""
+                )
+
+                # Show the model which manifest files are still missing
+                _missing = [f for f in _manifest_files if f not in _written_set]
+                if _manifest_files and not _missing:
+                    self.renderer.success(
+                        f"All {len(_manifest_files)} manifest files written — scaffold complete."
+                    )
+                    break
+
+                _missing_block = ""
+                if _missing:
+                    _show = _missing[:40]
+                    _missing_block = (
+                        f"\nFiles from your FILE_MANIFEST that still need to be written "
+                        f"({len(_missing)} remaining):\n"
+                        + "\n".join(f"  {f}" for f in _show)
+                        + (f"\n  ... and {len(_missing) - 40} more" if len(_missing) > 40 else "")
+                        + "\n"
+                    )
+
+                _cont_prompt = (
+                    f"## SCAFFOLD CONTINUATION — round {_cont_round}\n\n"
+                    f"Original task: {task_prompt[:400]}\n\n"
+                    f"Files written so far ({len(all_step_written)} total):\n"
+                    f"{_files_written_str}{_overflow}\n"
+                    f"{_missing_block}\n"
+                    "Continue writing the NEXT batch of files using FILE: blocks.\n\n"
+                    "CRITICAL RULES:\n"
+                    "- Use the EXACT tech stack from the original task above (e.g. React Native "
+                    "  not plain React, FastAPI not Flask, etc.)\n"
+                    "- Write COMPLETE file contents — no stubs, no TODOs, no '# implement later'\n"
+                    "- Do NOT rewrite files already listed in 'written so far'\n"
+                    "- Focus on the files listed as still missing above\n"
+                    "- Only output SCAFFOLD_COMPLETE when ALL missing files above are written\n"
+                    "Write the next batch now."
+                )
+
+                self.renderer.phase(
+                    "implementation",
+                    f"Scaffolding batch {_cont_round} — {len(all_step_written)} files so far...",
+                )
+                _cont_response = send(_cont_prompt)
+                if not _cont_response:
+                    break
+
+                if "SCAFFOLD_COMPLETE" in _cont_response:
+                    # Verify the model isn't declaring done too early
+                    _cont_written_check, _ = self.process_response(
+                        _cont_response, send_fn=send, phase_name="implementation"
+                    )
+                    for fp in _cont_written_check:
+                        if fp not in all_step_written:
+                            all_step_written.append(fp)
+                    _still_missing = [f for f in _manifest_files if f not in set(all_step_written)]
+                    if not _still_missing or not _manifest_files:
+                        self.renderer.success(
+                            f"Scaffold complete — {len(all_step_written)} files written."
+                        )
+                        last_response = _cont_response
+                        break
+                    # Still files missing — ignore SCAFFOLD_COMPLETE and continue
+                    self.renderer.warning(
+                        f"Model declared SCAFFOLD_COMPLETE but {len(_still_missing)} files "
+                        "still missing from manifest — continuing..."
+                    )
+                    continue
+
+                _cont_written, _ = self.process_response(
+                    _cont_response, send_fn=send, phase_name="implementation"
+                )
+                _new_files = [f for f in _cont_written if f not in all_step_written]
+                if not _new_files:
+                    if not _manifest_files:
+                        # No manifest to check against — stop
+                        self.renderer.success(
+                            f"Scaffold complete — {len(all_step_written)} files written."
+                        )
+                        break
+                    # Keep going — model may need a different prompt angle
+                    self.renderer.warning(
+                        f"Batch {_cont_round} produced no new files — retrying with missing list..."
+                    )
+                    if _cont_round >= 3 and not _new_files:
+                        break  # Genuinely stuck after 3 empty rounds
+                    continue
+
+                all_step_written.extend(_new_files)
+                last_response = _cont_response
+                self.renderer.info(
+                    f"  Batch {_cont_round}: +{len(_new_files)} files "
+                    f"({len(all_step_written)} total)"
+                )
 
         return all_step_written, last_response
 
@@ -12613,6 +13100,7 @@ class SAGEAgent:
         """Run one full agent task cycle and return (written_files, task_ok)."""
         global _current_execution_context
         self._model_timed_out = False  # reset per-task
+        self._greenfield_manifest = []  # reset per-task so old manifests don't bleed through
         send = sender or self.send_to_model
 
         # 1. Classify request
@@ -12786,20 +13274,235 @@ class SAGEAgent:
             written, _ = self.process_response(response, send_fn=send, phase_name="implementation")
 
         # Re-prompt when the task is not read-only but the model only explored (no FILE: saves).
-        # Skip if the model timed out — retrying an overloaded local model is pointless.
         if (
             not classification.read_only
             and not is_info
             and not written
-            and not self._model_timed_out
         ):
             nudge_written = self._ensure_implementation_writes(
                 task_prompt, send, effective_prompt
             )
             written = nudge_written
 
-        # Auto-validate if implementation
-        if written and not classification.read_only:
+        # ── Greenfield batch-continuation (runs here, AFTER the first file batch) ──
+        # The continuation loop was previously inside _execute_multistep but fired
+        # before the nudge wrote any files.  Running it here gives it the actual
+        # first batch (from either the phases or the nudge) as context.
+        _gf_kws_exec = [
+            "full platform", "full project", "full app", "full stack",
+            "from scratch", "brand new", "new platform", "new project",
+            "new application", "build a ", "create a ", "entire platform",
+            "entire project", "entire application", "end-to-end",
+            "monorepo", "all features", "complete platform",
+        ]
+        _task_lower_exec = task_prompt.lower()
+        _is_gf_exec = (
+            sum(1 for s in _gf_kws_exec if s in _task_lower_exec) >= 1
+            or len(task_prompt) > 600
+        )
+
+        if _is_gf_exec and written and not classification.read_only and not is_info:
+            all_written = list(written)
+
+            # Use the manifest saved by _execute_multistep (before engine trimming).
+            # Fallback: search engine messages if the agent attr is somehow empty.
+            _manifest_exec: list[str] = list(self._greenfield_manifest)
+            if not _manifest_exec:
+                for _msg in self.engine._messages:
+                    _body = _msg.get("content", "") if isinstance(_msg, dict) else str(_msg)
+                    _mstart = _body.find("FILE_MANIFEST:")
+                    if _mstart != -1:
+                        for _ml in _body[_mstart + 14:].strip().splitlines():
+                            _ml = _ml.strip()
+                            if _ml and "." in _ml and not _ml.startswith("#"):
+                                _manifest_exec.append(_ml)
+                        if _manifest_exec:
+                            break
+
+            _MAX_EXEC_BATCHES = 22
+            _empty_rounds = 0  # consecutive batches with no new files
+            for _batch_num in range(1, _MAX_EXEC_BATCHES + 1):
+                # Trim context between batches
+                if len(self.engine._messages) > 8:
+                    self.engine._messages[:] = (
+                        self.engine._messages[:1] + self.engine._messages[-4:]
+                    )
+
+                _written_set = set(all_written)
+                _missing = [f for f in _manifest_exec if f not in _written_set]
+
+                if _manifest_exec and not _missing:
+                    self.renderer.success(
+                        f"All {len(_manifest_exec)} manifest files complete — "
+                        f"{len(all_written)} total files written."
+                    )
+                    break
+
+                _show_written = all_written[:50]
+                _written_lines = "\n".join(f"  {f}" for f in _show_written)
+                if len(all_written) > 50:
+                    _written_lines += f"\n  ... and {len(all_written) - 50} more"
+
+                _missing_block = ""
+                if _missing:
+                    _show_m = _missing[:35]
+                    _missing_block = (
+                        f"\nFiles still needed ({len(_missing)} remaining from manifest):\n"
+                        + "\n".join(f"  {f}" for f in _show_m)
+                        + (f"\n  ... and {len(_missing) - 35} more" if len(_missing) > 35 else "")
+                        + "\n"
+                    )
+
+                # Keep the continuation prompt SHORT — long prompts cause the
+                # model to produce shorter responses.  Show only the next
+                # subsystem to build, not the full list of everything missing.
+                _next_subsystem = "the next layer of the project"
+                if _missing:
+                    _first_missing_dir = _missing[0].split("/")[0] if "/" in _missing[0] else "root"
+                    _subsystem_files = [f for f in _missing if f.startswith(_first_missing_dir)][:20]
+                    _next_subsystem = (
+                        f"the '{_first_missing_dir}' subsystem:\n"
+                        + "\n".join(f"  {f}" for f in _subsystem_files[:15])
+                    )
+
+                _batch_prompt = (
+                    f"Continue building the advertisement platform (batch {_batch_num}).\n\n"
+                    f"Already written ({len(all_written)} files):\n{_written_lines}\n\n"
+                    f"Write the files for {_next_subsystem}\n\n"
+                    "KEY RULES:\n"
+                    "- NO root package.json — each platform owns its own (mobile/package.json, web/package.json)\n"
+                    "- backend/database.py: engine + Base + get_db (NOT in main.py)\n"
+                    "- backend/models/*.py: from ..database import Base (NEVER 'from . import Base')\n"
+                    "- backend/main.py: FastAPI() + routers ONLY\n"
+                    "- backend/routers/*: from ..database import get_db (NEVER from main)\n"
+                    "- mobile/: View, Text, TouchableOpacity (React Native not plain React)\n"
+                    "- Flat: mobile/, web/, backend/ at root (no apps/ or services/)\n"
+                    "- __init__.py = empty\n"
+                    "- Complete file contents — no stubs\n"
+                    "- Output SCAFFOLD_COMPLETE when ALL project files exist\n\n"
+                    "Write as many files as possible now."
+                )
+
+                self.renderer.phase(
+                    "implementation",
+                    f"Writing batch {_batch_num} — {len(all_written)} files so far...",
+                )
+
+                # Retry each batch up to 20 times on model failure / empty
+                # response.  qwen3-coder on Cloud Run can cold-start for 30-90s,
+                # GPU instances can scale up under load, and individual
+                # generations sometimes return empty due to truncation —
+                # NONE of those should kill an overnight scaffold.  Keep
+                # retrying with capped exponential back-off so the build
+                # survives transient outages without operator intervention.
+                _batch_resp = None
+                _batch_attempts = 20
+                for _attempt in range(_batch_attempts):
+                    if _attempt > 0:
+                        _delay = min(60, 5 * _attempt)  # 5,10,15,...,60 (cap)
+                        time.sleep(_delay)
+                        self.renderer.phase(
+                            "fixing",
+                            f"Batch {_batch_num} retry {_attempt}/{_batch_attempts - 1} after empty response (sleeping {_delay}s)...",
+                        )
+                    try:
+                        _batch_resp = send(_batch_prompt)
+                    except Exception as _send_exc:
+                        self.renderer.phase(
+                            "fixing",
+                            f"Batch {_batch_num} attempt {_attempt + 1}: {type(_send_exc).__name__} — retrying...",
+                        )
+                        _batch_resp = None
+                    if _batch_resp:
+                        break
+
+                if not _batch_resp:
+                    # All retries failed — count this as an empty round so
+                    # the outer stuck-detector handles it, instead of
+                    # short-circuiting the entire scaffold on one bad batch.
+                    self.renderer.warning(
+                        f"Batch {_batch_num} produced no response after {_batch_attempts} attempts — "
+                        f"continuing (will stop only after {20 - _empty_rounds} more empty rounds)."
+                    )
+                    _empty_rounds += 1
+                    if _empty_rounds >= 20:
+                        self.renderer.warning(
+                            f"20 consecutive empty rounds — stopping scaffold. "
+                            f"{len(all_written)} files written so far."
+                        )
+                        break
+                    continue
+
+                _check_complete = "SCAFFOLD_COMPLETE" in _batch_resp
+                _batch_written, _ = self.process_response(
+                    _batch_resp, send_fn=send, phase_name="implementation"
+                )
+                _new = [f for f in _batch_written if f not in _written_set]
+
+                if _new:
+                    all_written.extend(_new)
+                    self.renderer.info(
+                        f"  Batch {_batch_num}: +{len(_new)} files ({len(all_written)} total)"
+                    )
+
+                if _check_complete:
+                    _still_missing = [f for f in _manifest_exec if f not in set(all_written)]
+                    if _manifest_exec and not _still_missing:
+                        # Manifest exists AND all files are written — truly done
+                        self.renderer.success(
+                            f"Scaffold complete — all {len(_manifest_exec)} manifest files written "
+                            f"({len(all_written)} total)."
+                        )
+                        break
+                    if not _manifest_exec:
+                        # No manifest to validate against — keep going until stuck
+                        # (don't break on model's SCAFFOLD_COMPLETE alone)
+                        self.renderer.warning(
+                            "Model declared SCAFFOLD_COMPLETE but no manifest to validate — "
+                            "continuing to write more files..."
+                        )
+                    else:
+                        self.renderer.warning(
+                            f"Model declared done but {len(_still_missing)} manifest files "
+                            "still missing — continuing..."
+                        )
+                    continue
+
+                if not _new:
+                    _empty_rounds += 1
+                    if _empty_rounds >= 20:
+                        # Long-haul scaffolds (1000+ files) routinely hit
+                        # transient streaks where the model recovers context
+                        # and resumes generating. The previous threshold of 5
+                        # killed sage prematurely on multi-hour builds. Stay
+                        # patient — only quit after 20 truly-empty rounds.
+                        self.renderer.warning(
+                            f"20 consecutive batches produced no new files — stopping scaffold. "
+                            f"{len(all_written)} files written."
+                        )
+                        break
+                    # Vary the prompt slightly each empty round to nudge the
+                    # model out of "I'm done" mode without restarting the
+                    # whole scaffold.  Without this, identical prompts after
+                    # an empty response tend to keep producing empty responses.
+                    if _empty_rounds >= 2 and _manifest_exec:
+                        _still = [f for f in _manifest_exec if f not in set(all_written)]
+                        if _still:
+                            self.renderer.phase(
+                                "implementation",
+                                f"Empty round {_empty_rounds}/20 — refocusing on {len(_still)} missing files...",
+                            )
+                    continue
+                else:
+                    _empty_rounds = 0  # reset on any new files
+
+            written = all_written
+
+        # Auto-validate if implementation.
+        # Skip for greenfield scaffolds — running npm install / pytest on a
+        # partial scaffold produces spurious errors (missing deps, unfinished
+        # modules) that halt the batch continuation before the project is done.
+        if written and not classification.read_only and not _is_gf_exec:
             self._auto_validate_and_retry(written)
 
         _close_task_dock()
@@ -13683,6 +14386,31 @@ def run(
                 engine.add_assistant(summary)
                 continue
         except Exception as build_exc:
+            # Eager debug write — happens BEFORE any string formatting or
+            # renderer call so even errors like KeyError(' Worker ') from
+            # broken .format() templates surface their traceback.
+            import sys as _sys_dbg
+            import traceback as _tb_dbg
+            from pathlib import Path as _Path_dbg
+            _tb_text_eager = (
+                f"build_exc type: {type(build_exc).__name__}\n"
+                f"build_exc args: {build_exc.args!r}\n\n"
+                + _tb_dbg.format_exc()
+            )
+            print(
+                f"\n[BUILD-ROUTING-TRACEBACK-EAGER]\n{_tb_text_eager}\n[/BUILD-ROUTING-TRACEBACK-EAGER]\n",
+                file=_sys_dbg.stderr,
+                flush=True,
+            )
+            for _p in (
+                _Path_dbg("/tmp/sage_build_routing_traceback.log"),
+                _Path_dbg.cwd() / ".sage" / "build_routing_traceback.log",
+            ):
+                try:
+                    _p.parent.mkdir(parents=True, exist_ok=True)
+                    _p.write_text(_tb_text_eager)
+                except Exception:
+                    pass
             build_err_str = str(build_exc)
             # "All providers failed" means every configured backend (cloud +
             # local fallbacks) is unreachable. Falling through to the agent
@@ -13700,6 +14428,36 @@ def run(
                 )
                 continue
             renderer.warning(f"Build routing skipped: {build_exc}")
+            # Log full traceback to /tmp (always writable) AND project .sage/
+            # so we can diagnose KeyError / format() failures that would
+            # otherwise be silently swallowed before falling through to the
+            # slower agent-loop scaffold.
+            import sys as _sys
+            import traceback as _tb
+            from pathlib import Path as _Path
+            _tb_text = (
+                f"build_exc type: {type(build_exc).__name__}\n"
+                f"build_exc args: {build_exc.args!r}\n\n"
+                + _tb.format_exc()
+            )
+            print(
+                f"\n[BUILD-ROUTING-TRACEBACK]\n{_tb_text}\n[/BUILD-ROUTING-TRACEBACK]\n",
+                file=_sys.stderr,
+                flush=True,
+            )
+            for _dbg_path in (
+                _Path("/tmp/sage_build_routing_traceback.log"),
+                _Path.cwd() / ".sage" / "build_routing_traceback.log",
+            ):
+                try:
+                    _dbg_path.parent.mkdir(parents=True, exist_ok=True)
+                    _dbg_path.write_text(_tb_text)
+                except Exception as _w_exc:
+                    print(
+                        f"[debug-write-failed] {_dbg_path}: {_w_exc!r}",
+                        file=_sys.stderr,
+                        flush=True,
+                    )
             # Fall through to standard agent loop
 
         # Default: Execute coding/analysis task via SAGEAgent.
@@ -16653,6 +17411,50 @@ def sms_test() -> None:
         "or text from a tagged phone, to send a task.[/dim]\n"
         "[dim]Run [bold]sage sms diagnose[/bold] if anything's missing.[/dim]\n"
     )
+
+
+@sms_app.command("test-imessage")
+def sms_test_imessage(recipient: str = typer.Argument(..., help="Phone (+1XXXXXXXXXX) or iCloud email")) -> None:
+    """Send a test iMessage directly from this Mac to diagnose delivery issues.
+
+    Use this to verify that Messages.app can reach a specific address before
+    adding it as a contact.  Try both the phone number AND iCloud email for
+    the same person to see which handle works.
+
+    Examples:
+      sage sms test-imessage +14085073140
+      sage sms test-imessage jane@icloud.com
+    """
+    import sys
+    if sys.platform != "darwin":
+        renderer.error("iMessage is only available on macOS.")
+        raise typer.Exit(1)
+
+    from sage.core.sms_bridge import _send_imessage, _imessage_max_rowid
+    renderer.console.print(f"[bold]Testing iMessage delivery to:[/bold] {recipient}")
+    renderer.console.print("[dim]Sending via Messages.app (osascript)...[/dim]")
+
+    test_text = "SAGE iMessage test — if you see this, delivery is working ✅"
+    before = _imessage_max_rowid()
+    ok = _send_imessage(recipient, test_text)
+
+    if ok:
+        renderer.success(f"iMessage delivered to {recipient}")
+        renderer.console.print("[dim]The recipient should have received the test message.[/dim]")
+    else:
+        renderer.error(f"iMessage to {recipient} FAILED")
+        renderer.console.print(
+            "\n[bold]Troubleshooting steps:[/bold]\n"
+            "  1. Open Messages.app and sign in with your Apple ID\n"
+            "  2. In Messages → Preferences → iMessage, verify the account is active\n"
+            "  3. Try sending a message to this address manually in Messages.app\n"
+            "  4. If the address is a phone number, ensure the recipient has iMessage\n"
+            "     enabled (blue bubble, not green SMS)\n"
+            "  5. If the address is an @icloud.com email, ensure the recipient has\n"
+            "     this email enabled as an iMessage handle in their device settings\n"
+            f"  6. Try the other handle — phone instead of email or vice versa\n"
+        )
+        raise typer.Exit(1)
 
 
 @sms_app.command("kde-takeover")

@@ -39,6 +39,7 @@ from plato._generated.api.v1.simulator import get_plato_config as simulator_get_
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
 from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
+from plato._generated.api.v2.jobs import get_job_info as jobs_get_job_info
 from plato._generated.api.v2.jobs import state as jobs_state
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
 from plato._generated.api.v2.sessions import close as sessions_close
@@ -133,6 +134,7 @@ def _generate_ssh_config(
     private_key_path: str,
     working_dir: Path | None = None,
     ssh_host: str = "sandbox",
+    provider: str | None = None,
 ) -> str:
     """Generate SSH config file for easy access via gateway.
 
@@ -141,6 +143,9 @@ def _generate_ssh_config(
         private_key_path: Path to private key (absolute or relative).
         working_dir: Working directory for .plato/.
         ssh_host: Host alias in config.
+        provider: Hypervisor backing the job ("firecracker", "qemu", or None
+            when unknown). Determines the ``User`` line — see
+            :func:`_ssh_user_for_provider`. ``None`` falls back to ``root``.
 
     Returns:
         Path to the generated SSH config file (relative to working_dir).
@@ -163,6 +168,7 @@ def _generate_ssh_config(
     # SNI format: {job_id}--{port}.{gateway_host} (matches v1 proxy.py)
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
+    ssh_user = _ssh_user_for_provider(provider)
 
     config_content = f"""# Plato Sandbox SSH Config
 # Generated for job: {job_id}
@@ -170,7 +176,7 @@ def _generate_ssh_config(
 
 Host {ssh_host}
     HostName {job_id}
-    User root
+    User {ssh_user}
     IdentityFile {relative_key_path}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
@@ -381,12 +387,29 @@ def _get_or_create_cached_ssh_key_pair() -> tuple[str, str]:
     return public_key_path.read_text().strip(), str(private_key_path)
 
 
-def _generate_ssh_config_content(job_id: str, private_key_path: str) -> str:
+def _ssh_user_for_provider(provider: str | None) -> str:
+    """Return the SSH username sshd accepts on the guest for ``provider``.
+
+    Firecracker rootfs uses ``root``. QEMU Windows rootfs exposes a single
+    ``plato`` local account in sshd_config — connecting as root fails at
+    auth even when authorized_keys is wired up correctly, because no such
+    user exists on the guest.
+    """
+    if provider == "qemu":
+        return "plato"
+    return "root"
+
+
+def _generate_ssh_config_content(job_id: str, private_key_path: str, provider: str | None = None) -> str:
     """Generate SSH config content for a job.
 
     Args:
         job_id: The job ID for routing.
         private_key_path: Path to private key.
+        provider: Hypervisor backing the job ("firecracker", "qemu", or None
+            when unknown). Determines the ``User`` line — see
+            :func:`_ssh_user_for_provider`. ``None`` falls back to ``root``
+            for backwards compatibility with older job-info responses.
 
     Returns:
         SSH config content as a string.
@@ -396,13 +419,14 @@ def _generate_ssh_config_content(job_id: str, private_key_path: str) -> str:
     # SNI format: {job_id}--{port}.{gateway_host}
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
+    ssh_user = _ssh_user_for_provider(provider)
 
     config_content = f"""# Plato SSH Config for job: {job_id}
 # Generated dynamically for -J/--job-id option
 
 Host sandbox
     HostName {job_id}
-    User root
+    User {ssh_user}
     IdentityFile {private_key_path}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
@@ -871,14 +895,35 @@ class SandboxClient:
         except Exception as e:
             self.console.print(f"[dim]Public URL not available: {e}[/dim]")
 
-        # Setup SSH
+        # Setup SSH. Look up provider so the generated ssh_config uses the
+        # right User — root for firecracker/Linux, plato for QEMU/Windows.
+        # Falls back to root when the field is missing (older API rollouts),
+        # which keeps the legacy firecracker path working.
         self.console.print("[yellow]Setting up SSH...[/yellow]")
         step_start = time.time()
         ssh_config_path = None
+        provider: str | None = None
         try:
+            try:
+                job_info = jobs_get_job_info.sync(
+                    client=self._http,
+                    job_id=job_id,
+                    x_api_key=self.api_key,
+                )
+                provider = getattr(job_info, "provider", None) or (
+                    job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                )
+            except Exception as e:
+                # Non-fatal: provider lookup failure → fall through with root user.
+                self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
+
+            install_user = _ssh_user_for_provider(provider)
             public_key, private_key_path = _generate_ssh_key_pair(session_id[:8], Path(self.working_dir))
 
-            add_key_request = AddSSHKeyRequest(public_key=public_key, username="root")
+            # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
+            # the correct user server-side, but we send the right value so
+            # audit logs match what actually gets provisioned on the guest.
+            add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
             add_response = sessions_add_ssh_key.sync(
                 client=self._http,
                 session_id=session_id,
@@ -887,7 +932,9 @@ class SandboxClient:
             )
 
             if add_response.success:
-                ssh_config_path = _generate_ssh_config(job_id, private_key_path, Path(self.working_dir))
+                ssh_config_path = _generate_ssh_config(
+                    job_id, private_key_path, Path(self.working_dir), provider=provider
+                )
                 elapsed = time.time() - step_start
                 self.console.print(
                     f"[green]SSH configured:[/green] ssh -F .plato/ssh_config sandbox [dim]({elapsed:.1f}s)[/dim]"
@@ -1483,16 +1530,16 @@ class SandboxClient:
         Returns:
             SSHConfigInfo with the config content, private key path, and metadata.
         """
-        from plato._generated.api.v2.jobs import get_job_info
-
         gateway_host = os.getenv("PLATO_GATEWAY_HOST", "gateway.plato.so")
 
         # Get or create cached SSH key pair
         public_key, private_key_path = _get_or_create_cached_ssh_key_pair()
 
-        # Look up session ID from job, then add SSH key via the session API
+        # Look up session ID + provider from job, then add SSH key via the
+        # session API. ``provider`` decides the ssh User on the generated
+        # config — root for firecracker/Linux, plato for QEMU/Windows.
         try:
-            job_info = get_job_info.sync(
+            job_info = jobs_get_job_info.sync(
                 client=self._http,
                 job_id=job_id,
                 x_api_key=self.api_key,
@@ -1500,13 +1547,24 @@ class SandboxClient:
             if not job_info.session_id:
                 raise RuntimeError(f"Job {job_id} has no associated session")
 
+            # ``provider`` is recent on the API. Read defensively so older
+            # API rollouts still return a usable config (falls back to
+            # ``root`` user, which is correct for the firecracker default).
+            provider = getattr(job_info, "provider", None) or (
+                job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+            )
+            install_user = _ssh_user_for_provider(provider)
+
             auth_path = SSH_CACHE_DIR / "authorized_sessions"
             authorized = set(auth_path.read_text().splitlines()) if auth_path.exists() else set()
 
             if job_info.session_id in authorized:
                 logger.debug("SSH key already added to session %s, skipping", job_info.session_id)
             else:
-                add_key_request = AddSSHKeyRequest(public_key=public_key, username="root")
+                # ``username`` is advisory — the v2 add_ssh_key endpoint
+                # ignores it for QEMU and forces ``plato`` server-side. We
+                # send the right value anyway so audit logs are accurate.
+                add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
                 add_response = sessions_add_ssh_key.sync(
                     client=self._http,
                     session_id=job_info.session_id,
@@ -1520,8 +1578,8 @@ class SandboxClient:
         except Exception as e:
             raise RuntimeError(f"Failed to add SSH key to job {job_id}: {e}") from e
 
-        # Generate SSH config
-        config_content = _generate_ssh_config_content(job_id, private_key_path)
+        # Generate SSH config keyed off the provider we discovered above.
+        config_content = _generate_ssh_config_content(job_id, private_key_path, provider=provider)
 
         return SSHConfigInfo(
             config_content=config_content,

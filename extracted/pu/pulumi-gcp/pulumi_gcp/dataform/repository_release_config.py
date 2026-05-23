@@ -22,14 +22,15 @@ __all__ = ['RepositoryReleaseConfigArgs', 'RepositoryReleaseConfig']
 class RepositoryReleaseConfigArgs:
     def __init__(__self__, *,
                  git_commitish: pulumi.Input[_builtins.str],
-                 code_compilation_config: Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']] = None,
-                 cron_schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 code_compilation_config: pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']] = None,
+                 cron_schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RepositoryReleaseConfig resource.
 
@@ -37,6 +38,12 @@ class RepositoryReleaseConfigArgs:
         :param pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs'] code_compilation_config: Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron_schedule: Optional. Optional schedule (in cron format) for automatic creation of compilation results.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Disables automatic creation of compilation results.
         :param pulumi.Input[_builtins.str] name: The release's name.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -50,6 +57,8 @@ class RepositoryReleaseConfigArgs:
             pulumi.set(__self__, "code_compilation_config", code_compilation_config)
         if cron_schedule is not None:
             pulumi.set(__self__, "cron_schedule", cron_schedule)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if name is not None:
@@ -77,7 +86,7 @@ class RepositoryReleaseConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="codeCompilationConfig")
-    def code_compilation_config(self) -> Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']]:
+    def code_compilation_config(self) -> pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']]:
         """
         Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
         Structure is documented below.
@@ -85,48 +94,65 @@ class RepositoryReleaseConfigArgs:
         return pulumi.get(self, "code_compilation_config")
 
     @code_compilation_config.setter
-    def code_compilation_config(self, value: Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']]):
+    def code_compilation_config(self, value: pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']]):
         pulumi.set(self, "code_compilation_config", value)
 
     @_builtins.property
     @pulumi.getter(name="cronSchedule")
-    def cron_schedule(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cron_schedule(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Optional schedule (in cron format) for automatic creation of compilation results.
         """
         return pulumi.get(self, "cron_schedule")
 
     @cron_schedule.setter
-    def cron_schedule(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cron_schedule(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cron_schedule", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Disables automatic creation of compilation results.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The release's name.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -134,65 +160,72 @@ class RepositoryReleaseConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the region
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def repository(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def repository(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the Dataform repository
         """
         return pulumi.get(self, "repository")
 
     @repository.setter
-    def repository(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def repository(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "repository", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZone")
-    def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If left unspecified, the default is UTC.
         """
         return pulumi.get(self, "time_zone")
 
     @time_zone.setter
-    def time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "time_zone", value)
 
 
 @pulumi.input_type
 class _RepositoryReleaseConfigState:
     def __init__(__self__, *,
-                 code_compilation_config: Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']] = None,
-                 cron_schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 git_commitish: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 recent_scheduled_release_records: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 code_compilation_config: pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']] = None,
+                 cron_schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 git_commitish: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 recent_scheduled_release_records: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RepositoryReleaseConfig resources.
 
         :param pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs'] code_compilation_config: Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron_schedule: Optional. Optional schedule (in cron format) for automatic creation of compilation results.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Disables automatic creation of compilation results.
         :param pulumi.Input[_builtins.str] git_commitish: Git commit/tag/branch name at which the repository should be compiled. Must exist in the remote repository.
         :param pulumi.Input[_builtins.str] name: The release's name.
@@ -208,6 +241,8 @@ class _RepositoryReleaseConfigState:
             pulumi.set(__self__, "code_compilation_config", code_compilation_config)
         if cron_schedule is not None:
             pulumi.set(__self__, "cron_schedule", cron_schedule)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if git_commitish is not None:
@@ -227,7 +262,7 @@ class _RepositoryReleaseConfigState:
 
     @_builtins.property
     @pulumi.getter(name="codeCompilationConfig")
-    def code_compilation_config(self) -> Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']]:
+    def code_compilation_config(self) -> pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']]:
         """
         Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
         Structure is documented below.
@@ -235,60 +270,77 @@ class _RepositoryReleaseConfigState:
         return pulumi.get(self, "code_compilation_config")
 
     @code_compilation_config.setter
-    def code_compilation_config(self, value: Optional[pulumi.Input['RepositoryReleaseConfigCodeCompilationConfigArgs']]):
+    def code_compilation_config(self, value: pulumi.Input[Optional['RepositoryReleaseConfigCodeCompilationConfigArgs']]):
         pulumi.set(self, "code_compilation_config", value)
 
     @_builtins.property
     @pulumi.getter(name="cronSchedule")
-    def cron_schedule(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cron_schedule(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Optional schedule (in cron format) for automatic creation of compilation results.
         """
         return pulumi.get(self, "cron_schedule")
 
     @cron_schedule.setter
-    def cron_schedule(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cron_schedule(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cron_schedule", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Disables automatic creation of compilation results.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="gitCommitish")
-    def git_commitish(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def git_commitish(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Git commit/tag/branch name at which the repository should be compiled. Must exist in the remote repository.
         """
         return pulumi.get(self, "git_commitish")
 
     @git_commitish.setter
-    def git_commitish(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def git_commitish(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "git_commitish", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The release's name.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -296,12 +348,12 @@ class _RepositoryReleaseConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="recentScheduledReleaseRecords")
-    def recent_scheduled_release_records(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]]:
+    def recent_scheduled_release_records(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]]:
         """
         Records of the 10 most recent scheduled release attempts, ordered in in descending order of releaseTime. Updated whenever automatic creation of a compilation result is triggered by cronSchedule.
         Structure is documented below.
@@ -309,43 +361,43 @@ class _RepositoryReleaseConfigState:
         return pulumi.get(self, "recent_scheduled_release_records")
 
     @recent_scheduled_release_records.setter
-    def recent_scheduled_release_records(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]]):
+    def recent_scheduled_release_records(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs']]]]):
         pulumi.set(self, "recent_scheduled_release_records", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the region
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def repository(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def repository(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the Dataform repository
         """
         return pulumi.get(self, "repository")
 
     @repository.setter
-    def repository(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def repository(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "repository", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZone")
-    def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Specifies the time zone to be used when interpreting cronSchedule. Must be a time zone name from the time zone database (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If left unspecified, the default is UTC.
         """
         return pulumi.get(self, "time_zone")
 
     @time_zone.setter
-    def time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "time_zone", value)
 
 
@@ -355,15 +407,16 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 code_compilation_config: Optional[pulumi.Input[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
-                 cron_schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 git_commitish: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 code_compilation_config: pulumi.Input[Optional[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
+                 cron_schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 git_commitish: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A resource represents a Dataform release configuration
@@ -491,6 +544,12 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
         :param pulumi.Input[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']] code_compilation_config: Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron_schedule: Optional. Optional schedule (in cron format) for automatic creation of compilation results.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Disables automatic creation of compilation results.
         :param pulumi.Input[_builtins.str] git_commitish: Git commit/tag/branch name at which the repository should be compiled. Must exist in the remote repository.
         :param pulumi.Input[_builtins.str] name: The release's name.
@@ -642,15 +701,16 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 code_compilation_config: Optional[pulumi.Input[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
-                 cron_schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 git_commitish: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 code_compilation_config: pulumi.Input[Optional[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
+                 cron_schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 git_commitish: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -662,6 +722,7 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
 
             __props__.__dict__["code_compilation_config"] = code_compilation_config
             __props__.__dict__["cron_schedule"] = cron_schedule
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disabled"] = disabled
             if git_commitish is None and not opts.urn:
                 raise TypeError("Missing required property 'git_commitish'")
@@ -682,16 +743,17 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            code_compilation_config: Optional[pulumi.Input[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
-            cron_schedule: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            git_commitish: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            recent_scheduled_release_records: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs', 'RepositoryReleaseConfigRecentScheduledReleaseRecordArgsDict']]]]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            repository: Optional[pulumi.Input[_builtins.str]] = None,
-            time_zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'RepositoryReleaseConfig':
+            code_compilation_config: pulumi.Input[Optional[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']]] = None,
+            cron_schedule: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            git_commitish: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            recent_scheduled_release_records: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RepositoryReleaseConfigRecentScheduledReleaseRecordArgs', 'RepositoryReleaseConfigRecentScheduledReleaseRecordArgsDict']]]]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            repository: pulumi.Input[Optional[_builtins.str]] = None,
+            time_zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'RepositoryReleaseConfig':
         """
         Get an existing RepositoryReleaseConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -702,6 +764,12 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
         :param pulumi.Input[Union['RepositoryReleaseConfigCodeCompilationConfigArgs', 'RepositoryReleaseConfigCodeCompilationConfigArgsDict']] code_compilation_config: Optional. If set, fields of codeCompilationConfig override the default compilation settings that are specified in dataform.json.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron_schedule: Optional. Optional schedule (in cron format) for automatic creation of compilation results.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Disables automatic creation of compilation results.
         :param pulumi.Input[_builtins.str] git_commitish: Git commit/tag/branch name at which the repository should be compiled. Must exist in the remote repository.
         :param pulumi.Input[_builtins.str] name: The release's name.
@@ -719,6 +787,7 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
 
         __props__.__dict__["code_compilation_config"] = code_compilation_config
         __props__.__dict__["cron_schedule"] = cron_schedule
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["git_commitish"] = git_commitish
         __props__.__dict__["name"] = name
@@ -745,6 +814,19 @@ class RepositoryReleaseConfig(pulumi.CustomResource):
         Optional. Optional schedule (in cron format) for automatic creation of compilation results.
         """
         return pulumi.get(self, "cron_schedule")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

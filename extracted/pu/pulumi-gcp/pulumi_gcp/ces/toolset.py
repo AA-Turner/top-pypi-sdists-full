@@ -24,12 +24,13 @@ class ToolsetArgs:
                  app: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  toolset_id: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 mcp_toolset: Optional[pulumi.Input['ToolsetMcpToolsetArgs']] = None,
-                 open_api_toolset: Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 mcp_toolset: pulumi.Input[Optional['ToolsetMcpToolsetArgs']] = None,
+                 open_api_toolset: pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Toolset resource.
 
@@ -38,6 +39,12 @@ class ToolsetArgs:
         :param pulumi.Input[_builtins.str] toolset_id: The ID to use for the toolset, which will become the final component of
                the toolset's resource name. If not provided, a unique ID will be
                automatically assigned for the toolset.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the toolset.
         :param pulumi.Input[_builtins.str] display_name: The display name of the toolset. Must be unique within the same app.
         :param pulumi.Input[_builtins.str] execution_type: Possible values:
@@ -55,6 +62,8 @@ class ToolsetArgs:
         pulumi.set(__self__, "app", app)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "toolset_id", toolset_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -107,32 +116,49 @@ class ToolsetArgs:
         pulumi.set(self, "toolset_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the toolset.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the toolset. Must be unique within the same app.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="executionType")
-    def execution_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Possible values:
         SYNCHRONOUS
@@ -141,12 +167,12 @@ class ToolsetArgs:
         return pulumi.get(self, "execution_type")
 
     @execution_type.setter
-    def execution_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_type", value)
 
     @_builtins.property
     @pulumi.getter(name="mcpToolset")
-    def mcp_toolset(self) -> Optional[pulumi.Input['ToolsetMcpToolsetArgs']]:
+    def mcp_toolset(self) -> pulumi.Input[Optional['ToolsetMcpToolsetArgs']]:
         """
         A toolset that contains a list of tools that are offered by the MCP
         server.
@@ -155,12 +181,12 @@ class ToolsetArgs:
         return pulumi.get(self, "mcp_toolset")
 
     @mcp_toolset.setter
-    def mcp_toolset(self, value: Optional[pulumi.Input['ToolsetMcpToolsetArgs']]):
+    def mcp_toolset(self, value: pulumi.Input[Optional['ToolsetMcpToolsetArgs']]):
         pulumi.set(self, "mcp_toolset", value)
 
     @_builtins.property
     @pulumi.getter(name="openApiToolset")
-    def open_api_toolset(self) -> Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']]:
+    def open_api_toolset(self) -> pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']]:
         """
         A toolset that contains a list of tools that are defined by an OpenAPI
         schema.
@@ -169,12 +195,12 @@ class ToolsetArgs:
         return pulumi.get(self, "open_api_toolset")
 
     @open_api_toolset.setter
-    def open_api_toolset(self, value: Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']]):
+    def open_api_toolset(self, value: pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']]):
         pulumi.set(self, "open_api_toolset", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -182,31 +208,38 @@ class ToolsetArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ToolsetState:
     def __init__(__self__, *,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mcp_toolset: Optional[pulumi.Input['ToolsetMcpToolsetArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 open_api_toolset: Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 toolset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mcp_toolset: pulumi.Input[Optional['ToolsetMcpToolsetArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 open_api_toolset: pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 toolset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Toolset resources.
 
         :param pulumi.Input[_builtins.str] app: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         :param pulumi.Input[_builtins.str] create_time: Timestamp when the toolset was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the toolset.
         :param pulumi.Input[_builtins.str] display_name: The display name of the toolset. Must be unique within the same app.
         :param pulumi.Input[_builtins.str] etag: ETag used to ensure the object hasn't changed during a read-modify-write
@@ -236,6 +269,8 @@ class _ToolsetState:
             pulumi.set(__self__, "app", app)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -261,55 +296,72 @@ class _ToolsetState:
 
     @_builtins.property
     @pulumi.getter
-    def app(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "app")
 
     @app.setter
-    def app(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the toolset was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the toolset.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the toolset. Must be unique within the same app.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ETag used to ensure the object hasn't changed during a read-modify-write
         operation. If the etag is empty, the update will overwrite any concurrent
@@ -318,12 +370,12 @@ class _ToolsetState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="executionType")
-    def execution_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Possible values:
         SYNCHRONOUS
@@ -332,24 +384,24 @@ class _ToolsetState:
         return pulumi.get(self, "execution_type")
 
     @execution_type.setter
-    def execution_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="mcpToolset")
-    def mcp_toolset(self) -> Optional[pulumi.Input['ToolsetMcpToolsetArgs']]:
+    def mcp_toolset(self) -> pulumi.Input[Optional['ToolsetMcpToolsetArgs']]:
         """
         A toolset that contains a list of tools that are offered by the MCP
         server.
@@ -358,12 +410,12 @@ class _ToolsetState:
         return pulumi.get(self, "mcp_toolset")
 
     @mcp_toolset.setter
-    def mcp_toolset(self, value: Optional[pulumi.Input['ToolsetMcpToolsetArgs']]):
+    def mcp_toolset(self, value: pulumi.Input[Optional['ToolsetMcpToolsetArgs']]):
         pulumi.set(self, "mcp_toolset", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The unique identifier of the toolset.
         Format:
@@ -372,12 +424,12 @@ class _ToolsetState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="openApiToolset")
-    def open_api_toolset(self) -> Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']]:
+    def open_api_toolset(self) -> pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']]:
         """
         A toolset that contains a list of tools that are defined by an OpenAPI
         schema.
@@ -386,12 +438,12 @@ class _ToolsetState:
         return pulumi.get(self, "open_api_toolset")
 
     @open_api_toolset.setter
-    def open_api_toolset(self, value: Optional[pulumi.Input['ToolsetOpenApiToolsetArgs']]):
+    def open_api_toolset(self, value: pulumi.Input[Optional['ToolsetOpenApiToolsetArgs']]):
         pulumi.set(self, "open_api_toolset", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -399,12 +451,12 @@ class _ToolsetState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="toolsetId")
-    def toolset_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def toolset_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the toolset, which will become the final component of
         the toolset's resource name. If not provided, a unique ID will be
@@ -413,19 +465,19 @@ class _ToolsetState:
         return pulumi.get(self, "toolset_id")
 
     @toolset_id.setter
-    def toolset_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def toolset_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "toolset_id", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the toolset was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -435,15 +487,16 @@ class Toolset(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mcp_toolset: Optional[pulumi.Input[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
-                 open_api_toolset: Optional[pulumi.Input[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 toolset_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mcp_toolset: pulumi.Input[Optional[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
+                 open_api_toolset: pulumi.Input[Optional[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 toolset_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Description
@@ -993,6 +1046,12 @@ class Toolset(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] app: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the toolset.
         :param pulumi.Input[_builtins.str] display_name: The display name of the toolset. Must be unique within the same app.
         :param pulumi.Input[_builtins.str] execution_type: Possible values:
@@ -1577,15 +1636,16 @@ class Toolset(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mcp_toolset: Optional[pulumi.Input[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
-                 open_api_toolset: Optional[pulumi.Input[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 toolset_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mcp_toolset: pulumi.Input[Optional[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
+                 open_api_toolset: pulumi.Input[Optional[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 toolset_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1598,6 +1658,7 @@ class Toolset(pulumi.CustomResource):
             if app is None and not opts.urn:
                 raise TypeError("Missing required property 'app'")
             __props__.__dict__["app"] = app
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["execution_type"] = execution_type
@@ -1624,19 +1685,20 @@ class Toolset(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            app: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            execution_type: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            mcp_toolset: Optional[pulumi.Input[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            open_api_toolset: Optional[pulumi.Input[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            toolset_id: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Toolset':
+            app: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            execution_type: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            mcp_toolset: pulumi.Input[Optional[Union['ToolsetMcpToolsetArgs', 'ToolsetMcpToolsetArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            open_api_toolset: pulumi.Input[Optional[Union['ToolsetOpenApiToolsetArgs', 'ToolsetOpenApiToolsetArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            toolset_id: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Toolset':
         """
         Get an existing Toolset resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1646,6 +1708,12 @@ class Toolset(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] app: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         :param pulumi.Input[_builtins.str] create_time: Timestamp when the toolset was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the toolset.
         :param pulumi.Input[_builtins.str] display_name: The display name of the toolset. Must be unique within the same app.
         :param pulumi.Input[_builtins.str] etag: ETag used to ensure the object hasn't changed during a read-modify-write
@@ -1677,6 +1745,7 @@ class Toolset(pulumi.CustomResource):
 
         __props__.__dict__["app"] = app
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["etag"] = etag
@@ -1705,6 +1774,19 @@ class Toolset(pulumi.CustomResource):
         Timestamp when the toolset was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

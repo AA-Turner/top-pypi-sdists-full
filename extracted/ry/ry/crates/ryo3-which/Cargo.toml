@@ -5,6 +5,7 @@ authors.workspace = true
 categories.workspace = true
 documentation.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 license.workspace = true
@@ -21,6 +22,6 @@ which = { workspace = true, features = ["real-sys"] }
 workspace = true
 
 [features]
-default = ["dep:ryo3-regex", "which/regex"]
+default = ["regex"]
 regex = ["dep:ryo3-regex", "which/regex"]
 tracing = ["which/tracing"]

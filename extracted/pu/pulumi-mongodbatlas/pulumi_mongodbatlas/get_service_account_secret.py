@@ -158,13 +158,9 @@ def get_service_account_secret(client_id: Optional[_builtins.str] = None,
         org_id=org_id,
         client_id=this_service_account.client_id,
         secret_expires_after_hours=2160)
-    this = pulumi.Output.all(
+    this = mongodbatlas.get_service_account_secret_output(org_id=org_id,
         client_id=this_service_account.client_id,
-        secret_id=this_service_account_secret.secret_id
-    ).apply(lambda resolved_outputs: mongodbatlas.get_service_account_secret_output(org_id=org_id,
-        client_id=resolved_outputs['client_id'],
-        secret_id=resolved_outputs['secret_id']))
-
+        secret_id=this_service_account_secret.secret_id)
     pulumi.export("secretId", this_service_account_secret.secret_id)
     pulumi.export("secret", this_service_account_secret.secret)
     pulumi.export("secretExpiresAt", this.expires_at)
@@ -191,9 +187,9 @@ def get_service_account_secret(client_id: Optional[_builtins.str] = None,
         masked_secret_value=pulumi.get(__ret__, 'masked_secret_value'),
         org_id=pulumi.get(__ret__, 'org_id'),
         secret_id=pulumi.get(__ret__, 'secret_id'))
-def get_service_account_secret_output(client_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                      org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                      secret_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_service_account_secret_output(client_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                      org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                      secret_id: pulumi.Input[Optional[_builtins.str]] = None,
                                       opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetServiceAccountSecretResult]:
     """
     `ServiceAccountSecret` describes a Service Account Secret.
@@ -216,13 +212,9 @@ def get_service_account_secret_output(client_id: Optional[pulumi.Input[_builtins
         org_id=org_id,
         client_id=this_service_account.client_id,
         secret_expires_after_hours=2160)
-    this = pulumi.Output.all(
+    this = mongodbatlas.get_service_account_secret_output(org_id=org_id,
         client_id=this_service_account.client_id,
-        secret_id=this_service_account_secret.secret_id
-    ).apply(lambda resolved_outputs: mongodbatlas.get_service_account_secret_output(org_id=org_id,
-        client_id=resolved_outputs['client_id'],
-        secret_id=resolved_outputs['secret_id']))
-
+        secret_id=this_service_account_secret.secret_id)
     pulumi.export("secretId", this_service_account_secret.secret_id)
     pulumi.export("secret", this_service_account_secret.secret)
     pulumi.export("secretExpiresAt", this.expires_at)

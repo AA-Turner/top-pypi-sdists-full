@@ -172,6 +172,45 @@ rm updater.sh
                 break
         return resp, size
 
+    @staticmethod
+    def checkForUpdateSilent(current_version=VERSION):
+        """
+        Silently check for updates without console output or user interaction.
+        Returns (update_available, latest_version_tag, error_message)
+        """
+        try:
+            resp, _ = OTAUpdater.get_latest_release_info()
+            if resp is None or resp.status_code != 200:
+                return False, None, "API request failed"
+            
+            data = resp.json()
+            tag = data.get("tag_name", "")
+            if not tag:
+                return False, None, "No tag name"
+            
+            # Version comparison (simple numeric component comparison)
+            current_parts = [int(x) for x in str(current_version).split(".")]
+            latest_parts = [int(x) for x in tag.split(".")]
+            
+            # Pad the shorter list with zeros
+            while len(current_parts) < len(latest_parts):
+                current_parts.append(0)
+            while len(latest_parts) < len(current_parts):
+                latest_parts.append(0)
+            
+            update_available = False
+            for c, l in zip(current_parts, latest_parts):
+                if l > c:
+                    update_available = True
+                    break
+                elif l < c:
+                    break
+            
+            return update_available, tag, None
+            
+        except Exception as e:
+            return False, None, str(e)
+        
     # Check for update and download if available
     def checkForUpdate(VERSION=VERSION, skipDownload=False):
         OTAUpdater.checkForUpdate.url = None

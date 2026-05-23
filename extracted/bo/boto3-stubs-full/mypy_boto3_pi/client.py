@@ -26,6 +26,7 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import ListPerformanceAnalysisReportRecommendationsPaginator
 from .type_defs import (
     CreatePerformanceAnalysisReportRequestTypeDef,
     CreatePerformanceAnalysisReportResponseTypeDef,
@@ -44,6 +45,8 @@ from .type_defs import (
     ListAvailableResourceDimensionsResponseTypeDef,
     ListAvailableResourceMetricsRequestTypeDef,
     ListAvailableResourceMetricsResponseTypeDef,
+    ListPerformanceAnalysisReportRecommendationsRequestTypeDef,
+    ListPerformanceAnalysisReportRecommendationsResponseTypeDef,
     ListPerformanceAnalysisReportsRequestTypeDef,
     ListPerformanceAnalysisReportsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -53,9 +56,9 @@ from .type_defs import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Unpack
+    from typing import Literal, Unpack
 else:
-    from typing_extensions import Unpack
+    from typing_extensions import Literal, Unpack
 
 
 __all__ = ("PIClient",)
@@ -200,6 +203,16 @@ class PIClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#list_available_resource_metrics)
         """
 
+    def list_performance_analysis_report_recommendations(
+        self, **kwargs: Unpack[ListPerformanceAnalysisReportRecommendationsRequestTypeDef]
+    ) -> ListPerformanceAnalysisReportRecommendationsResponseTypeDef:
+        """
+        Retrieves recommendations for a performance analysis report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pi/client/list_performance_analysis_report_recommendations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#list_performance_analysis_report_recommendations)
+        """
+
     def list_performance_analysis_reports(
         self, **kwargs: Unpack[ListPerformanceAnalysisReportsRequestTypeDef]
     ) -> ListPerformanceAnalysisReportsResponseTypeDef:
@@ -235,4 +248,14 @@ class PIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pi/client/untag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#untag_resource)
+        """
+
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_performance_analysis_report_recommendations"]
+    ) -> ListPerformanceAnalysisReportRecommendationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pi/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#get_paginator)
         """

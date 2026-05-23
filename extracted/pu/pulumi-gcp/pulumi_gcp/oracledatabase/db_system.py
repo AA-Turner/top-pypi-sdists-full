@@ -25,12 +25,13 @@ class DbSystemArgs:
                  display_name: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  odb_subnet: pulumi.Input[_builtins.str],
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input['DbSystemPropertiesArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional['DbSystemPropertiesArgs']] = None):
         """
         The set of arguments for constructing a DbSystem resource.
 
@@ -44,6 +45,12 @@ class DbSystemArgs:
         :param pulumi.Input[_builtins.str] odb_subnet: The name of the OdbSubnet associated with the DbSystem for IP
                allocation. Format:
                projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] gcp_oracle_zone: The GCP Oracle zone where Oracle DbSystem is hosted.
                Example: us-east4-b-r2.
@@ -64,6 +71,8 @@ class DbSystemArgs:
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "odb_subnet", odb_subnet)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if gcp_oracle_zone is not None:
@@ -132,20 +141,37 @@ class DbSystemArgs:
         pulumi.set(self, "odb_subnet", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpOracleZone")
-    def gcp_oracle_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gcp_oracle_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The GCP Oracle zone where Oracle DbSystem is hosted.
         Example: us-east4-b-r2.
@@ -154,12 +180,12 @@ class DbSystemArgs:
         return pulumi.get(self, "gcp_oracle_zone")
 
     @gcp_oracle_zone.setter
-    def gcp_oracle_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gcp_oracle_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gcp_oracle_zone", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels or tags associated with the DbSystem.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -168,12 +194,12 @@ class DbSystemArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="odbNetwork")
-    def odb_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbNetwork associated with the DbSystem.
         Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}
@@ -183,12 +209,12 @@ class DbSystemArgs:
         return pulumi.get(self, "odb_network")
 
     @odb_network.setter
-    def odb_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -196,12 +222,12 @@ class DbSystemArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[pulumi.Input['DbSystemPropertiesArgs']]:
+    def properties(self) -> pulumi.Input[Optional['DbSystemPropertiesArgs']]:
         """
         The properties of a DbSystem.
         Structure is documented below.
@@ -209,29 +235,30 @@ class DbSystemArgs:
         return pulumi.get(self, "properties")
 
     @properties.setter
-    def properties(self, value: Optional[pulumi.Input['DbSystemPropertiesArgs']]):
+    def properties(self, value: pulumi.Input[Optional['DbSystemPropertiesArgs']]):
         pulumi.set(self, "properties", value)
 
 
 @pulumi.input_type
 class _DbSystemState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 db_system_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 entitlement_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 oci_url: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input['DbSystemPropertiesArgs']] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 db_system_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 entitlement_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 oci_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional['DbSystemPropertiesArgs']] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering DbSystem resources.
 
@@ -240,6 +267,12 @@ class _DbSystemState:
                restricted to (^a-z?$) and must be a maximum of
                63 characters in length. The value must start with a letter and end with a
                letter or a number.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the System db. The name does not have to
                be unique within your project.
@@ -273,6 +306,8 @@ class _DbSystemState:
             pulumi.set(__self__, "create_time", create_time)
         if db_system_id is not None:
             pulumi.set(__self__, "db_system_id", db_system_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if display_name is not None:
@@ -304,19 +339,19 @@ class _DbSystemState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The date and time that the DbSystem was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dbSystemId")
-    def db_system_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def db_system_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the DbSystem to create. This value is
         restricted to (^a-z?$) and must be a maximum of
@@ -326,24 +361,41 @@ class _DbSystemState:
         return pulumi.get(self, "db_system_id")
 
     @db_system_id.setter
-    def db_system_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def db_system_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "db_system_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name for the System db. The name does not have to
         be unique within your project.
@@ -351,36 +403,36 @@ class _DbSystemState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="entitlementId")
-    def entitlement_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entitlement_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the subscription entitlement associated with the DbSystem
         """
         return pulumi.get(self, "entitlement_id")
 
     @entitlement_id.setter
-    def entitlement_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entitlement_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entitlement_id", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpOracleZone")
-    def gcp_oracle_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gcp_oracle_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The GCP Oracle zone where Oracle DbSystem is hosted.
         Example: us-east4-b-r2.
@@ -389,12 +441,12 @@ class _DbSystemState:
         return pulumi.get(self, "gcp_oracle_zone")
 
     @gcp_oracle_zone.setter
-    def gcp_oracle_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gcp_oracle_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gcp_oracle_zone", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels or tags associated with the DbSystem.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -403,24 +455,24 @@ class _DbSystemState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The name of the DbSystem resource in the following format:
         projects/{project}/locations/{region}/dbSystems/{db_system}
@@ -428,24 +480,24 @@ class _DbSystemState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="ociUrl")
-    def oci_url(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def oci_url(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         HTTPS link to OCI resources exposed to Customer via UI Interface.
         """
         return pulumi.get(self, "oci_url")
 
     @oci_url.setter
-    def oci_url(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def oci_url(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "oci_url", value)
 
     @_builtins.property
     @pulumi.getter(name="odbNetwork")
-    def odb_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbNetwork associated with the DbSystem.
         Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}
@@ -455,12 +507,12 @@ class _DbSystemState:
         return pulumi.get(self, "odb_network")
 
     @odb_network.setter
-    def odb_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_network", value)
 
     @_builtins.property
     @pulumi.getter(name="odbSubnet")
-    def odb_subnet(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_subnet(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbSubnet associated with the DbSystem for IP
         allocation. Format:
@@ -469,12 +521,12 @@ class _DbSystemState:
         return pulumi.get(self, "odb_subnet")
 
     @odb_subnet.setter
-    def odb_subnet(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_subnet(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_subnet", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -482,12 +534,12 @@ class _DbSystemState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[pulumi.Input['DbSystemPropertiesArgs']]:
+    def properties(self) -> pulumi.Input[Optional['DbSystemPropertiesArgs']]:
         """
         The properties of a DbSystem.
         Structure is documented below.
@@ -495,12 +547,12 @@ class _DbSystemState:
         return pulumi.get(self, "properties")
 
     @properties.setter
-    def properties(self, value: Optional[pulumi.Input['DbSystemPropertiesArgs']]):
+    def properties(self, value: pulumi.Input[Optional['DbSystemPropertiesArgs']]):
         pulumi.set(self, "properties", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -508,7 +560,7 @@ class _DbSystemState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
 
@@ -518,16 +570,17 @@ class DbSystem(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 db_system_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
+                 db_system_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
                  __props__=None):
         """
         A DbSystem Resource
@@ -634,6 +687,12 @@ class DbSystem(pulumi.CustomResource):
                restricted to (^a-z?$) and must be a maximum of
                63 characters in length. The value must start with a letter and end with a
                letter or a number.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the System db. The name does not have to
                be unique within your project.
@@ -776,16 +835,17 @@ class DbSystem(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 db_system_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
+                 db_system_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -798,6 +858,7 @@ class DbSystem(pulumi.CustomResource):
             if db_system_id is None and not opts.urn:
                 raise TypeError("Missing required property 'db_system_id'")
             __props__.__dict__["db_system_id"] = db_system_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -831,22 +892,23 @@ class DbSystem(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            db_system_id: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            entitlement_id: Optional[pulumi.Input[_builtins.str]] = None,
-            gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            oci_url: Optional[pulumi.Input[_builtins.str]] = None,
-            odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-            odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            properties: Optional[pulumi.Input[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'DbSystem':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            db_system_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            entitlement_id: pulumi.Input[Optional[_builtins.str]] = None,
+            gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            oci_url: pulumi.Input[Optional[_builtins.str]] = None,
+            odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+            odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            properties: pulumi.Input[Optional[Union['DbSystemPropertiesArgs', 'DbSystemPropertiesArgsDict']]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'DbSystem':
         """
         Get an existing DbSystem resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -859,6 +921,12 @@ class DbSystem(pulumi.CustomResource):
                restricted to (^a-z?$) and must be a maximum of
                63 characters in length. The value must start with a letter and end with a
                letter or a number.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the System db. The name does not have to
                be unique within your project.
@@ -894,6 +962,7 @@ class DbSystem(pulumi.CustomResource):
 
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["db_system_id"] = db_system_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_labels"] = effective_labels
@@ -928,6 +997,19 @@ class DbSystem(pulumi.CustomResource):
         letter or a number.
         """
         return pulumi.get(self, "db_system_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

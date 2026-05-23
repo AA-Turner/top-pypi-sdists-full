@@ -4,11 +4,10 @@ use crate::earthgravity::GravityModel;
 use crate::orbitprop::Precomputed;
 use crate::TimeLike;
 
-use anyhow::Result;
+use super::error::{Error, Result};
 
 /// Choice of ODE integrator for orbit propagation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum Integrator {
     /// Verner 9(8) with 9th-order dense output, 26 stages (default)
     #[default]
@@ -36,7 +35,6 @@ pub enum Integrator {
     /// integration across discontinuities (eclipse boundaries, maneuvers).
     GaussJackson8,
 }
-
 
 impl std::fmt::Display for Integrator {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -130,11 +128,7 @@ impl PropSettings {
     /// Returns error if order > degree
     pub fn set_gravity(&mut self, degree: u16, order: u16) -> Result<()> {
         if order > degree {
-            anyhow::bail!(
-                "Gravity order ({}) must be ≤ degree ({})",
-                order,
-                degree
-            );
+            return Err(Error::InvalidGravityOrder { order, degree });
         }
         self.gravity_degree = degree;
         self.gravity_order = order;

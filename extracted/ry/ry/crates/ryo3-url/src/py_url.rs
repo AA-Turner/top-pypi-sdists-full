@@ -125,11 +125,7 @@ impl PyUrl {
             }
             .join(&relative_path)
             .map(Self::from)
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "{e} (relative={relative_path})"
-                ))
-            })
+            .map_err(|e| py_value_error!("{e} (relative={relative_path})"))
         }
     }
 
@@ -138,15 +134,17 @@ impl PyUrl {
     }
 
     fn __truediv__(&self, other: &str) -> PyResult<Self> {
-        self.0.join(other).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (relative={other})"))
-        })
+        self.0
+            .join(other)
+            .map(Self::from)
+            .map_err(|e| py_value_error!("{e} (relative={other})"))
     }
 
     fn __rtruediv__(&self, other: &str) -> PyResult<Self> {
-        self.0.join(other).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (relative={other})"))
-        })
+        self.0
+            .join(other)
+            .map(Self::from)
+            .map_err(|e| py_value_error!("{e} (relative={other})"))
     }
 
     fn equiv(&self, other: &Bound<'_, PyAny>) -> bool {
@@ -310,12 +308,7 @@ impl PyUrl {
     fn from_directory_path(path: PathBuf) -> PyResult<Self> {
         url::Url::from_directory_path(&path)
             .map(Self::from)
-            .map_err(|_e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "invalid path (path={})",
-                    path.display()
-                ))
-            })
+            .map_err(|_e| py_value_error!("invalid path (path={})", path.display()))
     }
 
     #[staticmethod]
@@ -323,26 +316,18 @@ impl PyUrl {
     fn from_filepath(path: PathBuf) -> PyResult<Self> {
         url::Url::from_file_path(&path)
             .map(Self::from)
-            .map_err(|_e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "invalid path (path={})",
-                    path.display()
-                ))
-            })
+            .map_err(|_e| py_value_error!("invalid path (path={})", path.display()))
     }
 
     fn to_filepath(&self) -> PyResult<PathBuf> {
-        self.0.to_file_path().map_err(|_e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Url::to_filepath: {}",
-                self.__str__()
-            ))
-        })
+        self.0
+            .to_file_path()
+            .map_err(|_e| py_value_error!("Url::to_filepath: {}", self.__str__()))
     }
 
     // TODO: figure out if this is problematic... it could be a problem w/ how some
     //       of the underlying set methods take `Option` values...
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "python kwargs")]
     #[pyo3(
         signature = (
             *,
@@ -542,104 +527,6 @@ impl PyUrl {
     ) -> PyResult<Bound<'py, PyAny>> {
         use ryo3_pydantic::GetPydanticCoreSchemaCls;
         Self::get_pydantic_core_schema(cls, source, handler)
-    }
-
-    // ========================================================================
-    // DEPRECATED METHODS
-    // ========================================================================
-    #[pyo3(
-        signature = (fragment = None),
-        warn(
-            message = "`URL.replace_fragment` is deprecated; use `URL.with_fragment` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_fragment(&self, fragment: Option<&str>) -> Self {
-        self.with_fragment(fragment)
-    }
-
-    #[pyo3(
-        signature = (host = None),
-        warn(
-            message = "`URL.replace_host` is deprecated; use `URL.with_host` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_host(&self, host: Option<&str>) -> PyResult<Self> {
-        self.with_host(host)
-    }
-
-    #[pyo3(
-        warn(
-            message = "`URL.replace_ip_host` is deprecated; use `URL.with_ip_host` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_ip_host(&self, address: &Bound<'_, PyAny>) -> PyResult<Self> {
-        self.with_ip_host(address)
-    }
-
-    #[pyo3(
-        signature = (password = None),
-        warn(
-            message = "`URL.replace_password` is deprecated; use `URL.with_password` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_password(&self, password: Option<&str>) -> PyResult<Self> {
-        self.with_password(password)
-    }
-
-    #[pyo3(
-        warn(
-            message = "`URL.replace_path` is deprecated; use `URL.with_path` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_path(&self, path: &str) -> Self {
-        self.with_path(path)
-    }
-
-    #[pyo3(
-        signature = (port = None),
-        warn(
-            message = "`URL.replace_port` is deprecated; use `URL.with_port` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_port(&self, port: Option<u16>) -> PyResult<Self> {
-        self.with_port(port)
-    }
-
-    #[pyo3(
-        signature = (query = None),
-        warn(
-            message = "`URL.replace_query` is deprecated; use `URL.with_query` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_query(&self, query: Option<&str>) -> Self {
-        self.with_query(query)
-    }
-
-    #[pyo3(
-        warn(
-            message = "`URL.replace_scheme` is deprecated; use `URL.with_scheme` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_scheme(&self, scheme: &str) -> PyResult<Self> {
-        self.with_scheme(scheme)
-    }
-
-    #[pyo3(
-        warn(
-            message = "`URL.replace_username` is deprecated; use `URL.with_username` instead [removal: v0.0.93]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    fn replace_username(&self, username: &str) -> PyResult<Self> {
-        self.with_username(username)
     }
 }
 

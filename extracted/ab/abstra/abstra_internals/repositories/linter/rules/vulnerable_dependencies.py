@@ -1,3 +1,15 @@
+"""Vulnerable dependencies linter — currently DISABLED.
+
+This rule shells out to `pip-audit` to scan requirements.txt for CVEs. In the
+web-editor pod the subprocess consistently hits the 60s timeout (likely due to
+egress constraints on the pip-as-subprocess network calls), returns silently
+with no findings, and costs the user a full minute per requirements.txt save.
+
+Until that's investigated and fixed, the rule is unregistered from
+`rules/__init__.py` (no import, no instance, not in any group), so it never
+runs. The class below stays in the codebase for reference and so the
+investigation can resume from here."""
+
 import json
 import subprocess
 import sys
@@ -161,7 +173,7 @@ def _run_pip_audit(extra_args: Optional[List[str]] = None) -> List[LinterIssue]:
 
 
 class VulnerableRequirements(LinterRule):
-    """Scans requirements.txt for known CVEs — blocks deploy."""
+    """Scans requirements.txt for known CVEs."""
 
     label = "Vulnerable dependencies in requirements.txt"
     type = "info"

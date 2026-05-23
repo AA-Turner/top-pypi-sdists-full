@@ -1,4 +1,5 @@
 import importlib
+import select
 import sys
 import threading
 import time
@@ -21,14 +22,13 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
     @setup(new_connection=False, queue=True)
     def test_functional_open_new_connection_loop(self):
         for _ in range(25):
-            self.connection = self.connection = Connection(HOST, USERNAME,
-                                                           PASSWORD)
+            self.connection = self._make_connection()
             self.channel = self.connection.channel()
 
             # Make sure that it's a new channel.
             self.assertEqual(int(self.channel), 1)
 
-            self.channel.queue.declare(self.queue_name)
+            self.channel.queue.declare(self.queue_name, durable=True)
 
             # Verify that the Connection/Channel has been opened properly.
             self.assertIsNotNone(self.connection._io.socket)
@@ -47,7 +47,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
     @setup(new_connection=False, queue=True)
     def test_functional_open_close_connection_loop(self):
-        self.connection = Connection(HOST, USERNAME, PASSWORD, lazy=True)
+        self.connection = self._make_connection(lazy=True)
         for _ in range(25):
             self.connection.open()
             channel = self.connection.channel()
@@ -55,7 +55,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
             # Make sure that it's a new channel.
             self.assertEqual(int(channel), 1)
 
-            channel.queue.declare(self.queue_name)
+            channel.queue.declare(self.queue_name, durable=True)
 
             channel.close()
 
@@ -75,7 +75,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
     @setup(new_connection=True, new_channel=False, queue=True)
     def test_functional_close_gracefully_after_publish_mandatory_fails(self):
-        for index in range(3):
+        for _ in range(3):
             channel = self.connection.channel()
 
             # Try to publish 25 bad messages.
@@ -95,8 +95,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
     @setup(new_connection=False, queue=True)
     def test_functional_open_close_channel_loop(self):
-        self.connection = self.connection = Connection(HOST, USERNAME,
-                                                       PASSWORD)
+        self.connection = self._make_connection()
         for _ in range(25):
             channel = self.connection.channel()
 
@@ -109,19 +108,18 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
             channel.close()
 
-            # Verify that theChannel has been closed properly.
+            # Verify that the Channel has been closed properly.
             self.assertTrue(self.connection.is_open)
             self.assertTrue(channel.is_closed)
 
     @setup(new_connection=False, queue=True)
     def test_functional_open_multiple_channels(self):
-        self.connection = self.connection = Connection(HOST, USERNAME,
-                                                       PASSWORD, lazy=True)
+        self.connection = self._make_connection(lazy=True)
 
         for _ in range(5):
             channels = []
             self.connection.open()
-            for index in range(10):
+            for _ in range(10):
                 channel = self.connection.channel()
                 channels.append(channel)
 
@@ -132,16 +130,15 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
     @setup(new_connection=False, queue=False)
     def test_functional_close_performance(self):
-        """Make sure closing a connection never takes longer than ~1 seconds.
+        """Make sure closing a connection never takes longer than ~1 second.
 
         :return:
         """
         for _ in range(10):
-            self.connection = self.connection = Connection(HOST, USERNAME,
-                                                           PASSWORD)
-            start_time = time.time()
+            self.connection = self._make_connection()
+            start_time = time.monotonic()
             self.connection.close()
-            self.assertLess(time.time() - start_time, 3)
+            self.assertLess(time.monotonic() - start_time, 3)
 
     @setup(new_connection=False)
     def test_functional_close_after_channel_close_forced_by_server(self):
@@ -151,9 +148,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
         :return:
         """
         for _ in range(10):
-            connection = Connection(
-                HOST, USERNAME, PASSWORD
-            )
+            connection = self._make_connection()
             channel = connection.channel()
             channel.confirm_deliveries()
             try:
@@ -164,13 +159,13 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
                 )
             except (AMQPConnectionError, AMQPChannelError):
                 pass
-            start_time = time.time()
+            start_time = time.monotonic()
             channel.close()
-            self.assertLess(time.time() - start_time, 3)
+            self.assertLess(time.monotonic() - start_time, 3)
 
-            start_time = time.time()
+            start_time = time.monotonic()
             connection.close()
-            self.assertLess(time.time() - start_time, 3)
+            self.assertLess(time.monotonic() - start_time, 3)
 
     @setup(new_connection=False)
     def test_functional_uri_connection(self):
@@ -179,6 +174,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
         self.assertTrue(self.connection.is_open)
 
     def test_functional_ssl_connection_without_ssl(self):
+        # Poller-agnostic: validates the SSL-absence error path.
         restore_func = sys.modules['ssl']
         try:
             sys.modules['ssl'] = None
@@ -195,9 +191,7 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
 
     @setup(new_connection=False, queue=True)
     def test_functional_verify_passive_declare(self):
-
-        self.connection = self.connection = Connection(HOST, USERNAME,
-                                                       PASSWORD)
+        self.connection = self._make_connection()
         self.channel = self.connection.channel()
         self.assertEqual(int(self.channel), 1)
 
@@ -217,19 +211,28 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
         self.channel = self.connection.channel()
         self.assertEqual(int(self.channel), 1)
 
-        self.channel.queue.declare(self.queue_name)
+        self.channel.queue.declare(self.queue_name, durable=True)
 
         self.channel.close()
         self.connection.close()
 
 
+class ReliabilityFunctionalTestsSelect(ReliabilityFunctionalTests):
+    poller = 'select'
+
+
+if hasattr(select, 'poll'):
+    class ReliabilityFunctionalTestsPoll(ReliabilityFunctionalTests):
+        poller = 'poll'
+
+
 class PublishAndConsume1kTest(TestFunctionalFramework):
     messages_to_send = 1000
-    messages_consumed = 0
-    lock = threading.Lock()
 
     def configure(self):
         self.disable_logging_validation()
+        self.messages_consumed = 0
+        self.lock = threading.Lock()
 
     def publish_messages(self):
         for _ in range(self.messages_to_send):
@@ -253,20 +256,20 @@ class PublishAndConsume1kTest(TestFunctionalFramework):
 
     @setup(queue=True)
     def test_functional_publish_and_consume_1k_messages(self):
-        self.channel.queue.declare(self.queue_name)
+        self.channel.queue.declare(self.queue_name, durable=True)
 
-        publish_thread = threading.Thread(target=self.publish_messages, )
+        publish_thread = threading.Thread(target=self.publish_messages)
         publish_thread.daemon = True
         publish_thread.start()
 
         for _ in range(4):
-            consumer_thread = threading.Thread(target=self.consume_messages, )
+            consumer_thread = threading.Thread(target=self.consume_messages)
             consumer_thread.daemon = True
             consumer_thread.start()
 
-        start_time = time.time()
+        start_time = time.monotonic()
         while self.messages_consumed != self.messages_to_send:
-            if time.time() - start_time >= 60:
+            if time.monotonic() - start_time >= 60:
                 break
             time.sleep(0.1)
 
@@ -276,6 +279,17 @@ class PublishAndConsume1kTest(TestFunctionalFramework):
 
         self.assertEqual(self.messages_consumed, self.messages_to_send,
                          'test took too long')
+
+
+class PublishAndConsume1kTestSelect(PublishAndConsume1kTest):
+    """1k publish/consume run against the ``select.select`` poller."""
+    poller = 'select'
+
+
+if hasattr(select, 'poll'):
+    class PublishAndConsume1kTestPoll(PublishAndConsume1kTest):
+        """1k publish/consume run against the ``select.poll`` poller."""
+        poller = 'poll'
 
 
 class Consume1kUntilEmpty(TestFunctionalFramework):
@@ -291,7 +305,7 @@ class Consume1kUntilEmpty(TestFunctionalFramework):
 
     @setup(queue=True)
     def test_functional_publish_and_consume_until_empty(self):
-        self.channel.queue.declare(self.queue_name)
+        self.channel.queue.declare(self.queue_name, durable=True)
         self.channel.confirm_deliveries()
         self.publish_messages()
 
@@ -309,3 +323,14 @@ class Consume1kUntilEmpty(TestFunctionalFramework):
                          'not all messages consumed')
 
         channel.close()
+
+
+class Consume1kUntilEmptySelect(Consume1kUntilEmpty):
+    """Drain-the-queue test run against the ``select.select`` poller."""
+    poller = 'select'
+
+
+if hasattr(select, 'poll'):
+    class Consume1kUntilEmptyPoll(Consume1kUntilEmpty):
+        """Drain-the-queue test run against the ``select.poll`` poller."""
+        poller = 'poll'

@@ -52,13 +52,13 @@ from testscenarios.testcase import TestWithScenarios, WithScenarios  # noqa: E40
 
 
 def test_suite():
-    import testscenarios.tests  # noqa: F401
+    import tests  # noqa: F401
 
-    return testscenarios.tests.test_suite()
+    return tests.test_suite()
 
 
 def load_tests(loader, standard_tests, pattern):
-    standard_tests.addTests(loader.loadTestsFromNames(["testscenarios.tests"]))
+    standard_tests.addTests(loader.loadTestsFromNames(["tests"]))
     return standard_tests
 
 

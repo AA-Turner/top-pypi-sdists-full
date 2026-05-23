@@ -82,6 +82,79 @@ class SystemRoutesSubsystem:
             event_explorer_router = create_event_explorer_routes(ctx.event_framework)
             ctx.app.include_router(event_explorer_router)
 
+            # Prometheus scrape endpoint (#1192 slice 1) — pull-side
+            # observability over the SystemMetricsCollector snapshot.
+            # The collector lives on ``app.state.services.system_collector``
+            # and may be ``None`` when telemetry is off; the route serves
+            # an empty Prometheus document in that case (never 500s).
+            from dazzle.back.runtime.metrics_routes import create_metrics_routes
+
+            _system_collector = getattr(
+                getattr(ctx.app.state, "services", None), "system_collector", None
+            )
+            metrics_router = create_metrics_routes(_system_collector)
+            ctx.app.include_router(metrics_router)
+
+            # Job explorer (#1193) — /_dazzle/jobs/* inspection endpoints,
+            # the job-system analogue of the event explorer above. Only
+            # registered when `job` blocks are declared (the JobRun system
+            # entity + its CRUD service exist only then). Resolves the
+            # JobRun service from `ctx.services` (keyed by service name)
+            # the same way `services_by_entity()` does.
+            if ctx.appspec.jobs:
+                from dazzle.back.runtime.job_explorer import create_job_explorer_routes
+
+                job_run_service = next(
+                    (
+                        svc
+                        for svc in ctx.services.values()
+                        if getattr(svc, "entity_name", None) == "JobRun"
+                    ),
+                    None,
+                )
+                job_explorer_router = create_job_explorer_routes(
+                    job_run_service,
+                    jobs_declared=len(ctx.appspec.jobs),
+                )
+                ctx.app.include_router(job_explorer_router)
+
+            # Approvals explorer (#1194) — /_dazzle/approvals/pending.
+            # Only registered when `approval` blocks are declared. Reads
+            # the per-entity CRUD services from `ctx.services`, keyed by
+            # ``service.entity_name`` (mirrors `services_by_entity()`).
+            if ctx.appspec.approvals:
+                from dazzle.back.runtime.approvals_explorer import create_approvals_routes
+
+                services_by_entity = {
+                    entity_name: svc
+                    for svc in ctx.services.values()
+                    if (entity_name := getattr(svc, "entity_name", None))
+                }
+                approvals_router = create_approvals_routes(
+                    services_by_entity,
+                    list(ctx.appspec.approvals),
+                )
+                ctx.app.include_router(approvals_router)
+
+            # Integration retries explorer (#1194) —
+            # /_dazzle/integrations/{name}/retries. Only registered when
+            # `integration` blocks are declared. Reads from the
+            # process-wide RetryAccumulator singleton that MappingExecutor
+            # also writes to. The accumulator is IN-PROCESS and resets
+            # on restart — see retry_accumulator.py module docstring +
+            # the CHANGELOG entry for #1194.
+            if ctx.appspec.integrations:
+                from dazzle.back.runtime.integrations_retries import (
+                    create_integrations_retries_routes,
+                )
+                from dazzle.back.runtime.retry_accumulator import get_default_accumulator
+
+                integrations_retries_router = create_integrations_retries_routes(
+                    get_default_accumulator(),
+                    list(ctx.appspec.integrations),
+                )
+                ctx.app.include_router(integrations_retries_router)
+
         # Site API routes (v0.16.0). The page-router (`/`, `/site.js`,
         # `/styles/dazzle.css`) is registered by app_factory.py with the
         # full auth/persona/analytics wiring. Calling

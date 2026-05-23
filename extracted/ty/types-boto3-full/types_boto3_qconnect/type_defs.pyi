@@ -34,11 +34,14 @@ from .literals import (
     ConversationStatusReasonType,
     ConversationStatusType,
     CrossRegionStatusType,
+    GuardrailActionType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingFilterTypeType,
     GuardrailFilterStrengthType,
     GuardrailPiiEntityTypeType,
+    GuardrailPolicyTypeType,
     GuardrailSensitiveInformationActionType,
+    GuardrailSourceType,
     ImportJobStatusType,
     KnowledgeBaseSearchTypeType,
     KnowledgeBaseStatusType,
@@ -274,6 +277,7 @@ __all__ = (
     "GuardrailContextualGroundingFilterConfigTypeDef",
     "GuardrailManagedWordsConfigTypeDef",
     "GuardrailPiiEntityConfigTypeDef",
+    "GuardrailPolicyResultTypeDef",
     "GuardrailRegexConfigTypeDef",
     "GuardrailTopicConfigOutputTypeDef",
     "GuardrailTopicConfigTypeDef",
@@ -472,6 +476,7 @@ __all__ = (
     "SpanAttributesPaginatorTypeDef",
     "SpanAttributesTypeDef",
     "SpanCitationTypeDef",
+    "SpanGuardrailAssessmentTypeDef",
     "SpanMessagePaginatorTypeDef",
     "SpanMessageTypeDef",
     "SpanMessageValuePaginatorTypeDef",
@@ -1175,6 +1180,11 @@ class GroupingConfigurationTypeDef(TypedDict):
     criteria: NotRequired[str]
     values: NotRequired[Sequence[str]]
 
+class GuardrailPolicyResultTypeDef(TypedDict):
+    policyType: GuardrailPolicyTypeType
+    action: GuardrailActionType
+    details: NotRequired[str]
+
 class HierarchicalChunkingLevelConfigurationTypeDef(TypedDict):
     maxTokens: int
 
@@ -1867,6 +1877,13 @@ class SearchExpressionTypeDef(TypedDict):
 GroupingConfigurationUnionTypeDef = Union[
     GroupingConfigurationTypeDef, GroupingConfigurationOutputTypeDef
 ]
+
+class SpanGuardrailAssessmentTypeDef(TypedDict):
+    guardrailId: str
+    guardrailName: str
+    source: GuardrailSourceType
+    action: GuardrailActionType
+    policies: NotRequired[list[GuardrailPolicyResultTypeDef]]
 
 class HierarchicalChunkingConfigurationOutputTypeDef(TypedDict):
     levelConfigurations: list[HierarchicalChunkingLevelConfigurationTypeDef]
@@ -3070,6 +3087,7 @@ class SpanAttributesPaginatorTypeDef(TypedDict):
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
     timeToFirstTokenMs: NotRequired[int]
+    guardrailAssessments: NotRequired[list[SpanGuardrailAssessmentTypeDef]]
 
 class SpanAttributesTypeDef(TypedDict):
     operationName: NotRequired[str]
@@ -3107,6 +3125,7 @@ class SpanAttributesTypeDef(TypedDict):
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
     timeToFirstTokenMs: NotRequired[int]
+    guardrailAssessments: NotRequired[list[SpanGuardrailAssessmentTypeDef]]
 
 class RenderMessageTemplateRequestTypeDef(TypedDict):
     knowledgeBaseId: str

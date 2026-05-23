@@ -5,12 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, final
 
 from bleak.backends.device import BLEDevice
-from bleak.backends.scanner import AdvertisementData
 from bleak_retry_connector import NO_RSSI_VALUE, Allocations
 from bluetooth_adapters import adapter_human_name
 from bluetooth_data_tools import monotonic_time_coarse, parse_advertisement_data_bytes
@@ -29,8 +27,14 @@ from .models import (
     HaScannerDetails,
     HaScannerType,
 )
-from .scanner_device import BluetoothScannerDevice
 from .storage import DiscoveredDeviceAdvertisementData
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
+    from bleak.backends.scanner import AdvertisementData
+
+    from .scanner_device import BluetoothScannerDevice
 
 SCANNER_WATCHDOG_INTERVAL_SECONDS: Final = SCANNER_WATCHDOG_INTERVAL.total_seconds()
 _LOGGER = logging.getLogger(__name__)
@@ -552,7 +556,7 @@ class BaseHaScanner:
             None,
         )
 
-    def _async_on_advertisement_internal(
+    def _async_on_advertisement_internal(  # noqa: C901
         self,
         address: _str,
         rssi: _int,
@@ -604,7 +608,7 @@ class BaseHaScanner:
                 info.name = prev_name
             else:
                 info.device.name = local_name
-                info.name = local_name if local_name else address
+                info.name = local_name or address
 
             has_service_uuids = bool(service_uuids)
             if (
@@ -711,6 +715,24 @@ class BaseHaScanner:
         if self.current_mode != mode:
             self.current_mode = mode
             self._manager.scanner_mode_changed(self)
+
+    async def async_request_active_window(self, duration: float) -> bool:
+        """
+        Run an active scan for ``duration`` seconds, then restore prior mode.
+
+        Default no-op returning False. Subclasses that can flip the
+        underlying adapter / proxy into active scanning on demand should
+        override; ``True`` indicates the override actually flipped the
+        radio, ``False`` that the request was ignored. The current
+        scheduler does not branch on the return value (entries advance
+        by ``scan_interval`` regardless to avoid busy-looping a stuck
+        scanner), but the contract leaves room for callers that want
+        to surface a failed window.
+        """
+        _LOGGER.debug(
+            "%s: scanner does not support on-demand active windows", self.name
+        )
+        return False
 
 
 class BaseHaRemoteScanner(BaseHaScanner):

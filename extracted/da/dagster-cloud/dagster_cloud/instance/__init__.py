@@ -142,7 +142,7 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         processed_agent_queues_config = self._get_processed_config(
             "agent_queues", agent_queues, self._agent_queues_config_schema()
         )
-        self.agent_queues_config = AgentQueuesConfig(**processed_agent_queues_config)  # pyright: ignore[reportCallIssue]
+        self.agent_queues_config = AgentQueuesConfig(**processed_agent_queues_config)
 
         self._allowed_full_deployment_locations: dict[str, list[str]] | None = (
             allowed_full_deployment_locations

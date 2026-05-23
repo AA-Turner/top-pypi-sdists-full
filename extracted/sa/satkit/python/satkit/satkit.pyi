@@ -10,7 +10,8 @@ import numpy as np
 
 import datetime
 
-from typing import Any, ClassVar, Optional, Union
+from collections.abc import Sequence
+from typing import Any, ClassVar, Optional, Union, overload
 
 class TLE:
     """Two-Line Element Set (TLE) representing a satellite ephemeris
@@ -56,15 +57,30 @@ class TLE:
         """
         ...
 
+    @overload
     @staticmethod
-    def from_lines(lines: list[str]) -> list[TLE] | TLE:
+    def from_lines(lines: tuple[str, str]) -> TLE: ...
+    @overload
+    @staticmethod
+    def from_lines(lines: tuple[str, str, str]) -> TLE: ...
+    @overload
+    @staticmethod
+    def from_lines(lines: Sequence[str]) -> list[TLE] | TLE: ...
+    @staticmethod
+    def from_lines(lines: Sequence[str]) -> list[TLE] | TLE:
         """Return a list of TLES loaded from input list of lines
 
             If the file contains lines only represent a single TLE, the TLE will
-            be output, rather than a list with a single TLE element
+            be output, rather than a list with a single TLE element.
+
+            A fixed-length tuple of 2 or 3 strings (the 2-line or name+2-line
+            form) is statically known to return a single ``TLE``; any other
+            sequence may return either ``TLE`` or ``list[TLE]`` depending on
+            how many TLEs the input contains.
 
         Args:
-            lines (list[str]): list of strings with lines for TLE(s) to load
+            lines (Sequence[str]): sequence of strings with lines for TLE(s) to load
+                (any sequence type is accepted, e.g. list or tuple)
 
         Returns:
             a list of TLE objects or a single TLE if lines for
@@ -72,12 +88,12 @@ class TLE:
 
         Example:
             ```python
-            lines = [
+            lines = (
                 "0 ISS (ZARYA)",
                 "1 25544U 98067A   21264.51782528  .00002893  00000-0  58680-4 0  9991",
-                "2 25544  51.6442 208.5856 0001458  47.2277  50.1624 15.48919419302878"
-            ]
-            tle = satkit.TLE.from_lines(lines)
+                "2 25544  51.6442 208.5856 0001458  47.2277  50.1624 15.48919419302878",
+            )
+            tle = satkit.TLE.from_lines(lines)  # statically typed as TLE
             print(tle.name)
             # ISS (ZARYA)
             ```
@@ -2464,39 +2480,50 @@ class itrfcoord:
         """
         ...
 
-    def to_enu(self, refcoord: itrfcoord) -> npt.NDArray[np.float64]:
-        """Return vector from reference coordinate to this coordinate in East-North-Up (ENU) frame of the reference coordinate
+    def to_enu(self, origin: itrfcoord) -> npt.NDArray[np.float64]:
+        """East-North-Up (ENU) vector from `origin` to `self`, in `origin`'s local-tangent frame.
+
+        The ENU triad has its origin at ``origin``; ``self`` is the point being
+        located. The ``Up`` component is positive when ``self`` is above ``origin``
+        along ``origin``'s local normal (further from Earth's center) — i.e.
+        "what direction is ``self`` from where I'm standing at ``origin``?"
 
         Args:
-            refcoord (itrfcoord): Reference ITRF coordinate representing origin of ENU frame
+            origin (itrfcoord): ITRF coordinate at which the ENU frame is
+                anchored (the observer / station / base of the local tangent plane).
 
         Returns:
-            3-element numpy array representing vector from reference coordinate to this coordinate in East-North-Up (ENU) frame of reference at the reference coordinate
+            3-element ``[E, N, U]`` vector from ``origin`` to ``self``, in meters.
 
         Notes:
-            - This is equivalent to calling: refcoord.qenu2itrf.conj * (self - refcoord)
+            - This is equivalent to calling: origin.qenu2itrf.conj * (self - origin)
 
         Example:
             ```python
-            station = satkit.itrfcoord(latitude_deg=42.36, longitude_deg=-71.06, altitude=0)
-            target = satkit.itrfcoord(latitude_deg=42.37, longitude_deg=-71.06, altitude=1000)
-            enu = target.to_enu(station)
+            station   = satkit.itrfcoord(latitude_deg=42.466, longitude_deg=-71.1516, altitude=0)
+            satellite = satkit.itrfcoord(latitude_deg=42.466, longitude_deg=-71.1516, altitude=400_000)
+            enu = satellite.to_enu(station)  # satellite is overhead → Up ≈ +400_000 m
             print(f"East: {enu[0]:.1f} m, North: {enu[1]:.1f} m, Up: {enu[2]:.1f} m")
             ```
         """
         ...
 
-    def to_ned(self, refcoord: itrfcoord) -> npt.NDArray[np.float64]:
-        """Return vector from reference coordinate to this coordinate in North-East-Down (NED) at the reference coordinate
+    def to_ned(self, origin: itrfcoord) -> npt.NDArray[np.float64]:
+        """North-East-Down (NED) vector from `origin` to `self`, in `origin`'s local-tangent frame.
+
+        The NED triad has its origin at ``origin``; ``self`` is the point being
+        located. The ``Down`` component is positive when ``self`` is below
+        ``origin`` along ``origin``'s local normal (closer to Earth's center).
 
         Args:
-            refcoord (itrfcoord): Reference ITRF coordinate representing origin of NED frame
+            origin (itrfcoord): ITRF coordinate at which the NED frame is
+                anchored (the observer / station / base of the local tangent plane).
 
         Returns:
-            3-element numpy array representing vector from reference coordinate to this coordinate in North-East-Down (NED) frame of reference at the reference coordinate
+            3-element ``[N, E, D]`` vector from ``origin`` to ``self``, in meters.
 
         Notes:
-            - This is equivalent to calling: refcoord.qned2itrf.conj * (self - refcoord)
+            - This is equivalent to calling: origin.qned2itrf.conj * (self - origin)
 
         """
         ...

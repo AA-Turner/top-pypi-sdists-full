@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x402
-Version: 2.10.0
+Version: 2.11.0
 Summary: x402 Payment Protocol SDK for Python
 Project-URL: Homepage, https://github.com/x402-foundation/x402
 Project-URL: Documentation, https://x402.org
@@ -36,6 +36,7 @@ Requires-Dist: pynacl>=1.5.0; extra == 'all'
 Requires-Dist: pytoniq-core>=0.1.36; extra == 'all'
 Requires-Dist: pytoniq>=0.1.39; extra == 'all'
 Requires-Dist: requests>=2.31.0; extra == 'all'
+Requires-Dist: signinwithethereum>=5.0.1; extra == 'all'
 Requires-Dist: solana>=0.36.0; extra == 'all'
 Requires-Dist: solders>=0.27.0; extra == 'all'
 Requires-Dist: starlette>=0.27.0; extra == 'all'
@@ -52,6 +53,8 @@ Requires-Dist: web3>=7.0.0; extra == 'evm'
 Provides-Extra: extensions
 Requires-Dist: idna>=3.4; extra == 'extensions'
 Requires-Dist: jsonschema>=4.0.0; extra == 'extensions'
+Requires-Dist: pynacl>=1.5.0; extra == 'extensions'
+Requires-Dist: signinwithethereum>=5.0.1; extra == 'extensions'
 Provides-Extra: fastapi
 Requires-Dist: fastapi[standard]>=0.115.0; extra == 'fastapi'
 Requires-Dist: starlette>=0.27.0; extra == 'fastapi'

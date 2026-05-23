@@ -21,7 +21,8 @@ class FirewallPolicyAssociationArgs:
     def __init__(__self__, *,
                  attachment_target: pulumi.Input[_builtins.str],
                  firewall_policy: pulumi.Input[_builtins.str],
-                 name: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a FirewallPolicyAssociation resource.
 
@@ -31,10 +32,18 @@ class FirewallPolicyAssociationArgs:
                firewall policy with the flag to override the existing attachmentTarget's policy association.
                **Note** Due to potential risks with this operation it is *highly* recommended to use the `create_before_destroy` life cycle option
                on your exisiting firewall policy so as to prevent a situation where your attachment target has no associated policy.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The name for an association.
         """
         pulumi.set(__self__, "attachment_target", attachment_target)
         pulumi.set(__self__, "firewall_policy", firewall_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
 
@@ -67,29 +76,53 @@ class FirewallPolicyAssociationArgs:
         pulumi.set(self, "firewall_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name for an association.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
 
 @pulumi.input_type
 class _FirewallPolicyAssociationState:
     def __init__(__self__, *,
-                 attachment_target: Optional[pulumi.Input[_builtins.str]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 short_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 attachment_target: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 short_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering FirewallPolicyAssociation resources.
 
         :param pulumi.Input[_builtins.str] attachment_target: The target that the firewall policy is attached to.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] firewall_policy: The firewall policy of the resource.
                This field can be updated to refer to a different Firewall Policy, which will create a new association from that new
                firewall policy with the flag to override the existing attachmentTarget's policy association.
@@ -100,6 +133,8 @@ class _FirewallPolicyAssociationState:
         """
         if attachment_target is not None:
             pulumi.set(__self__, "attachment_target", attachment_target)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if firewall_policy is not None:
             pulumi.set(__self__, "firewall_policy", firewall_policy)
         if name is not None:
@@ -109,19 +144,36 @@ class _FirewallPolicyAssociationState:
 
     @_builtins.property
     @pulumi.getter(name="attachmentTarget")
-    def attachment_target(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def attachment_target(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The target that the firewall policy is attached to.
         """
         return pulumi.get(self, "attachment_target")
 
     @attachment_target.setter
-    def attachment_target(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def attachment_target(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "attachment_target", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="firewallPolicy")
-    def firewall_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def firewall_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The firewall policy of the resource.
         This field can be updated to refer to a different Firewall Policy, which will create a new association from that new
@@ -132,31 +184,31 @@ class _FirewallPolicyAssociationState:
         return pulumi.get(self, "firewall_policy")
 
     @firewall_policy.setter
-    def firewall_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def firewall_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "firewall_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name for an association.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="shortName")
-    def short_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def short_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The short name of the firewall policy of the association.
         """
         return pulumi.get(self, "short_name")
 
     @short_name.setter
-    def short_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def short_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "short_name", value)
 
 
@@ -166,9 +218,10 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attachment_target: Optional[pulumi.Input[_builtins.str]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 attachment_target: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Allows associating hierarchical firewall policies with the target where they are applied. This allows creating policies and rules in a different location than they are applied.
@@ -217,6 +270,12 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] attachment_target: The target that the firewall policy is attached to.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] firewall_policy: The firewall policy of the resource.
                This field can be updated to refer to a different Firewall Policy, which will create a new association from that new
                firewall policy with the flag to override the existing attachmentTarget's policy association.
@@ -289,9 +348,10 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attachment_target: Optional[pulumi.Input[_builtins.str]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 attachment_target: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -304,6 +364,7 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
             if attachment_target is None and not opts.urn:
                 raise TypeError("Missing required property 'attachment_target'")
             __props__.__dict__["attachment_target"] = attachment_target
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if firewall_policy is None and not opts.urn:
                 raise TypeError("Missing required property 'firewall_policy'")
             __props__.__dict__["firewall_policy"] = firewall_policy
@@ -319,10 +380,11 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            attachment_target: Optional[pulumi.Input[_builtins.str]] = None,
-            firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            short_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'FirewallPolicyAssociation':
+            attachment_target: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            short_name: pulumi.Input[Optional[_builtins.str]] = None) -> 'FirewallPolicyAssociation':
         """
         Get an existing FirewallPolicyAssociation resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -331,6 +393,12 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] attachment_target: The target that the firewall policy is attached to.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] firewall_policy: The firewall policy of the resource.
                This field can be updated to refer to a different Firewall Policy, which will create a new association from that new
                firewall policy with the flag to override the existing attachmentTarget's policy association.
@@ -344,6 +412,7 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
         __props__ = _FirewallPolicyAssociationState.__new__(_FirewallPolicyAssociationState)
 
         __props__.__dict__["attachment_target"] = attachment_target
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["firewall_policy"] = firewall_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["short_name"] = short_name
@@ -356,6 +425,19 @@ class FirewallPolicyAssociation(pulumi.CustomResource):
         The target that the firewall policy is attached to.
         """
         return pulumi.get(self, "attachment_target")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="firewallPolicy")

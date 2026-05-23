@@ -29,7 +29,36 @@ if TYPE_CHECKING:
     from inspect_scout._transcript.types import Transcript
 
 DEFAULT_CONTEXT_WINDOW = 128_000
-_BUDGET_DISCOUNT = 0.8
+_TOKENIZER_SAFETY_MARGIN = 0.05
+
+
+def _effective_segment_budget(
+    *,
+    model: Model,
+    context_window: int | None,
+    prompt_reserve: int | float = 0.2,
+) -> int:
+    """Compute the token budget available for rendered messages.
+
+    ``prompt_reserve`` controls how much of the context window is reserved
+    for prompt scaffolding wrapped around the messages (e.g. a scanner
+    template). A ``float`` reserves that fraction of the window; an
+    ``int`` reserves that many tokens and additionally subtracts a small
+    safety margin to absorb ``count_tokens`` imprecision.
+    """
+    if context_window is not None:
+        window = context_window
+    else:
+        model_info = get_model_info(model)
+        window = (
+            model_info.input_tokens
+            if model_info is not None and model_info.input_tokens is not None
+            else DEFAULT_CONTEXT_WINDOW
+        )
+
+    if isinstance(prompt_reserve, float):
+        return int(window * (1.0 - prompt_reserve))
+    return int(window * (1.0 - _TOKENIZER_SAFETY_MARGIN)) - prompt_reserve
 
 
 @dataclass(frozen=True)
@@ -54,12 +83,14 @@ async def segment_messages(
     model: Model | str | None = None,
     context_window: int | None = None,
     compaction: Literal["all", "last"] | int = "all",
+    prompt_reserve: int | float = 0.2,
 ) -> AsyncIterator[MessagesSegment]:
     """Render messages and split them into segments that fit within a token budget.
 
     Renders each message individually via ``messages_as_str``, counts
     tokens in parallel via ``tg_collect``, then accumulates segments that
-    fit within the effective budget (context window * 80%).
+    fit within the effective budget (context window minus the portion
+    reserved by ``prompt_reserve``).
 
     When given events or a ``TimelineSpan``, delegates to
     ``span_messages()`` to extract and merge messages (handling
@@ -76,6 +107,13 @@ async def segment_messages(
             looked up via ``get_model_info(model)``.
         compaction: How to handle compaction boundaries when source
             contains events. Passed through to ``span_messages()``.
+        prompt_reserve: Context-window allowance for prompt scaffolding
+            wrapped around the rendered messages (e.g. a scanner
+            template). A ``float`` reserves that fraction of the window;
+            an ``int`` reserves that many tokens and additionally
+            subtracts a small safety margin for ``count_tokens``
+            imprecision. Default ``0.2`` leaves 80% of the window for
+            messages.
 
     Yields:
         MessagesSegment instances, each fitting within the token budget.
@@ -98,16 +136,14 @@ async def segment_messages(
         return
 
     # Compute effective budget
-    if context_window is not None:
-        budget = context_window
-    else:
-        model_info = get_model_info(model)
-        budget = (
-            model_info.input_tokens
-            if model_info is not None and model_info.input_tokens is not None
-            else DEFAULT_CONTEXT_WINDOW
-        )
-    effective_budget = int(budget * _BUDGET_DISCOUNT)
+    effective_budget = max(
+        1,
+        _effective_segment_budget(
+            model=model,
+            context_window=context_window,
+            prompt_reserve=prompt_reserve,
+        ),
+    )
 
     # Pass 1: Render each message sequentially (counter ordering matters)
     rendered: list[tuple[ChatMessage, str]] = []
@@ -164,6 +200,7 @@ async def transcript_messages(
     compaction: Literal["all", "last"] | int = "all",
     depth: int | None = None,
     include_scorers: bool = False,
+    prompt_reserve: int | float = 0.2,
 ) -> AsyncIterator[MessagesSegment]:
     """Yield pre-rendered message segments from a transcript.
 
@@ -199,6 +236,13 @@ async def transcript_messages(
             events-only or messages-only paths.
         include_scorers: Whether to include scorer events in message
             extraction. Defaults to ``False``.
+        prompt_reserve: Context-window allowance for prompt scaffolding
+            wrapped around the rendered messages (e.g. a scanner
+            template). A ``float`` reserves that fraction of the window;
+            an ``int`` reserves that many tokens (plus a small safety
+            margin). Default ``0.2`` leaves 80% of the window for
+            messages. Forwarded to ``segment_messages()`` /
+            ``timeline_messages()``.
 
     Yields:
         ``MessagesSegment`` (or ``TimelineMessages``) for each segment.
@@ -226,6 +270,7 @@ async def transcript_messages(
             context_window=context_window,
             compaction=compaction,
             depth=depth,
+            prompt_reserve=prompt_reserve,
         ):
             yield timeline_seg  # type: ignore[misc]
     else:
@@ -234,6 +279,7 @@ async def transcript_messages(
             messages_as_str=messages_as_str,
             model=model,
             context_window=context_window,
+            prompt_reserve=prompt_reserve,
         ):
             yield seg
 

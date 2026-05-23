@@ -23,13 +23,14 @@ class ClusterArgs:
     def __init__(__self__, *,
                  cluster_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 compute_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 network_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]] = None,
-                 orchestrator: Optional[pulumi.Input['ClusterOrchestratorArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 storage_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]] = None):
+                 compute_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 network_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]] = None,
+                 orchestrator: pulumi.Input[Optional['ClusterOrchestratorArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 storage_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]] = None):
         """
         The set of arguments for constructing a Cluster resource.
 
@@ -41,6 +42,12 @@ class ClusterArgs:
                to [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034) (lower-case,
                alphanumeric, and at most 63 characters).
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the cluster.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
                to the cluster. Labels can be used to organize clusters and to filter them
@@ -69,6 +76,8 @@ class ClusterArgs:
         pulumi.set(__self__, "location", location)
         if compute_resources is not None:
             pulumi.set(__self__, "compute_resources", compute_resources)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -109,7 +118,7 @@ class ClusterArgs:
 
     @_builtins.property
     @pulumi.getter(name="computeResources")
-    def compute_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]:
+    def compute_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]:
         """
         Compute resources available to the cluster. Keys specify the ID of the
         compute resource by which it can be referenced elsewhere, and must conform
@@ -120,24 +129,41 @@ class ClusterArgs:
         return pulumi.get(self, "compute_resources")
 
     @compute_resources.setter
-    def compute_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]):
+    def compute_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]):
         pulumi.set(self, "compute_resources", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description of the cluster.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
         to the cluster. Labels can be used to organize clusters and to filter them
@@ -148,12 +174,12 @@ class ClusterArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="networkResources")
-    def network_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]:
+    def network_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]:
         """
         Network resources available to the cluster. Must contain at most one value.
         Keys specify the ID of the network resource by which it can be referenced
@@ -165,12 +191,12 @@ class ClusterArgs:
         return pulumi.get(self, "network_resources")
 
     @network_resources.setter
-    def network_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]):
+    def network_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]):
         pulumi.set(self, "network_resources", value)
 
     @_builtins.property
     @pulumi.getter
-    def orchestrator(self) -> Optional[pulumi.Input['ClusterOrchestratorArgs']]:
+    def orchestrator(self) -> pulumi.Input[Optional['ClusterOrchestratorArgs']]:
         """
         The component responsible for scheduling and running workloads on the
         cluster as well as providing the user interface for interacting with the
@@ -180,12 +206,12 @@ class ClusterArgs:
         return pulumi.get(self, "orchestrator")
 
     @orchestrator.setter
-    def orchestrator(self, value: Optional[pulumi.Input['ClusterOrchestratorArgs']]):
+    def orchestrator(self, value: pulumi.Input[Optional['ClusterOrchestratorArgs']]):
         pulumi.set(self, "orchestrator", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -193,12 +219,12 @@ class ClusterArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="storageResources")
-    def storage_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]:
+    def storage_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]:
         """
         Storage resources available to the cluster. Keys specify the ID of the
         storage resource by which it can be referenced elsewhere, and must conform
@@ -209,28 +235,29 @@ class ClusterArgs:
         return pulumi.get(self, "storage_resources")
 
     @storage_resources.setter
-    def storage_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]):
+    def storage_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]):
         pulumi.set(self, "storage_resources", value)
 
 
 @pulumi.input_type
 class _ClusterState:
     def __init__(__self__, *,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]] = None,
-                 orchestrator: Optional[pulumi.Input['ClusterOrchestratorArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 storage_resources: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]] = None,
+                 orchestrator: pulumi.Input[Optional['ClusterOrchestratorArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 storage_resources: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Cluster resources.
 
@@ -242,6 +269,12 @@ class _ClusterState:
                alphanumeric, and at most 63 characters).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Time that the cluster was originally created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the cluster.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
@@ -282,6 +315,8 @@ class _ClusterState:
             pulumi.set(__self__, "compute_resources", compute_resources)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -309,7 +344,7 @@ class _ClusterState:
 
     @_builtins.property
     @pulumi.getter(name="clusterId")
-    def cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cluster_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the cluster to create. Must start with a lowercase letter,
         use only lowercase letters and numbers, and be at most 10 characters long.
@@ -317,12 +352,12 @@ class _ClusterState:
         return pulumi.get(self, "cluster_id")
 
     @cluster_id.setter
-    def cluster_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cluster_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cluster_id", value)
 
     @_builtins.property
     @pulumi.getter(name="computeResources")
-    def compute_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]:
+    def compute_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]:
         """
         Compute resources available to the cluster. Keys specify the ID of the
         compute resource by which it can be referenced elsewhere, and must conform
@@ -333,48 +368,65 @@ class _ClusterState:
         return pulumi.get(self, "compute_resources")
 
     @compute_resources.setter
-    def compute_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]):
+    def compute_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterComputeResourceArgs']]]]):
         pulumi.set(self, "compute_resources", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time that the cluster was originally created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description of the cluster.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
         to the cluster. Labels can be used to organize clusters and to filter them
@@ -385,24 +437,24 @@ class _ClusterState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. [Relative resource name](https://google.aip.dev/122) of the cluster, in the
         format `projects/{project}/locations/{location}/clusters/{cluster}`.
@@ -410,12 +462,12 @@ class _ClusterState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="networkResources")
-    def network_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]:
+    def network_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]:
         """
         Network resources available to the cluster. Must contain at most one value.
         Keys specify the ID of the network resource by which it can be referenced
@@ -427,12 +479,12 @@ class _ClusterState:
         return pulumi.get(self, "network_resources")
 
     @network_resources.setter
-    def network_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]):
+    def network_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterNetworkResourceArgs']]]]):
         pulumi.set(self, "network_resources", value)
 
     @_builtins.property
     @pulumi.getter
-    def orchestrator(self) -> Optional[pulumi.Input['ClusterOrchestratorArgs']]:
+    def orchestrator(self) -> pulumi.Input[Optional['ClusterOrchestratorArgs']]:
         """
         The component responsible for scheduling and running workloads on the
         cluster as well as providing the user interface for interacting with the
@@ -442,12 +494,12 @@ class _ClusterState:
         return pulumi.get(self, "orchestrator")
 
     @orchestrator.setter
-    def orchestrator(self, value: Optional[pulumi.Input['ClusterOrchestratorArgs']]):
+    def orchestrator(self, value: pulumi.Input[Optional['ClusterOrchestratorArgs']]):
         pulumi.set(self, "orchestrator", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -455,12 +507,12 @@ class _ClusterState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -468,12 +520,12 @@ class _ClusterState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether changes to the cluster are currently in flight. If this
         is `true`, then the current state might not match the cluster's intended
@@ -482,12 +534,12 @@ class _ClusterState:
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter(name="storageResources")
-    def storage_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]:
+    def storage_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]:
         """
         Storage resources available to the cluster. Keys specify the ID of the
         storage resource by which it can be referenced elsewhere, and must conform
@@ -498,19 +550,19 @@ class _ClusterState:
         return pulumi.get(self, "storage_resources")
 
     @storage_resources.setter
-    def storage_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]):
+    def storage_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClusterStorageResourceArgs']]]]):
         pulumi.set(self, "storage_resources", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time that the cluster was most recently updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -520,15 +572,16 @@ class Cluster(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
-                 orchestrator: Optional[pulumi.Input[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 storage_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
+                 orchestrator: pulumi.Input[Optional[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 storage_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
                  __props__=None):
         """
         A collection of virtual machines and connected resources forming a high-performance computing cluster capable of running large-scale, tightly coupled workloads. A cluster combines a set a compute resources that perform computations, storage resources that contain inputs and store outputs, an orchestrator that is responsible for assigning jobs to compute resources, and network resources that connect everything together.
@@ -622,6 +675,12 @@ class Cluster(pulumi.CustomResource):
                to [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034) (lower-case,
                alphanumeric, and at most 63 characters).
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the cluster.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
                to the cluster. Labels can be used to organize clusters and to filter them
@@ -751,15 +810,16 @@ class Cluster(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
-                 orchestrator: Optional[pulumi.Input[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 storage_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
+                 orchestrator: pulumi.Input[Optional[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 storage_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -773,6 +833,7 @@ class Cluster(pulumi.CustomResource):
                 raise TypeError("Missing required property 'cluster_id'")
             __props__.__dict__["cluster_id"] = cluster_id
             __props__.__dict__["compute_resources"] = compute_resources
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
@@ -800,21 +861,22 @@ class Cluster(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-            compute_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
-            orchestrator: Optional[pulumi.Input[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            storage_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Cluster':
+            cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+            compute_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterComputeResourceArgs', 'ClusterComputeResourceArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterNetworkResourceArgs', 'ClusterNetworkResourceArgsDict']]]]] = None,
+            orchestrator: pulumi.Input[Optional[Union['ClusterOrchestratorArgs', 'ClusterOrchestratorArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            storage_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClusterStorageResourceArgs', 'ClusterStorageResourceArgsDict']]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Cluster':
         """
         Get an existing Cluster resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -830,6 +892,12 @@ class Cluster(pulumi.CustomResource):
                alphanumeric, and at most 63 characters).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Time that the cluster was originally created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the cluster.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: [Labels](https://cloud.google.com/compute/docs/labeling-resources) applied
@@ -871,6 +939,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["cluster_id"] = cluster_id
         __props__.__dict__["compute_resources"] = compute_resources
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -913,6 +982,19 @@ class Cluster(pulumi.CustomResource):
         Time that the cluster was originally created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

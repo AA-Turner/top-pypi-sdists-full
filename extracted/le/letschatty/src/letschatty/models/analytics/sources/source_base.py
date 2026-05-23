@@ -32,7 +32,7 @@ class SourceBase(CompanyAssetModel):
         default=None,
         description="Target stage within the target funnel"
     )
-    campaign_id: Optional[StrObjectId] = Field(default=None)
+    campaign_id: Optional[str] = Field(default=None)
     campaign_name: Optional[str] = Field(default=None)
 
     model_config = ConfigDict(extra='ignore', exclude_none=True) #type: ignore

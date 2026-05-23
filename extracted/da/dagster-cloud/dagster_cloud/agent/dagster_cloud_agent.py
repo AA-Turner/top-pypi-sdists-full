@@ -259,7 +259,7 @@ class DagsterCloudAgent:
 
         self._utilization_metrics["resource_limits"][
             user_code_launcher.user_code_deployment_type.value
-        ] = limits  # pyright: ignore[reportGeneralTypeIssues]
+        ] = limits
 
     def _update_utilization_metrics(self, user_code_launcher: DagsterCloudUserCodeLauncher):
         container_utilization_metrics = retrieve_containerized_utilization_metrics(
@@ -298,7 +298,7 @@ class DagsterCloudAgent:
             # for old agents, and only will work if there's a single deployment in the org)
             result = self._instance.graphql_client.execute(DEPLOYMENT_INFO_QUERY)
             deployment_name = result["data"]["deploymentInfo"]["deploymentName"]
-            self._instance = self._exit_stack.enter_context(  # ty: ignore[invalid-assignment]  # pyright: ignore[reportAttributeAccessIssue]
+            self._instance = self._exit_stack.enter_context(  # ty: ignore[invalid-assignment]
                 DagsterInstance.from_ref(
                     self._instance.ref_for_deployment(deployment_name)
                 )  # (instance subclass)

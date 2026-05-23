@@ -23,15 +23,16 @@ class TaskArgs:
     def __init__(__self__, *,
                  execution_spec: pulumi.Input['TaskExecutionSpecArgs'],
                  trigger_spec: pulumi.Input['TaskTriggerSpecArgs'],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lake: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook: Optional[pulumi.Input['TaskNotebookArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spark: Optional[pulumi.Input['TaskSparkArgs']] = None,
-                 task_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lake: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook: pulumi.Input[Optional['TaskNotebookArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spark: pulumi.Input[Optional['TaskSparkArgs']] = None,
+                 task_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Task resource.
 
@@ -39,6 +40,12 @@ class TaskArgs:
                Structure is documented below.
         :param pulumi.Input['TaskTriggerSpecArgs'] trigger_spec: Configuration for the cluster
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the task.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels for the task.
@@ -57,6 +64,8 @@ class TaskArgs:
         """
         pulumi.set(__self__, "execution_spec", execution_spec)
         pulumi.set(__self__, "trigger_spec", trigger_spec)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -103,32 +112,49 @@ class TaskArgs:
         pulumi.set(self, "trigger_spec", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description of the task.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User friendly display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels for the task.
 
@@ -138,36 +164,36 @@ class TaskArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def lake(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def lake(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The lake in which the task will be created in.
         """
         return pulumi.get(self, "lake")
 
     @lake.setter
-    def lake(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def lake(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "lake", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location in which the task will be created in.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def notebook(self) -> Optional[pulumi.Input['TaskNotebookArgs']]:
+    def notebook(self) -> pulumi.Input[Optional['TaskNotebookArgs']]:
         """
         A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
         Structure is documented below.
@@ -175,12 +201,12 @@ class TaskArgs:
         return pulumi.get(self, "notebook")
 
     @notebook.setter
-    def notebook(self, value: Optional[pulumi.Input['TaskNotebookArgs']]):
+    def notebook(self, value: pulumi.Input[Optional['TaskNotebookArgs']]):
         pulumi.set(self, "notebook", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -188,12 +214,12 @@ class TaskArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def spark(self) -> Optional[pulumi.Input['TaskSparkArgs']]:
+    def spark(self) -> pulumi.Input[Optional['TaskSparkArgs']]:
         """
         A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
         Structure is documented below.
@@ -201,48 +227,55 @@ class TaskArgs:
         return pulumi.get(self, "spark")
 
     @spark.setter
-    def spark(self, value: Optional[pulumi.Input['TaskSparkArgs']]):
+    def spark(self, value: pulumi.Input[Optional['TaskSparkArgs']]):
         pulumi.set(self, "spark", value)
 
     @_builtins.property
     @pulumi.getter(name="taskId")
-    def task_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def task_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The task Id of the task.
         """
         return pulumi.get(self, "task_id")
 
     @task_id.setter
-    def task_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def task_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "task_id", value)
 
 
 @pulumi.input_type
 class _TaskState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 execution_spec: Optional[pulumi.Input['TaskExecutionSpecArgs']] = None,
-                 execution_statuses: Optional[pulumi.Input[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lake: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook: Optional[pulumi.Input['TaskNotebookArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 spark: Optional[pulumi.Input['TaskSparkArgs']] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 task_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_spec: Optional[pulumi.Input['TaskTriggerSpecArgs']] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 execution_spec: pulumi.Input[Optional['TaskExecutionSpecArgs']] = None,
+                 execution_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lake: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook: pulumi.Input[Optional['TaskNotebookArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 spark: pulumi.Input[Optional['TaskSparkArgs']] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 task_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_spec: pulumi.Input[Optional['TaskTriggerSpecArgs']] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Task resources.
 
         :param pulumi.Input[_builtins.str] create_time: The time when the task was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the task.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -278,6 +311,8 @@ class _TaskState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -317,55 +352,72 @@ class _TaskState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the task was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description of the task.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User friendly display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="executionSpec")
-    def execution_spec(self) -> Optional[pulumi.Input['TaskExecutionSpecArgs']]:
+    def execution_spec(self) -> pulumi.Input[Optional['TaskExecutionSpecArgs']]:
         """
         Configuration for the cluster
         Structure is documented below.
@@ -373,12 +425,12 @@ class _TaskState:
         return pulumi.get(self, "execution_spec")
 
     @execution_spec.setter
-    def execution_spec(self, value: Optional[pulumi.Input['TaskExecutionSpecArgs']]):
+    def execution_spec(self, value: pulumi.Input[Optional['TaskExecutionSpecArgs']]):
         pulumi.set(self, "execution_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="executionStatuses")
-    def execution_statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]]:
+    def execution_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]]:
         """
         Configuration for the cluster
         Structure is documented below.
@@ -386,12 +438,12 @@ class _TaskState:
         return pulumi.get(self, "execution_statuses")
 
     @execution_statuses.setter
-    def execution_statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]]):
+    def execution_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TaskExecutionStatusArgs']]]]):
         pulumi.set(self, "execution_statuses", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels for the task.
 
@@ -401,36 +453,36 @@ class _TaskState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def lake(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def lake(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The lake in which the task will be created in.
         """
         return pulumi.get(self, "lake")
 
     @lake.setter
-    def lake(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def lake(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "lake", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location in which the task will be created in.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         The relative resource name of the job, of the form: projects/{project_number}/locations/{locationId}/lakes/{lakeId}/tasks/{taskId}/jobs/{jobId}.
@@ -438,12 +490,12 @@ class _TaskState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def notebook(self) -> Optional[pulumi.Input['TaskNotebookArgs']]:
+    def notebook(self) -> pulumi.Input[Optional['TaskNotebookArgs']]:
         """
         A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
         Structure is documented below.
@@ -451,12 +503,12 @@ class _TaskState:
         return pulumi.get(self, "notebook")
 
     @notebook.setter
-    def notebook(self, value: Optional[pulumi.Input['TaskNotebookArgs']]):
+    def notebook(self, value: pulumi.Input[Optional['TaskNotebookArgs']]):
         pulumi.set(self, "notebook", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -464,12 +516,12 @@ class _TaskState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -477,12 +529,12 @@ class _TaskState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def spark(self) -> Optional[pulumi.Input['TaskSparkArgs']]:
+    def spark(self) -> pulumi.Input[Optional['TaskSparkArgs']]:
         """
         A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
         Structure is documented below.
@@ -490,12 +542,12 @@ class _TaskState:
         return pulumi.get(self, "spark")
 
     @spark.setter
-    def spark(self, value: Optional[pulumi.Input['TaskSparkArgs']]):
+    def spark(self, value: pulumi.Input[Optional['TaskSparkArgs']]):
         pulumi.set(self, "spark", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         Execution state for the job.
@@ -503,24 +555,24 @@ class _TaskState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="taskId")
-    def task_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def task_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The task Id of the task.
         """
         return pulumi.get(self, "task_id")
 
     @task_id.setter
-    def task_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def task_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "task_id", value)
 
     @_builtins.property
     @pulumi.getter(name="triggerSpec")
-    def trigger_spec(self) -> Optional[pulumi.Input['TaskTriggerSpecArgs']]:
+    def trigger_spec(self) -> pulumi.Input[Optional['TaskTriggerSpecArgs']]:
         """
         Configuration for the cluster
         Structure is documented below.
@@ -528,12 +580,12 @@ class _TaskState:
         return pulumi.get(self, "trigger_spec")
 
     @trigger_spec.setter
-    def trigger_spec(self, value: Optional[pulumi.Input['TaskTriggerSpecArgs']]):
+    def trigger_spec(self, value: pulumi.Input[Optional['TaskTriggerSpecArgs']]):
         pulumi.set(self, "trigger_spec", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         System generated globally unique ID for the job.
@@ -541,12 +593,12 @@ class _TaskState:
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         Last update time of the status.
@@ -554,7 +606,7 @@ class _TaskState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -564,17 +616,18 @@ class Task(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_spec: Optional[pulumi.Input[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lake: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook: Optional[pulumi.Input[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spark: Optional[pulumi.Input[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
-                 task_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_spec: Optional[pulumi.Input[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_spec: pulumi.Input[Optional[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lake: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook: pulumi.Input[Optional[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spark: pulumi.Input[Optional[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
+                 task_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_spec: pulumi.Input[Optional[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
                  __props__=None):
         """
         A Dataplex task represents the work that you want Dataplex to do on a schedule. It encapsulates code, parameters, and the schedule.
@@ -595,11 +648,11 @@ class Task(pulumi.CustomResource):
 
         project = gcp.organizations.get_project()
         example = gcp.dataplex.Lake("example",
-            name="tf-test-lake_9329",
+            name="tf-test-lake_12125",
             location="us-central1",
             project="my-project-name")
         example_task = gcp.dataplex.Task("example",
-            task_id="tf-test-task_37135",
+            task_id="tf-test-task_82749",
             location="us-central1",
             lake=example.name,
             description="Test Task Basic",
@@ -633,15 +686,15 @@ class Task(pulumi.CustomResource):
 
         # VPC network
         default = gcp.compute.Network("default",
-            name="tf-test-workstation-cluster_42503",
+            name="tf-test-workstation-cluster_15022",
             auto_create_subnetworks=True)
         project = gcp.organizations.get_project()
         example_spark = gcp.dataplex.Lake("example_spark",
-            name="tf-test-lake_9991",
+            name="tf-test-lake_89648",
             location="us-central1",
             project="my-project-name")
         example_spark_task = gcp.dataplex.Task("example_spark",
-            task_id="tf-test-task_12125",
+            task_id="tf-test-task_64612",
             location="us-central1",
             lake=example_spark.name,
             trigger_spec={
@@ -689,15 +742,15 @@ class Task(pulumi.CustomResource):
 
         # VPC network
         default = gcp.compute.Network("default",
-            name="tf-test-workstation-cluster_82749",
+            name="tf-test-workstation-cluster_34242",
             auto_create_subnetworks=True)
         project = gcp.organizations.get_project()
         example_notebook = gcp.dataplex.Lake("example_notebook",
-            name="tf-test-lake_15022",
+            name="tf-test-lake_9723",
             location="us-central1",
             project="my-project-name")
         example_notebook_task = gcp.dataplex.Task("example_notebook",
-            task_id="tf-test-task_89648",
+            task_id="tf-test-task_22061",
             location="us-central1",
             lake=example_notebook.name,
             trigger_spec={
@@ -757,6 +810,12 @@ class Task(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the task.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']] execution_spec: Configuration for the cluster
@@ -802,11 +861,11 @@ class Task(pulumi.CustomResource):
 
         project = gcp.organizations.get_project()
         example = gcp.dataplex.Lake("example",
-            name="tf-test-lake_9329",
+            name="tf-test-lake_12125",
             location="us-central1",
             project="my-project-name")
         example_task = gcp.dataplex.Task("example",
-            task_id="tf-test-task_37135",
+            task_id="tf-test-task_82749",
             location="us-central1",
             lake=example.name,
             description="Test Task Basic",
@@ -840,15 +899,15 @@ class Task(pulumi.CustomResource):
 
         # VPC network
         default = gcp.compute.Network("default",
-            name="tf-test-workstation-cluster_42503",
+            name="tf-test-workstation-cluster_15022",
             auto_create_subnetworks=True)
         project = gcp.organizations.get_project()
         example_spark = gcp.dataplex.Lake("example_spark",
-            name="tf-test-lake_9991",
+            name="tf-test-lake_89648",
             location="us-central1",
             project="my-project-name")
         example_spark_task = gcp.dataplex.Task("example_spark",
-            task_id="tf-test-task_12125",
+            task_id="tf-test-task_64612",
             location="us-central1",
             lake=example_spark.name,
             trigger_spec={
@@ -896,15 +955,15 @@ class Task(pulumi.CustomResource):
 
         # VPC network
         default = gcp.compute.Network("default",
-            name="tf-test-workstation-cluster_82749",
+            name="tf-test-workstation-cluster_34242",
             auto_create_subnetworks=True)
         project = gcp.organizations.get_project()
         example_notebook = gcp.dataplex.Lake("example_notebook",
-            name="tf-test-lake_15022",
+            name="tf-test-lake_9723",
             location="us-central1",
             project="my-project-name")
         example_notebook_task = gcp.dataplex.Task("example_notebook",
-            task_id="tf-test-task_89648",
+            task_id="tf-test-task_22061",
             location="us-central1",
             lake=example_notebook.name,
             trigger_spec={
@@ -977,17 +1036,18 @@ class Task(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_spec: Optional[pulumi.Input[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lake: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook: Optional[pulumi.Input[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spark: Optional[pulumi.Input[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
-                 task_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_spec: Optional[pulumi.Input[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_spec: pulumi.Input[Optional[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lake: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook: pulumi.Input[Optional[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spark: pulumi.Input[Optional[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
+                 task_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_spec: pulumi.Input[Optional[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -997,6 +1057,7 @@ class Task(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = TaskArgs.__new__(TaskArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             if execution_spec is None and not opts.urn:
@@ -1032,25 +1093,26 @@ class Task(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            execution_spec: Optional[pulumi.Input[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
-            execution_statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TaskExecutionStatusArgs', 'TaskExecutionStatusArgsDict']]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            lake: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            notebook: Optional[pulumi.Input[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            spark: Optional[pulumi.Input[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            task_id: Optional[pulumi.Input[_builtins.str]] = None,
-            trigger_spec: Optional[pulumi.Input[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Task':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            execution_spec: pulumi.Input[Optional[Union['TaskExecutionSpecArgs', 'TaskExecutionSpecArgsDict']]] = None,
+            execution_statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TaskExecutionStatusArgs', 'TaskExecutionStatusArgsDict']]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            lake: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            notebook: pulumi.Input[Optional[Union['TaskNotebookArgs', 'TaskNotebookArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            spark: pulumi.Input[Optional[Union['TaskSparkArgs', 'TaskSparkArgsDict']]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            task_id: pulumi.Input[Optional[_builtins.str]] = None,
+            trigger_spec: pulumi.Input[Optional[Union['TaskTriggerSpecArgs', 'TaskTriggerSpecArgsDict']]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Task':
         """
         Get an existing Task resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1059,6 +1121,12 @@ class Task(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: The time when the task was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description of the task.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -1097,6 +1165,7 @@ class Task(pulumi.CustomResource):
         __props__ = _TaskState.__new__(_TaskState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_labels"] = effective_labels
@@ -1124,6 +1193,19 @@ class Task(pulumi.CustomResource):
         The time when the task was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

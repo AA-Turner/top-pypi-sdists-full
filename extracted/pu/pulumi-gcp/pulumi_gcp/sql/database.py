@@ -20,11 +20,11 @@ __all__ = ['DatabaseArgs', 'Database']
 class DatabaseArgs:
     def __init__(__self__, *,
                  instance: pulumi.Input[_builtins.str],
-                 charset: Optional[pulumi.Input[_builtins.str]] = None,
-                 collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 charset: pulumi.Input[Optional[_builtins.str]] = None,
+                 collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Database resource.
 
@@ -40,10 +40,12 @@ class DatabaseArgs:
                and Postgres' [Collation Support](https://www.postgresql.org/docs/9.6/static/collation.html)
                for more details and supported values. Postgres databases only support
                a value of `en_US.UTF8` at creation time.
-        :param pulumi.Input[_builtins.str] deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource
-               to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-               deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-               values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The name of the database in the Cloud SQL instance.
                This does not include the project ID or instance name.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -76,7 +78,7 @@ class DatabaseArgs:
 
     @_builtins.property
     @pulumi.getter
-    def charset(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def charset(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The charset value. See MySQL's
         [Supported Character Sets and Collations](https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html)
@@ -87,12 +89,12 @@ class DatabaseArgs:
         return pulumi.get(self, "charset")
 
     @charset.setter
-    def charset(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def charset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "charset", value)
 
     @_builtins.property
     @pulumi.getter
-    def collation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collation value. See MySQL's
         [Supported Character Sets and Collations](https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html)
@@ -103,27 +105,29 @@ class DatabaseArgs:
         return pulumi.get(self, "collation")
 
     @collation.setter
-    def collation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collation", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The deletion policy for the database. Setting ABANDON allows the resource
-        to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-        deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-        values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the database in the Cloud SQL instance.
         This does not include the project ID or instance name.
@@ -131,12 +135,12 @@ class DatabaseArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -144,20 +148,20 @@ class DatabaseArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DatabaseState:
     def __init__(__self__, *,
-                 charset: Optional[pulumi.Input[_builtins.str]] = None,
-                 collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None):
+                 charset: pulumi.Input[Optional[_builtins.str]] = None,
+                 collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Database resources.
 
@@ -171,10 +175,12 @@ class _DatabaseState:
                and Postgres' [Collation Support](https://www.postgresql.org/docs/9.6/static/collation.html)
                for more details and supported values. Postgres databases only support
                a value of `en_US.UTF8` at creation time.
-        :param pulumi.Input[_builtins.str] deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource
-               to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-               deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-               values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The name of the Cloud SQL instance. This does not include the project
                ID.
         :param pulumi.Input[_builtins.str] name: The name of the database in the Cloud SQL instance.
@@ -200,7 +206,7 @@ class _DatabaseState:
 
     @_builtins.property
     @pulumi.getter
-    def charset(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def charset(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The charset value. See MySQL's
         [Supported Character Sets and Collations](https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html)
@@ -211,12 +217,12 @@ class _DatabaseState:
         return pulumi.get(self, "charset")
 
     @charset.setter
-    def charset(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def charset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "charset", value)
 
     @_builtins.property
     @pulumi.getter
-    def collation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collation value. See MySQL's
         [Supported Character Sets and Collations](https://dev.mysql.com/doc/refman/5.7/en/charset-charsets.html)
@@ -227,27 +233,29 @@ class _DatabaseState:
         return pulumi.get(self, "collation")
 
     @collation.setter
-    def collation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collation", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The deletion policy for the database. Setting ABANDON allows the resource
-        to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-        deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-        values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Cloud SQL instance. This does not include the project
         ID.
@@ -255,12 +263,12 @@ class _DatabaseState:
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the database in the Cloud SQL instance.
         This does not include the project ID or instance name.
@@ -268,12 +276,12 @@ class _DatabaseState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -281,19 +289,19 @@ class _DatabaseState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
 
@@ -303,12 +311,12 @@ class Database(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 charset: Optional[pulumi.Input[_builtins.str]] = None,
-                 collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 charset: pulumi.Input[Optional[_builtins.str]] = None,
+                 collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a SQL database inside the Cloud SQL instance, hosted in
@@ -387,10 +395,12 @@ class Database(pulumi.CustomResource):
                and Postgres' [Collation Support](https://www.postgresql.org/docs/9.6/static/collation.html)
                for more details and supported values. Postgres databases only support
                a value of `en_US.UTF8` at creation time.
-        :param pulumi.Input[_builtins.str] deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource
-               to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-               deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-               values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The name of the Cloud SQL instance. This does not include the project
                ID.
         :param pulumi.Input[_builtins.str] name: The name of the database in the Cloud SQL instance.
@@ -484,12 +494,12 @@ class Database(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 charset: Optional[pulumi.Input[_builtins.str]] = None,
-                 collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 charset: pulumi.Input[Optional[_builtins.str]] = None,
+                 collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -518,13 +528,13 @@ class Database(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            charset: Optional[pulumi.Input[_builtins.str]] = None,
-            collation: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None) -> 'Database':
+            charset: pulumi.Input[Optional[_builtins.str]] = None,
+            collation: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None) -> 'Database':
         """
         Get an existing Database resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -542,10 +552,12 @@ class Database(pulumi.CustomResource):
                and Postgres' [Collation Support](https://www.postgresql.org/docs/9.6/static/collation.html)
                for more details and supported values. Postgres databases only support
                a value of `en_US.UTF8` at creation time.
-        :param pulumi.Input[_builtins.str] deletion_policy: The deletion policy for the database. Setting ABANDON allows the resource
-               to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-               deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-               values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The name of the Cloud SQL instance. This does not include the project
                ID.
         :param pulumi.Input[_builtins.str] name: The name of the database in the Cloud SQL instance.
@@ -593,12 +605,14 @@ class Database(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
         """
-        The deletion policy for the database. Setting ABANDON allows the resource
-        to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
-        deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
-        values are: "ABANDON", "DELETE". Defaults to "DELETE".
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 

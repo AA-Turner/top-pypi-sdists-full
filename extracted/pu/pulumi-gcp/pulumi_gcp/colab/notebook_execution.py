@@ -24,16 +24,17 @@ class NotebookExecutionArgs:
                  display_name: pulumi.Input[_builtins.str],
                  gcs_output_uri: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 custom_environment_spec: Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']] = None,
-                 dataform_repository_source: Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']] = None,
-                 direct_notebook_source: Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']] = None,
-                 execution_timeout: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_user: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcs_notebook_source: Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']] = None,
-                 notebook_execution_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_runtime_template_resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None):
+                 custom_environment_spec: pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']] = None,
+                 dataform_repository_source: pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 direct_notebook_source: pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']] = None,
+                 execution_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_user: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcs_notebook_source: pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']] = None,
+                 notebook_execution_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_runtime_template_resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NotebookExecution resource.
 
@@ -44,6 +45,12 @@ class NotebookExecutionArgs:
                Structure is documented below.
         :param pulumi.Input['NotebookExecutionDataformRepositorySourceArgs'] dataform_repository_source: The Dataform Repository containing the input notebook.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['NotebookExecutionDirectNotebookSourceArgs'] direct_notebook_source: The content of the input notebook in ipynb format.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs).
@@ -63,6 +70,8 @@ class NotebookExecutionArgs:
             pulumi.set(__self__, "custom_environment_spec", custom_environment_spec)
         if dataform_repository_source is not None:
             pulumi.set(__self__, "dataform_repository_source", dataform_repository_source)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if direct_notebook_source is not None:
             pulumi.set(__self__, "direct_notebook_source", direct_notebook_source)
         if execution_timeout is not None:
@@ -118,7 +127,7 @@ class NotebookExecutionArgs:
 
     @_builtins.property
     @pulumi.getter(name="customEnvironmentSpec")
-    def custom_environment_spec(self) -> Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']]:
+    def custom_environment_spec(self) -> pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']]:
         """
         Compute configuration to use for an execution job
         Structure is documented below.
@@ -126,12 +135,12 @@ class NotebookExecutionArgs:
         return pulumi.get(self, "custom_environment_spec")
 
     @custom_environment_spec.setter
-    def custom_environment_spec(self, value: Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']]):
+    def custom_environment_spec(self, value: pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']]):
         pulumi.set(self, "custom_environment_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataformRepositorySource")
-    def dataform_repository_source(self) -> Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']]:
+    def dataform_repository_source(self) -> pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']]:
         """
         The Dataform Repository containing the input notebook.
         Structure is documented below.
@@ -139,12 +148,29 @@ class NotebookExecutionArgs:
         return pulumi.get(self, "dataform_repository_source")
 
     @dataform_repository_source.setter
-    def dataform_repository_source(self, value: Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']]):
+    def dataform_repository_source(self, value: pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']]):
         pulumi.set(self, "dataform_repository_source", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="directNotebookSource")
-    def direct_notebook_source(self) -> Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']]:
+    def direct_notebook_source(self) -> pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']]:
         """
         The content of the input notebook in ipynb format.
         Structure is documented below.
@@ -152,36 +178,36 @@ class NotebookExecutionArgs:
         return pulumi.get(self, "direct_notebook_source")
 
     @direct_notebook_source.setter
-    def direct_notebook_source(self, value: Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']]):
+    def direct_notebook_source(self, value: pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']]):
         pulumi.set(self, "direct_notebook_source", value)
 
     @_builtins.property
     @pulumi.getter(name="executionTimeout")
-    def execution_timeout(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_timeout(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Max running time of the execution job in seconds (default 86400s / 24 hrs).
         """
         return pulumi.get(self, "execution_timeout")
 
     @execution_timeout.setter
-    def execution_timeout(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_timeout(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_timeout", value)
 
     @_builtins.property
     @pulumi.getter(name="executionUser")
-    def execution_user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user email to run the execution as.
         """
         return pulumi.get(self, "execution_user")
 
     @execution_user.setter
-    def execution_user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_user", value)
 
     @_builtins.property
     @pulumi.getter(name="gcsNotebookSource")
-    def gcs_notebook_source(self) -> Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']]:
+    def gcs_notebook_source(self) -> pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']]:
         """
         The Cloud Storage uri for the input notebook.
         Structure is documented below.
@@ -189,36 +215,36 @@ class NotebookExecutionArgs:
         return pulumi.get(self, "gcs_notebook_source")
 
     @gcs_notebook_source.setter
-    def gcs_notebook_source(self, value: Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']]):
+    def gcs_notebook_source(self, value: pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']]):
         pulumi.set(self, "gcs_notebook_source", value)
 
     @_builtins.property
     @pulumi.getter(name="notebookExecutionJobId")
-    def notebook_execution_job_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notebook_execution_job_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User specified ID for the Notebook Execution Job
         """
         return pulumi.get(self, "notebook_execution_job_id")
 
     @notebook_execution_job_id.setter
-    def notebook_execution_job_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notebook_execution_job_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notebook_execution_job_id", value)
 
     @_builtins.property
     @pulumi.getter(name="notebookRuntimeTemplateResourceName")
-    def notebook_runtime_template_resource_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notebook_runtime_template_resource_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The NotebookRuntimeTemplate to source compute configuration from.
         """
         return pulumi.get(self, "notebook_runtime_template_resource_name")
 
     @notebook_runtime_template_resource_name.setter
-    def notebook_runtime_template_resource_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notebook_runtime_template_resource_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notebook_runtime_template_resource_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -226,38 +252,39 @@ class NotebookExecutionArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The service account to run the execution as.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
 
 @pulumi.input_type
 class _NotebookExecutionState:
     def __init__(__self__, *,
-                 custom_environment_spec: Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']] = None,
-                 dataform_repository_source: Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']] = None,
-                 direct_notebook_source: Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_timeout: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_user: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcs_notebook_source: Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']] = None,
-                 gcs_output_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_execution_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_runtime_template_resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None):
+                 custom_environment_spec: pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']] = None,
+                 dataform_repository_source: pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 direct_notebook_source: pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_user: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcs_notebook_source: pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']] = None,
+                 gcs_output_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_execution_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_runtime_template_resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering NotebookExecution resources.
 
@@ -265,6 +292,12 @@ class _NotebookExecutionState:
                Structure is documented below.
         :param pulumi.Input['NotebookExecutionDataformRepositorySourceArgs'] dataform_repository_source: The Dataform Repository containing the input notebook.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['NotebookExecutionDirectNotebookSourceArgs'] direct_notebook_source: The content of the input notebook in ipynb format.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Notebook Execution.
@@ -284,6 +317,8 @@ class _NotebookExecutionState:
             pulumi.set(__self__, "custom_environment_spec", custom_environment_spec)
         if dataform_repository_source is not None:
             pulumi.set(__self__, "dataform_repository_source", dataform_repository_source)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if direct_notebook_source is not None:
             pulumi.set(__self__, "direct_notebook_source", direct_notebook_source)
         if display_name is not None:
@@ -309,7 +344,7 @@ class _NotebookExecutionState:
 
     @_builtins.property
     @pulumi.getter(name="customEnvironmentSpec")
-    def custom_environment_spec(self) -> Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']]:
+    def custom_environment_spec(self) -> pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']]:
         """
         Compute configuration to use for an execution job
         Structure is documented below.
@@ -317,12 +352,12 @@ class _NotebookExecutionState:
         return pulumi.get(self, "custom_environment_spec")
 
     @custom_environment_spec.setter
-    def custom_environment_spec(self, value: Optional[pulumi.Input['NotebookExecutionCustomEnvironmentSpecArgs']]):
+    def custom_environment_spec(self, value: pulumi.Input[Optional['NotebookExecutionCustomEnvironmentSpecArgs']]):
         pulumi.set(self, "custom_environment_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataformRepositorySource")
-    def dataform_repository_source(self) -> Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']]:
+    def dataform_repository_source(self) -> pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']]:
         """
         The Dataform Repository containing the input notebook.
         Structure is documented below.
@@ -330,12 +365,29 @@ class _NotebookExecutionState:
         return pulumi.get(self, "dataform_repository_source")
 
     @dataform_repository_source.setter
-    def dataform_repository_source(self, value: Optional[pulumi.Input['NotebookExecutionDataformRepositorySourceArgs']]):
+    def dataform_repository_source(self, value: pulumi.Input[Optional['NotebookExecutionDataformRepositorySourceArgs']]):
         pulumi.set(self, "dataform_repository_source", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="directNotebookSource")
-    def direct_notebook_source(self) -> Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']]:
+    def direct_notebook_source(self) -> pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']]:
         """
         The content of the input notebook in ipynb format.
         Structure is documented below.
@@ -343,48 +395,48 @@ class _NotebookExecutionState:
         return pulumi.get(self, "direct_notebook_source")
 
     @direct_notebook_source.setter
-    def direct_notebook_source(self, value: Optional[pulumi.Input['NotebookExecutionDirectNotebookSourceArgs']]):
+    def direct_notebook_source(self, value: pulumi.Input[Optional['NotebookExecutionDirectNotebookSourceArgs']]):
         pulumi.set(self, "direct_notebook_source", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The display name of the Notebook Execution.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="executionTimeout")
-    def execution_timeout(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_timeout(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Max running time of the execution job in seconds (default 86400s / 24 hrs).
         """
         return pulumi.get(self, "execution_timeout")
 
     @execution_timeout.setter
-    def execution_timeout(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_timeout(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_timeout", value)
 
     @_builtins.property
     @pulumi.getter(name="executionUser")
-    def execution_user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def execution_user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user email to run the execution as.
         """
         return pulumi.get(self, "execution_user")
 
     @execution_user.setter
-    def execution_user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def execution_user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "execution_user", value)
 
     @_builtins.property
     @pulumi.getter(name="gcsNotebookSource")
-    def gcs_notebook_source(self) -> Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']]:
+    def gcs_notebook_source(self) -> pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']]:
         """
         The Cloud Storage uri for the input notebook.
         Structure is documented below.
@@ -392,60 +444,60 @@ class _NotebookExecutionState:
         return pulumi.get(self, "gcs_notebook_source")
 
     @gcs_notebook_source.setter
-    def gcs_notebook_source(self, value: Optional[pulumi.Input['NotebookExecutionGcsNotebookSourceArgs']]):
+    def gcs_notebook_source(self, value: pulumi.Input[Optional['NotebookExecutionGcsNotebookSourceArgs']]):
         pulumi.set(self, "gcs_notebook_source", value)
 
     @_builtins.property
     @pulumi.getter(name="gcsOutputUri")
-    def gcs_output_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gcs_output_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Cloud Storage location to upload the result to. Format:`gs://bucket-name`
         """
         return pulumi.get(self, "gcs_output_uri")
 
     @gcs_output_uri.setter
-    def gcs_output_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gcs_output_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gcs_output_uri", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource: https://cloud.google.com/colab/docs/locations
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="notebookExecutionJobId")
-    def notebook_execution_job_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notebook_execution_job_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User specified ID for the Notebook Execution Job
         """
         return pulumi.get(self, "notebook_execution_job_id")
 
     @notebook_execution_job_id.setter
-    def notebook_execution_job_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notebook_execution_job_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notebook_execution_job_id", value)
 
     @_builtins.property
     @pulumi.getter(name="notebookRuntimeTemplateResourceName")
-    def notebook_runtime_template_resource_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notebook_runtime_template_resource_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The NotebookRuntimeTemplate to source compute configuration from.
         """
         return pulumi.get(self, "notebook_runtime_template_resource_name")
 
     @notebook_runtime_template_resource_name.setter
-    def notebook_runtime_template_resource_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notebook_runtime_template_resource_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notebook_runtime_template_resource_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -453,19 +505,19 @@ class _NotebookExecutionState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The service account to run the execution as.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
 
@@ -475,19 +527,20 @@ class NotebookExecution(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 custom_environment_spec: Optional[pulumi.Input[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
-                 dataform_repository_source: Optional[pulumi.Input[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
-                 direct_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_timeout: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_user: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcs_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
-                 gcs_output_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_execution_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_runtime_template_resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
+                 custom_environment_spec: pulumi.Input[Optional[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
+                 dataform_repository_source: pulumi.Input[Optional[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 direct_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_user: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcs_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
+                 gcs_output_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_execution_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_runtime_template_resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         'An instance of a notebook Execution'
@@ -725,7 +778,7 @@ class NotebookExecution(pulumi.CustomResource):
                     name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                "generation": notebook.generation,
+                "generation": notebook.generation.apply(lambda x: str(x)),
             },
             service_account="my@service-account.com",
             gcs_output_uri=output_bucket.name.apply(lambda name: f"gs://{name}"),
@@ -840,6 +893,12 @@ class NotebookExecution(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']] dataform_repository_source: The Dataform Repository containing the input notebook.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']] direct_notebook_source: The content of the input notebook in ipynb format.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Notebook Execution.
@@ -1097,7 +1156,7 @@ class NotebookExecution(pulumi.CustomResource):
                     name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                "generation": notebook.generation,
+                "generation": notebook.generation.apply(lambda x: str(x)),
             },
             service_account="my@service-account.com",
             gcs_output_uri=output_bucket.name.apply(lambda name: f"gs://{name}"),
@@ -1221,19 +1280,20 @@ class NotebookExecution(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 custom_environment_spec: Optional[pulumi.Input[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
-                 dataform_repository_source: Optional[pulumi.Input[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
-                 direct_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_timeout: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_user: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcs_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
-                 gcs_output_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_execution_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebook_runtime_template_resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
+                 custom_environment_spec: pulumi.Input[Optional[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
+                 dataform_repository_source: pulumi.Input[Optional[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 direct_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_user: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcs_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
+                 gcs_output_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_execution_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebook_runtime_template_resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1245,6 +1305,7 @@ class NotebookExecution(pulumi.CustomResource):
 
             __props__.__dict__["custom_environment_spec"] = custom_environment_spec
             __props__.__dict__["dataform_repository_source"] = dataform_repository_source
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["direct_notebook_source"] = direct_notebook_source
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -1272,19 +1333,20 @@ class NotebookExecution(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            custom_environment_spec: Optional[pulumi.Input[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
-            dataform_repository_source: Optional[pulumi.Input[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
-            direct_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            execution_timeout: Optional[pulumi.Input[_builtins.str]] = None,
-            execution_user: Optional[pulumi.Input[_builtins.str]] = None,
-            gcs_notebook_source: Optional[pulumi.Input[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
-            gcs_output_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            notebook_execution_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-            notebook_runtime_template_resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            service_account: Optional[pulumi.Input[_builtins.str]] = None) -> 'NotebookExecution':
+            custom_environment_spec: pulumi.Input[Optional[Union['NotebookExecutionCustomEnvironmentSpecArgs', 'NotebookExecutionCustomEnvironmentSpecArgsDict']]] = None,
+            dataform_repository_source: pulumi.Input[Optional[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            direct_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            execution_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            execution_user: pulumi.Input[Optional[_builtins.str]] = None,
+            gcs_notebook_source: pulumi.Input[Optional[Union['NotebookExecutionGcsNotebookSourceArgs', 'NotebookExecutionGcsNotebookSourceArgsDict']]] = None,
+            gcs_output_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            notebook_execution_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+            notebook_runtime_template_resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            service_account: pulumi.Input[Optional[_builtins.str]] = None) -> 'NotebookExecution':
         """
         Get an existing NotebookExecution resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1296,6 +1358,12 @@ class NotebookExecution(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['NotebookExecutionDataformRepositorySourceArgs', 'NotebookExecutionDataformRepositorySourceArgsDict']] dataform_repository_source: The Dataform Repository containing the input notebook.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['NotebookExecutionDirectNotebookSourceArgs', 'NotebookExecutionDirectNotebookSourceArgsDict']] direct_notebook_source: The content of the input notebook in ipynb format.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Notebook Execution.
@@ -1317,6 +1385,7 @@ class NotebookExecution(pulumi.CustomResource):
 
         __props__.__dict__["custom_environment_spec"] = custom_environment_spec
         __props__.__dict__["dataform_repository_source"] = dataform_repository_source
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["direct_notebook_source"] = direct_notebook_source
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["execution_timeout"] = execution_timeout
@@ -1347,6 +1416,19 @@ class NotebookExecution(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "dataform_repository_source")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="directNotebookSource")

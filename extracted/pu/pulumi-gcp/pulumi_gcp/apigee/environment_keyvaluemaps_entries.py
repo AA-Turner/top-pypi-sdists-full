@@ -21,17 +21,26 @@ class EnvironmentKeyvaluemapsEntriesArgs:
     def __init__(__self__, *,
                  env_keyvaluemap_id: pulumi.Input[_builtins.str],
                  value: pulumi.Input[_builtins.str],
-                 name: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a EnvironmentKeyvaluemapsEntries resource.
 
         :param pulumi.Input[_builtins.str] env_keyvaluemap_id: The Apigee environment keyvalumaps Id associated with the Apigee environment,
                in the format `organizations/{{org_name}}/environments/{{env_name}}/keyvaluemaps/{{keyvaluemap_name}}`.
         :param pulumi.Input[_builtins.str] value: Required. Data or payload that is being retrieved and associated with the unique key.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Required. Resource URI that can be used to identify the scope of the key value map entries.
         """
         pulumi.set(__self__, "env_keyvaluemap_id", env_keyvaluemap_id)
         pulumi.set(__self__, "value", value)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
 
@@ -61,32 +70,58 @@ class EnvironmentKeyvaluemapsEntriesArgs:
         pulumi.set(self, "value", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Resource URI that can be used to identify the scope of the key value map entries.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
 
 @pulumi.input_type
 class _EnvironmentKeyvaluemapsEntriesState:
     def __init__(__self__, *,
-                 env_keyvaluemap_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 value: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_keyvaluemap_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 value: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EnvironmentKeyvaluemapsEntries resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] env_keyvaluemap_id: The Apigee environment keyvalumaps Id associated with the Apigee environment,
                in the format `organizations/{{org_name}}/environments/{{env_name}}/keyvaluemaps/{{keyvaluemap_name}}`.
         :param pulumi.Input[_builtins.str] name: Required. Resource URI that can be used to identify the scope of the key value map entries.
         :param pulumi.Input[_builtins.str] value: Required. Data or payload that is being retrieved and associated with the unique key.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if env_keyvaluemap_id is not None:
             pulumi.set(__self__, "env_keyvaluemap_id", env_keyvaluemap_id)
         if name is not None:
@@ -95,8 +130,25 @@ class _EnvironmentKeyvaluemapsEntriesState:
             pulumi.set(__self__, "value", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="envKeyvaluemapId")
-    def env_keyvaluemap_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def env_keyvaluemap_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee environment keyvalumaps Id associated with the Apigee environment,
         in the format `organizations/{{org_name}}/environments/{{env_name}}/keyvaluemaps/{{keyvaluemap_name}}`.
@@ -104,31 +156,31 @@ class _EnvironmentKeyvaluemapsEntriesState:
         return pulumi.get(self, "env_keyvaluemap_id")
 
     @env_keyvaluemap_id.setter
-    def env_keyvaluemap_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def env_keyvaluemap_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "env_keyvaluemap_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Resource URI that can be used to identify the scope of the key value map entries.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def value(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Data or payload that is being retrieved and associated with the unique key.
         """
         return pulumi.get(self, "value")
 
     @value.setter
-    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def value(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "value", value)
 
 
@@ -138,9 +190,10 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 env_keyvaluemap_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 value: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_keyvaluemap_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 value: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Creates key value entries in a key value map scoped to an environment.
@@ -227,6 +280,12 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] env_keyvaluemap_id: The Apigee environment keyvalumaps Id associated with the Apigee environment,
                in the format `organizations/{{org_name}}/environments/{{env_name}}/keyvaluemaps/{{keyvaluemap_name}}`.
         :param pulumi.Input[_builtins.str] name: Required. Resource URI that can be used to identify the scope of the key value map entries.
@@ -336,9 +395,10 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 env_keyvaluemap_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 value: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_keyvaluemap_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 value: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -348,6 +408,7 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = EnvironmentKeyvaluemapsEntriesArgs.__new__(EnvironmentKeyvaluemapsEntriesArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if env_keyvaluemap_id is None and not opts.urn:
                 raise TypeError("Missing required property 'env_keyvaluemap_id'")
             __props__.__dict__["env_keyvaluemap_id"] = env_keyvaluemap_id
@@ -365,9 +426,10 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            env_keyvaluemap_id: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            value: Optional[pulumi.Input[_builtins.str]] = None) -> 'EnvironmentKeyvaluemapsEntries':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            env_keyvaluemap_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            value: pulumi.Input[Optional[_builtins.str]] = None) -> 'EnvironmentKeyvaluemapsEntries':
         """
         Get an existing EnvironmentKeyvaluemapsEntries resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -375,6 +437,12 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] env_keyvaluemap_id: The Apigee environment keyvalumaps Id associated with the Apigee environment,
                in the format `organizations/{{org_name}}/environments/{{env_name}}/keyvaluemaps/{{keyvaluemap_name}}`.
         :param pulumi.Input[_builtins.str] name: Required. Resource URI that can be used to identify the scope of the key value map entries.
@@ -384,10 +452,24 @@ class EnvironmentKeyvaluemapsEntries(pulumi.CustomResource):
 
         __props__ = _EnvironmentKeyvaluemapsEntriesState.__new__(_EnvironmentKeyvaluemapsEntriesState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["env_keyvaluemap_id"] = env_keyvaluemap_id
         __props__.__dict__["name"] = name
         __props__.__dict__["value"] = value
         return EnvironmentKeyvaluemapsEntries(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="envKeyvaluemapId")

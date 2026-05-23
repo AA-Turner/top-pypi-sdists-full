@@ -22,15 +22,16 @@ __all__ = ['ProjectSinkArgs', 'ProjectSink']
 class ProjectSinkArgs:
     def __init__(__self__, *,
                  destination: pulumi.Input[_builtins.str],
-                 bigquery_options: Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']] = None,
-                 custom_writer_identity: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 unique_writer_identity: Optional[pulumi.Input[_builtins.bool]] = None):
+                 bigquery_options: pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']] = None,
+                 custom_writer_identity: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 unique_writer_identity: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ProjectSink resource.
 
@@ -48,6 +49,12 @@ class ProjectSinkArgs:
                the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
                routing logs to a destination outside this sink's project. If not specified, a Logging service account
                will automatically be generated.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this sink is disabled and it does not export any log entries.
         :param pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]] exclusions: Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
@@ -66,6 +73,8 @@ class ProjectSinkArgs:
             pulumi.set(__self__, "bigquery_options", bigquery_options)
         if custom_writer_identity is not None:
             pulumi.set(__self__, "custom_writer_identity", custom_writer_identity)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -103,19 +112,19 @@ class ProjectSinkArgs:
 
     @_builtins.property
     @pulumi.getter(name="bigqueryOptions")
-    def bigquery_options(self) -> Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']]:
+    def bigquery_options(self) -> pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']]:
         """
         Options that affect sinks exporting data to BigQuery. Structure documented below.
         """
         return pulumi.get(self, "bigquery_options")
 
     @bigquery_options.setter
-    def bigquery_options(self, value: Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']]):
+    def bigquery_options(self, value: pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']]):
         pulumi.set(self, "bigquery_options", value)
 
     @_builtins.property
     @pulumi.getter(name="customWriterIdentity")
-    def custom_writer_identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_writer_identity(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user managed service account that will be used to write
         the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
@@ -125,48 +134,65 @@ class ProjectSinkArgs:
         return pulumi.get(self, "custom_writer_identity")
 
     @custom_writer_identity.setter
-    def custom_writer_identity(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_writer_identity(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_writer_identity", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this sink. The maximum length of the description is 8000 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this sink is disabled and it does not export any log entries.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def exclusions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]:
+    def exclusions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]:
         """
         Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
         """
         return pulumi.get(self, "exclusions")
 
     @exclusions.setter
-    def exclusions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]):
+    def exclusions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]):
         pulumi.set(self, "exclusions", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The filter to apply when exporting logs. Only log entries that match the filter are exported.
         See [Advanced Log Filters](https://cloud.google.com/logging/docs/view/advanced_filters) for information on how to
@@ -175,24 +201,24 @@ class ProjectSinkArgs:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the logging sink. Logging automatically creates two sinks: `_Required` and `_Default`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project to create the sink in. If omitted, the project associated with the provider is
         used.
@@ -200,12 +226,12 @@ class ProjectSinkArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="uniqueWriterIdentity")
-    def unique_writer_identity(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def unique_writer_identity(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to create a unique identity associated with this sink. If `false`, then the `writer_identity` used is `serviceAccount:cloud-logs@system.gserviceaccount.com`. If `true` (the default),
         then a unique service account is created and used for this sink. If you wish to publish logs across projects or utilize
@@ -214,24 +240,25 @@ class ProjectSinkArgs:
         return pulumi.get(self, "unique_writer_identity")
 
     @unique_writer_identity.setter
-    def unique_writer_identity(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def unique_writer_identity(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "unique_writer_identity", value)
 
 
 @pulumi.input_type
 class _ProjectSinkState:
     def __init__(__self__, *,
-                 bigquery_options: Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']] = None,
-                 custom_writer_identity: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 unique_writer_identity: Optional[pulumi.Input[_builtins.bool]] = None,
-                 writer_identity: Optional[pulumi.Input[_builtins.str]] = None):
+                 bigquery_options: pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']] = None,
+                 custom_writer_identity: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 unique_writer_identity: pulumi.Input[Optional[_builtins.bool]] = None,
+                 writer_identity: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ProjectSink resources.
 
@@ -240,6 +267,12 @@ class _ProjectSinkState:
                the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
                routing logs to a destination outside this sink's project. If not specified, a Logging service account
                will automatically be generated.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a Cloud Storage bucket, a PubSub topic, a BigQuery dataset, a Cloud Logging bucket, or a Google Cloud project. Examples:
                
@@ -268,6 +301,8 @@ class _ProjectSinkState:
             pulumi.set(__self__, "bigquery_options", bigquery_options)
         if custom_writer_identity is not None:
             pulumi.set(__self__, "custom_writer_identity", custom_writer_identity)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if destination is not None:
@@ -289,19 +324,19 @@ class _ProjectSinkState:
 
     @_builtins.property
     @pulumi.getter(name="bigqueryOptions")
-    def bigquery_options(self) -> Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']]:
+    def bigquery_options(self) -> pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']]:
         """
         Options that affect sinks exporting data to BigQuery. Structure documented below.
         """
         return pulumi.get(self, "bigquery_options")
 
     @bigquery_options.setter
-    def bigquery_options(self, value: Optional[pulumi.Input['ProjectSinkBigqueryOptionsArgs']]):
+    def bigquery_options(self, value: pulumi.Input[Optional['ProjectSinkBigqueryOptionsArgs']]):
         pulumi.set(self, "bigquery_options", value)
 
     @_builtins.property
     @pulumi.getter(name="customWriterIdentity")
-    def custom_writer_identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def custom_writer_identity(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user managed service account that will be used to write
         the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
@@ -311,24 +346,41 @@ class _ProjectSinkState:
         return pulumi.get(self, "custom_writer_identity")
 
     @custom_writer_identity.setter
-    def custom_writer_identity(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def custom_writer_identity(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "custom_writer_identity", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this sink. The maximum length of the description is 8000 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def destination(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The destination of the sink (or, in other words, where logs are written to). Can be a Cloud Storage bucket, a PubSub topic, a BigQuery dataset, a Cloud Logging bucket, or a Google Cloud project. Examples:
 
@@ -343,36 +395,36 @@ class _ProjectSinkState:
         return pulumi.get(self, "destination")
 
     @destination.setter
-    def destination(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this sink is disabled and it does not export any log entries.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def exclusions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]:
+    def exclusions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]:
         """
         Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
         """
         return pulumi.get(self, "exclusions")
 
     @exclusions.setter
-    def exclusions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]):
+    def exclusions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ProjectSinkExclusionArgs']]]]):
         pulumi.set(self, "exclusions", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The filter to apply when exporting logs. Only log entries that match the filter are exported.
         See [Advanced Log Filters](https://cloud.google.com/logging/docs/view/advanced_filters) for information on how to
@@ -381,24 +433,24 @@ class _ProjectSinkState:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the logging sink. Logging automatically creates two sinks: `_Required` and `_Default`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project to create the sink in. If omitted, the project associated with the provider is
         used.
@@ -406,12 +458,12 @@ class _ProjectSinkState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="uniqueWriterIdentity")
-    def unique_writer_identity(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def unique_writer_identity(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to create a unique identity associated with this sink. If `false`, then the `writer_identity` used is `serviceAccount:cloud-logs@system.gserviceaccount.com`. If `true` (the default),
         then a unique service account is created and used for this sink. If you wish to publish logs across projects or utilize
@@ -420,12 +472,12 @@ class _ProjectSinkState:
         return pulumi.get(self, "unique_writer_identity")
 
     @unique_writer_identity.setter
-    def unique_writer_identity(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def unique_writer_identity(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "unique_writer_identity", value)
 
     @_builtins.property
     @pulumi.getter(name="writerIdentity")
-    def writer_identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def writer_identity(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The identity associated with this sink. This identity must be granted write access to the
         configured `destination`.
@@ -433,7 +485,7 @@ class _ProjectSinkState:
         return pulumi.get(self, "writer_identity")
 
     @writer_identity.setter
-    def writer_identity(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def writer_identity(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "writer_identity", value)
 
 
@@ -443,16 +495,17 @@ class ProjectSink(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bigquery_options: Optional[pulumi.Input[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
-                 custom_writer_identity: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 unique_writer_identity: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bigquery_options: pulumi.Input[Optional[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
+                 custom_writer_identity: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 unique_writer_identity: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         Manages a project-level logging sink. For more information see:
@@ -607,6 +660,12 @@ class ProjectSink(pulumi.CustomResource):
                the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
                routing logs to a destination outside this sink's project. If not specified, a Logging service account
                will automatically be generated.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a Cloud Storage bucket, a PubSub topic, a BigQuery dataset, a Cloud Logging bucket, or a Google Cloud project. Examples:
                
@@ -796,16 +855,17 @@ class ProjectSink(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bigquery_options: Optional[pulumi.Input[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
-                 custom_writer_identity: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 unique_writer_identity: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bigquery_options: pulumi.Input[Optional[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
+                 custom_writer_identity: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 unique_writer_identity: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -817,6 +877,7 @@ class ProjectSink(pulumi.CustomResource):
 
             __props__.__dict__["bigquery_options"] = bigquery_options
             __props__.__dict__["custom_writer_identity"] = custom_writer_identity
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if destination is None and not opts.urn:
                 raise TypeError("Missing required property 'destination'")
@@ -838,17 +899,18 @@ class ProjectSink(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bigquery_options: Optional[pulumi.Input[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
-            custom_writer_identity: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            destination: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
-            filter: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            unique_writer_identity: Optional[pulumi.Input[_builtins.bool]] = None,
-            writer_identity: Optional[pulumi.Input[_builtins.str]] = None) -> 'ProjectSink':
+            bigquery_options: pulumi.Input[Optional[Union['ProjectSinkBigqueryOptionsArgs', 'ProjectSinkBigqueryOptionsArgsDict']]] = None,
+            custom_writer_identity: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            destination: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ProjectSinkExclusionArgs', 'ProjectSinkExclusionArgsDict']]]]] = None,
+            filter: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            unique_writer_identity: pulumi.Input[Optional[_builtins.bool]] = None,
+            writer_identity: pulumi.Input[Optional[_builtins.str]] = None) -> 'ProjectSink':
         """
         Get an existing ProjectSink resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -861,6 +923,12 @@ class ProjectSink(pulumi.CustomResource):
                the log entries. The format must be `serviceAccount:some@email`. This field can only be specified if you are
                routing logs to a destination outside this sink's project. If not specified, a Logging service account
                will automatically be generated.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a Cloud Storage bucket, a PubSub topic, a BigQuery dataset, a Cloud Logging bucket, or a Google Cloud project. Examples:
                
@@ -891,6 +959,7 @@ class ProjectSink(pulumi.CustomResource):
 
         __props__.__dict__["bigquery_options"] = bigquery_options
         __props__.__dict__["custom_writer_identity"] = custom_writer_identity
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["destination"] = destination
         __props__.__dict__["disabled"] = disabled
@@ -920,6 +989,19 @@ class ProjectSink(pulumi.CustomResource):
         will automatically be generated.
         """
         return pulumi.get(self, "custom_writer_identity")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

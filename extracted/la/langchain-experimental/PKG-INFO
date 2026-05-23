@@ -1,20 +1,23 @@
 Metadata-Version: 2.1
 Name: langchain-experimental
-Version: 0.4.1
+Version: 0.4.2
 Summary: Building applications with LLMs through composability
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-experimental/tree/main/libs/experimental
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-experimental/releases
 Project-URL: repository, https://github.com/langchain-ai/langchain-experimental
 Requires-Python: <4.0,>=3.10
-Requires-Dist: langchain-core<2.0.0,>=1.0.0
-Requires-Dist: langchain-community<1.0.0,>=0.4.0
+Requires-Dist: langchain-core<2.0.0,>=1.4.0
+Requires-Dist: langchain-community<1.0.0,>=0.4.2
 Description-Content-Type: text/markdown
 
 # 🦜️🧪 LangChain Experimental
 
 This package holds experimental LangChain code, intended for research and experimental
 uses.
+
+> [!WARNING]
+> **`langchain-experimental` is being sunset.** See [#87](https://github.com/langchain-ai/langchain-experimental/issues/87) for details. Thank you to everyone who has contributed ideas, prototypes, fixes, reviews, and maintenance over the years.
 
 > [!WARNING]
 > Portions of the code in this package may be dangerous if not properly deployed

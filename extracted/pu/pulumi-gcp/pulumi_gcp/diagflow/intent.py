@@ -22,17 +22,18 @@ __all__ = ['IntentArgs', 'Intent']
 class IntentArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_response_platforms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 events: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 input_context_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 is_fallback: Optional[pulumi.Input[_builtins.bool]] = None,
-                 ml_disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 parent_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reset_contexts: Optional[pulumi.Input[_builtins.bool]] = None,
-                 webhook_state: Optional[pulumi.Input[_builtins.str]] = None):
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_response_platforms: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 events: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 input_context_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 is_fallback: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ml_disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 parent_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reset_contexts: pulumi.Input[Optional[_builtins.bool]] = None,
+                 webhook_state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Intent resource.
 
@@ -42,6 +43,12 @@ class IntentArgs:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] default_response_platforms: The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
                (i.e. default platform).
                Each value may be one of: `FACEBOOK`, `SLACK`, `TELEGRAM`, `KIK`, `SKYPE`, `LINE`, `VIBER`, `ACTIONS_ON_GOOGLE`, `GOOGLE_HANGOUTS`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
                the contexts must be present in the active user session for an event to trigger this intent. See the
                [events reference](https://cloud.google.com/dialogflow/docs/events-overview) for more details.
@@ -71,6 +78,8 @@ class IntentArgs:
             pulumi.set(__self__, "action", action)
         if default_response_platforms is not None:
             pulumi.set(__self__, "default_response_platforms", default_response_platforms)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if events is not None:
             pulumi.set(__self__, "events", events)
         if input_context_names is not None:
@@ -104,7 +113,7 @@ class IntentArgs:
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def action(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the action associated with the intent.
         Note: The action name must not contain whitespaces.
@@ -112,12 +121,12 @@ class IntentArgs:
         return pulumi.get(self, "action")
 
     @action.setter
-    def action(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def action(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "action", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultResponsePlatforms")
-    def default_response_platforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def default_response_platforms(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
         (i.e. default platform).
@@ -126,12 +135,29 @@ class IntentArgs:
         return pulumi.get(self, "default_response_platforms")
 
     @default_response_platforms.setter
-    def default_response_platforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def default_response_platforms(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "default_response_platforms", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def events(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def events(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
         the contexts must be present in the active user session for an event to trigger this intent. See the
@@ -140,12 +166,12 @@ class IntentArgs:
         return pulumi.get(self, "events")
 
     @events.setter
-    def events(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def events(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "events", value)
 
     @_builtins.property
     @pulumi.getter(name="inputContextNames")
-    def input_context_names(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def input_context_names(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of context names required for this intent to be triggered.
         Format: projects/<Project ID>/agent/sessions/-/contexts/<Context ID>.
@@ -153,24 +179,24 @@ class IntentArgs:
         return pulumi.get(self, "input_context_names")
 
     @input_context_names.setter
-    def input_context_names(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def input_context_names(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "input_context_names", value)
 
     @_builtins.property
     @pulumi.getter(name="isFallback")
-    def is_fallback(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_fallback(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether this is a fallback intent.
         """
         return pulumi.get(self, "is_fallback")
 
     @is_fallback.setter
-    def is_fallback(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_fallback(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_fallback", value)
 
     @_builtins.property
     @pulumi.getter(name="mlDisabled")
-    def ml_disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def ml_disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether Machine Learning is disabled for the intent.
         Note: If mlDisabled setting is set to true, then this intent is not taken into account during inference in ML
@@ -179,12 +205,12 @@ class IntentArgs:
         return pulumi.get(self, "ml_disabled")
 
     @ml_disabled.setter
-    def ml_disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def ml_disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "ml_disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="parentFollowupIntentName")
-    def parent_followup_intent_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent_followup_intent_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the parent intent in the chain of followup intents.
         Format: projects/<Project ID>/agent/intents/<Intent ID>.
@@ -192,12 +218,12 @@ class IntentArgs:
         return pulumi.get(self, "parent_followup_intent_name")
 
     @parent_followup_intent_name.setter
-    def parent_followup_intent_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent_followup_intent_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent_followup_intent_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The priority of this intent. Higher numbers represent higher priorities.
         - If the supplied value is unspecified or 0, the service translates the value to 500,000, which corresponds
@@ -207,12 +233,12 @@ class IntentArgs:
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -220,24 +246,24 @@ class IntentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resetContexts")
-    def reset_contexts(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reset_contexts(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether to delete all contexts in the current session when this intent is matched.
         """
         return pulumi.get(self, "reset_contexts")
 
     @reset_contexts.setter
-    def reset_contexts(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reset_contexts(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reset_contexts", value)
 
     @_builtins.property
     @pulumi.getter(name="webhookState")
-    def webhook_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def webhook_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates whether webhooks are enabled for the intent.
         * WEBHOOK_STATE_ENABLED: Webhook is enabled in the agent and in the intent.
@@ -248,28 +274,29 @@ class IntentArgs:
         return pulumi.get(self, "webhook_state")
 
     @webhook_state.setter
-    def webhook_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def webhook_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "webhook_state", value)
 
 
 @pulumi.input_type
 class _IntentState:
     def __init__(__self__, *,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_response_platforms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 events: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 followup_intent_infos: Optional[pulumi.Input[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]] = None,
-                 input_context_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 is_fallback: Optional[pulumi.Input[_builtins.bool]] = None,
-                 ml_disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reset_contexts: Optional[pulumi.Input[_builtins.bool]] = None,
-                 root_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 webhook_state: Optional[pulumi.Input[_builtins.str]] = None):
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_response_platforms: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 events: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 followup_intent_infos: pulumi.Input[Optional[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]] = None,
+                 input_context_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 is_fallback: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ml_disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reset_contexts: pulumi.Input[Optional[_builtins.bool]] = None,
+                 root_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 webhook_state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Intent resources.
 
@@ -278,6 +305,12 @@ class _IntentState:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] default_response_platforms: The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
                (i.e. default platform).
                Each value may be one of: `FACEBOOK`, `SLACK`, `TELEGRAM`, `KIK`, `SKYPE`, `LINE`, `VIBER`, `ACTIONS_ON_GOOGLE`, `GOOGLE_HANGOUTS`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this intent to be displayed on the console.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
                the contexts must be present in the active user session for an event to trigger this intent. See the
@@ -315,6 +348,8 @@ class _IntentState:
             pulumi.set(__self__, "action", action)
         if default_response_platforms is not None:
             pulumi.set(__self__, "default_response_platforms", default_response_platforms)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if events is not None:
@@ -344,7 +379,7 @@ class _IntentState:
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def action(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the action associated with the intent.
         Note: The action name must not contain whitespaces.
@@ -352,12 +387,12 @@ class _IntentState:
         return pulumi.get(self, "action")
 
     @action.setter
-    def action(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def action(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "action", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultResponsePlatforms")
-    def default_response_platforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def default_response_platforms(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
         (i.e. default platform).
@@ -366,24 +401,41 @@ class _IntentState:
         return pulumi.get(self, "default_response_platforms")
 
     @default_response_platforms.setter
-    def default_response_platforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def default_response_platforms(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "default_response_platforms", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this intent to be displayed on the console.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def events(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def events(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
         the contexts must be present in the active user session for an event to trigger this intent. See the
@@ -392,12 +444,12 @@ class _IntentState:
         return pulumi.get(self, "events")
 
     @events.setter
-    def events(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def events(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "events", value)
 
     @_builtins.property
     @pulumi.getter(name="followupIntentInfos")
-    def followup_intent_infos(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]]:
+    def followup_intent_infos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]]:
         """
         Information about all followup intents that have this intent as a direct or indirect parent. We populate this field
         only in the output.
@@ -406,12 +458,12 @@ class _IntentState:
         return pulumi.get(self, "followup_intent_infos")
 
     @followup_intent_infos.setter
-    def followup_intent_infos(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]]):
+    def followup_intent_infos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['IntentFollowupIntentInfoArgs']]]]):
         pulumi.set(self, "followup_intent_infos", value)
 
     @_builtins.property
     @pulumi.getter(name="inputContextNames")
-    def input_context_names(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def input_context_names(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of context names required for this intent to be triggered.
         Format: projects/<Project ID>/agent/sessions/-/contexts/<Context ID>.
@@ -419,24 +471,24 @@ class _IntentState:
         return pulumi.get(self, "input_context_names")
 
     @input_context_names.setter
-    def input_context_names(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def input_context_names(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "input_context_names", value)
 
     @_builtins.property
     @pulumi.getter(name="isFallback")
-    def is_fallback(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_fallback(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether this is a fallback intent.
         """
         return pulumi.get(self, "is_fallback")
 
     @is_fallback.setter
-    def is_fallback(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_fallback(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_fallback", value)
 
     @_builtins.property
     @pulumi.getter(name="mlDisabled")
-    def ml_disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def ml_disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether Machine Learning is disabled for the intent.
         Note: If mlDisabled setting is set to true, then this intent is not taken into account during inference in ML
@@ -445,12 +497,12 @@ class _IntentState:
         return pulumi.get(self, "ml_disabled")
 
     @ml_disabled.setter
-    def ml_disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def ml_disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "ml_disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of this intent.
         Format: projects/<Project ID>/agent/intents/<Intent ID>.
@@ -458,12 +510,12 @@ class _IntentState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="parentFollowupIntentName")
-    def parent_followup_intent_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent_followup_intent_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the parent intent in the chain of followup intents.
         Format: projects/<Project ID>/agent/intents/<Intent ID>.
@@ -471,12 +523,12 @@ class _IntentState:
         return pulumi.get(self, "parent_followup_intent_name")
 
     @parent_followup_intent_name.setter
-    def parent_followup_intent_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent_followup_intent_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent_followup_intent_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The priority of this intent. Higher numbers represent higher priorities.
         - If the supplied value is unspecified or 0, the service translates the value to 500,000, which corresponds
@@ -486,12 +538,12 @@ class _IntentState:
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -499,24 +551,24 @@ class _IntentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resetContexts")
-    def reset_contexts(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reset_contexts(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether to delete all contexts in the current session when this intent is matched.
         """
         return pulumi.get(self, "reset_contexts")
 
     @reset_contexts.setter
-    def reset_contexts(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reset_contexts(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reset_contexts", value)
 
     @_builtins.property
     @pulumi.getter(name="rootFollowupIntentName")
-    def root_followup_intent_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def root_followup_intent_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the root intent in the chain of followup intents. It identifies the correct followup
         intents chain for this intent.
@@ -525,12 +577,12 @@ class _IntentState:
         return pulumi.get(self, "root_followup_intent_name")
 
     @root_followup_intent_name.setter
-    def root_followup_intent_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def root_followup_intent_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "root_followup_intent_name", value)
 
     @_builtins.property
     @pulumi.getter(name="webhookState")
-    def webhook_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def webhook_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates whether webhooks are enabled for the intent.
         * WEBHOOK_STATE_ENABLED: Webhook is enabled in the agent and in the intent.
@@ -541,7 +593,7 @@ class _IntentState:
         return pulumi.get(self, "webhook_state")
 
     @webhook_state.setter
-    def webhook_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def webhook_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "webhook_state", value)
 
 
@@ -551,18 +603,19 @@ class Intent(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_response_platforms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 events: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 input_context_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 is_fallback: Optional[pulumi.Input[_builtins.bool]] = None,
-                 ml_disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 parent_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reset_contexts: Optional[pulumi.Input[_builtins.bool]] = None,
-                 webhook_state: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_response_platforms: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 events: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 input_context_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 is_fallback: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ml_disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 parent_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reset_contexts: pulumi.Input[Optional[_builtins.bool]] = None,
+                 webhook_state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a Dialogflow intent. Intents convert a number of user expressions or patterns into an action. An action
@@ -652,6 +705,12 @@ class Intent(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] default_response_platforms: The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
                (i.e. default platform).
                Each value may be one of: `FACEBOOK`, `SLACK`, `TELEGRAM`, `KIK`, `SKYPE`, `LINE`, `VIBER`, `ACTIONS_ON_GOOGLE`, `GOOGLE_HANGOUTS`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this intent to be displayed on the console.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
                the contexts must be present in the active user session for an event to trigger this intent. See the
@@ -779,18 +838,19 @@ class Intent(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_response_platforms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 events: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 input_context_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 is_fallback: Optional[pulumi.Input[_builtins.bool]] = None,
-                 ml_disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 parent_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reset_contexts: Optional[pulumi.Input[_builtins.bool]] = None,
-                 webhook_state: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_response_platforms: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 events: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 input_context_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 is_fallback: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ml_disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 parent_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reset_contexts: pulumi.Input[Optional[_builtins.bool]] = None,
+                 webhook_state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -802,6 +862,7 @@ class Intent(pulumi.CustomResource):
 
             __props__.__dict__["action"] = action
             __props__.__dict__["default_response_platforms"] = default_response_platforms
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -827,21 +888,22 @@ class Intent(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            action: Optional[pulumi.Input[_builtins.str]] = None,
-            default_response_platforms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            events: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            followup_intent_infos: Optional[pulumi.Input[Sequence[pulumi.Input[Union['IntentFollowupIntentInfoArgs', 'IntentFollowupIntentInfoArgsDict']]]]] = None,
-            input_context_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            is_fallback: Optional[pulumi.Input[_builtins.bool]] = None,
-            ml_disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-            priority: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            reset_contexts: Optional[pulumi.Input[_builtins.bool]] = None,
-            root_followup_intent_name: Optional[pulumi.Input[_builtins.str]] = None,
-            webhook_state: Optional[pulumi.Input[_builtins.str]] = None) -> 'Intent':
+            action: pulumi.Input[Optional[_builtins.str]] = None,
+            default_response_platforms: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            events: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            followup_intent_infos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['IntentFollowupIntentInfoArgs', 'IntentFollowupIntentInfoArgsDict']]]]] = None,
+            input_context_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            is_fallback: pulumi.Input[Optional[_builtins.bool]] = None,
+            ml_disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            reset_contexts: pulumi.Input[Optional[_builtins.bool]] = None,
+            root_followup_intent_name: pulumi.Input[Optional[_builtins.str]] = None,
+            webhook_state: pulumi.Input[Optional[_builtins.str]] = None) -> 'Intent':
         """
         Get an existing Intent resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -854,6 +916,12 @@ class Intent(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] default_response_platforms: The list of platforms for which the first responses will be copied from the messages in PLATFORM_UNSPECIFIED
                (i.e. default platform).
                Each value may be one of: `FACEBOOK`, `SLACK`, `TELEGRAM`, `KIK`, `SKYPE`, `LINE`, `VIBER`, `ACTIONS_ON_GOOGLE`, `GOOGLE_HANGOUTS`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this intent to be displayed on the console.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: The collection of event names that trigger the intent. If the collection of input contexts is not empty, all of
                the contexts must be present in the active user session for an event to trigger this intent. See the
@@ -893,6 +961,7 @@ class Intent(pulumi.CustomResource):
 
         __props__.__dict__["action"] = action
         __props__.__dict__["default_response_platforms"] = default_response_platforms
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["events"] = events
         __props__.__dict__["followup_intent_infos"] = followup_intent_infos
@@ -926,6 +995,19 @@ class Intent(pulumi.CustomResource):
         Each value may be one of: `FACEBOOK`, `SLACK`, `TELEGRAM`, `KIK`, `SKYPE`, `LINE`, `VIBER`, `ACTIONS_ON_GOOGLE`, `GOOGLE_HANGOUTS`.
         """
         return pulumi.get(self, "default_response_platforms")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

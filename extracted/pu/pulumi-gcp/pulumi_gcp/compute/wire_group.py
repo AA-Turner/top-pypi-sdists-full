@@ -22,18 +22,25 @@ __all__ = ['WireGroupArgs', 'WireGroup']
 class WireGroupArgs:
     def __init__(__self__, *,
                  cross_site_network: pulumi.Input[_builtins.str],
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoints: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 wire_group_properties: Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']] = None,
-                 wire_properties: Optional[pulumi.Input['WireGroupWirePropertiesArgs']] = None):
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoints: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 wire_group_properties: pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']] = None,
+                 wire_properties: pulumi.Input[Optional['WireGroupWirePropertiesArgs']] = None):
         """
         The set of arguments for constructing a WireGroup resource.
 
         :param pulumi.Input[_builtins.str] cross_site_network: Required cross site network to which wire group belongs.
         :param pulumi.Input[_builtins.bool] admin_enabled: Indicates whether the wire group is administratively enabled.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]] endpoints: Endpoints grouped by location, each mapping to interconnect configurations.
                Structure is documented below.
@@ -53,6 +60,8 @@ class WireGroupArgs:
         pulumi.set(__self__, "cross_site_network", cross_site_network)
         if admin_enabled is not None:
             pulumi.set(__self__, "admin_enabled", admin_enabled)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if endpoints is not None:
@@ -80,31 +89,48 @@ class WireGroupArgs:
 
     @_builtins.property
     @pulumi.getter(name="adminEnabled")
-    def admin_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def admin_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether the wire group is administratively enabled.
         """
         return pulumi.get(self, "admin_enabled")
 
     @admin_enabled.setter
-    def admin_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def admin_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "admin_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def endpoints(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]:
+    def endpoints(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]:
         """
         Endpoints grouped by location, each mapping to interconnect configurations.
         Structure is documented below.
@@ -112,12 +138,12 @@ class WireGroupArgs:
         return pulumi.get(self, "endpoints")
 
     @endpoints.setter
-    def endpoints(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]):
+    def endpoints(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]):
         pulumi.set(self, "endpoints", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is created. The name must be
         1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -128,12 +154,12 @@ class WireGroupArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -141,12 +167,12 @@ class WireGroupArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="wireGroupProperties")
-    def wire_group_properties(self) -> Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']]:
+    def wire_group_properties(self) -> pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']]:
         """
         (Optional, Beta)
         Properties specific to the wire group.
@@ -155,12 +181,12 @@ class WireGroupArgs:
         return pulumi.get(self, "wire_group_properties")
 
     @wire_group_properties.setter
-    def wire_group_properties(self, value: Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']]):
+    def wire_group_properties(self, value: pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']]):
         pulumi.set(self, "wire_group_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="wireProperties")
-    def wire_properties(self) -> Optional[pulumi.Input['WireGroupWirePropertiesArgs']]:
+    def wire_properties(self) -> pulumi.Input[Optional['WireGroupWirePropertiesArgs']]:
         """
         Default properties for wires within the group.
         Structure is documented below.
@@ -168,30 +194,37 @@ class WireGroupArgs:
         return pulumi.get(self, "wire_properties")
 
     @wire_properties.setter
-    def wire_properties(self, value: Optional[pulumi.Input['WireGroupWirePropertiesArgs']]):
+    def wire_properties(self, value: pulumi.Input[Optional['WireGroupWirePropertiesArgs']]):
         pulumi.set(self, "wire_properties", value)
 
 
 @pulumi.input_type
 class _WireGroupState:
     def __init__(__self__, *,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 cross_site_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoints: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 topologies: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupTopologyArgs']]]] = None,
-                 wire_group_properties: Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']] = None,
-                 wire_properties: Optional[pulumi.Input['WireGroupWirePropertiesArgs']] = None,
-                 wires: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupWireArgs']]]] = None):
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 cross_site_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoints: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 topologies: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupTopologyArgs']]]] = None,
+                 wire_group_properties: pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']] = None,
+                 wire_properties: pulumi.Input[Optional['WireGroupWirePropertiesArgs']] = None,
+                 wires: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupWireArgs']]]] = None):
         """
         Input properties used for looking up and filtering WireGroup resources.
 
         :param pulumi.Input[_builtins.bool] admin_enabled: Indicates whether the wire group is administratively enabled.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
         :param pulumi.Input[_builtins.str] cross_site_network: Required cross site network to which wire group belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]] endpoints: Endpoints grouped by location, each mapping to interconnect configurations.
                Structure is documented below.
@@ -218,6 +251,8 @@ class _WireGroupState:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
         if cross_site_network is not None:
             pulumi.set(__self__, "cross_site_network", cross_site_network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if endpoints is not None:
@@ -237,55 +272,72 @@ class _WireGroupState:
 
     @_builtins.property
     @pulumi.getter(name="adminEnabled")
-    def admin_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def admin_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether the wire group is administratively enabled.
         """
         return pulumi.get(self, "admin_enabled")
 
     @admin_enabled.setter
-    def admin_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def admin_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "admin_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
     @pulumi.getter(name="crossSiteNetwork")
-    def cross_site_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cross_site_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required cross site network to which wire group belongs.
         """
         return pulumi.get(self, "cross_site_network")
 
     @cross_site_network.setter
-    def cross_site_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cross_site_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cross_site_network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def endpoints(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]:
+    def endpoints(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]:
         """
         Endpoints grouped by location, each mapping to interconnect configurations.
         Structure is documented below.
@@ -293,12 +345,12 @@ class _WireGroupState:
         return pulumi.get(self, "endpoints")
 
     @endpoints.setter
-    def endpoints(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]):
+    def endpoints(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupEndpointArgs']]]]):
         pulumi.set(self, "endpoints", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is created. The name must be
         1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -309,12 +361,12 @@ class _WireGroupState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -322,12 +374,12 @@ class _WireGroupState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def topologies(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupTopologyArgs']]]]:
+    def topologies(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupTopologyArgs']]]]:
         """
         Topology details for the wire group configuration.
         Structure is documented below.
@@ -335,12 +387,12 @@ class _WireGroupState:
         return pulumi.get(self, "topologies")
 
     @topologies.setter
-    def topologies(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupTopologyArgs']]]]):
+    def topologies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupTopologyArgs']]]]):
         pulumi.set(self, "topologies", value)
 
     @_builtins.property
     @pulumi.getter(name="wireGroupProperties")
-    def wire_group_properties(self) -> Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']]:
+    def wire_group_properties(self) -> pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']]:
         """
         (Optional, Beta)
         Properties specific to the wire group.
@@ -349,12 +401,12 @@ class _WireGroupState:
         return pulumi.get(self, "wire_group_properties")
 
     @wire_group_properties.setter
-    def wire_group_properties(self, value: Optional[pulumi.Input['WireGroupWireGroupPropertiesArgs']]):
+    def wire_group_properties(self, value: pulumi.Input[Optional['WireGroupWireGroupPropertiesArgs']]):
         pulumi.set(self, "wire_group_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="wireProperties")
-    def wire_properties(self) -> Optional[pulumi.Input['WireGroupWirePropertiesArgs']]:
+    def wire_properties(self) -> pulumi.Input[Optional['WireGroupWirePropertiesArgs']]:
         """
         Default properties for wires within the group.
         Structure is documented below.
@@ -362,12 +414,12 @@ class _WireGroupState:
         return pulumi.get(self, "wire_properties")
 
     @wire_properties.setter
-    def wire_properties(self, value: Optional[pulumi.Input['WireGroupWirePropertiesArgs']]):
+    def wire_properties(self, value: pulumi.Input[Optional['WireGroupWirePropertiesArgs']]):
         pulumi.set(self, "wire_properties", value)
 
     @_builtins.property
     @pulumi.getter
-    def wires(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupWireArgs']]]]:
+    def wires(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupWireArgs']]]]:
         """
         The single/redundant wire(s) managed by the wire group.
         Structure is documented below.
@@ -375,7 +427,7 @@ class _WireGroupState:
         return pulumi.get(self, "wires")
 
     @wires.setter
-    def wires(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WireGroupWireArgs']]]]):
+    def wires(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WireGroupWireArgs']]]]):
         pulumi.set(self, "wires", value)
 
 
@@ -385,14 +437,15 @@ class WireGroup(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 cross_site_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 wire_group_properties: Optional[pulumi.Input[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
-                 wire_properties: Optional[pulumi.Input[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 cross_site_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoints: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 wire_group_properties: pulumi.Input[Optional[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
+                 wire_properties: pulumi.Input[Optional[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
                  __props__=None):
         """
         The WireGroup resource represents a group of redundant wires between interconnects in two different metros. Each WireGroup belongs to a CrossSiteNetwork. A wire group defines endpoints and the wires which exist between them.
@@ -474,6 +527,12 @@ class WireGroup(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] admin_enabled: Indicates whether the wire group is administratively enabled.
         :param pulumi.Input[_builtins.str] cross_site_network: Required cross site network to which wire group belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]] endpoints: Endpoints grouped by location, each mapping to interconnect configurations.
                Structure is documented below.
@@ -587,14 +646,15 @@ class WireGroup(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 cross_site_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 wire_group_properties: Optional[pulumi.Input[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
-                 wire_properties: Optional[pulumi.Input[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 cross_site_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoints: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 wire_group_properties: pulumi.Input[Optional[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
+                 wire_properties: pulumi.Input[Optional[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -608,6 +668,7 @@ class WireGroup(pulumi.CustomResource):
             if cross_site_network is None and not opts.urn:
                 raise TypeError("Missing required property 'cross_site_network'")
             __props__.__dict__["cross_site_network"] = cross_site_network
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["endpoints"] = endpoints
             __props__.__dict__["name"] = name
@@ -627,17 +688,18 @@ class WireGroup(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            cross_site_network: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            endpoints: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            topologies: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WireGroupTopologyArgs', 'WireGroupTopologyArgsDict']]]]] = None,
-            wire_group_properties: Optional[pulumi.Input[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
-            wire_properties: Optional[pulumi.Input[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
-            wires: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WireGroupWireArgs', 'WireGroupWireArgsDict']]]]] = None) -> 'WireGroup':
+            admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            cross_site_network: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            endpoints: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            topologies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WireGroupTopologyArgs', 'WireGroupTopologyArgsDict']]]]] = None,
+            wire_group_properties: pulumi.Input[Optional[Union['WireGroupWireGroupPropertiesArgs', 'WireGroupWireGroupPropertiesArgsDict']]] = None,
+            wire_properties: pulumi.Input[Optional[Union['WireGroupWirePropertiesArgs', 'WireGroupWirePropertiesArgsDict']]] = None,
+            wires: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WireGroupWireArgs', 'WireGroupWireArgsDict']]]]] = None) -> 'WireGroup':
         """
         Get an existing WireGroup resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -648,6 +710,12 @@ class WireGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] admin_enabled: Indicates whether the wire group is administratively enabled.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
         :param pulumi.Input[_builtins.str] cross_site_network: Required cross site network to which wire group belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WireGroupEndpointArgs', 'WireGroupEndpointArgsDict']]]] endpoints: Endpoints grouped by location, each mapping to interconnect configurations.
                Structure is documented below.
@@ -675,6 +743,7 @@ class WireGroup(pulumi.CustomResource):
         __props__.__dict__["admin_enabled"] = admin_enabled
         __props__.__dict__["creation_timestamp"] = creation_timestamp
         __props__.__dict__["cross_site_network"] = cross_site_network
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["endpoints"] = endpoints
         __props__.__dict__["name"] = name
@@ -708,6 +777,19 @@ class WireGroup(pulumi.CustomResource):
         Required cross site network to which wire group belongs.
         """
         return pulumi.get(self, "cross_site_network")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

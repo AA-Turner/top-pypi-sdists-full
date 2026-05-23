@@ -1,6 +1,6 @@
 [project]
 name = "prismatoid"
-version = "0.16.1"
+dynamic = ["version"]
 description = "The Platform-Agnostic Reader Interface for Speech and Messages"
 readme = "README.md"
 authors = [
@@ -27,12 +27,10 @@ build-backend = "scikit_build_core.build"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.151.4",
     "numpy>=2.2.6",
     "packaging>=26.0",
     "pytest>=9.0.2",
-    "torch>=2.10.0",
-    "torchaudio>=2.10.0",
+    "silero-vad>=6.2.1",
 ]
 
 [tool.scikit-build]
@@ -127,23 +125,14 @@ before-all = [
     sha256sum --ignore-missing -c glib.sha256sum
     tar xJf glib-${GLIB_VERSION}.tar.xz
     cd "glib-${GLIB_VERSION}"
-    meson setup build --prefix=/usr/local --buildtype=release -Dtests=false -Dintrospection=disabled -Ddocumentation=false -Dman-pages=disabled -Dnls=disabled
+    meson setup build --prefix=/opt/prism --buildtype=release -Dtests=false -Dintrospection=disabled -Ddocumentation=false -Dman-pages=disabled
     meson compile -C build
     meson install -C build
     cd ..
     rm -rf "glib-${GLIB_VERSION}"
-    export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:-}
-    echo /usr/local/lib64 >  /etc/ld.so.conf.d/usr-local.conf
-    echo /usr/local/lib   >> /etc/ld.so.conf.d/usr-local.conf
-    ldconfig
-    git clone https://github.com/project-spiel/libspiel.git
-    cd libspiel
-    git checkout adceb56
-    meson setup build --prefix=/usr/local --buildtype=release -Dtests=false -Ddocs=false -Dutils=false -Dintrospection=false
-    meson compile -C build
-    meson install -C build
-    cd ..
-    rm -rf libspiel
+    export PKG_CONFIG_PATH=/opt/prism/lib64/pkgconfig:/opt/prism/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+    echo /opt/prism/lib64 >  /etc/ld.so.conf.d/usr-local.conf
+    echo /opt/prism/lib   >> /etc/ld.so.conf.d/usr-local.conf
     ldconfig
     SIGCPP_VERSION=3.6.0
 SIGCPP_SERIES="${SIGCPP_VERSION%.*}"
@@ -152,7 +141,7 @@ curl -fL "https://download.gnome.org/sources/libsigc++/${SIGCPP_SERIES}/libsigc+
 sha256sum --ignore-missing -c sigcpp.sha256sum
 tar xJf libsigc++-${SIGCPP_VERSION}.tar.xz
 cd "libsigc++-${SIGCPP_VERSION}"
-meson setup build --prefix=/usr/local --buildtype=release -Dbuild-documentation=false -Dbuild-examples=false -Dbuild-tests=false
+meson setup build --prefix=/opt/prism --buildtype=release -Dbuild-documentation=false -Dbuild-examples=false -Dbuild-tests=false
 meson compile -C build
 meson install -C build
 cd ..
@@ -165,7 +154,7 @@ curl -fL "https://download.gnome.org/sources/glibmm/${GLIBMM_SERIES}/glibmm-${GL
 sha256sum --ignore-missing -c glibmm.sha256sum
 tar xJf glibmm-${GLIBMM_VERSION}.tar.xz
 cd "glibmm-${GLIBMM_VERSION}"
-meson setup build --prefix=/usr/local --buildtype=release -Dbuild-documentation=false -Dbuild-examples=false -Dmaintainer-mode=false
+meson setup build --prefix=/opt/prism --buildtype=release -Dbuild-documentation=false -Dbuild-examples=false -Dmaintainer-mode=false
 meson compile -C build
 meson install -C build
 cd ..
@@ -173,7 +162,27 @@ rm -rf "glibmm-${GLIBMM_VERSION}"
 ldconfig
     """,
 ]
-environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4", PKG_CONFIG_PATH = "/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig", LD_LIBRARY_PATH = "/usr/local/lib64:/usr/local/lib" }
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4", PKG_CONFIG_PATH = "/opt/prism/lib64/pkgconfig:/opt/prism/lib/pkgconfig", LD_LIBRARY_PATH = "/opt/prism/lib64:/opt/prism/lib" }
+repair-wheel-command = [
+    """
+    POLICY=$(find /opt/_internal -name manylinux-policy.json 2>/dev/null | head -1)
+    if [ -z "$POLICY" ]; then
+        POLICY=$(find / -name manylinux-policy.json 2>/dev/null | head -1)
+    fi
+    echo "Patching policy at: $POLICY"
+    python3 -c "
+import json, sys
+p = sys.argv[1]
+data = json.load(open(p))
+strip = ('libglib-2.0', 'libgobject-2.0', 'libgthread-2.0', 'libgmodule-2.0', 'libgio-2.0')
+for entry in data:
+    if 'lib_whitelist' in entry:
+        entry['lib_whitelist'] = [x for x in entry['lib_whitelist'] if not x.startswith(strip)]
+json.dump(data, open(p, 'w'))
+" "$POLICY"
+    auditwheel repair -w {dest_dir} {wheel}
+    """
+]
 
 [tool.cibuildwheel.macos]
 archs = ["arm64", "x86_64"]
@@ -199,3 +208,18 @@ environment = { CMAKE_SYSTEM_PROCESSOR = "ARM64", CMAKE_BUILD_PARALLEL_LEVEL = "
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_aarch64"
 environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+   [tool.scikit-build.metadata.version]
+   provider = "scikit_build_core.metadata.regex"
+   input = "CMakeLists.txt"
+   regex = '''project\(\s*prism\s+VERSION\s+(?P<value>[0-9.]+)'''
+
+[tool.ruff]
+extend-exclude = [
+    "third_party",
+    "gdextension/godot-cpp",
+]
+
+[tool.ruff.lint]
+extend-select = ["ERA", "YTT", "ANN", "ASYNC", "S", "BLE", "B", "A", "COM", "C4", "DTZ", "T10", "EXE", "FIX", "FA", "ISC", "ICN", "LOG", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "SLOT", "TID", "TD", "TC", "ARG", "PTH", "FLY", "I", "C90", "NPY", "PD", "N", "PERF", "W", "F", "PGH", "PL", "UP", "FURB", "RUF"]
+ignore = ["COM812"]

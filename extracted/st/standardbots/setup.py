@@ -13,7 +13,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "standardbots"
-VERSION = "2.20260123.101"
+VERSION = "2.20260123.111"
 # To install the library, run the following
 #
 # python setup.py install

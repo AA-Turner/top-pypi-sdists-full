@@ -5361,12 +5361,12 @@ class Hfss(FieldAnalysis3D, ScatteringMethods, CreateBoundaryMixin, PyAedtBase):
             defs = ["AzimuthStart", "AzimuthStop", "AzimuthStep", "ElevationStart", "ElevationStop", "ElevationStep"]
         else:
             defs = ["ElevationStart", "ElevationStop", "ElevationStep", "AzimuthStart", "AzimuthStop", "AzimuthStep"]
-        props[defs[0]] = self.value_with_units(phi_start, units)
-        props[defs[1]] = self.value_with_units(phi_stop, units)
-        props[defs[2]] = self.value_with_units(phi_step, units)
-        props[defs[3]] = self.value_with_units(theta_start, units)
-        props[defs[4]] = self.value_with_units(theta_stop, units)
-        props[defs[5]] = self.value_with_units(theta_step, units)
+        props[defs[0]] = self.value_with_units(theta_start, units)
+        props[defs[1]] = self.value_with_units(theta_stop, units)
+        props[defs[2]] = self.value_with_units(theta_step, units)
+        props[defs[3]] = self.value_with_units(phi_start, units)
+        props[defs[4]] = self.value_with_units(phi_stop, units)
+        props[defs[5]] = self.value_with_units(phi_step, units)
         props["UseLocalCS"] = custom_coordinate_system is not None
         if custom_coordinate_system:
             props["CoordSystem"] = custom_coordinate_system
@@ -7907,11 +7907,6 @@ class Hfss(FieldAnalysis3D, ScatteringMethods, CreateBoundaryMixin, PyAedtBase):
                 t_tm_te_inv = _get_sd("t_tm_te_inv")
                 t_te_tm = _get_sd("t_te_tm")
                 t_te_tm_inv = _get_sd("t_te_tm_inv")
-
-        # Port impedances for scaling (only when transmission exists)
-        if not is_reflection:
-            imp_top = _get_sd(f"Zo({floquet_ports[0]}:1)")
-            imp_bot = _get_sd(f"Zo({floquet_ports[1]}:1)")
 
         # Build angular grid and a variation index to avoid repeated scans
         theta_max = 0.0

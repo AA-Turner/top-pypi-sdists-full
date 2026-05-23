@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wsidicom
-Version: 0.29.1
+Version: 0.30.0
 Summary: Tools for handling DICOM based whole scan images
 Project-URL: Repository, https://github.com/imi-bigpicture/wsidicom
 Author-email: Erik O Gabrielsson <erik.o.gabrielsson@sectra.com>
@@ -388,7 +388,6 @@ with WsiDicom.open("path_to_folder") as slide:
 ```python
 from wsidicom import settings
 settings.strict_uid_check = True
-settings.strict_attribute_check = True
 ```
 
 ## Annotation usage

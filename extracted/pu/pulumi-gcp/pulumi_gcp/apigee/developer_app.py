@@ -24,13 +24,14 @@ class DeveloperAppArgs:
                  callback_url: pulumi.Input[_builtins.str],
                  developer_email: pulumi.Input[_builtins.str],
                  org_id: pulumi.Input[_builtins.str],
-                 api_products: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 app_family: Optional[pulumi.Input[_builtins.str]] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]] = None,
-                 key_expires_in: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_products: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 app_family: pulumi.Input[Optional[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_expires_in: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DeveloperApp resource.
 
@@ -45,6 +46,12 @@ class DeveloperAppArgs:
         :param pulumi.Input[_builtins.str] app_family: Developer app family.
         :param pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]] attributes: Developer attributes (name/value pairs). The custom attribute limit is 18.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] key_expires_in: Expiration time, in milliseconds, for the consumer key that is generated
                for the developer app. If not set or left to the default value of -1,
                the API key never expires. The expiration time can't be updated after it is set.
@@ -63,6 +70,8 @@ class DeveloperAppArgs:
             pulumi.set(__self__, "app_family", app_family)
         if attributes is not None:
             pulumi.set(__self__, "attributes", attributes)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if key_expires_in is not None:
             pulumi.set(__self__, "key_expires_in", key_expires_in)
         if name is not None:
@@ -114,31 +123,31 @@ class DeveloperAppArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiProducts")
-    def api_products(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def api_products(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of API products associated with the developer app.
         """
         return pulumi.get(self, "api_products")
 
     @api_products.setter
-    def api_products(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def api_products(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "api_products", value)
 
     @_builtins.property
     @pulumi.getter(name="appFamily")
-    def app_family(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_family(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Developer app family.
         """
         return pulumi.get(self, "app_family")
 
     @app_family.setter
-    def app_family(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_family(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_family", value)
 
     @_builtins.property
     @pulumi.getter
-    def attributes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]:
+    def attributes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]:
         """
         Developer attributes (name/value pairs). The custom attribute limit is 18.
         Structure is documented below.
@@ -146,12 +155,29 @@ class DeveloperAppArgs:
         return pulumi.get(self, "attributes")
 
     @attributes.setter
-    def attributes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]):
+    def attributes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]):
         pulumi.set(self, "attributes", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="keyExpiresIn")
-    def key_expires_in(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_expires_in(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Expiration time, in milliseconds, for the consumer key that is generated
         for the developer app. If not set or left to the default value of -1,
@@ -160,24 +186,24 @@ class DeveloperAppArgs:
         return pulumi.get(self, "key_expires_in")
 
     @key_expires_in.setter
-    def key_expires_in(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_expires_in(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_expires_in", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the developer app.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def scopes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Scopes to apply to the developer app.
         The specified scopes must already exist for the API product that
@@ -186,40 +212,41 @@ class DeveloperAppArgs:
         return pulumi.get(self, "scopes")
 
     @scopes.setter
-    def scopes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "scopes", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Status of the credential. Valid values include approved or revoked.
         """
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
 
 @pulumi.input_type
 class _DeveloperAppState:
     def __init__(__self__, *,
-                 api_products: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 app_family: Optional[pulumi.Input[_builtins.str]] = None,
-                 app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]] = None,
-                 callback_url: Optional[pulumi.Input[_builtins.str]] = None,
-                 created_at: Optional[pulumi.Input[_builtins.str]] = None,
-                 credentials: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]] = None,
-                 developer_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_expires_in: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_modified_at: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_products: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 app_family: pulumi.Input[Optional[_builtins.str]] = None,
+                 app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]] = None,
+                 callback_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 created_at: pulumi.Input[Optional[_builtins.str]] = None,
+                 credentials: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_expires_in: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_modified_at: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DeveloperApp resources.
 
@@ -235,6 +262,12 @@ class _DeveloperAppState:
         :param pulumi.Input[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]] credentials: Output only. Set of credentials for the developer app consisting of
                the consumer key/secret pairs associated with the API products.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] developer_email: Email address of the developer.
                This value is used to uniquely identify the developer in Apigee hybrid.
                Note that the email address has to be in lowercase only.
@@ -265,6 +298,8 @@ class _DeveloperAppState:
             pulumi.set(__self__, "created_at", created_at)
         if credentials is not None:
             pulumi.set(__self__, "credentials", credentials)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if developer_email is not None:
             pulumi.set(__self__, "developer_email", developer_email)
         if developer_id is not None:
@@ -284,31 +319,31 @@ class _DeveloperAppState:
 
     @_builtins.property
     @pulumi.getter(name="apiProducts")
-    def api_products(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def api_products(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of API products associated with the developer app.
         """
         return pulumi.get(self, "api_products")
 
     @api_products.setter
-    def api_products(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def api_products(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "api_products", value)
 
     @_builtins.property
     @pulumi.getter(name="appFamily")
-    def app_family(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_family(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Developer app family.
         """
         return pulumi.get(self, "app_family")
 
     @app_family.setter
-    def app_family(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_family(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_family", value)
 
     @_builtins.property
     @pulumi.getter(name="appId")
-    def app_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the developer app. This ID is not user specified but is
         automatically generated on app creation. appId is a UUID.
@@ -316,12 +351,12 @@ class _DeveloperAppState:
         return pulumi.get(self, "app_id")
 
     @app_id.setter
-    def app_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def attributes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]:
+    def attributes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]:
         """
         Developer attributes (name/value pairs). The custom attribute limit is 18.
         Structure is documented below.
@@ -329,12 +364,12 @@ class _DeveloperAppState:
         return pulumi.get(self, "attributes")
 
     @attributes.setter
-    def attributes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]):
+    def attributes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppAttributeArgs']]]]):
         pulumi.set(self, "attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="callbackUrl")
-    def callback_url(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def callback_url(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Callback URL used by OAuth 2.0 authorization servers to communicate
         authorization codes back to developer apps.
@@ -342,24 +377,24 @@ class _DeveloperAppState:
         return pulumi.get(self, "callback_url")
 
     @callback_url.setter
-    def callback_url(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def callback_url(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "callback_url", value)
 
     @_builtins.property
     @pulumi.getter(name="createdAt")
-    def created_at(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def created_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which the developer was created in milliseconds since epoch.
         """
         return pulumi.get(self, "created_at")
 
     @created_at.setter
-    def created_at(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def created_at(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "created_at", value)
 
     @_builtins.property
     @pulumi.getter
-    def credentials(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]]:
+    def credentials(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]]:
         """
         Output only. Set of credentials for the developer app consisting of
         the consumer key/secret pairs associated with the API products.
@@ -368,12 +403,29 @@ class _DeveloperAppState:
         return pulumi.get(self, "credentials")
 
     @credentials.setter
-    def credentials(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]]):
+    def credentials(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DeveloperAppCredentialArgs']]]]):
         pulumi.set(self, "credentials", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="developerEmail")
-    def developer_email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Email address of the developer.
         This value is used to uniquely identify the developer in Apigee hybrid.
@@ -382,24 +434,24 @@ class _DeveloperAppState:
         return pulumi.get(self, "developer_email")
 
     @developer_email.setter
-    def developer_email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_email", value)
 
     @_builtins.property
     @pulumi.getter(name="developerId")
-    def developer_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def developer_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the developer.
         """
         return pulumi.get(self, "developer_id")
 
     @developer_id.setter
-    def developer_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def developer_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "developer_id", value)
 
     @_builtins.property
     @pulumi.getter(name="keyExpiresIn")
-    def key_expires_in(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_expires_in(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Expiration time, in milliseconds, for the consumer key that is generated
         for the developer app. If not set or left to the default value of -1,
@@ -408,36 +460,36 @@ class _DeveloperAppState:
         return pulumi.get(self, "key_expires_in")
 
     @key_expires_in.setter
-    def key_expires_in(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_expires_in(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_expires_in", value)
 
     @_builtins.property
     @pulumi.getter(name="lastModifiedAt")
-    def last_modified_at(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_modified_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which the developer was last modified in milliseconds since epoch.
         """
         return pulumi.get(self, "last_modified_at")
 
     @last_modified_at.setter
-    def last_modified_at(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_modified_at(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_modified_at", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the developer app.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee Organization associated with the Apigee instance,
         in the format `organizations/{{org_name}}`.
@@ -445,12 +497,12 @@ class _DeveloperAppState:
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def scopes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Scopes to apply to the developer app.
         The specified scopes must already exist for the API product that
@@ -459,19 +511,19 @@ class _DeveloperAppState:
         return pulumi.get(self, "scopes")
 
     @scopes.setter
-    def scopes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "scopes", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Status of the credential. Valid values include approved or revoked.
         """
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
 
@@ -481,16 +533,17 @@ class DeveloperApp(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_products: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 app_family: Optional[pulumi.Input[_builtins.str]] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
-                 callback_url: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_expires_in: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_products: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 app_family: pulumi.Input[Optional[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
+                 callback_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_expires_in: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Creates an app associated with a developer.
@@ -632,6 +685,12 @@ class DeveloperApp(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] callback_url: Callback URL used by OAuth 2.0 authorization servers to communicate
                authorization codes back to developer apps.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] developer_email: Email address of the developer.
                This value is used to uniquely identify the developer in Apigee hybrid.
                Note that the email address has to be in lowercase only.
@@ -799,16 +858,17 @@ class DeveloperApp(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_products: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 app_family: Optional[pulumi.Input[_builtins.str]] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
-                 callback_url: Optional[pulumi.Input[_builtins.str]] = None,
-                 developer_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_expires_in: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_products: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 app_family: pulumi.Input[Optional[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
+                 callback_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 developer_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_expires_in: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -824,6 +884,7 @@ class DeveloperApp(pulumi.CustomResource):
             if callback_url is None and not opts.urn:
                 raise TypeError("Missing required property 'callback_url'")
             __props__.__dict__["callback_url"] = callback_url
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if developer_email is None and not opts.urn:
                 raise TypeError("Missing required property 'developer_email'")
             __props__.__dict__["developer_email"] = developer_email
@@ -849,21 +910,22 @@ class DeveloperApp(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            api_products: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            app_family: Optional[pulumi.Input[_builtins.str]] = None,
-            app_id: Optional[pulumi.Input[_builtins.str]] = None,
-            attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
-            callback_url: Optional[pulumi.Input[_builtins.str]] = None,
-            created_at: Optional[pulumi.Input[_builtins.str]] = None,
-            credentials: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DeveloperAppCredentialArgs', 'DeveloperAppCredentialArgsDict']]]]] = None,
-            developer_email: Optional[pulumi.Input[_builtins.str]] = None,
-            developer_id: Optional[pulumi.Input[_builtins.str]] = None,
-            key_expires_in: Optional[pulumi.Input[_builtins.str]] = None,
-            last_modified_at: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            status: Optional[pulumi.Input[_builtins.str]] = None) -> 'DeveloperApp':
+            api_products: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            app_family: pulumi.Input[Optional[_builtins.str]] = None,
+            app_id: pulumi.Input[Optional[_builtins.str]] = None,
+            attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DeveloperAppAttributeArgs', 'DeveloperAppAttributeArgsDict']]]]] = None,
+            callback_url: pulumi.Input[Optional[_builtins.str]] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            credentials: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DeveloperAppCredentialArgs', 'DeveloperAppCredentialArgsDict']]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            developer_email: pulumi.Input[Optional[_builtins.str]] = None,
+            developer_id: pulumi.Input[Optional[_builtins.str]] = None,
+            key_expires_in: pulumi.Input[Optional[_builtins.str]] = None,
+            last_modified_at: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            status: pulumi.Input[Optional[_builtins.str]] = None) -> 'DeveloperApp':
         """
         Get an existing DeveloperApp resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -883,6 +945,12 @@ class DeveloperApp(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['DeveloperAppCredentialArgs', 'DeveloperAppCredentialArgsDict']]]] credentials: Output only. Set of credentials for the developer app consisting of
                the consumer key/secret pairs associated with the API products.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] developer_email: Email address of the developer.
                This value is used to uniquely identify the developer in Apigee hybrid.
                Note that the email address has to be in lowercase only.
@@ -910,6 +978,7 @@ class DeveloperApp(pulumi.CustomResource):
         __props__.__dict__["callback_url"] = callback_url
         __props__.__dict__["created_at"] = created_at
         __props__.__dict__["credentials"] = credentials
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["developer_email"] = developer_email
         __props__.__dict__["developer_id"] = developer_id
         __props__.__dict__["key_expires_in"] = key_expires_in
@@ -980,6 +1049,19 @@ class DeveloperApp(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "credentials")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="developerEmail")

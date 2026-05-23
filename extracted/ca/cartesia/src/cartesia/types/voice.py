@@ -29,11 +29,18 @@ class Voice(BaseModel):
     language: SupportedLanguage
     """The language that the given voice should speak the transcript in.
 
-    For valid options, see [Models](/build-with-cartesia/tts-models).
+    For valid options, see
+    [Models](https://docs.cartesia.ai/build-with-cartesia/tts-models).
     """
 
     name: str
     """The name of the voice."""
+
+    country: Optional[str] = None
+    """
+    The country associated with the voice, as an ISO 3166-1 alpha-2 code when
+    available (e.g. `US`, `GB`, `FR`).
+    """
 
     gender: Optional[GenderPresentation] = None
     """The gender of the voice, if specified."""

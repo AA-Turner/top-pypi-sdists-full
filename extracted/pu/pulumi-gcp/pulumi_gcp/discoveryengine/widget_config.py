@@ -23,13 +23,13 @@ class WidgetConfigArgs:
     def __init__(__self__, *,
                  engine_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 access_settings: Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 homepage_setting: Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ui_branding: Optional[pulumi.Input['WidgetConfigUiBrandingArgs']] = None,
-                 ui_settings: Optional[pulumi.Input['WidgetConfigUiSettingsArgs']] = None,
-                 widget_config_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 access_settings: pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 homepage_setting: pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ui_branding: pulumi.Input[Optional['WidgetConfigUiBrandingArgs']] = None,
+                 ui_settings: pulumi.Input[Optional['WidgetConfigUiSettingsArgs']] = None,
+                 widget_config_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WidgetConfig resource.
 
@@ -95,7 +95,7 @@ class WidgetConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="accessSettings")
-    def access_settings(self) -> Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']]:
+    def access_settings(self) -> pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']]:
         """
         Describes widget access settings.
         Structure is documented below.
@@ -103,24 +103,24 @@ class WidgetConfigArgs:
         return pulumi.get(self, "access_settings")
 
     @access_settings.setter
-    def access_settings(self, value: Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']]):
+    def access_settings(self, value: pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']]):
         pulumi.set(self, "access_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="collectionId")
-    def collection_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collection ID.
         """
         return pulumi.get(self, "collection_id")
 
     @collection_id.setter
-    def collection_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection_id", value)
 
     @_builtins.property
     @pulumi.getter(name="homepageSetting")
-    def homepage_setting(self) -> Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']]:
+    def homepage_setting(self) -> pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']]:
         """
         Describes the homepage setting of the widget. It includes all homepage related settings
         and configurations, such as shortcuts.
@@ -129,12 +129,12 @@ class WidgetConfigArgs:
         return pulumi.get(self, "homepage_setting")
 
     @homepage_setting.setter
-    def homepage_setting(self, value: Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']]):
+    def homepage_setting(self, value: pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']]):
         pulumi.set(self, "homepage_setting", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -142,12 +142,12 @@ class WidgetConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="uiBranding")
-    def ui_branding(self) -> Optional[pulumi.Input['WidgetConfigUiBrandingArgs']]:
+    def ui_branding(self) -> pulumi.Input[Optional['WidgetConfigUiBrandingArgs']]:
         """
         Describes search widget UI branding settings, such as the widget title, logo,
         favicons, and colors.
@@ -156,12 +156,12 @@ class WidgetConfigArgs:
         return pulumi.get(self, "ui_branding")
 
     @ui_branding.setter
-    def ui_branding(self, value: Optional[pulumi.Input['WidgetConfigUiBrandingArgs']]):
+    def ui_branding(self, value: pulumi.Input[Optional['WidgetConfigUiBrandingArgs']]):
         pulumi.set(self, "ui_branding", value)
 
     @_builtins.property
     @pulumi.getter(name="uiSettings")
-    def ui_settings(self) -> Optional[pulumi.Input['WidgetConfigUiSettingsArgs']]:
+    def ui_settings(self) -> pulumi.Input[Optional['WidgetConfigUiSettingsArgs']]:
         """
         Describes general widget (or web app) UI settings as seen in the cloud console UI configuration page.
         Structure is documented below.
@@ -169,41 +169,43 @@ class WidgetConfigArgs:
         return pulumi.get(self, "ui_settings")
 
     @ui_settings.setter
-    def ui_settings(self, value: Optional[pulumi.Input['WidgetConfigUiSettingsArgs']]):
+    def ui_settings(self, value: pulumi.Input[Optional['WidgetConfigUiSettingsArgs']]):
         pulumi.set(self, "ui_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="widgetConfigId")
-    def widget_config_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def widget_config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique ID to use for the WidgetConfig. Currently only accepts "default_search_widget_config".
         """
         return pulumi.get(self, "widget_config_id")
 
     @widget_config_id.setter
-    def widget_config_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def widget_config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "widget_config_id", value)
 
 
 @pulumi.input_type
 class _WidgetConfigState:
     def __init__(__self__, *,
-                 access_settings: Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 homepage_setting: Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ui_branding: Optional[pulumi.Input['WidgetConfigUiBrandingArgs']] = None,
-                 ui_settings: Optional[pulumi.Input['WidgetConfigUiSettingsArgs']] = None,
-                 widget_config_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 access_settings: pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 homepage_setting: pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ui_branding: pulumi.Input[Optional['WidgetConfigUiBrandingArgs']] = None,
+                 ui_settings: pulumi.Input[Optional['WidgetConfigUiSettingsArgs']] = None,
+                 widget_config_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WidgetConfig resources.
 
         :param pulumi.Input['WidgetConfigAccessSettingsArgs'] access_settings: Describes widget access settings.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] collection_id: The collection ID.
+        :param pulumi.Input[_builtins.str] config_id: Output only. Unique obfuscated identifier of a WidgetConfig.
         :param pulumi.Input[_builtins.str] engine_id: The engine ID.
         :param pulumi.Input['WidgetConfigHomepageSettingArgs'] homepage_setting: Describes the homepage setting of the widget. It includes all homepage related settings
                and configurations, such as shortcuts.
@@ -225,6 +227,8 @@ class _WidgetConfigState:
             pulumi.set(__self__, "access_settings", access_settings)
         if collection_id is not None:
             pulumi.set(__self__, "collection_id", collection_id)
+        if config_id is not None:
+            pulumi.set(__self__, "config_id", config_id)
         if engine_id is not None:
             pulumi.set(__self__, "engine_id", engine_id)
         if homepage_setting is not None:
@@ -244,7 +248,7 @@ class _WidgetConfigState:
 
     @_builtins.property
     @pulumi.getter(name="accessSettings")
-    def access_settings(self) -> Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']]:
+    def access_settings(self) -> pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']]:
         """
         Describes widget access settings.
         Structure is documented below.
@@ -252,36 +256,48 @@ class _WidgetConfigState:
         return pulumi.get(self, "access_settings")
 
     @access_settings.setter
-    def access_settings(self, value: Optional[pulumi.Input['WidgetConfigAccessSettingsArgs']]):
+    def access_settings(self, value: pulumi.Input[Optional['WidgetConfigAccessSettingsArgs']]):
         pulumi.set(self, "access_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="collectionId")
-    def collection_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collection ID.
         """
         return pulumi.get(self, "collection_id")
 
     @collection_id.setter
-    def collection_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="configId")
+    def config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Output only. Unique obfuscated identifier of a WidgetConfig.
+        """
+        return pulumi.get(self, "config_id")
+
+    @config_id.setter
+    def config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "config_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="engineId")
-    def engine_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def engine_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The engine ID.
         """
         return pulumi.get(self, "engine_id")
 
     @engine_id.setter
-    def engine_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def engine_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "engine_id", value)
 
     @_builtins.property
     @pulumi.getter(name="homepageSetting")
-    def homepage_setting(self) -> Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']]:
+    def homepage_setting(self) -> pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']]:
         """
         Describes the homepage setting of the widget. It includes all homepage related settings
         and configurations, such as shortcuts.
@@ -290,12 +306,12 @@ class _WidgetConfigState:
         return pulumi.get(self, "homepage_setting")
 
     @homepage_setting.setter
-    def homepage_setting(self, value: Optional[pulumi.Input['WidgetConfigHomepageSettingArgs']]):
+    def homepage_setting(self, value: pulumi.Input[Optional['WidgetConfigHomepageSettingArgs']]):
         pulumi.set(self, "homepage_setting", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the data store should reside. The value can
         only be one of "global", "us" and "eu".
@@ -303,12 +319,12 @@ class _WidgetConfigState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The full resource name of the widget config. Format:
         `projects/{project}/locations/{location}/collections/{collection_id}/engines/{engine_id}/widgetConfigs/{widget_config_id}`.
@@ -316,12 +332,12 @@ class _WidgetConfigState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -329,12 +345,12 @@ class _WidgetConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="uiBranding")
-    def ui_branding(self) -> Optional[pulumi.Input['WidgetConfigUiBrandingArgs']]:
+    def ui_branding(self) -> pulumi.Input[Optional['WidgetConfigUiBrandingArgs']]:
         """
         Describes search widget UI branding settings, such as the widget title, logo,
         favicons, and colors.
@@ -343,12 +359,12 @@ class _WidgetConfigState:
         return pulumi.get(self, "ui_branding")
 
     @ui_branding.setter
-    def ui_branding(self, value: Optional[pulumi.Input['WidgetConfigUiBrandingArgs']]):
+    def ui_branding(self, value: pulumi.Input[Optional['WidgetConfigUiBrandingArgs']]):
         pulumi.set(self, "ui_branding", value)
 
     @_builtins.property
     @pulumi.getter(name="uiSettings")
-    def ui_settings(self) -> Optional[pulumi.Input['WidgetConfigUiSettingsArgs']]:
+    def ui_settings(self) -> pulumi.Input[Optional['WidgetConfigUiSettingsArgs']]:
         """
         Describes general widget (or web app) UI settings as seen in the cloud console UI configuration page.
         Structure is documented below.
@@ -356,19 +372,19 @@ class _WidgetConfigState:
         return pulumi.get(self, "ui_settings")
 
     @ui_settings.setter
-    def ui_settings(self, value: Optional[pulumi.Input['WidgetConfigUiSettingsArgs']]):
+    def ui_settings(self, value: pulumi.Input[Optional['WidgetConfigUiSettingsArgs']]):
         pulumi.set(self, "ui_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="widgetConfigId")
-    def widget_config_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def widget_config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique ID to use for the WidgetConfig. Currently only accepts "default_search_widget_config".
         """
         return pulumi.get(self, "widget_config_id")
 
     @widget_config_id.setter
-    def widget_config_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def widget_config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "widget_config_id", value)
 
 
@@ -378,15 +394,15 @@ class WidgetConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_settings: Optional[pulumi.Input[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 homepage_setting: Optional[pulumi.Input[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ui_branding: Optional[pulumi.Input[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
-                 ui_settings: Optional[pulumi.Input[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
-                 widget_config_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 access_settings: pulumi.Input[Optional[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 homepage_setting: pulumi.Input[Optional[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ui_branding: pulumi.Input[Optional[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
+                 ui_settings: pulumi.Input[Optional[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
+                 widget_config_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a WidgetConfig.
@@ -435,6 +451,7 @@ class WidgetConfig(pulumi.CustomResource):
                     "result_count": 5,
                 },
             })
+        pulumi.export("widgetConfigId", basic_widget_config.config_id)
         ```
 
         ## Import
@@ -527,6 +544,7 @@ class WidgetConfig(pulumi.CustomResource):
                     "result_count": 5,
                 },
             })
+        pulumi.export("widgetConfigId", basic_widget_config.config_id)
         ```
 
         ## Import
@@ -561,15 +579,15 @@ class WidgetConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_settings: Optional[pulumi.Input[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 homepage_setting: Optional[pulumi.Input[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ui_branding: Optional[pulumi.Input[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
-                 ui_settings: Optional[pulumi.Input[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
-                 widget_config_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 access_settings: pulumi.Input[Optional[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 homepage_setting: pulumi.Input[Optional[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ui_branding: pulumi.Input[Optional[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
+                 ui_settings: pulumi.Input[Optional[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
+                 widget_config_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -592,6 +610,7 @@ class WidgetConfig(pulumi.CustomResource):
             __props__.__dict__["ui_branding"] = ui_branding
             __props__.__dict__["ui_settings"] = ui_settings
             __props__.__dict__["widget_config_id"] = widget_config_id
+            __props__.__dict__["config_id"] = None
             __props__.__dict__["name"] = None
         super(WidgetConfig, __self__).__init__(
             'gcp:discoveryengine/widgetConfig:WidgetConfig',
@@ -603,16 +622,17 @@ class WidgetConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            access_settings: Optional[pulumi.Input[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
-            collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-            engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-            homepage_setting: Optional[pulumi.Input[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            ui_branding: Optional[pulumi.Input[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
-            ui_settings: Optional[pulumi.Input[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
-            widget_config_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WidgetConfig':
+            access_settings: pulumi.Input[Optional[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']]] = None,
+            collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+            config_id: pulumi.Input[Optional[_builtins.str]] = None,
+            engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+            homepage_setting: pulumi.Input[Optional[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            ui_branding: pulumi.Input[Optional[Union['WidgetConfigUiBrandingArgs', 'WidgetConfigUiBrandingArgsDict']]] = None,
+            ui_settings: pulumi.Input[Optional[Union['WidgetConfigUiSettingsArgs', 'WidgetConfigUiSettingsArgsDict']]] = None,
+            widget_config_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'WidgetConfig':
         """
         Get an existing WidgetConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -623,6 +643,7 @@ class WidgetConfig(pulumi.CustomResource):
         :param pulumi.Input[Union['WidgetConfigAccessSettingsArgs', 'WidgetConfigAccessSettingsArgsDict']] access_settings: Describes widget access settings.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] collection_id: The collection ID.
+        :param pulumi.Input[_builtins.str] config_id: Output only. Unique obfuscated identifier of a WidgetConfig.
         :param pulumi.Input[_builtins.str] engine_id: The engine ID.
         :param pulumi.Input[Union['WidgetConfigHomepageSettingArgs', 'WidgetConfigHomepageSettingArgsDict']] homepage_setting: Describes the homepage setting of the widget. It includes all homepage related settings
                and configurations, such as shortcuts.
@@ -646,6 +667,7 @@ class WidgetConfig(pulumi.CustomResource):
 
         __props__.__dict__["access_settings"] = access_settings
         __props__.__dict__["collection_id"] = collection_id
+        __props__.__dict__["config_id"] = config_id
         __props__.__dict__["engine_id"] = engine_id
         __props__.__dict__["homepage_setting"] = homepage_setting
         __props__.__dict__["location"] = location
@@ -672,6 +694,14 @@ class WidgetConfig(pulumi.CustomResource):
         The collection ID.
         """
         return pulumi.get(self, "collection_id")
+
+    @_builtins.property
+    @pulumi.getter(name="configId")
+    def config_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        Output only. Unique obfuscated identifier of a WidgetConfig.
+        """
+        return pulumi.get(self, "config_id")
 
     @_builtins.property
     @pulumi.getter(name="engineId")

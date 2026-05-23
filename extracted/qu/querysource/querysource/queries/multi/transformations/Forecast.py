@@ -1,10 +1,8 @@
 from typing import Union
 import pandas as pd
-from pmdarima import auto_arima
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.seasonal import seasonal_decompose
 from ....exceptions import (
     DriverError,
     QueryException
@@ -13,6 +11,41 @@ from .abstract import AbstractTransform
 
 
 class Forecast(AbstractTransform):
+    """Generate time-series forecasts using ARIMA, SARIMA, or Exponential Smoothing.
+
+    Fits a statistical model to the time-series values in the specified column and
+    produces ``steps`` future predictions appended to the result.
+
+    Usage: Use in a MultiQuery ``Transform`` step to extend a time-series DataFrame
+    with future value predictions.
+
+    Attributes:
+        index_column: Name of the datetime column to use as the time-series index. Required.
+        value_column: Name of the numeric column to forecast. Required.
+        model: Forecast model — ``'ARIMA'``, ``'SARIMA'``, or ``'Exponential'``.
+        order: ARIMA (p, d, q) order tuple. Default: ``(1, 1, 1)``.
+        steps: Number of future periods to forecast. Default: ``6``.
+        frequency: Pandas time-series frequency string (e.g. ``'ME'`` for month-end,
+            ``'D'`` for daily). Default: ``'ME'``.
+        reset_index: If ``True``, reset the result index. Default: ``True``.
+        model_args: Dict of extra keyword arguments passed to the model constructor.
+
+    Example:
+        {
+            "Transform": [
+                {
+                    "Forecast": {
+                        "index_column": "date",
+                        "value_column": "revenue",
+                        "model": "ARIMA",
+                        "steps": 12,
+                        "frequency": "ME"
+                    }
+                }
+            ]
+        }
+    """
+
     def __init__(self, data: Union[dict, pd.DataFrame], **kwargs) -> None:
         self.reset_index: bool = bool(kwargs.pop('reset_index', True))
         self._order = tuple(kwargs.pop('order', [1, 1, 1]))
@@ -63,11 +96,6 @@ class Forecast(AbstractTransform):
     def forecast_sarima(self, data):
         try:
             data.index = pd.DatetimeIndex(data.index).to_period('M')
-            model = auto_arima(
-                data, seasonal=True, m=12, trace=False,
-                error_action='ignore', suppress_warnings=True,
-                stepwise=True, n_fits=50
-            )
             sarima_model = SARIMAX(
                 data,
                 order=self._order,

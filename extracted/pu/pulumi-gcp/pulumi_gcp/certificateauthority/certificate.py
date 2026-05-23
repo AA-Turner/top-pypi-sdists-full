@@ -23,14 +23,15 @@ class CertificateArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
                  pool: pulumi.Input[_builtins.str],
-                 certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-                 certificate_template: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input['CertificateConfigArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lifetime: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pem_csr: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+                 certificate_template: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional['CertificateConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pem_csr: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Certificate resource.
 
@@ -48,6 +49,12 @@ class CertificateArgs:
                as the Certificate.
         :param pulumi.Input['CertificateConfigArgs'] config: The config used to create a self-signed X.509 certificate or CSR.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels with user-defined metadata to apply to this resource.
                
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -68,6 +75,8 @@ class CertificateArgs:
             pulumi.set(__self__, "certificate_template", certificate_template)
         if config is not None:
             pulumi.set(__self__, "config", config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
         if lifetime is not None:
@@ -106,7 +115,7 @@ class CertificateArgs:
 
     @_builtins.property
     @pulumi.getter(name="certificateAuthority")
-    def certificate_authority(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def certificate_authority(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Certificate Authority ID that should issue the certificate. For example, to issue a Certificate from
         a Certificate Authority with resource name `projects/my-project/locations/us-central1/caPools/my-pool/certificateAuthorities/my-ca`,
@@ -116,12 +125,12 @@ class CertificateArgs:
         return pulumi.get(self, "certificate_authority")
 
     @certificate_authority.setter
-    def certificate_authority(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def certificate_authority(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "certificate_authority", value)
 
     @_builtins.property
     @pulumi.getter(name="certificateTemplate")
-    def certificate_template(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def certificate_template(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for a CertificateTemplate used to issue this certificate,
         in the format `projects/*/locations/*/certificateTemplates/*`. If this is specified,
@@ -132,12 +141,12 @@ class CertificateArgs:
         return pulumi.get(self, "certificate_template")
 
     @certificate_template.setter
-    def certificate_template(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def certificate_template(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "certificate_template", value)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input['CertificateConfigArgs']]:
+    def config(self) -> pulumi.Input[Optional['CertificateConfigArgs']]:
         """
         The config used to create a self-signed X.509 certificate or CSR.
         Structure is documented below.
@@ -145,12 +154,29 @@ class CertificateArgs:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input['CertificateConfigArgs']]):
+    def config(self, value: pulumi.Input[Optional['CertificateConfigArgs']]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels with user-defined metadata to apply to this resource.
 
@@ -160,12 +186,12 @@ class CertificateArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def lifetime(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def lifetime(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The desired lifetime of the CA certificate. Used to create the "notBeforeTime" and
         "notAfterTime" fields inside an X.509 certificate. A duration in seconds with up to nine
@@ -174,36 +200,36 @@ class CertificateArgs:
         return pulumi.get(self, "lifetime")
 
     @lifetime.setter
-    def lifetime(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def lifetime(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "lifetime", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name for this Certificate.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pemCsr")
-    def pem_csr(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pem_csr(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. A pem-encoded X.509 certificate signing request (CSR).
         """
         return pulumi.get(self, "pem_csr")
 
     @pem_csr.setter
-    def pem_csr(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pem_csr(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pem_csr", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -211,32 +237,33 @@ class CertificateArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _CertificateState:
     def __init__(__self__, *,
-                 certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-                 certificate_descriptions: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]] = None,
-                 certificate_template: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input['CertificateConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 issuer_certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lifetime: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pem_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 pem_certificate_chains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 pem_csr: Optional[pulumi.Input[_builtins.str]] = None,
-                 pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 revocation_details: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+                 certificate_descriptions: pulumi.Input[Optional[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]] = None,
+                 certificate_template: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional['CertificateConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 issuer_certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pem_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 pem_certificate_chains: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 pem_csr: pulumi.Input[Optional[_builtins.str]] = None,
+                 pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 revocation_details: pulumi.Input[Optional[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Certificate resources.
 
@@ -255,6 +282,12 @@ class _CertificateState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The time that this resource was created on the server.
                This is in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] issuer_certificate_authority: The resource name of the issuing CertificateAuthority in the format `projects/*/locations/*/caPools/*/certificateAuthorities/*`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels with user-defined metadata to apply to this resource.
@@ -291,6 +324,8 @@ class _CertificateState:
             pulumi.set(__self__, "config", config)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if issuer_certificate_authority is not None:
@@ -322,7 +357,7 @@ class _CertificateState:
 
     @_builtins.property
     @pulumi.getter(name="certificateAuthority")
-    def certificate_authority(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def certificate_authority(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Certificate Authority ID that should issue the certificate. For example, to issue a Certificate from
         a Certificate Authority with resource name `projects/my-project/locations/us-central1/caPools/my-pool/certificateAuthorities/my-ca`,
@@ -332,12 +367,12 @@ class _CertificateState:
         return pulumi.get(self, "certificate_authority")
 
     @certificate_authority.setter
-    def certificate_authority(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def certificate_authority(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "certificate_authority", value)
 
     @_builtins.property
     @pulumi.getter(name="certificateDescriptions")
-    def certificate_descriptions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]]:
+    def certificate_descriptions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]]:
         """
         Output only. Details regarding the revocation of this Certificate. This Certificate is considered revoked if and only if this field is present.
         Structure is documented below.
@@ -345,12 +380,12 @@ class _CertificateState:
         return pulumi.get(self, "certificate_descriptions")
 
     @certificate_descriptions.setter
-    def certificate_descriptions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]]):
+    def certificate_descriptions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CertificateCertificateDescriptionArgs']]]]):
         pulumi.set(self, "certificate_descriptions", value)
 
     @_builtins.property
     @pulumi.getter(name="certificateTemplate")
-    def certificate_template(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def certificate_template(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for a CertificateTemplate used to issue this certificate,
         in the format `projects/*/locations/*/certificateTemplates/*`. If this is specified,
@@ -361,12 +396,12 @@ class _CertificateState:
         return pulumi.get(self, "certificate_template")
 
     @certificate_template.setter
-    def certificate_template(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def certificate_template(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "certificate_template", value)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input['CertificateConfigArgs']]:
+    def config(self) -> pulumi.Input[Optional['CertificateConfigArgs']]:
         """
         The config used to create a self-signed X.509 certificate or CSR.
         Structure is documented below.
@@ -374,12 +409,12 @@ class _CertificateState:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input['CertificateConfigArgs']]):
+    def config(self, value: pulumi.Input[Optional['CertificateConfigArgs']]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time that this resource was created on the server.
         This is in RFC3339 text format.
@@ -387,36 +422,53 @@ class _CertificateState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="issuerCertificateAuthority")
-    def issuer_certificate_authority(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def issuer_certificate_authority(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the issuing CertificateAuthority in the format `projects/*/locations/*/caPools/*/certificateAuthorities/*`.
         """
         return pulumi.get(self, "issuer_certificate_authority")
 
     @issuer_certificate_authority.setter
-    def issuer_certificate_authority(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def issuer_certificate_authority(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "issuer_certificate_authority", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels with user-defined metadata to apply to this resource.
 
@@ -426,12 +478,12 @@ class _CertificateState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def lifetime(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def lifetime(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The desired lifetime of the CA certificate. Used to create the "notBeforeTime" and
         "notAfterTime" fields inside an X.509 certificate. A duration in seconds with up to nine
@@ -440,12 +492,12 @@ class _CertificateState:
         return pulumi.get(self, "lifetime")
 
     @lifetime.setter
-    def lifetime(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def lifetime(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "lifetime", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location of the Certificate. A full list of valid locations can be found by
         running `gcloud privateca locations list`.
@@ -453,72 +505,72 @@ class _CertificateState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name for this Certificate.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pemCertificate")
-    def pem_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pem_certificate(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The pem-encoded, signed X.509 certificate.
         """
         return pulumi.get(self, "pem_certificate")
 
     @pem_certificate.setter
-    def pem_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pem_certificate(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pem_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="pemCertificateChains")
-    def pem_certificate_chains(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def pem_certificate_chains(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The chain that may be used to verify the X.509 certificate. Expected to be in issuer-to-root order according to RFC 5246.
         """
         return pulumi.get(self, "pem_certificate_chains")
 
     @pem_certificate_chains.setter
-    def pem_certificate_chains(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def pem_certificate_chains(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pem_certificate_chains", value)
 
     @_builtins.property
     @pulumi.getter(name="pemCsr")
-    def pem_csr(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pem_csr(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. A pem-encoded X.509 certificate signing request (CSR).
         """
         return pulumi.get(self, "pem_csr")
 
     @pem_csr.setter
-    def pem_csr(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pem_csr(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pem_csr", value)
 
     @_builtins.property
     @pulumi.getter
-    def pool(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pool(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the CaPool this Certificate belongs to.
         """
         return pulumi.get(self, "pool")
 
     @pool.setter
-    def pool(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pool(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pool", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -526,12 +578,12 @@ class _CertificateState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -539,12 +591,12 @@ class _CertificateState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="revocationDetails")
-    def revocation_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]]:
+    def revocation_details(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]]:
         """
         Output only. Details regarding the revocation of this Certificate. This Certificate is
         considered revoked if and only if this field is present.
@@ -553,12 +605,12 @@ class _CertificateState:
         return pulumi.get(self, "revocation_details")
 
     @revocation_details.setter
-    def revocation_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]]):
+    def revocation_details(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CertificateRevocationDetailArgs']]]]):
         pulumi.set(self, "revocation_details", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this CertificateAuthority was updated.
         This is in RFC3339 text format.
@@ -566,7 +618,7 @@ class _CertificateState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -576,16 +628,17 @@ class Certificate(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-                 certificate_template: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lifetime: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pem_csr: Optional[pulumi.Input[_builtins.str]] = None,
-                 pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+                 certificate_template: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pem_csr: pulumi.Input[Optional[_builtins.str]] = None,
+                 pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Certificate corresponds to a signed X.509 certificate issued by a Certificate.
@@ -1085,6 +1138,12 @@ class Certificate(pulumi.CustomResource):
                as the Certificate.
         :param pulumi.Input[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']] config: The config used to create a self-signed X.509 certificate or CSR.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels with user-defined metadata to apply to this resource.
                
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -1606,16 +1665,17 @@ class Certificate(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-                 certificate_template: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lifetime: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pem_csr: Optional[pulumi.Input[_builtins.str]] = None,
-                 pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+                 certificate_template: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pem_csr: pulumi.Input[Optional[_builtins.str]] = None,
+                 pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1628,6 +1688,7 @@ class Certificate(pulumi.CustomResource):
             __props__.__dict__["certificate_authority"] = certificate_authority
             __props__.__dict__["certificate_template"] = certificate_template
             __props__.__dict__["config"] = config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["labels"] = labels
             __props__.__dict__["lifetime"] = lifetime
             if location is None and not opts.urn:
@@ -1660,25 +1721,26 @@ class Certificate(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-            certificate_descriptions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CertificateCertificateDescriptionArgs', 'CertificateCertificateDescriptionArgsDict']]]]] = None,
-            certificate_template: Optional[pulumi.Input[_builtins.str]] = None,
-            config: Optional[pulumi.Input[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            issuer_certificate_authority: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            lifetime: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pem_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-            pem_certificate_chains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            pem_csr: Optional[pulumi.Input[_builtins.str]] = None,
-            pool: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            revocation_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CertificateRevocationDetailArgs', 'CertificateRevocationDetailArgsDict']]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Certificate':
+            certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+            certificate_descriptions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CertificateCertificateDescriptionArgs', 'CertificateCertificateDescriptionArgsDict']]]]] = None,
+            certificate_template: pulumi.Input[Optional[_builtins.str]] = None,
+            config: pulumi.Input[Optional[Union['CertificateConfigArgs', 'CertificateConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            issuer_certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pem_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+            pem_certificate_chains: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            pem_csr: pulumi.Input[Optional[_builtins.str]] = None,
+            pool: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            revocation_details: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CertificateRevocationDetailArgs', 'CertificateRevocationDetailArgsDict']]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Certificate':
         """
         Get an existing Certificate resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1701,6 +1763,12 @@ class Certificate(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The time that this resource was created on the server.
                This is in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] issuer_certificate_authority: The resource name of the issuing CertificateAuthority in the format `projects/*/locations/*/caPools/*/certificateAuthorities/*`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels with user-defined metadata to apply to this resource.
@@ -1736,6 +1804,7 @@ class Certificate(pulumi.CustomResource):
         __props__.__dict__["certificate_template"] = certificate_template
         __props__.__dict__["config"] = config
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["issuer_certificate_authority"] = issuer_certificate_authority
         __props__.__dict__["labels"] = labels
@@ -1801,6 +1870,19 @@ class Certificate(pulumi.CustomResource):
         This is in RFC3339 text format.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

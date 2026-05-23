@@ -23,15 +23,22 @@ class DomainMappingArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
                  spec: pulumi.Input['DomainMappingSpecArgs'],
-                 metadata: Optional[pulumi.Input['DomainMappingMetadataArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional['DomainMappingMetadataArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DomainMapping resource.
 
         :param pulumi.Input[_builtins.str] location: The location of the cloud run instance. eg us-central1
         :param pulumi.Input['DomainMappingSpecArgs'] spec: The spec for this DomainMapping.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['DomainMappingMetadataArgs'] metadata: Metadata associated with this DomainMapping.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] name: Name should be a [verified](https://support.google.com/webmasters/answer/9008080) domain
@@ -40,6 +47,8 @@ class DomainMappingArgs:
         """
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "spec", spec)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if metadata is not None:
             pulumi.set(__self__, "metadata", metadata)
         if name is not None:
@@ -73,8 +82,25 @@ class DomainMappingArgs:
         pulumi.set(self, "spec", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input['DomainMappingMetadataArgs']]:
+    def metadata(self) -> pulumi.Input[Optional['DomainMappingMetadataArgs']]:
         """
         Metadata associated with this DomainMapping.
         Structure is documented below.
@@ -82,24 +108,24 @@ class DomainMappingArgs:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input['DomainMappingMetadataArgs']]):
+    def metadata(self, value: pulumi.Input[Optional['DomainMappingMetadataArgs']]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name should be a [verified](https://support.google.com/webmasters/answer/9008080) domain
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -107,22 +133,29 @@ class DomainMappingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DomainMappingState:
     def __init__(__self__, *,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 metadata: Optional[pulumi.Input['DomainMappingMetadataArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spec: Optional[pulumi.Input['DomainMappingSpecArgs']] = None,
-                 statuses: Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingStatusArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional['DomainMappingMetadataArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spec: pulumi.Input[Optional['DomainMappingSpecArgs']] = None,
+                 statuses: pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingStatusArgs']]]] = None):
         """
         Input properties used for looking up and filtering DomainMapping resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: The location of the cloud run instance. eg us-central1
         :param pulumi.Input['DomainMappingMetadataArgs'] metadata: Metadata associated with this DomainMapping.
                Structure is documented below.
@@ -134,6 +167,8 @@ class _DomainMappingState:
         :param pulumi.Input[Sequence[pulumi.Input['DomainMappingStatusArgs']]] statuses: (Output)
                Status of the condition, one of True, False, Unknown.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if metadata is not None:
@@ -148,20 +183,37 @@ class _DomainMappingState:
             pulumi.set(__self__, "statuses", statuses)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the cloud run instance. eg us-central1
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input['DomainMappingMetadataArgs']]:
+    def metadata(self) -> pulumi.Input[Optional['DomainMappingMetadataArgs']]:
         """
         Metadata associated with this DomainMapping.
         Structure is documented below.
@@ -169,24 +221,24 @@ class _DomainMappingState:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input['DomainMappingMetadataArgs']]):
+    def metadata(self, value: pulumi.Input[Optional['DomainMappingMetadataArgs']]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name should be a [verified](https://support.google.com/webmasters/answer/9008080) domain
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -194,12 +246,12 @@ class _DomainMappingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def spec(self) -> Optional[pulumi.Input['DomainMappingSpecArgs']]:
+    def spec(self) -> pulumi.Input[Optional['DomainMappingSpecArgs']]:
         """
         The spec for this DomainMapping.
         Structure is documented below.
@@ -207,12 +259,12 @@ class _DomainMappingState:
         return pulumi.get(self, "spec")
 
     @spec.setter
-    def spec(self, value: Optional[pulumi.Input['DomainMappingSpecArgs']]):
+    def spec(self, value: pulumi.Input[Optional['DomainMappingSpecArgs']]):
         pulumi.set(self, "spec", value)
 
     @_builtins.property
     @pulumi.getter
-    def statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingStatusArgs']]]]:
+    def statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingStatusArgs']]]]:
         """
         (Output)
         Status of the condition, one of True, False, Unknown.
@@ -220,7 +272,7 @@ class _DomainMappingState:
         return pulumi.get(self, "statuses")
 
     @statuses.setter
-    def statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingStatusArgs']]]]):
+    def statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingStatusArgs']]]]):
         pulumi.set(self, "statuses", value)
 
 
@@ -230,11 +282,12 @@ class DomainMapping(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 metadata: Optional[pulumi.Input[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spec: Optional[pulumi.Input[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spec: pulumi.Input[Optional[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
                  __props__=None):
         """
         Resource to hold the state and status of a user's domain mapping.
@@ -296,6 +349,12 @@ class DomainMapping(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: The location of the cloud run instance. eg us-central1
         :param pulumi.Input[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']] metadata: Metadata associated with this DomainMapping.
                Structure is documented below.
@@ -384,11 +443,12 @@ class DomainMapping(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 metadata: Optional[pulumi.Input[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 spec: Optional[pulumi.Input[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 spec: pulumi.Input[Optional[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -398,6 +458,7 @@ class DomainMapping(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = DomainMappingArgs.__new__(DomainMappingArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
@@ -418,12 +479,13 @@ class DomainMapping(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            metadata: Optional[pulumi.Input[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            spec: Optional[pulumi.Input[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
-            statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DomainMappingStatusArgs', 'DomainMappingStatusArgsDict']]]]] = None) -> 'DomainMapping':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            metadata: pulumi.Input[Optional[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            spec: pulumi.Input[Optional[Union['DomainMappingSpecArgs', 'DomainMappingSpecArgsDict']]] = None,
+            statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DomainMappingStatusArgs', 'DomainMappingStatusArgsDict']]]]] = None) -> 'DomainMapping':
         """
         Get an existing DomainMapping resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -431,6 +493,12 @@ class DomainMapping(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: The location of the cloud run instance. eg us-central1
         :param pulumi.Input[Union['DomainMappingMetadataArgs', 'DomainMappingMetadataArgsDict']] metadata: Metadata associated with this DomainMapping.
                Structure is documented below.
@@ -446,6 +514,7 @@ class DomainMapping(pulumi.CustomResource):
 
         __props__ = _DomainMappingState.__new__(_DomainMappingState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["location"] = location
         __props__.__dict__["metadata"] = metadata
         __props__.__dict__["name"] = name
@@ -453,6 +522,19 @@ class DomainMapping(pulumi.CustomResource):
         __props__.__dict__["spec"] = spec
         __props__.__dict__["statuses"] = statuses
         return DomainMapping(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

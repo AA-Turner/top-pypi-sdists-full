@@ -833,6 +833,44 @@ class SearchReplace(
                                 ((e.lineno or 1) + 2)
                             ]
                         )
+                        # Truncation heuristic: if every REPLACE block's
+                        # last non-blank line looks incomplete (ends
+                        # mid-statement: trailing `.`, `(`, `=`, `,`, or
+                        # an identifier followed by nothing), the model
+                        # almost certainly hit max_tokens mid-emission.
+                        # Tell it so instead of a generic indent-error.
+                        # Observed 2026-05-22 in mdparse/cli.py: REPLACE
+                        # cut off at `group.a` and the resulting file
+                        # had a dangling line; model got an indent-error
+                        # message and tried to fix indentation when the
+                        # real problem was the REPLACE was truncated.
+                        truncation_hint = ""
+                        try:
+                            _last_replace_line = ""
+                            for _blk in search_replace_blocks:
+                                _rep_lines = _blk.replace.rstrip().splitlines()
+                                if _rep_lines:
+                                    _last_replace_line = _rep_lines[-1].rstrip()
+                            if _last_replace_line and re.search(
+                                r"(?:[\w.](?<![\)\]\}\":'])|[=,([{.]"
+                                r"|\b(?:def|class|if|elif|else|for|while|"
+                                r"try|except|with|return)\b)\s*$",
+                                _last_replace_line,
+                            ) and not _last_replace_line.endswith(
+                                (":", ")", "]", "}", '"', "'", ",")
+                            ):
+                                truncation_hint = (
+                                    "\n\nTRUNCATION SUSPECTED: the last line of "
+                                    f"your REPLACE block was {_last_replace_line!r} "
+                                    "— it looks incomplete (cut off mid-statement). "
+                                    "The model's response likely hit max_tokens "
+                                    "BEFORE finishing the REPLACE block. Split the "
+                                    "edit into smaller search_replace calls "
+                                    "(one function/class per call), or use "
+                                    "write_file with the full new file content."
+                                )
+                        except Exception:
+                            pass
                         yield SearchReplaceResult(
                             file=str(file_path),
                             blocks_applied=0,
@@ -845,14 +883,15 @@ class SearchReplace(
                                 f"REPLACE block, missing colon/paren, "
                                 f"unbalanced brackets, indentation drift. "
                                 f"File NOT modified.\n\nContext around the "
-                                f"broken line:\n{snippet}"
+                                f"broken line:\n{snippet}{truncation_hint}"
                             ],
                             content=(
                                 f"{file_path.name}: edit REJECTED "
                                 f"(would break syntax at line {e.lineno}: "
-                                f"{e.msg}). File NOT modified. Re-read "
-                                f"the file, fix the REPLACE block's "
-                                f"indentation/syntax, and retry."
+                                f"{e.msg}). File NOT modified. "
+                                + (truncation_hint.strip() if truncation_hint
+                                   else "Re-read the file, fix the REPLACE "
+                                   "block's indentation/syntax, and retry.")
                             ),
                         )
                         return
@@ -1156,16 +1195,33 @@ class SearchReplace(
                     current_content, search, auto_apply_threshold
                 )
                 if best_match and best_match.similarity >= auto_apply_threshold:
-                    # Auto-apply: replace the fuzzy-matched text with the replacement
-                    current_content = current_content.replace(best_match.text, replace, 1)
-                    applied += 1
-                    similarity_pct = best_match.similarity * 100
-                    warnings.append(
-                        f"Block {i}: auto-applied via fuzzy match ({similarity_pct:.1f}% similarity, "
-                        f"lines {best_match.start_line}-{best_match.end_line}). "
-                        f"Whitespace differences were normalized."
-                    )
-                    continue
+                    # SAFETY: only auto-apply if the diff between the
+                    # model's SEARCH and the matched text is WHITESPACE
+                    # only. Observed 2026-05-22: model's SEARCH ended
+                    # with "@pytest.fixture(" but the file had
+                    # "@pytest.fixture" (no paren). 96% similarity →
+                    # auto-apply → REPLACE wrote the file with an
+                    # unclosed paren → SyntaxError. The fuzzy matcher
+                    # should only fix indent/space drift, not
+                    # structural characters.
+                    _normalize = lambda s: re.sub(r"\s+", " ", s).strip()
+                    if _normalize(best_match.text) != _normalize(search):
+                        # Diff includes non-whitespace chars — refuse
+                        # auto-apply and fall through to the fuzzy
+                        # context error path so the model can fix
+                        # its SEARCH explicitly.
+                        pass
+                    else:
+                        # Auto-apply: replace the fuzzy-matched text with the replacement
+                        current_content = current_content.replace(best_match.text, replace, 1)
+                        applied += 1
+                        similarity_pct = best_match.similarity * 100
+                        warnings.append(
+                            f"Block {i}: auto-applied via fuzzy match ({similarity_pct:.1f}% similarity, "
+                            f"lines {best_match.start_line}-{best_match.end_line}). "
+                            f"Whitespace differences were normalized."
+                        )
+                        continue
 
                 context = SearchReplace._find_search_context(current_content, search)
                 fuzzy_context = SearchReplace._find_fuzzy_match_context(
@@ -1191,6 +1247,34 @@ class SearchReplace(
                         "Read the file head above and craft your SEARCH block using "
                         "text that actually appears in the file."
                     )
+
+                # If the model previously edited this file (its own SR or
+                # write_file mutated current_content since the last read_file),
+                # the search text it's using might be the PRE-EDIT version.
+                # Surface this explicitly so the model re-reads instead of
+                # retrying the stale text. Observed 2026-05-22: P4 pipeflow
+                # SR for `v = row.get(col.name, "")` failed because the model
+                # had ALREADY refactored that line earlier in the session to
+                # `v = row.get(csv_name, "")`. Without this hint the model
+                # just retries with the same wrong text.
+                try:
+                    if read_state is not None:
+                        prior = read_state.get(str(file_path))
+                        if (prior
+                                and prior.get("content")
+                                and search not in prior["content"]):
+                            error_msg += (
+                                "\n\n[POSSIBLE STALE SEARCH: you have edited "
+                                f"{file_path.name} since your last read_file "
+                                "on it — the SEARCH text doesn't appear in "
+                                "the file's CURRENT state. The text you're "
+                                "looking for may have been replaced by an "
+                                "earlier edit this session. read_file "
+                                f"{file_path.name} again to see the current "
+                                "content before retrying.]"
+                            )
+                except Exception:
+                    pass
 
                 error_msg += (
                     "\nDebugging tips:\n"

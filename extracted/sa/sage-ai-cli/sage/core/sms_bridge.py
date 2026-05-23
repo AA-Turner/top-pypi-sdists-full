@@ -270,7 +270,22 @@ def _imessage_max_rowid() -> int:
 
 
 def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
-    """Confirm an outbound message with this text was queued after prev_max_rowid."""
+    """Confirm an outbound message was queued after prev_max_rowid.
+
+    Modern macOS (Ventura+/Sonoma+) leaves the `text` column NULL for newly
+    sent messages and stores the body inside the `attributedBody` BLOB as a
+    serialized NSAttributedString.  A previous version of this matcher
+    queried `text = ?` which always returned 0 rows on modern macOS,
+    causing _send_imessage to wrongly report "no row appeared in chat.db
+    after 5s" even when the message was queued successfully.
+
+    The match is now permissive: any new outbound row (rowid > baseline,
+    is_from_me = 1) with either a matching text prefix OR a non-empty
+    attributedBody confirms the send.  Since we just queued one message
+    via osascript and recorded the baseline immediately beforehand, the
+    next outbound row IS our message — there is no realistic race where a
+    different outbound row appears in the same window.
+    """
     if sys.platform != "darwin":
         return False
     db_path = os.path.expanduser("~/Library/Messages/chat.db")
@@ -279,12 +294,13 @@ def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
     try:
         import sqlite3
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as db:
-            # is_from_me=1 (outbound) + text matches + rowid newer than baseline.
-            # Match on the first 200 chars so we don't blow up on long messages.
             row = db.execute(
                 "SELECT 1 FROM message "
-                "WHERE rowid > ? AND is_from_me = 1 AND text IS NOT NULL "
-                "  AND substr(text, 1, 200) = substr(?, 1, 200) "
+                "WHERE rowid > ? AND is_from_me = 1 "
+                "  AND ("
+                "    (text IS NOT NULL AND substr(text, 1, 200) = substr(?, 1, 200))"
+                "    OR (attributedBody IS NOT NULL AND length(attributedBody) > 0)"
+                "  ) "
                 "LIMIT 1",
                 (prev_max_rowid, text),
             ).fetchone()
@@ -347,21 +363,38 @@ def _send_imessage(recipient: str, text: str) -> bool:
 
     # Try modern `participant`, then legacy `buddy`. Either may script-succeed
     # without iMessage queuing anything; chat.db is the ground truth.
+    script_errors: list[str] = []
     for keyword in ("participant", "buddy"):
         ok, msg = _run_send_script(keyword)
         if not ok or msg != "ok":
+            script_errors.append(f"{keyword}: {msg}")
             logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
             continue
-        # Give Messages.app a moment to write to chat.db
-        for _ in range(8):  # up to ~2s
+        # Give Messages.app up to 5s to write to chat.db (was 2s — sometimes
+        # the Messages.app write is slow under load or on first-message-to-contact).
+        for _ in range(20):  # 20 × 0.25s = 5s
             time.sleep(0.25)
             if _imessage_row_matches(baseline, text):
                 return True
+        # osascript said "ok" but chat.db never got the row.  This usually
+        # means the recipient's handle isn't reachable on iMessage (not signed
+        # in, wrong handle format, Apple ID mismatch).  Log at WARNING so the
+        # user sees it in the bridge terminal output.
         logger.warning(
             "iMessage to %s: osascript said ok but no row appeared in chat.db "
-            "after 2s — Messages.app may have dropped the message (recipient "
-            "not on iMessage, or not signed in)",
+            "after 5s — recipient may not have iMessage enabled for this "
+            "handle, or Messages.app is not signed in on this Mac",
             recipient,
+        )
+        return False  # no point trying legacy keyword if modern already "ok"
+
+    # Both keywords produced script errors — log them visibly
+    if script_errors:
+        logger.warning(
+            "iMessage to %s failed: %s — ensure Messages.app is open and "
+            "signed into iMessage, and the recipient's handle is correct",
+            recipient,
+            "; ".join(script_errors),
         )
     return False
 
@@ -692,9 +725,13 @@ class SAGEMessageBridge:
         # inbound iMessage / SMS after the bridge starts (not the entire
         # historical chat log).
         self._last_msg_rowid: int | None = None
-        # Cache of registered phone-number contacts keyed by E.164 form. Refreshed
-        # periodically by the iMessage poller so newly-added contacts route too.
+        # Cache of registered contacts. Refreshed periodically by the iMessage
+        # poller so newly-added contacts route too.
+        # _phone_contacts_cache  — keyed by E.164 (+1XXXXXXXXXX) and bare digits
+        # _email_contacts_cache  — keyed by lowercase email (iCloud / Apple ID /
+        #                          private-relay addresses)
         self._phone_contacts_cache: dict[str, dict] = {}
+        self._email_contacts_cache: dict[str, dict] = {}
         self._phone_cache_refreshed_at: float = 0.0
 
     def _log(self, msg: str) -> None:
@@ -863,27 +900,57 @@ class SAGEMessageBridge:
     _CHAT_DB = Path.home() / "Library" / "Messages" / "chat.db"
 
     def _refresh_phone_contacts(self) -> None:
-        """Pull registered phone contacts from the backend, cache by E.164."""
+        """Pull registered contacts from backend; cache by E.164 and by email.
+
+        Phone contacts (stored as "phone:XXXXXXXXXX") go into
+        _phone_contacts_cache keyed by normalised E.164.
+
+        Email contacts (iCloud / Apple ID / private-relay) go into
+        _email_contacts_cache keyed by lowercase email. If a private-relay
+        contact has an imessage_address set, that address is also added to
+        whichever cache applies (phone cache for phone numbers, email cache
+        for email addresses) so inbound messages from that real address are
+        recognised too.
+        """
         if time.time() - self._phone_cache_refreshed_at < 30:
             return  # cached recently
         try:
             be = SAGEBackend(self._token, self._api_base)
             contacts = be.list_contacts()
-            cache: dict[str, dict] = {}
+            phone_cache: dict[str, dict] = {}
+            email_cache: dict[str, dict] = {}
             for c in contacts:
-                email = (c.get("email") or "")
-                if not email.startswith("phone:"):
-                    continue
-                digits = re.sub(r"\D", "", email.replace("phone:", ""))
-                if len(digits) == 11 and digits.startswith("1"):
-                    digits = digits[1:]
-                if len(digits) == 10:
-                    cache[f"+1{digits}"] = c
-                    cache[digits] = c  # also bare digits, just in case
-            self._phone_contacts_cache = cache
+                raw_email = (c.get("email") or "")
+                if raw_email.startswith("phone:"):
+                    digits = re.sub(r"\D", "", raw_email.replace("phone:", ""))
+                    if len(digits) == 11 and digits.startswith("1"):
+                        digits = digits[1:]
+                    if len(digits) == 10:
+                        phone_cache[f"+1{digits}"] = c
+                        phone_cache[digits] = c
+                elif "@" in raw_email:
+                    email_cache[raw_email.lower()] = c
+
+                # If the contact has a stored imessage_address (set by the
+                # user to bypass Apple private-relay), register that address
+                # too so inbound messages from the real address are matched.
+                imsg = (c.get("imessage_address") or "").strip()
+                if imsg:
+                    if "@" in imsg:
+                        email_cache[imsg.lower()] = c
+                    else:
+                        norm = re.sub(r"\D", "", imsg)
+                        if len(norm) == 11 and norm.startswith("1"):
+                            norm = norm[1:]
+                        if len(norm) == 10:
+                            phone_cache[f"+1{norm}"] = c
+                            phone_cache[norm] = c
+
+            self._phone_contacts_cache = phone_cache
+            self._email_contacts_cache = email_cache
             self._phone_cache_refreshed_at = time.time()
         except Exception as exc:
-            logger.debug("phone contacts refresh failed: %s", exc)
+            logger.debug("contacts refresh failed: %s", exc)
 
     def _imessage_initial_rowid(self) -> int:
         """Return the current max ROWID so we only see messages from now on."""
@@ -989,8 +1056,12 @@ class SAGEMessageBridge:
         service  = msg.get("service", "")
         e164     = self._normalize_e164(sender)
 
-        # Look up the contact — must be registered
-        contact = self._phone_contacts_cache.get(e164)
+        # Look up the contact — must be registered.
+        # Senders can arrive as a phone number (E.164) or as an email address
+        # (iCloud / Apple ID / private-relay).  Check both caches.
+        contact = self._phone_contacts_cache.get(e164) if e164 else None
+        if not contact and "@" in sender:
+            contact = self._email_contacts_cache.get(sender.lower())
         if not contact:
             return  # unregistered sender; don't run sage on every random chat
 
@@ -2010,6 +2081,21 @@ class SAGEMessageBridge:
                 if _send_imessage(email, body):
                     self._log(f"→ Direct iMessage to linked Apple provider: {email}")
                     sent_to.add(email)
+                else:
+                    self._log(
+                        f"⚠ iMessage to linked Apple account {email} failed.\n"
+                        "  Troubleshoot: open Messages.app → ensure it shows 'iMessage' active,\n"
+                        "  that this email is a valid iMessage handle for the recipient,\n"
+                        "  and try: sage sms test-imessage <email>"
+                    )
+
+        if not sent_to:
+            self._log(
+                "⚠ No iMessages sent — check that:\n"
+                "  1. Messages.app is open and signed in on this Mac\n"
+                "  2. Your contacts have valid iMessage handles (iCloud email or phone)\n"
+                "  3. Run: sage sms test-imessage <phone_or_email> to test a specific address"
+            )
 
     def run(self) -> None:
         """Main loop: connect to backend WebSocket, process tasks until stopped."""

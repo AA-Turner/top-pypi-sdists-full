@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: paid-python
-Version: 1.9.0
+Version: 1.10.0
 Summary: 
 Requires-Python: >=3.10,<3.14
 Classifier: Intended Audience :: Developers
@@ -29,10 +29,12 @@ Requires-Dist: openinference-instrumentation-openai (>=0.1.40)
 Requires-Dist: openinference-instrumentation-openai-agents (>=1.0.0)
 Requires-Dist: opentelemetry-api (>=1.23.0)
 Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.23.0)
+Requires-Dist: opentelemetry-instrumentation-cohere (>=0.51.0)
 Requires-Dist: opentelemetry-sdk (>=1.23.0)
 Requires-Dist: pydantic (>=1.9.2)
 Requires-Dist: pydantic-core (>=2.18.2)
 Requires-Dist: typing_extensions (>=4.0.0)
+Requires-Dist: wrapt (<2)
 Project-URL: Repository, https://github.com/paid-ai/paid-python
 Description-Content-Type: text/markdown
 
@@ -386,6 +388,7 @@ claude-agent-sdk   - Claude Agent SDK
 bedrock            - AWS Bedrock (boto3)
 langchain          - LangChain framework
 instructor         - Instructor
+cohere             - Cohere SDK
 ```
 
 #### Selective Instrumentation

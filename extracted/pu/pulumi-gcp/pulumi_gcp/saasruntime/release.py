@@ -24,12 +24,13 @@ class ReleaseArgs:
                  location: pulumi.Input[_builtins.str],
                  release_id: pulumi.Input[_builtins.str],
                  unit_kind: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 blueprint: Optional[pulumi.Input['ReleaseBlueprintArgs']] = None,
-                 input_variable_defaults: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_requirements: Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 blueprint: pulumi.Input[Optional['ReleaseBlueprintArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 input_variable_defaults: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_requirements: pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']] = None):
         """
         The set of arguments for constructing a Release resource.
 
@@ -49,6 +50,12 @@ class ReleaseArgs:
                manifest. If the hostname is omitted, it will be assumed to be the regional
                path to Artifact Registry (eg. us-east1-docker.pkg.dev).
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]] input_variable_defaults: Mapping of input variables to default values. Maximum 100
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
@@ -67,6 +74,8 @@ class ReleaseArgs:
             pulumi.set(__self__, "annotations", annotations)
         if blueprint is not None:
             pulumi.set(__self__, "blueprint", blueprint)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if input_variable_defaults is not None:
             pulumi.set(__self__, "input_variable_defaults", input_variable_defaults)
         if labels is not None:
@@ -115,7 +124,7 @@ class ReleaseArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Annotations is an unstructured key-value map stored with a resource that
         may be set by external tools to store and retrieve arbitrary metadata.
@@ -127,12 +136,12 @@ class ReleaseArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def blueprint(self) -> Optional[pulumi.Input['ReleaseBlueprintArgs']]:
+    def blueprint(self) -> pulumi.Input[Optional['ReleaseBlueprintArgs']]:
         """
         Blueprints are OCI Images that contain all of the artifacts needed to
         provision a unit. Metadata such as, type of the engine used to actuate the
@@ -144,12 +153,29 @@ class ReleaseArgs:
         return pulumi.get(self, "blueprint")
 
     @blueprint.setter
-    def blueprint(self, value: Optional[pulumi.Input['ReleaseBlueprintArgs']]):
+    def blueprint(self, value: pulumi.Input[Optional['ReleaseBlueprintArgs']]):
         pulumi.set(self, "blueprint", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="inputVariableDefaults")
-    def input_variable_defaults(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]:
+    def input_variable_defaults(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]:
         """
         Mapping of input variables to default values. Maximum 100
         Structure is documented below.
@@ -157,12 +183,12 @@ class ReleaseArgs:
         return pulumi.get(self, "input_variable_defaults")
 
     @input_variable_defaults.setter
-    def input_variable_defaults(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]):
+    def input_variable_defaults(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]):
         pulumi.set(self, "input_variable_defaults", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels on the resource, which can be used for categorization.
         similar to Kubernetes resource labels.
@@ -172,12 +198,12 @@ class ReleaseArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -185,12 +211,12 @@ class ReleaseArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="releaseRequirements")
-    def release_requirements(self) -> Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']]:
+    def release_requirements(self) -> pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']]:
         """
         Set of requirements to be fulfilled on the Unit when using this Release.
         Structure is documented below.
@@ -198,32 +224,33 @@ class ReleaseArgs:
         return pulumi.get(self, "release_requirements")
 
     @release_requirements.setter
-    def release_requirements(self, value: Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']]):
+    def release_requirements(self, value: pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']]):
         pulumi.set(self, "release_requirements", value)
 
 
 @pulumi.input_type
 class _ReleaseState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 blueprint: Optional[pulumi.Input['ReleaseBlueprintArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 input_variable_defaults: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]] = None,
-                 input_variables: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 output_variables: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 release_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_requirements: Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 unit_kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 blueprint: pulumi.Input[Optional['ReleaseBlueprintArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 input_variable_defaults: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]] = None,
+                 input_variables: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 output_variables: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 release_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_requirements: pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 unit_kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Release resources.
 
@@ -240,6 +267,12 @@ class _ReleaseState:
                path to Artifact Registry (eg. us-east1-docker.pkg.dev).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] etag: An opaque value that uniquely identifies a version or
@@ -285,6 +318,8 @@ class _ReleaseState:
             pulumi.set(__self__, "blueprint", blueprint)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_annotations is not None:
             pulumi.set(__self__, "effective_annotations", effective_annotations)
         if effective_labels is not None:
@@ -320,7 +355,7 @@ class _ReleaseState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Annotations is an unstructured key-value map stored with a resource that
         may be set by external tools to store and retrieve arbitrary metadata.
@@ -332,12 +367,12 @@ class _ReleaseState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def blueprint(self) -> Optional[pulumi.Input['ReleaseBlueprintArgs']]:
+    def blueprint(self) -> pulumi.Input[Optional['ReleaseBlueprintArgs']]:
         """
         Blueprints are OCI Images that contain all of the artifacts needed to
         provision a unit. Metadata such as, type of the engine used to actuate the
@@ -349,48 +384,65 @@ class _ReleaseState:
         return pulumi.get(self, "blueprint")
 
     @blueprint.setter
-    def blueprint(self, value: Optional[pulumi.Input['ReleaseBlueprintArgs']]):
+    def blueprint(self, value: pulumi.Input[Optional['ReleaseBlueprintArgs']]):
         pulumi.set(self, "blueprint", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An opaque value that uniquely identifies a version or
         generation of a resource. It can be used to confirm that the client
@@ -399,12 +451,12 @@ class _ReleaseState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="inputVariableDefaults")
-    def input_variable_defaults(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]:
+    def input_variable_defaults(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]:
         """
         Mapping of input variables to default values. Maximum 100
         Structure is documented below.
@@ -412,12 +464,12 @@ class _ReleaseState:
         return pulumi.get(self, "input_variable_defaults")
 
     @input_variable_defaults.setter
-    def input_variable_defaults(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]):
+    def input_variable_defaults(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableDefaultArgs']]]]):
         pulumi.set(self, "input_variable_defaults", value)
 
     @_builtins.property
     @pulumi.getter(name="inputVariables")
-    def input_variables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]]:
+    def input_variables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]]:
         """
         List of input variables declared on the blueprint and can be present with
         their values on the unit spec
@@ -426,12 +478,12 @@ class _ReleaseState:
         return pulumi.get(self, "input_variables")
 
     @input_variables.setter
-    def input_variables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]]):
+    def input_variables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseInputVariableArgs']]]]):
         pulumi.set(self, "input_variables", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels on the resource, which can be used for categorization.
         similar to Kubernetes resource labels.
@@ -441,24 +493,24 @@ class _ReleaseState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name (full URI of the resource) following the standard naming
         scheme:
@@ -467,12 +519,12 @@ class _ReleaseState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="outputVariables")
-    def output_variables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]]:
+    def output_variables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]]:
         """
         List of output variables declared on the blueprint and can be present with
         their values on the unit status
@@ -481,12 +533,12 @@ class _ReleaseState:
         return pulumi.get(self, "output_variables")
 
     @output_variables.setter
-    def output_variables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]]):
+    def output_variables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ReleaseOutputVariableArgs']]]]):
         pulumi.set(self, "output_variables", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -494,12 +546,12 @@ class _ReleaseState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -507,24 +559,24 @@ class _ReleaseState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="releaseId")
-    def release_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def release_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID value for the new release.
         """
         return pulumi.get(self, "release_id")
 
     @release_id.setter
-    def release_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def release_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "release_id", value)
 
     @_builtins.property
     @pulumi.getter(name="releaseRequirements")
-    def release_requirements(self) -> Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']]:
+    def release_requirements(self) -> pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']]:
         """
         Set of requirements to be fulfilled on the Unit when using this Release.
         Structure is documented below.
@@ -532,12 +584,12 @@ class _ReleaseState:
         return pulumi.get(self, "release_requirements")
 
     @release_requirements.setter
-    def release_requirements(self, value: Optional[pulumi.Input['ReleaseReleaseRequirementsArgs']]):
+    def release_requirements(self, value: pulumi.Input[Optional['ReleaseReleaseRequirementsArgs']]):
         pulumi.set(self, "release_requirements", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the resource. UID is unique in the time
         and space for this resource within the scope of the service. It is
@@ -548,12 +600,12 @@ class _ReleaseState:
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="unitKind")
-    def unit_kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def unit_kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Reference to the UnitKind this Release corresponds to (required and
         immutable once created).
@@ -561,12 +613,12 @@ class _ReleaseState:
         return pulumi.get(self, "unit_kind")
 
     @unit_kind.setter
-    def unit_kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def unit_kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "unit_kind", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was last updated. Any
         change to the resource made by users must refresh this value.
@@ -575,7 +627,7 @@ class _ReleaseState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -585,15 +637,16 @@ class Release(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 blueprint: Optional[pulumi.Input[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
-                 input_variable_defaults: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_requirements: Optional[pulumi.Input[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
-                 unit_kind: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 blueprint: pulumi.Input[Optional[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 input_variable_defaults: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_requirements: pulumi.Input[Optional[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
+                 unit_kind: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A version to be propagated and deployed to Units. It points to a specific version of a Blueprint that can be applied to Units, for example, via a Rollout.
@@ -671,6 +724,12 @@ class Release(pulumi.CustomResource):
                manifest. If the hostname is omitted, it will be assumed to be the regional
                path to Artifact Registry (eg. us-east1-docker.pkg.dev).
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]] input_variable_defaults: Mapping of input variables to default values. Maximum 100
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels on the resource, which can be used for categorization.
@@ -769,15 +828,16 @@ class Release(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 blueprint: Optional[pulumi.Input[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
-                 input_variable_defaults: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 release_requirements: Optional[pulumi.Input[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
-                 unit_kind: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 blueprint: pulumi.Input[Optional[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 input_variable_defaults: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 release_requirements: pulumi.Input[Optional[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
+                 unit_kind: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -789,6 +849,7 @@ class Release(pulumi.CustomResource):
 
             __props__.__dict__["annotations"] = annotations
             __props__.__dict__["blueprint"] = blueprint
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["input_variable_defaults"] = input_variable_defaults
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
@@ -824,25 +885,26 @@ class Release(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            blueprint: Optional[pulumi.Input[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            input_variable_defaults: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
-            input_variables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReleaseInputVariableArgs', 'ReleaseInputVariableArgsDict']]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            output_variables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReleaseOutputVariableArgs', 'ReleaseOutputVariableArgsDict']]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            release_id: Optional[pulumi.Input[_builtins.str]] = None,
-            release_requirements: Optional[pulumi.Input[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            unit_kind: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Release':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            blueprint: pulumi.Input[Optional[Union['ReleaseBlueprintArgs', 'ReleaseBlueprintArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            input_variable_defaults: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ReleaseInputVariableDefaultArgs', 'ReleaseInputVariableDefaultArgsDict']]]]] = None,
+            input_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ReleaseInputVariableArgs', 'ReleaseInputVariableArgsDict']]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            output_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ReleaseOutputVariableArgs', 'ReleaseOutputVariableArgsDict']]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            release_id: pulumi.Input[Optional[_builtins.str]] = None,
+            release_requirements: pulumi.Input[Optional[Union['ReleaseReleaseRequirementsArgs', 'ReleaseReleaseRequirementsArgsDict']]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            unit_kind: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Release':
         """
         Get an existing Release resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -863,6 +925,12 @@ class Release(pulumi.CustomResource):
                path to Artifact Registry (eg. us-east1-docker.pkg.dev).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] etag: An opaque value that uniquely identifies a version or
@@ -909,6 +977,7 @@ class Release(pulumi.CustomResource):
         __props__.__dict__["annotations"] = annotations
         __props__.__dict__["blueprint"] = blueprint
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["etag"] = etag
@@ -960,6 +1029,19 @@ class Release(pulumi.CustomResource):
         The timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")

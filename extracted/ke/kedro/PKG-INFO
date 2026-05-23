@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.3.1
+Version: 1.4.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
@@ -30,13 +31,12 @@ Requires-Dist: omegaconf>=2.1.1
 Requires-Dist: parse>=1.19.0
 Requires-Dist: pluggy>=1.0
 Requires-Dist: PyYAML<7.0,>=4.2
-Requires-Dist: rich<15.0,>=12.0
+Requires-Dist: rich<16.0,>=12.0
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Requires-Dist: tomli-w
 Requires-Dist: typing_extensions>=4.0
 Provides-Extra: test
 Requires-Dist: behave<2.0,>=1.2.6; extra == "test"
-Requires-Dist: chardet<6; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: detect-secrets~=1.5.0; extra == "test"
 Requires-Dist: import-linter<3.0,>=2.5.2; extra == "test"
@@ -46,7 +46,7 @@ Requires-Dist: jupyterlab_server>=2.11.1; extra == "test"
 Requires-Dist: jupyterlab<5,>=3; extra == "test"
 Requires-Dist: jupyter~=1.0; extra == "test"
 Requires-Dist: kedro-datasets; extra == "test"
-Requires-Dist: mypy~=1.0; extra == "test"
+Requires-Dist: mypy<3,>=1; extra == "test"
 Requires-Dist: pandas<4.0,>=2.0; extra == "test"
 Requires-Dist: pluggy>=1.0; extra == "test"
 Requires-Dist: pre-commit<5.0,>=2.9.2; extra == "test"
@@ -61,7 +61,7 @@ Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Provides-Extra: docs
-Requires-Dist: mkdocs>=1.6.1; extra == "docs"
+Requires-Dist: mkdocs<2.0,>=1.6.1; extra == "docs"
 Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
 Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
 Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
@@ -78,8 +78,10 @@ Requires-Dist: ipylab>=1.0.0; extra == "jupyter"
 Requires-Dist: notebook>=7.0.0; extra == "jupyter"
 Provides-Extra: benchmark
 Requires-Dist: asv; extra == "benchmark"
+Provides-Extra: pydantic
+Requires-Dist: pydantic>=2.0; extra == "pydantic"
 Provides-Extra: all
-Requires-Dist: kedro[benchmark,docs,jupyter,test]; extra == "all"
+Requires-Dist: kedro[benchmark,docs,jupyter,pydantic,test]; extra == "all"
 Dynamic: license-file
 
 <p align="center">
@@ -90,7 +92,7 @@ Dynamic: license-file
   </picture>
 </p>
 
-[![Python version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/kedro/)
+[![Python version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/kedro/)
 [![PyPI version](https://badge.fury.io/py/kedro.svg)](https://pypi.org/project/kedro/)
 [![Conda version](https://img.shields.io/conda/vn/conda-forge/kedro.svg)](https://anaconda.org/conda-forge/kedro)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/kedro-org/kedro/blob/main/LICENSE.md)

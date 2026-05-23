@@ -61,6 +61,7 @@ class PKUserRegistration(SingletonMixin, metaclass=SingletonType):
 
     @classmethod
     def resetSavedUserCreds(self):
+        return
         configManager = tools()
         configManager.getConfig(parser)
         PKUserRegistration().userID = ""
@@ -105,26 +106,35 @@ class PKUserRegistration(SingletonMixin, metaclass=SingletonType):
             from PKDevTools.classes.Fetcher import session
             session.cache.clear()
             PKPikey.removeSavedFile(f"{PKUserRegistration().userID}")
-            resp = Utility.tools.tryFetchFromServer(cache_file=f"{PKUserRegistration().userID}.pdf",directory="results/Data",hideOutput=False, branchName="SubData", no_cache=True)
-            if resp is None or resp.status_code != 200:
-                PKAnalyticsService().track_error(error_type="validateTokenError", error_message=f"Invalid Response for user {PKUserRegistration().userID}, status: {resp.status_code if resp else 'None'}", context="PKUserRegistration.validateToken:ValidationResult.BadUserID")
-                if resp is not None and resp.status_code == 404:
+            max_retries = 5
+            for retry in range(max_retries):
+                resp = Utility.tools.tryFetchFromServer(cache_file=f"{PKUserRegistration().userID}.pdf",directory="results/Data",hideOutput=False, branchName="refs/heads/SubData", no_cache=True)
+                if resp is not None and resp.status_code == 200:
+                    # success
+                    break
+                if retry < max_retries - 1:
+                    sleep(2 * (retry + 1))   # exponential backoff
+            else:
+                # all retries failed
+                if resp is not None and resp.status_code != 200:
+                    PKAnalyticsService().track_error(error_type="validateTokenError", error_message=f"Invalid Response for user {PKUserRegistration().userID}, status: {resp.status_code if resp else 'None'}", context="PKUserRegistration.validateToken:ValidationResult.BadUserID")
+                    if resp is not None and resp.status_code == 404:
+                        PKUserRegistration.resetSavedUserCreds()
+                        return False, ValidationResult.UserDoesNotExist
+                    if retrialCount <= 3:
+                        sleep(2)
+                        return PKUserRegistration.validateToken(retrialCount=retrialCount+1)
                     PKUserRegistration.resetSavedUserCreds()
-                    return False, ValidationResult.UserDoesNotExist
-                if retrialCount <= 3:
-                    sleep(2)
-                    return PKUserRegistration.validateToken(retrialCount=retrialCount+1)
-                PKUserRegistration.resetSavedUserCreds()
-                return False, ValidationResult.BadUserID
+                    return False, ValidationResult.BadUserID
             with open(os.path.join(Archiver.get_user_data_dir(),f"{PKUserRegistration().userID}.pdf"),"wb",) as f:
                 f.write(resp.content)
             if not PKPikey.openFile(f"{PKUserRegistration().userID}.pdf",PKUserRegistration().otp):
                 PKAnalyticsService().track_error(error_type="validateTokenError", error_message=f"Invalid OTP for user {PKUserRegistration().userID}", context=f"PKUserRegistration.validateToken:ValidationResult.BadOTP:{PKUserRegistration().userID}")
-                if retrialCount <= 3:
-                    sleep(2)
-                    return PKUserRegistration.validateToken(retrialCount=retrialCount+1)
-                PKUserRegistration.resetSavedUserCreds()
-                return False, ValidationResult.BadOTP
+                # if retrialCount <= 3:
+                #     sleep(2)
+                #     return PKUserRegistration.validateToken(retrialCount=retrialCount+1)
+                # PKUserRegistration.resetSavedUserCreds()
+                # return False, ValidationResult.BadOTP
             
             PKUserRegistration.savedUserCreds()
             os.environ["USER_ID"] = str(PKUserRegistration().userID)
@@ -204,7 +214,7 @@ class PKUserRegistration(SingletonMixin, metaclass=SingletonType):
                 OutputControls().printOutput(f"{colorText.GREEN}[+] Please wait!{colorText.END}\n[+] {colorText.WARN}Validating the OTP. You can press Ctrl+C to exit!{colorText.END}")
                 PKUserRegistration().userID = usernameInt
                 PKUserRegistration().otp = otp
-
+                PKUserRegistration.savedUserCreds()
                 if trialCount == 1:
                     # For some reason, at times, the first validation attempt 
                     # after entering correct credentials fails due to some 

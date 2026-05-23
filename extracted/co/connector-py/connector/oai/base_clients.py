@@ -13,7 +13,7 @@ from graphql import DocumentNode, GraphQLSchema, build_client_schema, build_sche
 from httpx import Response
 from typing_extensions import Self
 
-from connector.httpx_rewrite import AsyncClient, HTTPXAsyncTransport
+from connector.httpx_rewrite import GLOBAL_REQUEST_TIMEOUT, AsyncClient, HTTPXAsyncTransport
 from connector.oai.capability import Request
 from connector.oai.errors import InvalidResponseError
 from connector.utils.rate_limit_context import (
@@ -401,6 +401,7 @@ class BaseGraphQLSession(AsyncClientSession):
         cls, args: Request, rate_limit_config: RateLimitConfig | None = None
     ) -> Client:
         client_args = cls.prepare_client_args(args)
+        client_args.setdefault("execute_timeout", GLOBAL_REQUEST_TIMEOUT.read)
 
         rate_limiting = rate_limit_config or cls._rate_limit_config
         if rate_limiting is not None and "transport" in client_args:

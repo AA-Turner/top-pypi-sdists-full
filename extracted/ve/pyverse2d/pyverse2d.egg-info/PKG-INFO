@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyverse2d
-Version: 1.6.1
+Version: 1.6.16
 Summary: 2D Game Engine using pyglet (OpenGL) for rendering
 Author: WhiteWolf45380
 License: MIT
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyglet>=2.0
@@ -80,7 +80,7 @@ window = Window(screen=screen, caption="Hello World", vsync=True)
 pv.set_window(window)
 
 # --- Scene ---
-camera = Camera(anchor=(0.5, 0.5), view_width=40, view_height=22.5)
+camera = Camera(anchor=(0.5, 0.5), view_height=30)
 viewport = Viewport(width=1920, height=1080, origin=(0.5, 0.5))
 main_scene = scene.Scene(camera=camera, viewport=viewport)
 scene.push(main_scene)
@@ -92,7 +92,7 @@ main_scene.add_layer(scene.WorldLayer(main_world), z=0)
 main_world.add_system(world.RenderSystem())
 main_world.add_system(world.PhysicsSystem())
 main_world.add_system(world.GravitySystem(pv.math.Vector(0.0, -9.8)))
-main_world.add_system(world.CollisionSystem())
+main_world.add_system(world.CollisionSystem(slop=0.01, restitution_threshold=0.05))
 
 # --- Ground ---
 ground_shape = pv.shape.Rect(30.0, 1.0)
@@ -105,12 +105,12 @@ ground = world.Entity(
 main_world.add_entity(ground)
 
 # --- Ball ---
-ball_shape = pv.shape.Circle(1.0)
+ball_shape = pv.shape.Circle(1)
 ball = world.Entity(
-    world.Transform(position=(0.0, 8.0), anchor=(0.5, 0.5)),
+    world.Transform(position=(0.0, 8.0)),
     world.ShapeRenderer(shape=ball_shape, filling_color=(80, 180, 255)),
     world.Collider(shape=ball_shape),
-    world.RigidBody(mass=1.0, restitution=0.8, friction=0.2),
+    world.RigidBody(mass=1.0, restitution=0.8),
 )
 main_world.add_entity(ball)
 
@@ -445,17 +445,18 @@ Available effects and their key parameters:
 
 | Effect | Description | Key params |
 |---|---|---|
-| `Blur` | Gaussian blur (separable, multi-pass) | `radius`, `passes` |
+| `Blur` | Gaussian blur | `radius`, `passes` |
+| `MotionBlur` | Dual frames motion blur | `strength` |
 | `Chromatic` | Chromatic aberration | `strength`, `angle` |
 | `ColorGrade` | Brightness / contrast / saturation / tint | `brightness`, `contrast`, `saturation`, `tint` |
 | `EdgeDetect` | Sobel edge detection | `threshold`, `strength`, `edge_color` |
 | `Flicker` | Luminosity flicker (unstable light source) | `amplitude`, `speed` |
 | `Glitch` | Digital corruption with band shifting | `strength`, `density`, `speed` |
 | `Pixelate` | Pixelation | `block_size` |
-| `Posterize` | Color level reduction (cel-shading) | `levels` |
+| `Posterize` | Color level reduction | `levels` |
 | `Scanlines` | CRT scanline overlay | `spacing`, `strength`, `softness` |
 | `Vignette` | Edge darkening | `strength`, `radius`, `softness`, `color` |
-| `Wave` | Sinusoidal distortion (cartesian) | `amplitude_x`, `amplitude_y`, `frequency_x`, `frequency_y`, `speed` |
+| `Wave` | Sinusoidal distortion | `amplitude_x`, `amplitude_y`, `frequency_x`, `frequency_y`, `speed` |
 | `DistortSwirl` | Vortex rotation | `angle`, `falloff` |
 | `DistortSqueeze` | Asymmetric directional stretch | `strength_x`, `strength_y`, `falloff` |
 | `DistortRipple` | Radial concentric wave | `amplitude`, `frequency`, `speed`, `falloff` |

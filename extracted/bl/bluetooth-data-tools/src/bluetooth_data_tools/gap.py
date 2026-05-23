@@ -81,6 +81,7 @@ class BLEGAPType(IntEnum):
 _INT8_SIGN_THRESHOLD = 128
 _INT8_RANGE = 256
 
+TYPE_FLAGS = BLEGAPType.TYPE_FLAGS.value
 TYPE_SHORT_LOCAL_NAME = BLEGAPType.TYPE_SHORT_LOCAL_NAME.value
 TYPE_COMPLETE_LOCAL_NAME = BLEGAPType.TYPE_COMPLETE_LOCAL_NAME.value
 TYPE_MANUFACTURER_SPECIFIC_DATA = BLEGAPType.TYPE_MANUFACTURER_SPECIFIC_DATA.value
@@ -183,7 +184,13 @@ def parse_advertisement_data(
 
 
 def _uncached_parse_advertisement_data(data: bytes) -> BLEGAPAdvertisement:
-    return BLEGAPAdvertisement(*_uncached_parse_advertisement_bytes(data))
+    # Route BLEGAPAdvertisement-cache misses through the bytes-keyed cache
+    # (symmetric with _uncached_parse_advertisement_tuple, see #261). When the
+    # bytes-tuple cache already holds the parsed result, the miss path skips
+    # the full parse loop; a true miss populates that cache so subsequent
+    # parse_advertisement_data_bytes / parse_advertisement_data_tuple calls
+    # on the same payload also win.
+    return BLEGAPAdvertisement(*parse_advertisement_data_bytes(data))
 
 
 def _uncached_parse_advertisement_tuple(
@@ -229,6 +236,11 @@ def _uncached_parse_advertisement_bytes(
                 gap_bytes,
                 length,
             )
+            continue
+        # FLAGS (0x01) appears in nearly every legacy advertisement and is
+        # unhandled here — short-circuit it before the elif dispatch chain so
+        # the common case doesn't pay for ten failed type comparisons.
+        if gap_type_num == TYPE_FLAGS:
             continue
         if gap_type_num == TYPE_SHORT_LOCAL_NAME and local_name is None:
             local_name = gap_data[start:end].decode("utf-8", "replace")

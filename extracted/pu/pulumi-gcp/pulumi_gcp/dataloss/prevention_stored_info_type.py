@@ -22,12 +22,13 @@ __all__ = ['PreventionStoredInfoTypeArgs', 'PreventionStoredInfoType']
 class PreventionStoredInfoTypeArgs:
     def __init__(__self__, *,
                  parent: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dictionary: Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 large_custom_dictionary: Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']] = None,
-                 regex: Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']] = None,
-                 stored_info_type_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dictionary: pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 large_custom_dictionary: pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']] = None,
+                 regex: pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']] = None,
+                 stored_info_type_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PreventionStoredInfoType resource.
 
@@ -36,6 +37,12 @@ class PreventionStoredInfoTypeArgs:
                * `projects/{{project}}/locations/{{location}}`
                * `organizations/{{organization_id}}`
                * `organizations/{{organization_id}}/locations/{{location}}`
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the info type.
         :param pulumi.Input['PreventionStoredInfoTypeDictionaryArgs'] dictionary: Dictionary which defines the rule.
                Structure is documented below.
@@ -49,6 +56,8 @@ class PreventionStoredInfoTypeArgs:
                characters. Can be empty to allow the system to generate one.
         """
         pulumi.set(__self__, "parent", parent)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dictionary is not None:
@@ -79,20 +88,37 @@ class PreventionStoredInfoTypeArgs:
         pulumi.set(self, "parent", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the info type.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def dictionary(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']]:
+    def dictionary(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']]:
         """
         Dictionary which defines the rule.
         Structure is documented below.
@@ -100,24 +126,24 @@ class PreventionStoredInfoTypeArgs:
         return pulumi.get(self, "dictionary")
 
     @dictionary.setter
-    def dictionary(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']]):
+    def dictionary(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']]):
         pulumi.set(self, "dictionary", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the info type.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="largeCustomDictionary")
-    def large_custom_dictionary(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]:
+    def large_custom_dictionary(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]:
         """
         Dictionary which defines the rule.
         Structure is documented below.
@@ -125,12 +151,12 @@ class PreventionStoredInfoTypeArgs:
         return pulumi.get(self, "large_custom_dictionary")
 
     @large_custom_dictionary.setter
-    def large_custom_dictionary(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]):
+    def large_custom_dictionary(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]):
         pulumi.set(self, "large_custom_dictionary", value)
 
     @_builtins.property
     @pulumi.getter
-    def regex(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']]:
+    def regex(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']]:
         """
         Regular expression which defines the rule.
         Structure is documented below.
@@ -138,12 +164,12 @@ class PreventionStoredInfoTypeArgs:
         return pulumi.get(self, "regex")
 
     @regex.setter
-    def regex(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']]):
+    def regex(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']]):
         pulumi.set(self, "regex", value)
 
     @_builtins.property
     @pulumi.getter(name="storedInfoTypeId")
-    def stored_info_type_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stored_info_type_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The storedInfoType ID can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100
@@ -152,24 +178,31 @@ class PreventionStoredInfoTypeArgs:
         return pulumi.get(self, "stored_info_type_id")
 
     @stored_info_type_id.setter
-    def stored_info_type_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stored_info_type_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stored_info_type_id", value)
 
 
 @pulumi.input_type
 class _PreventionStoredInfoTypeState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dictionary: Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 large_custom_dictionary: Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 regex: Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']] = None,
-                 stored_info_type_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dictionary: pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 large_custom_dictionary: pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 regex: pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']] = None,
+                 stored_info_type_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PreventionStoredInfoType resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the info type.
         :param pulumi.Input['PreventionStoredInfoTypeDictionaryArgs'] dictionary: Dictionary which defines the rule.
                Structure is documented below.
@@ -188,6 +221,8 @@ class _PreventionStoredInfoTypeState:
                that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100
                characters. Can be empty to allow the system to generate one.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dictionary is not None:
@@ -206,20 +241,37 @@ class _PreventionStoredInfoTypeState:
             pulumi.set(__self__, "stored_info_type_id", stored_info_type_id)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the info type.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def dictionary(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']]:
+    def dictionary(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']]:
         """
         Dictionary which defines the rule.
         Structure is documented below.
@@ -227,24 +279,24 @@ class _PreventionStoredInfoTypeState:
         return pulumi.get(self, "dictionary")
 
     @dictionary.setter
-    def dictionary(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeDictionaryArgs']]):
+    def dictionary(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeDictionaryArgs']]):
         pulumi.set(self, "dictionary", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the info type.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="largeCustomDictionary")
-    def large_custom_dictionary(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]:
+    def large_custom_dictionary(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]:
         """
         Dictionary which defines the rule.
         Structure is documented below.
@@ -252,24 +304,24 @@ class _PreventionStoredInfoTypeState:
         return pulumi.get(self, "large_custom_dictionary")
 
     @large_custom_dictionary.setter
-    def large_custom_dictionary(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]):
+    def large_custom_dictionary(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeLargeCustomDictionaryArgs']]):
         pulumi.set(self, "large_custom_dictionary", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the info type. Set by the server.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of the info type in any of the following formats:
         * `projects/{{project}}`
@@ -280,12 +332,12 @@ class _PreventionStoredInfoTypeState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def regex(self) -> Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']]:
+    def regex(self) -> pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']]:
         """
         Regular expression which defines the rule.
         Structure is documented below.
@@ -293,12 +345,12 @@ class _PreventionStoredInfoTypeState:
         return pulumi.get(self, "regex")
 
     @regex.setter
-    def regex(self, value: Optional[pulumi.Input['PreventionStoredInfoTypeRegexArgs']]):
+    def regex(self, value: pulumi.Input[Optional['PreventionStoredInfoTypeRegexArgs']]):
         pulumi.set(self, "regex", value)
 
     @_builtins.property
     @pulumi.getter(name="storedInfoTypeId")
-    def stored_info_type_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stored_info_type_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The storedInfoType ID can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100
@@ -307,7 +359,7 @@ class _PreventionStoredInfoTypeState:
         return pulumi.get(self, "stored_info_type_id")
 
     @stored_info_type_id.setter
-    def stored_info_type_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stored_info_type_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stored_info_type_id", value)
 
 
@@ -317,13 +369,14 @@ class PreventionStoredInfoType(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 large_custom_dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 regex: Optional[pulumi.Input[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
-                 stored_info_type_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 large_custom_dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 regex: pulumi.Input[Optional[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
+                 stored_info_type_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Allows creation of custom info types.
@@ -435,6 +488,12 @@ class PreventionStoredInfoType(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the info type.
         :param pulumi.Input[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']] dictionary: Dictionary which defines the rule.
                Structure is documented below.
@@ -581,13 +640,14 @@ class PreventionStoredInfoType(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 large_custom_dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 regex: Optional[pulumi.Input[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
-                 stored_info_type_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 large_custom_dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 regex: pulumi.Input[Optional[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
+                 stored_info_type_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -597,6 +657,7 @@ class PreventionStoredInfoType(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PreventionStoredInfoTypeArgs.__new__(PreventionStoredInfoTypeArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["dictionary"] = dictionary
             __props__.__dict__["display_name"] = display_name
@@ -617,14 +678,15 @@ class PreventionStoredInfoType(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            large_custom_dictionary: Optional[pulumi.Input[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            regex: Optional[pulumi.Input[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
-            stored_info_type_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'PreventionStoredInfoType':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            large_custom_dictionary: pulumi.Input[Optional[Union['PreventionStoredInfoTypeLargeCustomDictionaryArgs', 'PreventionStoredInfoTypeLargeCustomDictionaryArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            regex: pulumi.Input[Optional[Union['PreventionStoredInfoTypeRegexArgs', 'PreventionStoredInfoTypeRegexArgsDict']]] = None,
+            stored_info_type_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'PreventionStoredInfoType':
         """
         Get an existing PreventionStoredInfoType resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -632,6 +694,12 @@ class PreventionStoredInfoType(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the info type.
         :param pulumi.Input[Union['PreventionStoredInfoTypeDictionaryArgs', 'PreventionStoredInfoTypeDictionaryArgsDict']] dictionary: Dictionary which defines the rule.
                Structure is documented below.
@@ -654,6 +722,7 @@ class PreventionStoredInfoType(pulumi.CustomResource):
 
         __props__ = _PreventionStoredInfoTypeState.__new__(_PreventionStoredInfoTypeState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["dictionary"] = dictionary
         __props__.__dict__["display_name"] = display_name
@@ -663,6 +732,19 @@ class PreventionStoredInfoType(pulumi.CustomResource):
         __props__.__dict__["regex"] = regex
         __props__.__dict__["stored_info_type_id"] = stored_info_type_id
         return PreventionStoredInfoType(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

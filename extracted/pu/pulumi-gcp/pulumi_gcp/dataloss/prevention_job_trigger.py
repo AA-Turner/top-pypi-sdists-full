@@ -23,11 +23,12 @@ class PreventionJobTriggerArgs:
     def __init__(__self__, *,
                  parent: pulumi.Input[_builtins.str],
                  triggers: pulumi.Input[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_job: Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_job: pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PreventionJobTrigger resource.
 
@@ -35,6 +36,12 @@ class PreventionJobTriggerArgs:
                or `projects/{{project}}/locations/{{location}}`
         :param pulumi.Input[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]] triggers: What event needs to occur for a new job to be started.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the job trigger.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the job trigger.
         :param pulumi.Input['PreventionJobTriggerInspectJobArgs'] inspect_job: Controls what and how to inspect for findings.
@@ -48,6 +55,8 @@ class PreventionJobTriggerArgs:
         """
         pulumi.set(__self__, "parent", parent)
         pulumi.set(__self__, "triggers", triggers)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -86,32 +95,49 @@ class PreventionJobTriggerArgs:
         pulumi.set(self, "triggers", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the job trigger.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the job trigger.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectJob")
-    def inspect_job(self) -> Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']]:
+    def inspect_job(self) -> pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']]:
         """
         Controls what and how to inspect for findings.
         Structure is documented below.
@@ -119,12 +145,12 @@ class PreventionJobTriggerArgs:
         return pulumi.get(self, "inspect_job")
 
     @inspect_job.setter
-    def inspect_job(self, value: Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']]):
+    def inspect_job(self, value: pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']]):
         pulumi.set(self, "inspect_job", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether the trigger is currently active.
         Default value is `HEALTHY`.
@@ -133,12 +159,12 @@ class PreventionJobTriggerArgs:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
     @_builtins.property
     @pulumi.getter(name="triggerId")
-    def trigger_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def trigger_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The trigger id can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+.
@@ -147,28 +173,35 @@ class PreventionJobTriggerArgs:
         return pulumi.get(self, "trigger_id")
 
     @trigger_id.setter
-    def trigger_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def trigger_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "trigger_id", value)
 
 
 @pulumi.input_type
 class _PreventionJobTriggerState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_job: Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']] = None,
-                 last_run_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 triggers: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_job: pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']] = None,
+                 last_run_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 triggers: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PreventionJobTrigger resources.
 
         :param pulumi.Input[_builtins.str] create_time: The creation timestamp of an inspectTemplate. Set by the server.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the job trigger.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the job trigger.
         :param pulumi.Input['PreventionJobTriggerInspectJobArgs'] inspect_job: Controls what and how to inspect for findings.
@@ -189,6 +222,8 @@ class _PreventionJobTriggerState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -212,43 +247,60 @@ class _PreventionJobTriggerState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The creation timestamp of an inspectTemplate. Set by the server.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the job trigger.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the job trigger.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectJob")
-    def inspect_job(self) -> Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']]:
+    def inspect_job(self) -> pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']]:
         """
         Controls what and how to inspect for findings.
         Structure is documented below.
@@ -256,36 +308,36 @@ class _PreventionJobTriggerState:
         return pulumi.get(self, "inspect_job")
 
     @inspect_job.setter
-    def inspect_job(self, value: Optional[pulumi.Input['PreventionJobTriggerInspectJobArgs']]):
+    def inspect_job(self, value: pulumi.Input[Optional['PreventionJobTriggerInspectJobArgs']]):
         pulumi.set(self, "inspect_job", value)
 
     @_builtins.property
     @pulumi.getter(name="lastRunTime")
-    def last_run_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_run_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp of the last time this trigger executed.
         """
         return pulumi.get(self, "last_run_time")
 
     @last_run_time.setter
-    def last_run_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_run_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_run_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the job trigger. Set by the server.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of the trigger, either in the format `projects/{{project}}`
         or `projects/{{project}}/locations/{{location}}`
@@ -293,12 +345,12 @@ class _PreventionJobTriggerState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether the trigger is currently active.
         Default value is `HEALTHY`.
@@ -307,12 +359,12 @@ class _PreventionJobTriggerState:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
     @_builtins.property
     @pulumi.getter(name="triggerId")
-    def trigger_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def trigger_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The trigger id can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+.
@@ -321,12 +373,12 @@ class _PreventionJobTriggerState:
         return pulumi.get(self, "trigger_id")
 
     @trigger_id.setter
-    def trigger_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def trigger_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "trigger_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def triggers(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]]:
+    def triggers(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]]:
         """
         What event needs to occur for a new job to be started.
         Structure is documented below.
@@ -334,19 +386,19 @@ class _PreventionJobTriggerState:
         return pulumi.get(self, "triggers")
 
     @triggers.setter
-    def triggers(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]]):
+    def triggers(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionJobTriggerTriggerArgs']]]]):
         pulumi.set(self, "triggers", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The last update timestamp of an inspectTemplate. Set by the server.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -356,13 +408,14 @@ class PreventionJobTrigger(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_job: Optional[pulumi.Input[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 triggers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_job: pulumi.Input[Optional[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 triggers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
                  __props__=None):
         """
         A job trigger configuration.
@@ -939,6 +992,12 @@ class PreventionJobTrigger(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the job trigger.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the job trigger.
         :param pulumi.Input[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']] inspect_job: Controls what and how to inspect for findings.
@@ -1548,13 +1607,14 @@ class PreventionJobTrigger(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_job: Optional[pulumi.Input[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 trigger_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 triggers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_job: pulumi.Input[Optional[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 trigger_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 triggers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1564,6 +1624,7 @@ class PreventionJobTrigger(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PreventionJobTriggerArgs.__new__(PreventionJobTriggerArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["inspect_job"] = inspect_job
@@ -1589,17 +1650,18 @@ class PreventionJobTrigger(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            inspect_job: Optional[pulumi.Input[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
-            last_run_time: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            status: Optional[pulumi.Input[_builtins.str]] = None,
-            trigger_id: Optional[pulumi.Input[_builtins.str]] = None,
-            triggers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'PreventionJobTrigger':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            inspect_job: pulumi.Input[Optional[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']]] = None,
+            last_run_time: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            status: pulumi.Input[Optional[_builtins.str]] = None,
+            trigger_id: pulumi.Input[Optional[_builtins.str]] = None,
+            triggers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionJobTriggerTriggerArgs', 'PreventionJobTriggerTriggerArgsDict']]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'PreventionJobTrigger':
         """
         Get an existing PreventionJobTrigger resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1608,6 +1670,12 @@ class PreventionJobTrigger(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: The creation timestamp of an inspectTemplate. Set by the server.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the job trigger.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the job trigger.
         :param pulumi.Input[Union['PreventionJobTriggerInspectJobArgs', 'PreventionJobTriggerInspectJobArgsDict']] inspect_job: Controls what and how to inspect for findings.
@@ -1631,6 +1699,7 @@ class PreventionJobTrigger(pulumi.CustomResource):
         __props__ = _PreventionJobTriggerState.__new__(_PreventionJobTriggerState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["inspect_job"] = inspect_job
@@ -1650,6 +1719,19 @@ class PreventionJobTrigger(pulumi.CustomResource):
         The creation timestamp of an inspectTemplate. Set by the server.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

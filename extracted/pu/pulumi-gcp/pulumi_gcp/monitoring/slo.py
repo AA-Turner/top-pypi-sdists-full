@@ -23,15 +23,16 @@ class SloArgs:
     def __init__(__self__, *,
                  goal: pulumi.Input[_builtins.float],
                  service: pulumi.Input[_builtins.str],
-                 basic_sli: Optional[pulumi.Input['SloBasicSliArgs']] = None,
-                 calendar_period: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_based_sli: Optional[pulumi.Input['SloRequestBasedSliArgs']] = None,
-                 rolling_period_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 slo_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 windows_based_sli: Optional[pulumi.Input['SloWindowsBasedSliArgs']] = None):
+                 basic_sli: pulumi.Input[Optional['SloBasicSliArgs']] = None,
+                 calendar_period: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_based_sli: pulumi.Input[Optional['SloRequestBasedSliArgs']] = None,
+                 rolling_period_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 slo_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 windows_based_sli: pulumi.Input[Optional['SloWindowsBasedSliArgs']] = None):
         """
         The set of arguments for constructing a Slo resource.
 
@@ -48,6 +49,12 @@ class SloArgs:
         :param pulumi.Input[_builtins.str] calendar_period: A calendar period, semantically "since the start of the current
                <calendarPeriod>".
                Possible values are: `DAY`, `WEEK`, `FORTNIGHT`, `MONTH`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this SLO.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -83,6 +90,8 @@ class SloArgs:
             pulumi.set(__self__, "basic_sli", basic_sli)
         if calendar_period is not None:
             pulumi.set(__self__, "calendar_period", calendar_period)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if project is not None:
@@ -125,7 +134,7 @@ class SloArgs:
 
     @_builtins.property
     @pulumi.getter(name="basicSli")
-    def basic_sli(self) -> Optional[pulumi.Input['SloBasicSliArgs']]:
+    def basic_sli(self) -> pulumi.Input[Optional['SloBasicSliArgs']]:
         """
         Basic Service-Level Indicator (SLI) on a well-known service type.
         Performance will be computed on the basis of pre-defined metrics.
@@ -138,12 +147,12 @@ class SloArgs:
         return pulumi.get(self, "basic_sli")
 
     @basic_sli.setter
-    def basic_sli(self, value: Optional[pulumi.Input['SloBasicSliArgs']]):
+    def basic_sli(self, value: pulumi.Input[Optional['SloBasicSliArgs']]):
         pulumi.set(self, "basic_sli", value)
 
     @_builtins.property
     @pulumi.getter(name="calendarPeriod")
-    def calendar_period(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def calendar_period(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A calendar period, semantically "since the start of the current
         <calendarPeriod>".
@@ -152,24 +161,41 @@ class SloArgs:
         return pulumi.get(self, "calendar_period")
 
     @calendar_period.setter
-    def calendar_period(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def calendar_period(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "calendar_period", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name used for UI elements listing this SLO.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -177,12 +203,12 @@ class SloArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="requestBasedSli")
-    def request_based_sli(self) -> Optional[pulumi.Input['SloRequestBasedSliArgs']]:
+    def request_based_sli(self) -> pulumi.Input[Optional['SloRequestBasedSliArgs']]:
         """
         A request-based SLI defines a SLI for which atomic units of
         service are counted directly.
@@ -196,12 +222,12 @@ class SloArgs:
         return pulumi.get(self, "request_based_sli")
 
     @request_based_sli.setter
-    def request_based_sli(self, value: Optional[pulumi.Input['SloRequestBasedSliArgs']]):
+    def request_based_sli(self, value: pulumi.Input[Optional['SloRequestBasedSliArgs']]):
         pulumi.set(self, "request_based_sli", value)
 
     @_builtins.property
     @pulumi.getter(name="rollingPeriodDays")
-    def rolling_period_days(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def rolling_period_days(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A rolling time period, semantically "in the past X days".
         Must be between 1 to 30 days, inclusive.
@@ -209,24 +235,24 @@ class SloArgs:
         return pulumi.get(self, "rolling_period_days")
 
     @rolling_period_days.setter
-    def rolling_period_days(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def rolling_period_days(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "rolling_period_days", value)
 
     @_builtins.property
     @pulumi.getter(name="sloId")
-    def slo_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def slo_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead.
         """
         return pulumi.get(self, "slo_id")
 
     @slo_id.setter
-    def slo_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def slo_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "slo_id", value)
 
     @_builtins.property
     @pulumi.getter(name="userLabels")
-    def user_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def user_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         This field is intended to be used for organizing and identifying the AlertPolicy
         objects.The field can contain up to 64 entries. Each key and value is limited
@@ -237,12 +263,12 @@ class SloArgs:
         return pulumi.get(self, "user_labels")
 
     @user_labels.setter
-    def user_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def user_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "user_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="windowsBasedSli")
-    def windows_based_sli(self) -> Optional[pulumi.Input['SloWindowsBasedSliArgs']]:
+    def windows_based_sli(self) -> pulumi.Input[Optional['SloWindowsBasedSliArgs']]:
         """
         A windows-based SLI defines the criteria for time windows.
         good_service is defined based off the count of these time windows
@@ -257,25 +283,26 @@ class SloArgs:
         return pulumi.get(self, "windows_based_sli")
 
     @windows_based_sli.setter
-    def windows_based_sli(self, value: Optional[pulumi.Input['SloWindowsBasedSliArgs']]):
+    def windows_based_sli(self, value: pulumi.Input[Optional['SloWindowsBasedSliArgs']]):
         pulumi.set(self, "windows_based_sli", value)
 
 
 @pulumi.input_type
 class _SloState:
     def __init__(__self__, *,
-                 basic_sli: Optional[pulumi.Input['SloBasicSliArgs']] = None,
-                 calendar_period: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 goal: Optional[pulumi.Input[_builtins.float]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_based_sli: Optional[pulumi.Input['SloRequestBasedSliArgs']] = None,
-                 rolling_period_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 service: Optional[pulumi.Input[_builtins.str]] = None,
-                 slo_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 windows_based_sli: Optional[pulumi.Input['SloWindowsBasedSliArgs']] = None):
+                 basic_sli: pulumi.Input[Optional['SloBasicSliArgs']] = None,
+                 calendar_period: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 goal: pulumi.Input[Optional[_builtins.float]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_based_sli: pulumi.Input[Optional['SloRequestBasedSliArgs']] = None,
+                 rolling_period_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 service: pulumi.Input[Optional[_builtins.str]] = None,
+                 slo_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 windows_based_sli: pulumi.Input[Optional['SloWindowsBasedSliArgs']] = None):
         """
         Input properties used for looking up and filtering Slo resources.
 
@@ -289,6 +316,12 @@ class _SloState:
         :param pulumi.Input[_builtins.str] calendar_period: A calendar period, semantically "since the start of the current
                <calendarPeriod>".
                Possible values are: `DAY`, `WEEK`, `FORTNIGHT`, `MONTH`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this SLO.
         :param pulumi.Input[_builtins.float] goal: The fraction of service that must be good in order for this objective
                to be met. 0 < goal <= 0.999
@@ -327,6 +360,8 @@ class _SloState:
             pulumi.set(__self__, "basic_sli", basic_sli)
         if calendar_period is not None:
             pulumi.set(__self__, "calendar_period", calendar_period)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if goal is not None:
@@ -350,7 +385,7 @@ class _SloState:
 
     @_builtins.property
     @pulumi.getter(name="basicSli")
-    def basic_sli(self) -> Optional[pulumi.Input['SloBasicSliArgs']]:
+    def basic_sli(self) -> pulumi.Input[Optional['SloBasicSliArgs']]:
         """
         Basic Service-Level Indicator (SLI) on a well-known service type.
         Performance will be computed on the basis of pre-defined metrics.
@@ -363,12 +398,12 @@ class _SloState:
         return pulumi.get(self, "basic_sli")
 
     @basic_sli.setter
-    def basic_sli(self, value: Optional[pulumi.Input['SloBasicSliArgs']]):
+    def basic_sli(self, value: pulumi.Input[Optional['SloBasicSliArgs']]):
         pulumi.set(self, "basic_sli", value)
 
     @_builtins.property
     @pulumi.getter(name="calendarPeriod")
-    def calendar_period(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def calendar_period(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A calendar period, semantically "since the start of the current
         <calendarPeriod>".
@@ -377,24 +412,41 @@ class _SloState:
         return pulumi.get(self, "calendar_period")
 
     @calendar_period.setter
-    def calendar_period(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def calendar_period(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "calendar_period", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name used for UI elements listing this SLO.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def goal(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def goal(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         The fraction of service that must be good in order for this objective
         to be met. 0 < goal <= 0.999
@@ -402,12 +454,12 @@ class _SloState:
         return pulumi.get(self, "goal")
 
     @goal.setter
-    def goal(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def goal(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "goal", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The full resource name for this service. The syntax is:
         projects/[PROJECT_ID_OR_NUMBER]/services/[SERVICE_ID]/serviceLevelObjectives/[SLO_NAME]
@@ -415,12 +467,12 @@ class _SloState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -428,12 +480,12 @@ class _SloState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="requestBasedSli")
-    def request_based_sli(self) -> Optional[pulumi.Input['SloRequestBasedSliArgs']]:
+    def request_based_sli(self) -> pulumi.Input[Optional['SloRequestBasedSliArgs']]:
         """
         A request-based SLI defines a SLI for which atomic units of
         service are counted directly.
@@ -447,12 +499,12 @@ class _SloState:
         return pulumi.get(self, "request_based_sli")
 
     @request_based_sli.setter
-    def request_based_sli(self, value: Optional[pulumi.Input['SloRequestBasedSliArgs']]):
+    def request_based_sli(self, value: pulumi.Input[Optional['SloRequestBasedSliArgs']]):
         pulumi.set(self, "request_based_sli", value)
 
     @_builtins.property
     @pulumi.getter(name="rollingPeriodDays")
-    def rolling_period_days(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def rolling_period_days(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A rolling time period, semantically "in the past X days".
         Must be between 1 to 30 days, inclusive.
@@ -460,36 +512,36 @@ class _SloState:
         return pulumi.get(self, "rolling_period_days")
 
     @rolling_period_days.setter
-    def rolling_period_days(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def rolling_period_days(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "rolling_period_days", value)
 
     @_builtins.property
     @pulumi.getter
-    def service(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the service to which this SLO belongs.
         """
         return pulumi.get(self, "service")
 
     @service.setter
-    def service(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service", value)
 
     @_builtins.property
     @pulumi.getter(name="sloId")
-    def slo_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def slo_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead.
         """
         return pulumi.get(self, "slo_id")
 
     @slo_id.setter
-    def slo_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def slo_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "slo_id", value)
 
     @_builtins.property
     @pulumi.getter(name="userLabels")
-    def user_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def user_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         This field is intended to be used for organizing and identifying the AlertPolicy
         objects.The field can contain up to 64 entries. Each key and value is limited
@@ -500,12 +552,12 @@ class _SloState:
         return pulumi.get(self, "user_labels")
 
     @user_labels.setter
-    def user_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def user_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "user_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="windowsBasedSli")
-    def windows_based_sli(self) -> Optional[pulumi.Input['SloWindowsBasedSliArgs']]:
+    def windows_based_sli(self) -> pulumi.Input[Optional['SloWindowsBasedSliArgs']]:
         """
         A windows-based SLI defines the criteria for time windows.
         good_service is defined based off the count of these time windows
@@ -520,7 +572,7 @@ class _SloState:
         return pulumi.get(self, "windows_based_sli")
 
     @windows_based_sli.setter
-    def windows_based_sli(self, value: Optional[pulumi.Input['SloWindowsBasedSliArgs']]):
+    def windows_based_sli(self, value: pulumi.Input[Optional['SloWindowsBasedSliArgs']]):
         pulumi.set(self, "windows_based_sli", value)
 
 
@@ -530,17 +582,18 @@ class Slo(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 basic_sli: Optional[pulumi.Input[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
-                 calendar_period: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 goal: Optional[pulumi.Input[_builtins.float]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_based_sli: Optional[pulumi.Input[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
-                 rolling_period_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 service: Optional[pulumi.Input[_builtins.str]] = None,
-                 slo_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 windows_based_sli: Optional[pulumi.Input[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None,
+                 basic_sli: pulumi.Input[Optional[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
+                 calendar_period: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 goal: pulumi.Input[Optional[_builtins.float]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_based_sli: pulumi.Input[Optional[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
+                 rolling_period_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 service: pulumi.Input[Optional[_builtins.str]] = None,
+                 slo_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 windows_based_sli: pulumi.Input[Optional[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None,
                  __props__=None):
         """
         A Service-Level Objective (SLO) describes the level of desired good
@@ -655,7 +708,7 @@ class Slo(pulumi.CustomResource):
                             "resource.type=\\"gce_instance\\"",
                         ]).result,
                     "range": {
-                        "max": 5,
+                        "max": float(5),
                     },
                 },
             })
@@ -684,7 +737,7 @@ class Slo(pulumi.CustomResource):
                             "resource.type=\\"uptime_url\\"",
                         ]).result,
                     "range": {
-                        "max": 5000,
+                        "max": float(5000),
                     },
                 },
             })
@@ -716,8 +769,8 @@ class Slo(pulumi.CustomResource):
                                     "resource.type=\\"consumed_api\\"",
                                 ]).result,
                             "range": {
-                                "min": 1,
-                                "max": 9,
+                                "min": float(1),
+                                "max": float(9),
                             },
                         },
                     },
@@ -754,6 +807,12 @@ class Slo(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] calendar_period: A calendar period, semantically "since the start of the current
                <calendarPeriod>".
                Possible values are: `DAY`, `WEEK`, `FORTNIGHT`, `MONTH`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this SLO.
         :param pulumi.Input[_builtins.float] goal: The fraction of service that must be good in order for this objective
                to be met. 0 < goal <= 0.999
@@ -905,7 +964,7 @@ class Slo(pulumi.CustomResource):
                             "resource.type=\\"gce_instance\\"",
                         ]).result,
                     "range": {
-                        "max": 5,
+                        "max": float(5),
                     },
                 },
             })
@@ -934,7 +993,7 @@ class Slo(pulumi.CustomResource):
                             "resource.type=\\"uptime_url\\"",
                         ]).result,
                     "range": {
-                        "max": 5000,
+                        "max": float(5000),
                     },
                 },
             })
@@ -966,8 +1025,8 @@ class Slo(pulumi.CustomResource):
                                     "resource.type=\\"consumed_api\\"",
                                 ]).result,
                             "range": {
-                                "min": 1,
-                                "max": 9,
+                                "min": float(1),
+                                "max": float(9),
                             },
                         },
                     },
@@ -1007,17 +1066,18 @@ class Slo(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 basic_sli: Optional[pulumi.Input[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
-                 calendar_period: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 goal: Optional[pulumi.Input[_builtins.float]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_based_sli: Optional[pulumi.Input[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
-                 rolling_period_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 service: Optional[pulumi.Input[_builtins.str]] = None,
-                 slo_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 windows_based_sli: Optional[pulumi.Input[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None,
+                 basic_sli: pulumi.Input[Optional[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
+                 calendar_period: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 goal: pulumi.Input[Optional[_builtins.float]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_based_sli: pulumi.Input[Optional[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
+                 rolling_period_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 service: pulumi.Input[Optional[_builtins.str]] = None,
+                 slo_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 windows_based_sli: pulumi.Input[Optional[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1029,6 +1089,7 @@ class Slo(pulumi.CustomResource):
 
             __props__.__dict__["basic_sli"] = basic_sli
             __props__.__dict__["calendar_period"] = calendar_period
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             if goal is None and not opts.urn:
                 raise TypeError("Missing required property 'goal'")
@@ -1053,18 +1114,19 @@ class Slo(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            basic_sli: Optional[pulumi.Input[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
-            calendar_period: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            goal: Optional[pulumi.Input[_builtins.float]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            request_based_sli: Optional[pulumi.Input[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
-            rolling_period_days: Optional[pulumi.Input[_builtins.int]] = None,
-            service: Optional[pulumi.Input[_builtins.str]] = None,
-            slo_id: Optional[pulumi.Input[_builtins.str]] = None,
-            user_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            windows_based_sli: Optional[pulumi.Input[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None) -> 'Slo':
+            basic_sli: pulumi.Input[Optional[Union['SloBasicSliArgs', 'SloBasicSliArgsDict']]] = None,
+            calendar_period: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            goal: pulumi.Input[Optional[_builtins.float]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            request_based_sli: pulumi.Input[Optional[Union['SloRequestBasedSliArgs', 'SloRequestBasedSliArgsDict']]] = None,
+            rolling_period_days: pulumi.Input[Optional[_builtins.int]] = None,
+            service: pulumi.Input[Optional[_builtins.str]] = None,
+            slo_id: pulumi.Input[Optional[_builtins.str]] = None,
+            user_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            windows_based_sli: pulumi.Input[Optional[Union['SloWindowsBasedSliArgs', 'SloWindowsBasedSliArgsDict']]] = None) -> 'Slo':
         """
         Get an existing Slo resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1082,6 +1144,12 @@ class Slo(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] calendar_period: A calendar period, semantically "since the start of the current
                <calendarPeriod>".
                Possible values are: `DAY`, `WEEK`, `FORTNIGHT`, `MONTH`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name used for UI elements listing this SLO.
         :param pulumi.Input[_builtins.float] goal: The fraction of service that must be good in order for this objective
                to be met. 0 < goal <= 0.999
@@ -1122,6 +1190,7 @@ class Slo(pulumi.CustomResource):
 
         __props__.__dict__["basic_sli"] = basic_sli
         __props__.__dict__["calendar_period"] = calendar_period
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["goal"] = goal
         __props__.__dict__["name"] = name
@@ -1157,6 +1226,19 @@ class Slo(pulumi.CustomResource):
         Possible values are: `DAY`, `WEEK`, `FORTNIGHT`, `MONTH`.
         """
         return pulumi.get(self, "calendar_period")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

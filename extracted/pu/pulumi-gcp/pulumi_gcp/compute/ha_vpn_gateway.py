@@ -22,19 +22,26 @@ __all__ = ['HaVpnGatewayArgs', 'HaVpnGateway']
 class HaVpnGatewayArgs:
     def __init__(__self__, *,
                  network: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 gateway_ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input['HaVpnGatewayParamsArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_interfaces: Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 gateway_ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional['HaVpnGatewayParamsArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_interfaces: pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]] = None):
         """
         The set of arguments for constructing a HaVpnGateway resource.
 
         :param pulumi.Input[_builtins.str] network: The network this VPN gateway is accepting traffic for.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] gateway_ip_version: The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
                Default value is `IPV4`.
@@ -64,6 +71,8 @@ class HaVpnGatewayArgs:
                Structure is documented below.
         """
         pulumi.set(__self__, "network", network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if gateway_ip_version is not None:
@@ -96,20 +105,37 @@ class HaVpnGatewayArgs:
         pulumi.set(self, "network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="gatewayIpVersion")
-    def gateway_ip_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gateway_ip_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
         Default value is `IPV4`.
@@ -118,12 +144,12 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "gateway_ip_version")
 
     @gateway_ip_version.setter
-    def gateway_ip_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gateway_ip_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gateway_ip_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels for this resource. These can only be added or modified by the setLabels method.
         Each label key/value pair must comply with RFC1035. Label values may be empty.
@@ -134,12 +160,12 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -152,12 +178,12 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def params(self) -> Optional[pulumi.Input['HaVpnGatewayParamsArgs']]:
+    def params(self) -> pulumi.Input[Optional['HaVpnGatewayParamsArgs']]:
         """
         Additional params passed with the request, but not persisted as part of resource payload
         Structure is documented below.
@@ -165,12 +191,12 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "params")
 
     @params.setter
-    def params(self, value: Optional[pulumi.Input['HaVpnGatewayParamsArgs']]):
+    def params(self, value: pulumi.Input[Optional['HaVpnGatewayParamsArgs']]):
         pulumi.set(self, "params", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -178,24 +204,24 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region this gateway should sit in.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="stackType")
-    def stack_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stack_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The stack type for this VPN gateway to identify the IP protocols that are enabled.
         If not specified, IPV4_ONLY will be used.
@@ -205,12 +231,12 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "stack_type")
 
     @stack_type.setter
-    def stack_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stack_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stack_type", value)
 
     @_builtins.property
     @pulumi.getter(name="vpnInterfaces")
-    def vpn_interfaces(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]:
+    def vpn_interfaces(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]:
         """
         A list of interfaces on this VPN gateway.
         Structure is documented below.
@@ -218,30 +244,37 @@ class HaVpnGatewayArgs:
         return pulumi.get(self, "vpn_interfaces")
 
     @vpn_interfaces.setter
-    def vpn_interfaces(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]):
+    def vpn_interfaces(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]):
         pulumi.set(self, "vpn_interfaces", value)
 
 
 @pulumi.input_type
 class _HaVpnGatewayState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 gateway_ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 label_fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input['HaVpnGatewayParamsArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_interfaces: Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 gateway_ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 label_fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional['HaVpnGatewayParamsArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_interfaces: pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]] = None):
         """
         Input properties used for looking up and filtering HaVpnGateway resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] gateway_ip_version: The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
@@ -280,6 +313,8 @@ class _HaVpnGatewayState:
         :param pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]] vpn_interfaces: A list of interfaces on this VPN gateway.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -310,32 +345,49 @@ class _HaVpnGatewayState:
             pulumi.set(__self__, "vpn_interfaces", vpn_interfaces)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="gatewayIpVersion")
-    def gateway_ip_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gateway_ip_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
         Default value is `IPV4`.
@@ -344,12 +396,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "gateway_ip_version")
 
     @gateway_ip_version.setter
-    def gateway_ip_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gateway_ip_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gateway_ip_version", value)
 
     @_builtins.property
     @pulumi.getter(name="labelFingerprint")
-    def label_fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def label_fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A fingerprint for the labels being applied to this VpnGateway, which is essentially a hash
         of the labels set used for optimistic locking. The fingerprint is initially generated by
@@ -360,12 +412,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "label_fingerprint")
 
     @label_fingerprint.setter
-    def label_fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def label_fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "label_fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels for this resource. These can only be added or modified by the setLabels method.
         Each label key/value pair must comply with RFC1035. Label values may be empty.
@@ -376,12 +428,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -394,24 +446,24 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The network this VPN gateway is accepting traffic for.
         """
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter
-    def params(self) -> Optional[pulumi.Input['HaVpnGatewayParamsArgs']]:
+    def params(self) -> pulumi.Input[Optional['HaVpnGatewayParamsArgs']]:
         """
         Additional params passed with the request, but not persisted as part of resource payload
         Structure is documented below.
@@ -419,12 +471,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "params")
 
     @params.setter
-    def params(self, value: Optional[pulumi.Input['HaVpnGatewayParamsArgs']]):
+    def params(self, value: pulumi.Input[Optional['HaVpnGatewayParamsArgs']]):
         pulumi.set(self, "params", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -432,12 +484,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -445,36 +497,36 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region this gateway should sit in.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="stackType")
-    def stack_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stack_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The stack type for this VPN gateway to identify the IP protocols that are enabled.
         If not specified, IPV4_ONLY will be used.
@@ -484,12 +536,12 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "stack_type")
 
     @stack_type.setter
-    def stack_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stack_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stack_type", value)
 
     @_builtins.property
     @pulumi.getter(name="vpnInterfaces")
-    def vpn_interfaces(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]:
+    def vpn_interfaces(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]:
         """
         A list of interfaces on this VPN gateway.
         Structure is documented below.
@@ -497,7 +549,7 @@ class _HaVpnGatewayState:
         return pulumi.get(self, "vpn_interfaces")
 
     @vpn_interfaces.setter
-    def vpn_interfaces(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]):
+    def vpn_interfaces(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['HaVpnGatewayVpnInterfaceArgs']]]]):
         pulumi.set(self, "vpn_interfaces", value)
 
 
@@ -507,16 +559,17 @@ class HaVpnGateway(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 gateway_ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_interfaces: Optional[pulumi.Input[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 gateway_ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_interfaces: pulumi.Input[Optional[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None,
                  __props__=None):
         """
         Represents a VPN gateway running in GCP. This virtual device is managed
@@ -644,6 +697,12 @@ class HaVpnGateway(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] gateway_ip_version: The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
                Default value is `IPV4`.
@@ -818,16 +877,17 @@ class HaVpnGateway(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 gateway_ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_interfaces: Optional[pulumi.Input[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 gateway_ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_interfaces: pulumi.Input[Optional[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -837,6 +897,7 @@ class HaVpnGateway(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = HaVpnGatewayArgs.__new__(HaVpnGatewayArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["gateway_ip_version"] = gateway_ip_version
             __props__.__dict__["labels"] = labels
@@ -865,20 +926,21 @@ class HaVpnGateway(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            gateway_ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-            label_fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            params: Optional[pulumi.Input[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-            vpn_interfaces: Optional[pulumi.Input[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None) -> 'HaVpnGateway':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            gateway_ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+            label_fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            params: pulumi.Input[Optional[Union['HaVpnGatewayParamsArgs', 'HaVpnGatewayParamsArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+            vpn_interfaces: pulumi.Input[Optional[Sequence[pulumi.Input[Union['HaVpnGatewayVpnInterfaceArgs', 'HaVpnGatewayVpnInterfaceArgsDict']]]]] = None) -> 'HaVpnGateway':
         """
         Get an existing HaVpnGateway resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -886,6 +948,12 @@ class HaVpnGateway(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] gateway_ip_version: The IP family of the gateway IPs for the HA-VPN gateway interfaces. If not specified, IPV4 will be used.
@@ -928,6 +996,7 @@ class HaVpnGateway(pulumi.CustomResource):
 
         __props__ = _HaVpnGatewayState.__new__(_HaVpnGatewayState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["gateway_ip_version"] = gateway_ip_version
@@ -943,6 +1012,19 @@ class HaVpnGateway(pulumi.CustomResource):
         __props__.__dict__["stack_type"] = stack_type
         __props__.__dict__["vpn_interfaces"] = vpn_interfaces
         return HaVpnGateway(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

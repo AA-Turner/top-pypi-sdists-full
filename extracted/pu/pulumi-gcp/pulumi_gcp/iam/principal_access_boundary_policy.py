@@ -24,9 +24,10 @@ class PrincipalAccessBoundaryPolicyArgs:
                  location: pulumi.Input[_builtins.str],
                  organization: pulumi.Input[_builtins.str],
                  principal_access_boundary_policy_id: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 details: Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 details: pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PrincipalAccessBoundaryPolicy resource.
 
@@ -39,6 +40,12 @@ class PrincipalAccessBoundaryPolicyArgs:
                
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs'] details: Principal access boundary policy details
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: The description of the principal access boundary policy. Must be less than or equal to 63 characters.
@@ -48,6 +55,8 @@ class PrincipalAccessBoundaryPolicyArgs:
         pulumi.set(__self__, "principal_access_boundary_policy_id", principal_access_boundary_policy_id)
         if annotations is not None:
             pulumi.set(__self__, "annotations", annotations)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if details is not None:
             pulumi.set(__self__, "details", details)
         if display_name is not None:
@@ -92,7 +101,7 @@ class PrincipalAccessBoundaryPolicyArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User defined annotations. See https://google.aip.dev/148#annotations
         for more details such as format and size limitations
@@ -103,12 +112,29 @@ class PrincipalAccessBoundaryPolicyArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def details(self) -> Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']]:
+    def details(self) -> pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']]:
         """
         Principal access boundary policy details
         Structure is documented below.
@@ -116,37 +142,38 @@ class PrincipalAccessBoundaryPolicyArgs:
         return pulumi.get(self, "details")
 
     @details.setter
-    def details(self, value: Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']]):
+    def details(self, value: pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']]):
         pulumi.set(self, "details", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the principal access boundary policy. Must be less than or equal to 63 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
 
 @pulumi.input_type
 class _PrincipalAccessBoundaryPolicyState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 details: Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 principal_access_boundary_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 details: pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_access_boundary_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PrincipalAccessBoundaryPolicy resources.
 
@@ -156,6 +183,12 @@ class _PrincipalAccessBoundaryPolicyState:
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time when the principal access boundary policy was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs'] details: Principal access boundary policy details
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: The description of the principal access boundary policy. Must be less than or equal to 63 characters.
@@ -174,6 +207,8 @@ class _PrincipalAccessBoundaryPolicyState:
             pulumi.set(__self__, "annotations", annotations)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if details is not None:
             pulumi.set(__self__, "details", details)
         if display_name is not None:
@@ -197,7 +232,7 @@ class _PrincipalAccessBoundaryPolicyState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User defined annotations. See https://google.aip.dev/148#annotations
         for more details such as format and size limitations
@@ -208,24 +243,41 @@ class _PrincipalAccessBoundaryPolicyState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time when the principal access boundary policy was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def details(self) -> Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']]:
+    def details(self) -> pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']]:
         """
         Principal access boundary policy details
         Structure is documented below.
@@ -233,60 +285,60 @@ class _PrincipalAccessBoundaryPolicyState:
         return pulumi.get(self, "details")
 
     @details.setter
-    def details(self, value: Optional[pulumi.Input['PrincipalAccessBoundaryPolicyDetailsArgs']]):
+    def details(self, value: pulumi.Input[Optional['PrincipalAccessBoundaryPolicyDetailsArgs']]):
         pulumi.set(self, "details", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the principal access boundary policy. Must be less than or equal to 63 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The etag for the principal access boundary. If this is provided on update, it must match the server's etag.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location the principal access boundary policy is in.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the principal access boundary policy.  The following format is supported:
         `organizations/{organization_id}/locations/{location}/principalAccessBoundaryPolicies/{policy_id}`
@@ -294,24 +346,24 @@ class _PrincipalAccessBoundaryPolicyState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def organization(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent organization of the principal access boundary policy.
         """
         return pulumi.get(self, "organization")
 
     @organization.setter
-    def organization(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization", value)
 
     @_builtins.property
     @pulumi.getter(name="principalAccessBoundaryPolicyId")
-    def principal_access_boundary_policy_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def principal_access_boundary_policy_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use to create the principal access boundary policy.
         This value must start with a lowercase letter followed by up to 62 lowercase letters, numbers, hyphens, or dots. Pattern, /a-z{2,62}/.
@@ -319,31 +371,31 @@ class _PrincipalAccessBoundaryPolicyState:
         return pulumi.get(self, "principal_access_boundary_policy_id")
 
     @principal_access_boundary_policy_id.setter
-    def principal_access_boundary_policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def principal_access_boundary_policy_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "principal_access_boundary_policy_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The globally unique ID of the principal access boundary policy.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time when the principal access boundary policy was most recently updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -353,12 +405,13 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 details: Optional[pulumi.Input[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 principal_access_boundary_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 details: pulumi.Input[Optional[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_access_boundary_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An IAM Principal Access Boundary Policy resource. This resource has no effect on accesses until is bound to a target through policy bindings.
@@ -436,6 +489,12 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
                
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']] details: Principal access boundary policy details
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: The description of the principal access boundary policy. Must be less than or equal to 63 characters.
@@ -534,12 +593,13 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 details: Optional[pulumi.Input[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 principal_access_boundary_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 details: pulumi.Input[Optional[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_access_boundary_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -550,6 +610,7 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
             __props__ = PrincipalAccessBoundaryPolicyArgs.__new__(PrincipalAccessBoundaryPolicyArgs)
 
             __props__.__dict__["annotations"] = annotations
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["details"] = details
             __props__.__dict__["display_name"] = display_name
             if location is None and not opts.urn:
@@ -577,18 +638,19 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            details: Optional[pulumi.Input[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization: Optional[pulumi.Input[_builtins.str]] = None,
-            principal_access_boundary_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'PrincipalAccessBoundaryPolicy':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            details: pulumi.Input[Optional[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization: pulumi.Input[Optional[_builtins.str]] = None,
+            principal_access_boundary_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'PrincipalAccessBoundaryPolicy':
         """
         Get an existing PrincipalAccessBoundaryPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -602,6 +664,12 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time when the principal access boundary policy was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['PrincipalAccessBoundaryPolicyDetailsArgs', 'PrincipalAccessBoundaryPolicyDetailsArgsDict']] details: Principal access boundary policy details
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: The description of the principal access boundary policy. Must be less than or equal to 63 characters.
@@ -622,6 +690,7 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
 
         __props__.__dict__["annotations"] = annotations
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["details"] = details
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_annotations"] = effective_annotations
@@ -653,6 +722,19 @@ class PrincipalAccessBoundaryPolicy(pulumi.CustomResource):
         Output only. The time when the principal access boundary policy was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

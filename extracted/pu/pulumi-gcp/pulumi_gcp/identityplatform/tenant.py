@@ -22,11 +22,12 @@ __all__ = ['TenantArgs', 'Tenant']
 class TenantArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
-                 allow_password_signup: Optional[pulumi.Input[_builtins.bool]] = None,
-                 client: Optional[pulumi.Input['TenantClientArgs']] = None,
-                 disable_auth: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_email_link_signin: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_password_signup: pulumi.Input[Optional[_builtins.bool]] = None,
+                 client: pulumi.Input[Optional['TenantClientArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_email_link_signin: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Tenant resource.
 
@@ -34,6 +35,12 @@ class TenantArgs:
         :param pulumi.Input[_builtins.bool] allow_password_signup: Whether to allow email/password user authentication.
         :param pulumi.Input['TenantClientArgs'] client: Options related to how clients making requests on behalf of a tenant should be configured.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_auth: Whether authentication is disabled for the tenant. If true, the users under
                the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
                are not able to manage its users.
@@ -46,6 +53,8 @@ class TenantArgs:
             pulumi.set(__self__, "allow_password_signup", allow_password_signup)
         if client is not None:
             pulumi.set(__self__, "client", client)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_auth is not None:
             pulumi.set(__self__, "disable_auth", disable_auth)
         if enable_email_link_signin is not None:
@@ -67,19 +76,19 @@ class TenantArgs:
 
     @_builtins.property
     @pulumi.getter(name="allowPasswordSignup")
-    def allow_password_signup(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_password_signup(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether to allow email/password user authentication.
         """
         return pulumi.get(self, "allow_password_signup")
 
     @allow_password_signup.setter
-    def allow_password_signup(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_password_signup(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_password_signup", value)
 
     @_builtins.property
     @pulumi.getter
-    def client(self) -> Optional[pulumi.Input['TenantClientArgs']]:
+    def client(self) -> pulumi.Input[Optional['TenantClientArgs']]:
         """
         Options related to how clients making requests on behalf of a tenant should be configured.
         Structure is documented below.
@@ -87,12 +96,29 @@ class TenantArgs:
         return pulumi.get(self, "client")
 
     @client.setter
-    def client(self, value: Optional[pulumi.Input['TenantClientArgs']]):
+    def client(self, value: pulumi.Input[Optional['TenantClientArgs']]):
         pulumi.set(self, "client", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="disableAuth")
-    def disable_auth(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_auth(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether authentication is disabled for the tenant. If true, the users under
         the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
@@ -101,24 +127,24 @@ class TenantArgs:
         return pulumi.get(self, "disable_auth")
 
     @disable_auth.setter
-    def disable_auth(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_auth(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_auth", value)
 
     @_builtins.property
     @pulumi.getter(name="enableEmailLinkSignin")
-    def enable_email_link_signin(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_email_link_signin(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether to enable email link user authentication.
         """
         return pulumi.get(self, "enable_email_link_signin")
 
     @enable_email_link_signin.setter
-    def enable_email_link_signin(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_email_link_signin(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_email_link_signin", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -126,26 +152,33 @@ class TenantArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _TenantState:
     def __init__(__self__, *,
-                 allow_password_signup: Optional[pulumi.Input[_builtins.bool]] = None,
-                 client: Optional[pulumi.Input['TenantClientArgs']] = None,
-                 disable_auth: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_email_link_signin: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_password_signup: pulumi.Input[Optional[_builtins.bool]] = None,
+                 client: pulumi.Input[Optional['TenantClientArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_email_link_signin: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Tenant resources.
 
         :param pulumi.Input[_builtins.bool] allow_password_signup: Whether to allow email/password user authentication.
         :param pulumi.Input['TenantClientArgs'] client: Options related to how clients making requests on behalf of a tenant should be configured.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_auth: Whether authentication is disabled for the tenant. If true, the users under
                the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
                are not able to manage its users.
@@ -159,6 +192,8 @@ class _TenantState:
             pulumi.set(__self__, "allow_password_signup", allow_password_signup)
         if client is not None:
             pulumi.set(__self__, "client", client)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_auth is not None:
             pulumi.set(__self__, "disable_auth", disable_auth)
         if display_name is not None:
@@ -172,19 +207,19 @@ class _TenantState:
 
     @_builtins.property
     @pulumi.getter(name="allowPasswordSignup")
-    def allow_password_signup(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_password_signup(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether to allow email/password user authentication.
         """
         return pulumi.get(self, "allow_password_signup")
 
     @allow_password_signup.setter
-    def allow_password_signup(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_password_signup(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_password_signup", value)
 
     @_builtins.property
     @pulumi.getter
-    def client(self) -> Optional[pulumi.Input['TenantClientArgs']]:
+    def client(self) -> pulumi.Input[Optional['TenantClientArgs']]:
         """
         Options related to how clients making requests on behalf of a tenant should be configured.
         Structure is documented below.
@@ -192,12 +227,29 @@ class _TenantState:
         return pulumi.get(self, "client")
 
     @client.setter
-    def client(self, value: Optional[pulumi.Input['TenantClientArgs']]):
+    def client(self, value: pulumi.Input[Optional['TenantClientArgs']]):
         pulumi.set(self, "client", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="disableAuth")
-    def disable_auth(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_auth(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether authentication is disabled for the tenant. If true, the users under
         the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
@@ -206,48 +258,48 @@ class _TenantState:
         return pulumi.get(self, "disable_auth")
 
     @disable_auth.setter
-    def disable_auth(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_auth(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_auth", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human friendly display name of the tenant.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enableEmailLinkSignin")
-    def enable_email_link_signin(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_email_link_signin(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether to enable email link user authentication.
         """
         return pulumi.get(self, "enable_email_link_signin")
 
     @enable_email_link_signin.setter
-    def enable_email_link_signin(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_email_link_signin(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_email_link_signin", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the tenant that is generated by the server
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -255,7 +307,7 @@ class _TenantState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -265,12 +317,13 @@ class Tenant(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_password_signup: Optional[pulumi.Input[_builtins.bool]] = None,
-                 client: Optional[pulumi.Input[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
-                 disable_auth: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_email_link_signin: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_password_signup: pulumi.Input[Optional[_builtins.bool]] = None,
+                 client: pulumi.Input[Optional[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_email_link_signin: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Tenant configuration in a multi-tenant project.
@@ -317,6 +370,12 @@ class Tenant(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] allow_password_signup: Whether to allow email/password user authentication.
         :param pulumi.Input[Union['TenantClientArgs', 'TenantClientArgsDict']] client: Options related to how clients making requests on behalf of a tenant should be configured.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_auth: Whether authentication is disabled for the tenant. If true, the users under
                the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
                are not able to manage its users.
@@ -386,12 +445,13 @@ class Tenant(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_password_signup: Optional[pulumi.Input[_builtins.bool]] = None,
-                 client: Optional[pulumi.Input[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
-                 disable_auth: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_email_link_signin: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_password_signup: pulumi.Input[Optional[_builtins.bool]] = None,
+                 client: pulumi.Input[Optional[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_email_link_signin: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -403,6 +463,7 @@ class Tenant(pulumi.CustomResource):
 
             __props__.__dict__["allow_password_signup"] = allow_password_signup
             __props__.__dict__["client"] = client
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disable_auth"] = disable_auth
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -420,13 +481,14 @@ class Tenant(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allow_password_signup: Optional[pulumi.Input[_builtins.bool]] = None,
-            client: Optional[pulumi.Input[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
-            disable_auth: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_email_link_signin: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'Tenant':
+            allow_password_signup: pulumi.Input[Optional[_builtins.bool]] = None,
+            client: pulumi.Input[Optional[Union['TenantClientArgs', 'TenantClientArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disable_auth: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_email_link_signin: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'Tenant':
         """
         Get an existing Tenant resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -437,6 +499,12 @@ class Tenant(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] allow_password_signup: Whether to allow email/password user authentication.
         :param pulumi.Input[Union['TenantClientArgs', 'TenantClientArgsDict']] client: Options related to how clients making requests on behalf of a tenant should be configured.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_auth: Whether authentication is disabled for the tenant. If true, the users under
                the disabled tenant are not allowed to sign-in. Admins of the disabled tenant
                are not able to manage its users.
@@ -452,6 +520,7 @@ class Tenant(pulumi.CustomResource):
 
         __props__.__dict__["allow_password_signup"] = allow_password_signup
         __props__.__dict__["client"] = client
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disable_auth"] = disable_auth
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enable_email_link_signin"] = enable_email_link_signin
@@ -475,6 +544,19 @@ class Tenant(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "client")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="disableAuth")

@@ -14,6 +14,8 @@ class EventType(StrEnum):
     AI_AGENT_ASSIGNED_TO_CHAT = "chat.chatty_ai_agent.assigned_to_chat"
     AI_AGENT_REMOVED_FROM_CHAT = "chat.chatty_ai_agent.removed_from_chat"
     AI_AGENT_UPDATED_ON_CHAT = "chat.chatty_ai_agent.updated_on_chat"
+    AI_AGENT_ESCALATE = "chat.ai_agent_escalate"
+    AI_AGENT_UNESCALATE = "chat.ai_agent_unescalate"
     #PRODUCTS
     PRODUCT_ASSIGNED = "chat.product.assigned"
     PRODUCT_REMOVED = "chat.product.removed"

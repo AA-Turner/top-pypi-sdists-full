@@ -22,12 +22,13 @@ __all__ = ['AppGroupArgs', 'AppGroup']
 class AppGroupArgs:
     def __init__(__self__, *,
                  org_id: pulumi.Input[_builtins.str],
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]] = None,
-                 channel_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None):
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]] = None,
+                 channel_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AppGroup resource.
 
@@ -37,6 +38,12 @@ class AppGroupArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] channel_id: Channel identifier identifies the owner maintaining this grouping.
         :param pulumi.Input[_builtins.str] channel_uri: A reference to the associated storefront/marketplace.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: App group name displayed in the UI
         :param pulumi.Input[_builtins.str] name: Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
         :param pulumi.Input[_builtins.str] status: Valid values are active or inactive. Note that the status of the AppGroup should be updated via UpdateAppGroupRequest by setting the action as active or inactive.
@@ -49,6 +56,8 @@ class AppGroupArgs:
             pulumi.set(__self__, "channel_id", channel_id)
         if channel_uri is not None:
             pulumi.set(__self__, "channel_uri", channel_uri)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if name is not None:
@@ -71,7 +80,7 @@ class AppGroupArgs:
 
     @_builtins.property
     @pulumi.getter
-    def attributes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]:
+    def attributes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]:
         """
         A list of attributes
         Structure is documented below.
@@ -79,60 +88,77 @@ class AppGroupArgs:
         return pulumi.get(self, "attributes")
 
     @attributes.setter
-    def attributes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]):
+    def attributes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]):
         pulumi.set(self, "attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="channelId")
-    def channel_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def channel_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Channel identifier identifies the owner maintaining this grouping.
         """
         return pulumi.get(self, "channel_id")
 
     @channel_id.setter
-    def channel_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def channel_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "channel_id", value)
 
     @_builtins.property
     @pulumi.getter(name="channelUri")
-    def channel_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def channel_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the associated storefront/marketplace.
         """
         return pulumi.get(self, "channel_uri")
 
     @channel_uri.setter
-    def channel_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def channel_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "channel_uri", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         App group name displayed in the UI
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Valid values are active or inactive. Note that the status of the AppGroup should be updated via UpdateAppGroupRequest by setting the action as active or inactive.
         Possible values are: `active`, `inactive`.
@@ -140,24 +166,25 @@ class AppGroupArgs:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
 
 @pulumi.input_type
 class _AppGroupState:
     def __init__(__self__, *,
-                 app_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]] = None,
-                 channel_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 created_at: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_modified_at: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None):
+                 app_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]] = None,
+                 channel_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 created_at: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_modified_at: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AppGroup resources.
 
@@ -167,6 +194,12 @@ class _AppGroupState:
         :param pulumi.Input[_builtins.str] channel_id: Channel identifier identifies the owner maintaining this grouping.
         :param pulumi.Input[_builtins.str] channel_uri: A reference to the associated storefront/marketplace.
         :param pulumi.Input[_builtins.str] created_at: Created time as milliseconds since epoch.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: App group name displayed in the UI
         :param pulumi.Input[_builtins.str] last_modified_at: Modified time as milliseconds since epoch.
         :param pulumi.Input[_builtins.str] name: Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
@@ -186,6 +219,8 @@ class _AppGroupState:
             pulumi.set(__self__, "channel_uri", channel_uri)
         if created_at is not None:
             pulumi.set(__self__, "created_at", created_at)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if last_modified_at is not None:
@@ -201,19 +236,19 @@ class _AppGroupState:
 
     @_builtins.property
     @pulumi.getter(name="appGroupId")
-    def app_group_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_group_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Internal identifier that cannot be edited
         """
         return pulumi.get(self, "app_group_id")
 
     @app_group_id.setter
-    def app_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_group_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_group_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def attributes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]:
+    def attributes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]:
         """
         A list of attributes
         Structure is documented below.
@@ -221,84 +256,101 @@ class _AppGroupState:
         return pulumi.get(self, "attributes")
 
     @attributes.setter
-    def attributes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]):
+    def attributes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AppGroupAttributeArgs']]]]):
         pulumi.set(self, "attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="channelId")
-    def channel_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def channel_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Channel identifier identifies the owner maintaining this grouping.
         """
         return pulumi.get(self, "channel_id")
 
     @channel_id.setter
-    def channel_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def channel_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "channel_id", value)
 
     @_builtins.property
     @pulumi.getter(name="channelUri")
-    def channel_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def channel_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the associated storefront/marketplace.
         """
         return pulumi.get(self, "channel_uri")
 
     @channel_uri.setter
-    def channel_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def channel_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "channel_uri", value)
 
     @_builtins.property
     @pulumi.getter(name="createdAt")
-    def created_at(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def created_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Created time as milliseconds since epoch.
         """
         return pulumi.get(self, "created_at")
 
     @created_at.setter
-    def created_at(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def created_at(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "created_at", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         App group name displayed in the UI
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="lastModifiedAt")
-    def last_modified_at(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_modified_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Modified time as milliseconds since epoch.
         """
         return pulumi.get(self, "last_modified_at")
 
     @last_modified_at.setter
-    def last_modified_at(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_modified_at(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_modified_at", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee Organization associated with the Apigee app group,
         in the format `organizations/{{org_name}}`.
@@ -306,24 +358,24 @@ class _AppGroupState:
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def organization(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         App group name displayed in the UI
         """
         return pulumi.get(self, "organization")
 
     @organization.setter
-    def organization(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Valid values are active or inactive. Note that the status of the AppGroup should be updated via UpdateAppGroupRequest by setting the action as active or inactive.
         Possible values are: `active`, `inactive`.
@@ -331,7 +383,7 @@ class _AppGroupState:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
 
@@ -341,13 +393,14 @@ class AppGroup(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
-                 channel_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
+                 channel_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An `AppGroup` in Apigee.
@@ -466,6 +519,12 @@ class AppGroup(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] channel_id: Channel identifier identifies the owner maintaining this grouping.
         :param pulumi.Input[_builtins.str] channel_uri: A reference to the associated storefront/marketplace.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: App group name displayed in the UI
         :param pulumi.Input[_builtins.str] name: Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
         :param pulumi.Input[_builtins.str] org_id: The Apigee Organization associated with the Apigee app group,
@@ -605,13 +664,14 @@ class AppGroup(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
-                 channel_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
+                 attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
+                 channel_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -624,6 +684,7 @@ class AppGroup(pulumi.CustomResource):
             __props__.__dict__["attributes"] = attributes
             __props__.__dict__["channel_id"] = channel_id
             __props__.__dict__["channel_uri"] = channel_uri
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["name"] = name
             if org_id is None and not opts.urn:
@@ -644,17 +705,18 @@ class AppGroup(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            app_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-            attributes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
-            channel_id: Optional[pulumi.Input[_builtins.str]] = None,
-            channel_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            created_at: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            last_modified_at: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            organization: Optional[pulumi.Input[_builtins.str]] = None,
-            status: Optional[pulumi.Input[_builtins.str]] = None) -> 'AppGroup':
+            app_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+            attributes: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppGroupAttributeArgs', 'AppGroupAttributeArgsDict']]]]] = None,
+            channel_id: pulumi.Input[Optional[_builtins.str]] = None,
+            channel_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            last_modified_at: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            organization: pulumi.Input[Optional[_builtins.str]] = None,
+            status: pulumi.Input[Optional[_builtins.str]] = None) -> 'AppGroup':
         """
         Get an existing AppGroup resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -668,6 +730,12 @@ class AppGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] channel_id: Channel identifier identifies the owner maintaining this grouping.
         :param pulumi.Input[_builtins.str] channel_uri: A reference to the associated storefront/marketplace.
         :param pulumi.Input[_builtins.str] created_at: Created time as milliseconds since epoch.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: App group name displayed in the UI
         :param pulumi.Input[_builtins.str] last_modified_at: Modified time as milliseconds since epoch.
         :param pulumi.Input[_builtins.str] name: Name of the AppGroup. Characters you can use in the name are restricted to: A-Z0-9._-$ %.
@@ -686,6 +754,7 @@ class AppGroup(pulumi.CustomResource):
         __props__.__dict__["channel_id"] = channel_id
         __props__.__dict__["channel_uri"] = channel_uri
         __props__.__dict__["created_at"] = created_at
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["last_modified_at"] = last_modified_at
         __props__.__dict__["name"] = name
@@ -734,6 +803,19 @@ class AppGroup(pulumi.CustomResource):
         Created time as milliseconds since epoch.
         """
         return pulumi.get(self, "created_at")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

@@ -24,10 +24,11 @@ class ScopeRbacRoleBindingArgs:
                  role: pulumi.Input['ScopeRbacRoleBindingRoleArgs'],
                  scope_id: pulumi.Input[_builtins.str],
                  scope_rbac_role_binding_id: pulumi.Input[_builtins.str],
-                 group: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ScopeRbacRoleBinding resource.
 
@@ -35,6 +36,12 @@ class ScopeRbacRoleBindingArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] scope_id: Id of the scope
         :param pulumi.Input[_builtins.str] scope_rbac_role_binding_id: The client-provided identifier of the RBAC Role Binding.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] group: Principal that is be authorized in the cluster (at least of one the oneof
                is required). Updating one will unset the other automatically.
                group is the group, as seen by the kubernetes cluster.
@@ -52,6 +59,8 @@ class ScopeRbacRoleBindingArgs:
         pulumi.set(__self__, "role", role)
         pulumi.set(__self__, "scope_id", scope_id)
         pulumi.set(__self__, "scope_rbac_role_binding_id", scope_rbac_role_binding_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if group is not None:
             pulumi.set(__self__, "group", group)
         if labels is not None:
@@ -99,8 +108,25 @@ class ScopeRbacRoleBindingArgs:
         pulumi.set(self, "scope_rbac_role_binding_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def group(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def group(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Principal that is be authorized in the cluster (at least of one the oneof
         is required). Updating one will unset the other automatically.
@@ -109,12 +135,12 @@ class ScopeRbacRoleBindingArgs:
         return pulumi.get(self, "group")
 
     @group.setter
-    def group(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def group(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "group", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels for this ScopeRBACRoleBinding.
 
@@ -124,12 +150,12 @@ class ScopeRbacRoleBindingArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -137,12 +163,12 @@ class ScopeRbacRoleBindingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Principal that is be authorized in the cluster (at least of one the oneof
         is required). Updating one will unset the other automatically.
@@ -152,33 +178,40 @@ class ScopeRbacRoleBindingArgs:
         return pulumi.get(self, "user")
 
     @user.setter
-    def user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user", value)
 
 
 @pulumi.input_type
 class _ScopeRbacRoleBindingState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 group: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 role: Optional[pulumi.Input['ScopeRbacRoleBindingRoleArgs']] = None,
-                 scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 states: Optional[pulumi.Input[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 group: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 role: pulumi.Input[Optional['ScopeRbacRoleBindingRoleArgs']] = None,
+                 scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 states: pulumi.Input[Optional[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ScopeRbacRoleBinding resources.
 
         :param pulumi.Input[_builtins.str] create_time: Time the RBAC Role Binding was created in UTC.
         :param pulumi.Input[_builtins.str] delete_time: Time the RBAC Role Binding was deleted in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] group: Principal that is be authorized in the cluster (at least of one the oneof
                is required). Updating one will unset the other automatically.
@@ -209,6 +242,8 @@ class _ScopeRbacRoleBindingState:
             pulumi.set(__self__, "create_time", create_time)
         if delete_time is not None:
             pulumi.set(__self__, "delete_time", delete_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if group is not None:
@@ -238,43 +273,60 @@ class _ScopeRbacRoleBindingState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteTime")
-    def delete_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def delete_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was deleted in UTC.
         """
         return pulumi.get(self, "delete_time")
 
     @delete_time.setter
-    def delete_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def delete_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "delete_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def group(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def group(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Principal that is be authorized in the cluster (at least of one the oneof
         is required). Updating one will unset the other automatically.
@@ -283,12 +335,12 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "group")
 
     @group.setter
-    def group(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def group(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "group", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels for this ScopeRBACRoleBinding.
 
@@ -298,24 +350,24 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for the RBAC Role Binding
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -323,12 +375,12 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -336,12 +388,12 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def role(self) -> Optional[pulumi.Input['ScopeRbacRoleBindingRoleArgs']]:
+    def role(self) -> pulumi.Input[Optional['ScopeRbacRoleBindingRoleArgs']]:
         """
         Role to bind to the principal.
         Structure is documented below.
@@ -349,36 +401,36 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "role")
 
     @role.setter
-    def role(self, value: Optional[pulumi.Input['ScopeRbacRoleBindingRoleArgs']]):
+    def role(self, value: pulumi.Input[Optional['ScopeRbacRoleBindingRoleArgs']]):
         pulumi.set(self, "role", value)
 
     @_builtins.property
     @pulumi.getter(name="scopeId")
-    def scope_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scope_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Id of the scope
         """
         return pulumi.get(self, "scope_id")
 
     @scope_id.setter
-    def scope_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scope_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scope_id", value)
 
     @_builtins.property
     @pulumi.getter(name="scopeRbacRoleBindingId")
-    def scope_rbac_role_binding_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scope_rbac_role_binding_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client-provided identifier of the RBAC Role Binding.
         """
         return pulumi.get(self, "scope_rbac_role_binding_id")
 
     @scope_rbac_role_binding_id.setter
-    def scope_rbac_role_binding_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scope_rbac_role_binding_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scope_rbac_role_binding_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def states(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]]:
+    def states(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]]:
         """
         State of the RBAC Role Binding resource.
         Structure is documented below.
@@ -386,36 +438,36 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "states")
 
     @states.setter
-    def states(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]]):
+    def states(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ScopeRbacRoleBindingStateArgs']]]]):
         pulumi.set(self, "states", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Google-generated UUID for this resource.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Principal that is be authorized in the cluster (at least of one the oneof
         is required). Updating one will unset the other automatically.
@@ -425,7 +477,7 @@ class _ScopeRbacRoleBindingState:
         return pulumi.get(self, "user")
 
     @user.setter
-    def user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user", value)
 
 
@@ -435,13 +487,14 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 group: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
-                 scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
+                 scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         RBACRoleBinding represents a rbacrolebinding across the Fleet.
@@ -460,9 +513,9 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
 
-        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_94690")
+        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_79411")
         scope_rbac_role_binding = gcp.gkehub.ScopeRbacRoleBinding("scope_rbac_role_binding",
-            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_29947",
+            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_2234",
             scope_id=scope.scope_id,
             user="test-email@gmail.com",
             role={
@@ -478,7 +531,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
 
-        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_28257")
+        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_29225")
         rbacrolebindingactuation = gcp.gkehub.Feature("rbacrolebindingactuation",
             name="rbacrolebindingactuation",
             location="global",
@@ -488,7 +541,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
                 },
             })
         scope_rbac_role_binding = gcp.gkehub.ScopeRbacRoleBinding("scope_rbac_role_binding",
-            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_49175",
+            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_40798",
             scope_id=scope.scope_id,
             user="test-email@gmail.com",
             role={
@@ -519,6 +572,12 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] group: Principal that is be authorized in the cluster (at least of one the oneof
                is required). Updating one will unset the other automatically.
                group is the group, as seen by the kubernetes cluster.
@@ -560,9 +619,9 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
 
-        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_94690")
+        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_79411")
         scope_rbac_role_binding = gcp.gkehub.ScopeRbacRoleBinding("scope_rbac_role_binding",
-            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_29947",
+            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_2234",
             scope_id=scope.scope_id,
             user="test-email@gmail.com",
             role={
@@ -578,7 +637,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         import pulumi
         import pulumi_gcp as gcp
 
-        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_28257")
+        scope = gcp.gkehub.Scope("scope", scope_id="tf-test-scope_29225")
         rbacrolebindingactuation = gcp.gkehub.Feature("rbacrolebindingactuation",
             name="rbacrolebindingactuation",
             location="global",
@@ -588,7 +647,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
                 },
             })
         scope_rbac_role_binding = gcp.gkehub.ScopeRbacRoleBinding("scope_rbac_role_binding",
-            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_49175",
+            scope_rbac_role_binding_id="tf-test-scope-rbac-role-binding_40798",
             scope_id=scope.scope_id,
             user="test-email@gmail.com",
             role={
@@ -632,13 +691,14 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 group: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
-                 scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
+                 scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -648,6 +708,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = ScopeRbacRoleBindingArgs.__new__(ScopeRbacRoleBindingArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["group"] = group
             __props__.__dict__["labels"] = labels
             __props__.__dict__["project"] = project
@@ -681,21 +742,22 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            group: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            role: Optional[pulumi.Input[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
-            scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-            scope_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-            states: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ScopeRbacRoleBindingStateArgs', 'ScopeRbacRoleBindingStateArgsDict']]]]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            user: Optional[pulumi.Input[_builtins.str]] = None) -> 'ScopeRbacRoleBinding':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            group: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            role: pulumi.Input[Optional[Union['ScopeRbacRoleBindingRoleArgs', 'ScopeRbacRoleBindingRoleArgsDict']]] = None,
+            scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+            scope_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+            states: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ScopeRbacRoleBindingStateArgs', 'ScopeRbacRoleBindingStateArgsDict']]]]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            user: pulumi.Input[Optional[_builtins.str]] = None) -> 'ScopeRbacRoleBinding':
         """
         Get an existing ScopeRbacRoleBinding resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -705,6 +767,12 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Time the RBAC Role Binding was created in UTC.
         :param pulumi.Input[_builtins.str] delete_time: Time the RBAC Role Binding was deleted in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] group: Principal that is be authorized in the cluster (at least of one the oneof
                is required). Updating one will unset the other automatically.
@@ -737,6 +805,7 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
 
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["delete_time"] = delete_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["group"] = group
         __props__.__dict__["labels"] = labels
@@ -767,6 +836,19 @@ class ScopeRbacRoleBinding(pulumi.CustomResource):
         Time the RBAC Role Binding was deleted in UTC.
         """
         return pulumi.get(self, "delete_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

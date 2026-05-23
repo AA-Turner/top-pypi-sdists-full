@@ -23,7 +23,8 @@ class PolicyArgs:
     def __init__(__self__, *,
                  customer: pulumi.Input[_builtins.str],
                  policy_query: pulumi.Input['PolicyPolicyQueryArgs'],
-                 setting: pulumi.Input['PolicySettingArgs']):
+                 setting: pulumi.Input['PolicySettingArgs'],
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Policy resource.
 
@@ -32,10 +33,18 @@ class PolicyArgs:
                Structure is documented below.
         :param pulumi.Input['PolicySettingArgs'] setting: The Setting configured by this Policy.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         """
         pulumi.set(__self__, "customer", customer)
         pulumi.set(__self__, "policy_query", policy_query)
         pulumi.set(__self__, "setting", setting)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
 
     @_builtins.property
     @pulumi.getter
@@ -75,18 +84,42 @@ class PolicyArgs:
     def setting(self, value: pulumi.Input['PolicySettingArgs']):
         pulumi.set(self, "setting", value)
 
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
 
 @pulumi.input_type
 class _PolicyState:
     def __init__(__self__, *,
-                 customer: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_query: Optional[pulumi.Input['PolicyPolicyQueryArgs']] = None,
-                 setting: Optional[pulumi.Input['PolicySettingArgs']] = None):
+                 customer: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_query: pulumi.Input[Optional['PolicyPolicyQueryArgs']] = None,
+                 setting: pulumi.Input[Optional['PolicySettingArgs']] = None):
         """
         Input properties used for looking up and filtering Policy resources.
 
         :param pulumi.Input[_builtins.str] customer: The customer that the Policy belongs to. Format: `customers/{customer_id}`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of the Policy. Format: `policies/{policy_id}`.
         :param pulumi.Input['PolicyPolicyQueryArgs'] policy_query: The PolicyQuery the Setting applies to.
                Structure is documented below.
@@ -95,6 +128,8 @@ class _PolicyState:
         """
         if customer is not None:
             pulumi.set(__self__, "customer", customer)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if policy_query is not None:
@@ -104,31 +139,48 @@ class _PolicyState:
 
     @_builtins.property
     @pulumi.getter
-    def customer(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def customer(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The customer that the Policy belongs to. Format: `customers/{customer_id}`.
         """
         return pulumi.get(self, "customer")
 
     @customer.setter
-    def customer(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def customer(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "customer", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Policy. Format: `policies/{policy_id}`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="policyQuery")
-    def policy_query(self) -> Optional[pulumi.Input['PolicyPolicyQueryArgs']]:
+    def policy_query(self) -> pulumi.Input[Optional['PolicyPolicyQueryArgs']]:
         """
         The PolicyQuery the Setting applies to.
         Structure is documented below.
@@ -136,12 +188,12 @@ class _PolicyState:
         return pulumi.get(self, "policy_query")
 
     @policy_query.setter
-    def policy_query(self, value: Optional[pulumi.Input['PolicyPolicyQueryArgs']]):
+    def policy_query(self, value: pulumi.Input[Optional['PolicyPolicyQueryArgs']]):
         pulumi.set(self, "policy_query", value)
 
     @_builtins.property
     @pulumi.getter
-    def setting(self) -> Optional[pulumi.Input['PolicySettingArgs']]:
+    def setting(self) -> pulumi.Input[Optional['PolicySettingArgs']]:
         """
         The Setting configured by this Policy.
         Structure is documented below.
@@ -149,7 +201,7 @@ class _PolicyState:
         return pulumi.get(self, "setting")
 
     @setting.setter
-    def setting(self, value: Optional[pulumi.Input['PolicySettingArgs']]):
+    def setting(self, value: pulumi.Input[Optional['PolicySettingArgs']]):
         pulumi.set(self, "setting", value)
 
 
@@ -159,9 +211,10 @@ class Policy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 customer: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_query: Optional[pulumi.Input[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
-                 setting: Optional[pulumi.Input[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None,
+                 customer: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_query: pulumi.Input[Optional[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
+                 setting: pulumi.Input[Optional[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None,
                  __props__=None):
         """
         A Cloud Identity Policy binds a Setting to a PolicyQuery for a Google Workspace / Cloud Identity customer.
@@ -218,6 +271,12 @@ class Policy(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] customer: The customer that the Policy belongs to. Format: `customers/{customer_id}`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']] policy_query: The PolicyQuery the Setting applies to.
                Structure is documented below.
         :param pulumi.Input[Union['PolicySettingArgs', 'PolicySettingArgsDict']] setting: The Setting configured by this Policy.
@@ -296,9 +355,10 @@ class Policy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 customer: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_query: Optional[pulumi.Input[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
-                 setting: Optional[pulumi.Input[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None,
+                 customer: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_query: pulumi.Input[Optional[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
+                 setting: pulumi.Input[Optional[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -311,6 +371,7 @@ class Policy(pulumi.CustomResource):
             if customer is None and not opts.urn:
                 raise TypeError("Missing required property 'customer'")
             __props__.__dict__["customer"] = customer
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if policy_query is None and not opts.urn:
                 raise TypeError("Missing required property 'policy_query'")
             __props__.__dict__["policy_query"] = policy_query
@@ -328,10 +389,11 @@ class Policy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            customer: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            policy_query: Optional[pulumi.Input[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
-            setting: Optional[pulumi.Input[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None) -> 'Policy':
+            customer: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            policy_query: pulumi.Input[Optional[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']]] = None,
+            setting: pulumi.Input[Optional[Union['PolicySettingArgs', 'PolicySettingArgsDict']]] = None) -> 'Policy':
         """
         Get an existing Policy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -340,6 +402,12 @@ class Policy(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] customer: The customer that the Policy belongs to. Format: `customers/{customer_id}`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The resource name of the Policy. Format: `policies/{policy_id}`.
         :param pulumi.Input[Union['PolicyPolicyQueryArgs', 'PolicyPolicyQueryArgsDict']] policy_query: The PolicyQuery the Setting applies to.
                Structure is documented below.
@@ -351,6 +419,7 @@ class Policy(pulumi.CustomResource):
         __props__ = _PolicyState.__new__(_PolicyState)
 
         __props__.__dict__["customer"] = customer
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["policy_query"] = policy_query
         __props__.__dict__["setting"] = setting
@@ -363,6 +432,19 @@ class Policy(pulumi.CustomResource):
         The customer that the Policy belongs to. Format: `customers/{customer_id}`.
         """
         return pulumi.get(self, "customer")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

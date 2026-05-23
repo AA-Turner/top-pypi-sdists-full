@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: behavex
-Version: 4.6.4
+Version: 4.6.5
 Summary: Production-grade test orchestration for Python BDD.
 Author-email: Hernan Rey <behavex_users@googlegroups.com>
 License: The MIT License (MIT)

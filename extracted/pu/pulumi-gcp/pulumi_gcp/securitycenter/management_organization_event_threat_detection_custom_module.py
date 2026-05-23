@@ -20,17 +20,24 @@ __all__ = ['ManagementOrganizationEventThreatDetectionCustomModuleArgs', 'Manage
 class ManagementOrganizationEventThreatDetectionCustomModuleArgs:
     def __init__(__self__, *,
                  organization: pulumi.Input[_builtins.str],
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enablement_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enablement_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ManagementOrganizationEventThreatDetectionCustomModule resource.
 
         :param pulumi.Input[_builtins.str] organization: Numerical ID of the parent organization.
         :param pulumi.Input[_builtins.str] config: Config for the module. For the resident module, its config value is defined at this level.
                For the inherited module, its config value is inherited from the ancestor module.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human readable name to be displayed for the module.
         :param pulumi.Input[_builtins.str] enablement_state: The state of enablement for the module at the given level of the hierarchy.
                Possible values are: `ENABLED`, `DISABLED`.
@@ -40,6 +47,8 @@ class ManagementOrganizationEventThreatDetectionCustomModuleArgs:
         pulumi.set(__self__, "organization", organization)
         if config is not None:
             pulumi.set(__self__, "config", config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if enablement_state is not None:
@@ -63,7 +72,7 @@ class ManagementOrganizationEventThreatDetectionCustomModuleArgs:
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Config for the module. For the resident module, its config value is defined at this level.
         For the inherited module, its config value is inherited from the ancestor module.
@@ -71,24 +80,41 @@ class ManagementOrganizationEventThreatDetectionCustomModuleArgs:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human readable name to be displayed for the module.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enablementState")
-    def enablement_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def enablement_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The state of enablement for the module at the given level of the hierarchy.
         Possible values are: `ENABLED`, `DISABLED`.
@@ -96,51 +122,58 @@ class ManagementOrganizationEventThreatDetectionCustomModuleArgs:
         return pulumi.get(self, "enablement_state")
 
     @enablement_state.setter
-    def enablement_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def enablement_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "enablement_state", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location ID of the parent organization. Only global is supported at the moment.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. Type for the module. e.g. CONFIGURABLE_BAD_IP.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
 @pulumi.input_type
 class _ManagementOrganizationEventThreatDetectionCustomModuleState:
     def __init__(__self__, *,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enablement_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_editor: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enablement_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_editor: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ManagementOrganizationEventThreatDetectionCustomModule resources.
 
         :param pulumi.Input[_builtins.str] config: Config for the module. For the resident module, its config value is defined at this level.
                For the inherited module, its config value is inherited from the ancestor module.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human readable name to be displayed for the module.
         :param pulumi.Input[_builtins.str] enablement_state: The state of enablement for the module at the given level of the hierarchy.
                Possible values are: `ENABLED`, `DISABLED`.
@@ -156,6 +189,8 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
         """
         if config is not None:
             pulumi.set(__self__, "config", config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if enablement_state is not None:
@@ -175,7 +210,7 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Config for the module. For the resident module, its config value is defined at this level.
         For the inherited module, its config value is inherited from the ancestor module.
@@ -183,24 +218,41 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human readable name to be displayed for the module.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enablementState")
-    def enablement_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def enablement_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The state of enablement for the module at the given level of the hierarchy.
         Possible values are: `ENABLED`, `DISABLED`.
@@ -208,36 +260,36 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
         return pulumi.get(self, "enablement_state")
 
     @enablement_state.setter
-    def enablement_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def enablement_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "enablement_state", value)
 
     @_builtins.property
     @pulumi.getter(name="lastEditor")
-    def last_editor(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_editor(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The editor that last updated the custom module
         """
         return pulumi.get(self, "last_editor")
 
     @last_editor.setter
-    def last_editor(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_editor(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_editor", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location ID of the parent organization. Only global is supported at the moment.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Event Threat Detection custom module.
         Its format is "organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{eventThreatDetectionCustomModule}".
@@ -245,36 +297,36 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def organization(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Numerical ID of the parent organization.
         """
         return pulumi.get(self, "organization")
 
     @organization.setter
-    def organization(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. Type for the module. e.g. CONFIGURABLE_BAD_IP.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time at which the custom module was last updated.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
@@ -283,7 +335,7 @@ class _ManagementOrganizationEventThreatDetectionCustomModuleState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -293,12 +345,13 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enablement_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enablement_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents an instance of an Event Threat Detection custom module, including
@@ -359,6 +412,12 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] config: Config for the module. For the resident module, its config value is defined at this level.
                For the inherited module, its config value is inherited from the ancestor module.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human readable name to be displayed for the module.
         :param pulumi.Input[_builtins.str] enablement_state: The state of enablement for the module at the given level of the hierarchy.
                Possible values are: `ENABLED`, `DISABLED`.
@@ -442,12 +501,13 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enablement_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enablement_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -458,6 +518,7 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
             __props__ = ManagementOrganizationEventThreatDetectionCustomModuleArgs.__new__(ManagementOrganizationEventThreatDetectionCustomModuleArgs)
 
             __props__.__dict__["config"] = config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["enablement_state"] = enablement_state
             __props__.__dict__["location"] = location
@@ -478,15 +539,16 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            config: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enablement_state: Optional[pulumi.Input[_builtins.str]] = None,
-            last_editor: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'ManagementOrganizationEventThreatDetectionCustomModule':
+            config: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enablement_state: pulumi.Input[Optional[_builtins.str]] = None,
+            last_editor: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'ManagementOrganizationEventThreatDetectionCustomModule':
         """
         Get an existing ManagementOrganizationEventThreatDetectionCustomModule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -496,6 +558,12 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] config: Config for the module. For the resident module, its config value is defined at this level.
                For the inherited module, its config value is inherited from the ancestor module.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human readable name to be displayed for the module.
         :param pulumi.Input[_builtins.str] enablement_state: The state of enablement for the module at the given level of the hierarchy.
                Possible values are: `ENABLED`, `DISABLED`.
@@ -514,6 +582,7 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
         __props__ = _ManagementOrganizationEventThreatDetectionCustomModuleState.__new__(_ManagementOrganizationEventThreatDetectionCustomModuleState)
 
         __props__.__dict__["config"] = config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enablement_state"] = enablement_state
         __props__.__dict__["last_editor"] = last_editor
@@ -532,6 +601,19 @@ class ManagementOrganizationEventThreatDetectionCustomModule(pulumi.CustomResour
         For the inherited module, its config value is inherited from the ancestor module.
         """
         return pulumi.get(self, "config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

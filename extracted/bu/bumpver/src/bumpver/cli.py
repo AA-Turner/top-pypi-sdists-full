@@ -276,7 +276,7 @@ def version_options(function: typ.Callable) -> typ.Callable:
 
 
 @click.group(context_settings={'help_option_names': ["-h", "--help"]})
-@click.version_option(version="2025.1131")
+@click.version_option(version="2026.1132")
 @verbose_option
 def cli(verbose: int = 0) -> None:
     """Automatically update version strings in plaintext files."""
@@ -650,6 +650,7 @@ def _update(
 
     if vcs_api:
         vcs.assert_not_dirty(vcs_api, filepaths, allow_dirty)
+        vcs.assert_allowed_branch(vcs_api, cfg.allowed_branches)
 
     try:
         if cfg.is_new_pattern:

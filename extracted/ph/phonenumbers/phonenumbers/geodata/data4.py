@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '3323427':{'en': 'Pithiviers', 'fr': 'Pithiviers'},
+ '3323428':{'en': u('Orl\u00e9ans'), 'fr': u('Orl\u00e9ans')},
+ '3323429':{'en': 'Bourges', 'fr': 'Bourges'},
+ '3323430':{'en': 'Tours', 'fr': 'Tours'},
+ '3323431':{'en': 'Saint-Amand-Montrond', 'fr': 'Saint-Amand-Montrond'},
+ '3323432':{'en': u('Orl\u00e9ans'), 'fr': u('Orl\u00e9ans')},
+ '3323433':{'en': 'Romorantin-Lanthenay', 'fr': 'Romorantin-Lanthenay'},
  '3323434':{'en': 'Bourges', 'fr': 'Bourges'},
  '3323435':{'en': 'Blois', 'fr': 'Blois'},
  '3323436':{'en': 'Tours', 'fr': 'Tours'},
@@ -10012,11 +10019,4 @@ data = {
  '3358240':{'en': 'Figeac', 'fr': 'Figeac'},
  '3358241':{'en': 'Saint-Gaudens', 'fr': 'Saint-Gaudens'},
  '3358242':{'en': 'Tarbes', 'fr': 'Tarbes'},
- '3358243':{'en': 'Cazeres', 'fr': 'Cazeres'},
- '3358244':{'en': 'Montauban', 'fr': 'Montauban'},
- '3358245':{'en': 'Castres', 'fr': 'Castres'},
- '3358246':{'en': 'Foix', 'fr': 'Foix'},
- '3358247':{'en': 'Cahors', 'fr': 'Cahors'},
- '3358248':{'en': 'Decazeville', 'fr': 'Decazeville'},
- '3358249':{'en': 'Espalion', 'fr': 'Espalion'},
 }

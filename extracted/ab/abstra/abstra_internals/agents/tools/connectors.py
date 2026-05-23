@@ -63,7 +63,10 @@ class ConnectorsTools(AgentTools):
 
         if self.actions is not None and action not in self.actions:
             raise ValueError(f"Action '{action}' is not allowed.")
-        params = {**params, **self.params}
+        # Defaults are filled in only when the agent did not pass the key —
+        # call-site values win. Matches the documented "default" semantics
+        # (TablesTools.where is the opposite: it scopes, so toolkit wins.)
+        params = {**self.params, **params}
         return run_connection_action(connection, action, params)
 
     def __tools__(self) -> List[str]:

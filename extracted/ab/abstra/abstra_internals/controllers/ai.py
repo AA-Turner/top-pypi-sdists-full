@@ -1,8 +1,7 @@
 import os
 import uuid
-from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from werkzeug.datastructures import FileStorage
 
@@ -30,17 +29,6 @@ RETRY_FLAG = "abstra__trigger__retry"
 class InvalidUploadPathError(ValueError):
     def __init__(self) -> None:
         super().__init__("Path must reference a file inside the AI uploads directory")
-
-
-@dataclass
-class PythonFile:
-    filename: str
-    content: str
-    stage: str
-
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "PythonFile":
-        return PythonFile(data["filename"], data["content"], data["stage"])
 
 
 def runtime_from_stage(stage: StageWithFile):
@@ -192,27 +180,6 @@ class AiController:
             if user_jwt:
                 headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
             return self.repos.ai.abort_thread(headers, thread_id)
-
-    def init_stages(self, python_files: List[PythonFile]):
-        for file in python_files:
-            if file.stage == "form":
-                script = self.controller.create_form(file.filename[:-3], file.filename)
-            elif file.stage == "hook":
-                script = self.controller.create_hook(file.filename[:-3], file.filename)
-            elif file.stage == "script":
-                script = self.controller.create_tasklet(
-                    file.filename[:-3], file.filename
-                )
-            elif file.stage == "job":
-                script = self.controller.create_job(file.filename[:-3], file.filename)
-            else:
-                raise Exception(f"Invalid stage {file.stage}")
-            script.file_path.write_text(file.content, encoding="utf-8")
-            script.file_path.write_text(file.content, encoding="utf-8")
-            script.file_path.write_text(file.content, encoding="utf-8")
-            script.file_path.write_text(file.content, encoding="utf-8")
-            script.file_path.write_text(file.content, encoding="utf-8")
-            script.file_path.write_text(file.content, encoding="utf-8")
 
     def start_conversation(self, user_jwt=None):
         return self.repos.ai.start_conversation(

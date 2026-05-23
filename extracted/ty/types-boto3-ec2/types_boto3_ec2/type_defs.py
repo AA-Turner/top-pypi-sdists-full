@@ -594,7 +594,6 @@ __all__ = (
     "BaselinePerformanceFactorsRequestTypeDef",
     "BaselinePerformanceFactorsTypeDef",
     "BaselinePerformanceFactorsUnionTypeDef",
-    "BlobAttributeValueTypeDef",
     "BlobTypeDef",
     "BlockDeviceMappingResponseTypeDef",
     "BlockDeviceMappingTypeDef",
@@ -2927,6 +2926,7 @@ __all__ = (
     "SecondaryNetworkTypeDef",
     "SecondarySubnetIpv4CidrBlockAssociationTypeDef",
     "SecondarySubnetTypeDef",
+    "SecureBlobAttributeValueTypeDef",
     "SecurityGroupCreateTagsRequestTypeDef",
     "SecurityGroupForVpcTypeDef",
     "SecurityGroupIdentifierTypeDef",
@@ -11604,16 +11604,16 @@ class AvailableCapacityTypeDef(TypedDict):
     AvailableVCpus: NotRequired[int]
 
 
-class BlobAttributeValueTypeDef(TypedDict):
-    Value: NotRequired[BlobTypeDef]
-
-
 class S3StorageTypeDef(TypedDict):
     AWSAccessKeyId: NotRequired[str]
     Bucket: NotRequired[str]
     Prefix: NotRequired[str]
     UploadPolicy: NotRequired[BlobTypeDef]
     UploadPolicySignature: NotRequired[str]
+
+
+class SecureBlobAttributeValueTypeDef(TypedDict):
+    Value: NotRequired[BlobTypeDef]
 
 
 class BlockDeviceMappingResponseTypeDef(TypedDict):
@@ -18919,6 +18919,7 @@ class DescribeVpcEndpointConnectionsResultTypeDef(TypedDict):
 
 class ModifyInstanceAttributeRequestInstanceModifyAttributeTypeDef(TypedDict):
     SourceDestCheck: NotRequired[AttributeBooleanValueTypeDef]
+    EnclaveOptions: NotRequired[EnclaveOptionsRequestTypeDef]
     DisableApiStop: NotRequired[AttributeBooleanValueTypeDef]
     DryRun: NotRequired[bool]
     Attribute: NotRequired[InstanceAttributeNameType]
@@ -18928,7 +18929,7 @@ class ModifyInstanceAttributeRequestInstanceModifyAttributeTypeDef(TypedDict):
     InstanceType: NotRequired[AttributeValueTypeDef]
     Kernel: NotRequired[AttributeValueTypeDef]
     Ramdisk: NotRequired[AttributeValueTypeDef]
-    UserData: NotRequired[BlobAttributeValueTypeDef]
+    UserData: NotRequired[SecureBlobAttributeValueTypeDef]
     InstanceInitiatedShutdownBehavior: NotRequired[AttributeValueTypeDef]
     Groups: NotRequired[Sequence[str]]
     EbsOptimized: NotRequired[AttributeBooleanValueTypeDef]
@@ -18939,6 +18940,7 @@ class ModifyInstanceAttributeRequestInstanceModifyAttributeTypeDef(TypedDict):
 class ModifyInstanceAttributeRequestTypeDef(TypedDict):
     InstanceId: str
     SourceDestCheck: NotRequired[AttributeBooleanValueTypeDef]
+    EnclaveOptions: NotRequired[EnclaveOptionsRequestTypeDef]
     DisableApiStop: NotRequired[AttributeBooleanValueTypeDef]
     DryRun: NotRequired[bool]
     Attribute: NotRequired[InstanceAttributeNameType]
@@ -18948,7 +18950,7 @@ class ModifyInstanceAttributeRequestTypeDef(TypedDict):
     InstanceType: NotRequired[AttributeValueTypeDef]
     Kernel: NotRequired[AttributeValueTypeDef]
     Ramdisk: NotRequired[AttributeValueTypeDef]
-    UserData: NotRequired[BlobAttributeValueTypeDef]
+    UserData: NotRequired[SecureBlobAttributeValueTypeDef]
     InstanceInitiatedShutdownBehavior: NotRequired[AttributeValueTypeDef]
     Groups: NotRequired[Sequence[str]]
     EbsOptimized: NotRequired[AttributeBooleanValueTypeDef]

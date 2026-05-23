@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyclean
-Version: 3.6.0
+Version: 3.7.0
 Summary: Pure Python cross-platform pyclean. Clean up your Python bytecode.
 Author-email: Peter Bittner <django@bittner.it>
 Maintainer-email: Peter Bittner <django@bittner.it>
@@ -270,6 +270,11 @@ The above would delete the entire ``tmp/`` directory with all subdirectories
 inside the current folder. If you omit the final ``tmp/`` you'll leave the
 empty ``tmp`` directory in place. (**WARNING!** Don't put the ``.`` *after*
 the ``--erase`` option! Obviously, your project files will all be deleted.)
+
+``--erase`` matches are filtered only by patterns you pass explicitly to
+``--ignore``; the built-in default ignore list (``.git``, ``.tox``, ``.venv``,
+…) does **not** restrict ``--erase``. This lets you wipe contents inside a
+directory like ``.tox/generated/`` when you name it explicitly.
 
 Empty directories 📂
 ----------------------

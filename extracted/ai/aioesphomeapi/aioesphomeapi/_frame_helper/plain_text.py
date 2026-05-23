@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 from ..core import ProtocolAPIError, RequiresEncryptionAPIError
 from .base import APIFrameHelper
 from .packets import make_plain_text_packets
+
+if TYPE_CHECKING:
+    import asyncio
 
 _int = int
 
@@ -91,7 +93,7 @@ class APIPlaintextFrameHelper(APIFrameHelper):
             )
         )
 
-    def data_received(self, data: bytes | bytearray | memoryview) -> None:
+    def data_received(self, data: bytes | bytearray | memoryview) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         self._add_to_buffer(data)
         # Message header is at least 3 bytes, empty length allowed
         while self._buffer_len >= 3:

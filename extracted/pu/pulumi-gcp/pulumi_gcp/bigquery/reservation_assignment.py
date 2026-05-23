@@ -22,14 +22,21 @@ class ReservationAssignmentArgs:
                  assignee: pulumi.Input[_builtins.str],
                  job_type: pulumi.Input[_builtins.str],
                  reservation: pulumi.Input[_builtins.str],
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ReservationAssignment resource.
 
         :param pulumi.Input[_builtins.str] assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
         :param pulumi.Input[_builtins.str] job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS
         :param pulumi.Input[_builtins.str] reservation: The reservation for the resource
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: The location for the resource
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -37,6 +44,8 @@ class ReservationAssignmentArgs:
         pulumi.set(__self__, "assignee", assignee)
         pulumi.set(__self__, "job_type", job_type)
         pulumi.set(__self__, "reservation", reservation)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if project is not None:
@@ -79,20 +88,37 @@ class ReservationAssignmentArgs:
         pulumi.set(self, "reservation", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -100,24 +126,31 @@ class ReservationAssignmentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ReservationAssignmentState:
     def __init__(__self__, *,
-                 assignee: Optional[pulumi.Input[_builtins.str]] = None,
-                 job_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 assignee: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 job_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ReservationAssignment resources.
 
         :param pulumi.Input[_builtins.str] assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS
         :param pulumi.Input[_builtins.str] location: The location for the resource
         :param pulumi.Input[_builtins.str] name: Output only. The resource name of the assignment.
@@ -129,6 +162,8 @@ class _ReservationAssignmentState:
         """
         if assignee is not None:
             pulumi.set(__self__, "assignee", assignee)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if job_type is not None:
             pulumi.set(__self__, "job_type", job_type)
         if location is not None:
@@ -144,55 +179,72 @@ class _ReservationAssignmentState:
 
     @_builtins.property
     @pulumi.getter
-    def assignee(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def assignee(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
         """
         return pulumi.get(self, "assignee")
 
     @assignee.setter
-    def assignee(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def assignee(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "assignee", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="jobType")
-    def job_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def job_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS
         """
         return pulumi.get(self, "job_type")
 
     @job_type.setter
-    def job_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def job_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "job_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The resource name of the assignment.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -200,24 +252,24 @@ class _ReservationAssignmentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def reservation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def reservation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reservation for the resource
         """
         return pulumi.get(self, "reservation")
 
     @reservation.setter
-    def reservation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def reservation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "reservation", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Assignment will remain in PENDING state if no active capacity commitment is present. It will become ACTIVE when some capacity commitment becomes active.
         Possible values: STATE_UNSPECIFIED, PENDING, ACTIVE
@@ -225,7 +277,7 @@ class _ReservationAssignmentState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -235,11 +287,12 @@ class ReservationAssignment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 assignee: Optional[pulumi.Input[_builtins.str]] = None,
-                 job_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation: Optional[pulumi.Input[_builtins.str]] = None,
+                 assignee: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 job_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The BigqueryReservation Assignment resource.
@@ -290,6 +343,12 @@ class ReservationAssignment(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS
         :param pulumi.Input[_builtins.str] location: The location for the resource
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -363,11 +422,12 @@ class ReservationAssignment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 assignee: Optional[pulumi.Input[_builtins.str]] = None,
-                 job_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation: Optional[pulumi.Input[_builtins.str]] = None,
+                 assignee: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 job_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -380,6 +440,7 @@ class ReservationAssignment(pulumi.CustomResource):
             if assignee is None and not opts.urn:
                 raise TypeError("Missing required property 'assignee'")
             __props__.__dict__["assignee"] = assignee
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if job_type is None and not opts.urn:
                 raise TypeError("Missing required property 'job_type'")
             __props__.__dict__["job_type"] = job_type
@@ -400,13 +461,14 @@ class ReservationAssignment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            assignee: Optional[pulumi.Input[_builtins.str]] = None,
-            job_type: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            reservation: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'ReservationAssignment':
+            assignee: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            job_type: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            reservation: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'ReservationAssignment':
         """
         Get an existing ReservationAssignment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -415,6 +477,12 @@ class ReservationAssignment(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] assignee: The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] job_type: Types of job, which could be specified when using the reservation. Possible values: JOB_TYPE_UNSPECIFIED, PIPELINE, QUERY, CONTINUOUS
         :param pulumi.Input[_builtins.str] location: The location for the resource
         :param pulumi.Input[_builtins.str] name: Output only. The resource name of the assignment.
@@ -429,6 +497,7 @@ class ReservationAssignment(pulumi.CustomResource):
         __props__ = _ReservationAssignmentState.__new__(_ReservationAssignmentState)
 
         __props__.__dict__["assignee"] = assignee
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["job_type"] = job_type
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -444,6 +513,19 @@ class ReservationAssignment(pulumi.CustomResource):
         The resource which will use the reservation. E.g. projects/myproject, folders/123, organizations/456.
         """
         return pulumi.get(self, "assignee")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="jobType")

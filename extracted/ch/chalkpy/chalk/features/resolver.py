@@ -359,9 +359,9 @@ class FunctionCapturedGlobalFunction(FunctionCapturedGlobal):
     module: str | None
     name: str
     captured_globals: Mapping[str, FunctionCapturedGlobal] | None
-    source_file_name: str | None = None
-    source_line_start: int | None = None
-    source_line_end: int | None = None
+    source_file_name: str | None
+    source_line_start: int | None
+    source_line_end: int | None
 
 
 @dataclasses.dataclass(frozen=True)

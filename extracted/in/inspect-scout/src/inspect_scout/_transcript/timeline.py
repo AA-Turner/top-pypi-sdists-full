@@ -171,6 +171,7 @@ async def timeline_messages(
     context_window: int | None = None,
     compaction: Literal["all", "last"] | int = "all",
     depth: int | None = None,
+    prompt_reserve: int | float = 0.2,
 ) -> AsyncIterator[TimelineMessages]:
     """Yield pre-rendered message segments from timeline spans.
 
@@ -191,8 +192,8 @@ async def timeline_messages(
             measuring rendered text.
         context_window: Override for the model's context window size
             (in tokens). When None, looked up via get_model_info().
-            An 80% discount factor is applied to leave room for system
-            prompts and scanning overhead.
+            See ``prompt_reserve`` below for how the budget available
+            for messages is derived from the window.
         compaction: How to handle compaction boundaries when extracting
             messages from span events.
         depth: Maximum nesting level of *scannable* spans to process. A
@@ -204,6 +205,12 @@ async def timeline_messages(
             each branch (typically top-level agents/solvers); ``N``
             allows up to N nested scannable layers. ``None`` (default)
             recurses without limit. ``0`` yields nothing.
+        prompt_reserve: Context-window allowance for prompt scaffolding
+            wrapped around the rendered messages (e.g. a scanner
+            template). A ``float`` reserves that fraction of the window;
+            an ``int`` reserves that many tokens (plus a small safety
+            margin). Default ``0.2`` leaves 80% of the window for
+            messages. Forwarded to ``segment_messages()``.
 
     Yields:
         TimelineMessages for each segment. Empty spans are skipped.
@@ -220,6 +227,7 @@ async def timeline_messages(
             model=model,
             context_window=context_window,
             compaction=compaction,
+            prompt_reserve=prompt_reserve,
         ):
             yield TimelineMessages(
                 messages=seg.messages,

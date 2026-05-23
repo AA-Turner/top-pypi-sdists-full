@@ -3699,7 +3699,7 @@ class AccountFederationPolicyOidcPolicyArgs:
 
 
 class AccountNetworkPolicyEgressArgsDict(TypedDict):
-    network_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessArgs']]]
+    network_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessArgsDict']]]
     """
     The access policy enforced for egress traffic to the internet
     """
@@ -3729,21 +3729,21 @@ class AccountNetworkPolicyEgressArgs:
 
 class AccountNetworkPolicyEgressNetworkAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
-    allowed_internet_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs']]]]]
+    allowed_internet_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgsDict']]]]]
     """
     List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
     """
-    allowed_storage_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs']]]]]
+    allowed_storage_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgsDict']]]]]
     """
     List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
     """
-    blocked_internet_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgs']]]]]
+    blocked_internet_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgsDict']]]]]
     """
     List of internet destinations that serverless workloads are blocked from accessing.
     These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
     Currently supports DNS_NAME type only; IP_RANGE support is planned
     """
-    policy_enforcement: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs']]]
+    policy_enforcement: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgsDict']]]
     """
     Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
     """
@@ -4072,12 +4072,12 @@ class AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs:
 
 
 class AccountNetworkPolicyIngressArgsDict(TypedDict):
-    private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessArgs']]]
+    private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessArgsDict']]]
     """
     The network policy restrictions for private access to the workspace.
     Configures how registered private endpoints are allowed or denied access
     """
-    public_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessArgs']]]
+    public_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessArgsDict']]]
     """
     The network policy restrictions for public access to the workspace.
     Configures how public internet traffic is allowed or denied access
@@ -4127,12 +4127,12 @@ class AccountNetworkPolicyIngressArgs:
 
 
 class AccountNetworkPolicyIngressDryRunArgsDict(TypedDict):
-    private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessArgs']]]
+    private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessArgsDict']]]
     """
     The network policy restrictions for private access to the workspace.
     Configures how registered private endpoints are allowed or denied access
     """
-    public_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessArgs']]]
+    public_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessArgsDict']]]
     """
     The network policy restrictions for public access to the workspace.
     Configures how public internet traffic is allowed or denied access
@@ -4183,8 +4183,8 @@ class AccountNetworkPolicyIngressDryRunArgs:
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
-    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgs']]]]]
-    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgs']]]]]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgsDict']]]]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessArgs:
@@ -4227,10 +4227,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgs:
@@ -4286,7 +4286,7 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -4377,14 +4377,14 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdent
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgs:
@@ -4657,7 +4657,7 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginArgsDict(Type
     all_private_access: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     all_registered_endpoints: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     azure_workspace_private_link: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsArgs']]]
+    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginArgs:
@@ -4733,10 +4733,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsArgs
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgs:
@@ -4792,7 +4792,7 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -4883,14 +4883,14 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdenti
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgs:
@@ -5163,7 +5163,7 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginArgsDict(Typed
     all_private_access: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     all_registered_endpoints: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     azure_workspace_private_link: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsArgs']]]
+    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginArgs:
@@ -5240,8 +5240,8 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsArgs:
 
 class AccountNetworkPolicyIngressDryRunPublicAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
-    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgs']]]]]
-    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgs']]]]]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgsDict']]]]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPublicAccessArgs:
@@ -5284,10 +5284,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgs:
@@ -5343,7 +5343,7 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -5434,14 +5434,14 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdenti
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs:
@@ -5715,11 +5715,11 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginArgsDict(Typed
     """
     Matches all IPv4 and IPv6 ranges (both public and private)
     """
-    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesArgs']]]
+    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesArgsDict']]]
     """
     Excluded means: all public IP ranges except this one
     """
-    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesArgs']]]
+    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesArgsDict']]]
     """
     Will not allow IP ranges with private IPs
     """
@@ -5838,10 +5838,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRang
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgs:
@@ -5897,7 +5897,7 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgs:
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -5988,14 +5988,14 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentit
 
 
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs:
@@ -6269,11 +6269,11 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginArgsDict(TypedD
     """
     Matches all IPv4 and IPv6 ranges (both public and private)
     """
-    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesArgs']]]
+    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesArgsDict']]]
     """
     Excluded means: all public IP ranges except this one
     """
-    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesArgs']]]
+    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesArgsDict']]]
     """
     Will not allow IP ranges with private IPs
     """
@@ -6393,8 +6393,8 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRange
 
 class AccountNetworkPolicyIngressPrivateAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
-    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessAllowRuleArgs']]]]]
-    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessDenyRuleArgs']]]]]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessDenyRuleArgsDict']]]]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessArgs:
@@ -6437,10 +6437,10 @@ class AccountNetworkPolicyIngressPrivateAccessArgs:
 
 
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleArgs:
@@ -6496,7 +6496,7 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleArgs:
 
 
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -6587,14 +6587,14 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArg
 
 
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgs:
@@ -6867,7 +6867,7 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginArgsDict(TypedDict)
     all_private_access: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     all_registered_endpoints: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     azure_workspace_private_link: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsArgs']]]
+    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginArgs:
@@ -6943,10 +6943,10 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsArgs:
 
 
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleArgs:
@@ -7002,7 +7002,7 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleArgs:
 
 
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -7093,14 +7093,14 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgs
 
 
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgs:
@@ -7373,7 +7373,7 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginArgsDict(TypedDict):
     all_private_access: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     all_registered_endpoints: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     azure_workspace_private_link: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsArgs']]]
+    endpoints: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginArgs:
@@ -7450,8 +7450,8 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsArgs:
 
 class AccountNetworkPolicyIngressPublicAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
-    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessAllowRuleArgs']]]]]
-    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessDenyRuleArgs']]]]]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessDenyRuleArgsDict']]]]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPublicAccessArgs:
@@ -7494,10 +7494,10 @@ class AccountNetworkPolicyIngressPublicAccessArgs:
 
 
 class AccountNetworkPolicyIngressPublicAccessAllowRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPublicAccessAllowRuleArgs:
@@ -7553,7 +7553,7 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleArgs:
 
 
 class AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -7644,14 +7644,14 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgs
 
 
 class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs:
@@ -7925,11 +7925,11 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleOriginArgsDict(TypedDict):
     """
     Matches all IPv4 and IPv6 ranges (both public and private)
     """
-    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesArgs']]]
+    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesArgsDict']]]
     """
     Excluded means: all public IP ranges except this one
     """
-    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesArgs']]]
+    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesArgsDict']]]
     """
     Will not allow IP ranges with private IPs
     """
@@ -8048,10 +8048,10 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesArgs
 
 
 class AccountNetworkPolicyIngressPublicAccessDenyRuleArgsDict(TypedDict):
-    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationArgs']]]
-    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs']]]
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgsDict']]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginArgs']]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPublicAccessDenyRuleArgs:
@@ -8107,7 +8107,7 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleArgs:
 
 
 class AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationArgsDict(TypedDict):
-    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgs']]]]]
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
     """
     Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
     """
@@ -8198,14 +8198,14 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgs:
 
 
 class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgsDict(TypedDict):
-    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiArgs']]]
-    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgs']]]
-    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiArgs']]]
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeArgs']]]
-    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeArgs']]]
-    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs']]]
-    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs']]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
 
 @pulumi.input_type
 class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs:
@@ -8479,11 +8479,11 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleOriginArgsDict(TypedDict):
     """
     Matches all IPv4 and IPv6 ranges (both public and private)
     """
-    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesArgs']]]
+    excluded_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesArgsDict']]]
     """
     Excluded means: all public IP ranges except this one
     """
-    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesArgs']]]
+    included_ip_ranges: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesArgsDict']]]
     """
     Will not allow IP ranges with private IPs
     """
@@ -8732,8 +8732,8 @@ class AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs:
 class AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    enablement_details: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs']]]
-    maintenance_window: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgs']]]
+    enablement_details: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgsDict']]]
+    maintenance_window: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict']]]
     restart_even_if_no_updates_available: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
 
 @pulumi.input_type
@@ -8871,7 +8871,7 @@ class AccountSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs:
 
 
 class AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict(TypedDict):
-    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs']]]
+    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict']]]
 
 @pulumi.input_type
 class AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgs:
@@ -8899,7 +8899,7 @@ class AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBas
     """
     Possible values are: `EVERY_WEEK`, `FIRST_AND_THIRD_OF_MONTH`, `FIRST_OF_MONTH`, `FOURTH_OF_MONTH`, `SECOND_AND_FOURTH_OF_MONTH`, `SECOND_OF_MONTH`, `THIRD_OF_MONTH`
     """
-    window_start_time: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgs']]]
+    window_start_time: NotRequired[pulumi.Input[Optional['AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict']]]
 
 @pulumi.input_type
 class AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs:
@@ -9056,8 +9056,8 @@ class AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs:
 class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    enablement_details: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgs']]]
-    maintenance_window: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs']]]
+    enablement_details: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgsDict']]]
+    maintenance_window: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict']]]
     restart_even_if_no_updates_available: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
 
 @pulumi.input_type
@@ -9195,7 +9195,7 @@ class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsA
 
 
 class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict(TypedDict):
-    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs']]]
+    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict']]]
 
 @pulumi.input_type
 class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs:
@@ -9223,7 +9223,7 @@ class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowW
     """
     Possible values are: `EVERY_WEEK`, `FIRST_AND_THIRD_OF_MONTH`, `FIRST_OF_MONTH`, `FOURTH_OF_MONTH`, `SECOND_AND_FOURTH_OF_MONTH`, `SECOND_OF_MONTH`, `THIRD_OF_MONTH`
     """
-    window_start_time: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgs']]]
+    window_start_time: NotRequired[pulumi.Input[Optional['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict']]]
 
 @pulumi.input_type
 class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs:
@@ -9678,7 +9678,7 @@ class AlertConditionArgsDict(TypedDict):
     """
     Alert state if the result is empty (`UNKNOWN`, `OK`, `TRIGGERED`)
     """
-    threshold: NotRequired[pulumi.Input[Optional['AlertConditionThresholdArgs']]]
+    threshold: NotRequired[pulumi.Input[Optional['AlertConditionThresholdArgsDict']]]
     """
     Threshold value used for comparison in alert evaluation:
     """
@@ -10000,7 +10000,7 @@ class AlertV2EvaluationArgsDict(TypedDict):
     """
     (string) - Timestamp of the last evaluation
     """
-    notification: NotRequired[pulumi.Input[Optional['AlertV2EvaluationNotificationArgs']]]
+    notification: NotRequired[pulumi.Input[Optional['AlertV2EvaluationNotificationArgsDict']]]
     """
     User or Notification Destination to notify when alert is triggered
     """
@@ -10008,7 +10008,7 @@ class AlertV2EvaluationArgsDict(TypedDict):
     """
     (string) - Latest state of alert evaluation. Possible values are: `ERROR`, `OK`, `TRIGGERED`, `UNKNOWN`
     """
-    threshold: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdArgs']]]
+    threshold: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdArgsDict']]]
     """
     Threshold to user for alert evaluation, can be a column or a value
     """
@@ -10143,7 +10143,7 @@ class AlertV2EvaluationNotificationArgsDict(TypedDict):
     If set to 0 or omitted, the alert will not send any further notifications after the first trigger
     Setting this value to 1 allows the alert to send a notification on every evaluation where the condition is met, effectively making it always retrigger for notification purposes
     """
-    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AlertV2EvaluationNotificationSubscriptionArgs']]]]]
+    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AlertV2EvaluationNotificationSubscriptionArgsDict']]]]]
 
 @pulumi.input_type
 class AlertV2EvaluationNotificationArgs:
@@ -10312,8 +10312,8 @@ class AlertV2EvaluationSourceArgs:
 
 
 class AlertV2EvaluationThresholdArgsDict(TypedDict):
-    column: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdColumnArgs']]]
-    value: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdValueArgs']]]
+    column: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdColumnArgsDict']]]
+    value: NotRequired[pulumi.Input[Optional['AlertV2EvaluationThresholdValueArgsDict']]]
 
 @pulumi.input_type
 class AlertV2EvaluationThresholdArgs:
@@ -10608,13 +10608,13 @@ class AppActiveDeploymentArgsDict(TypedDict):
     """
     The email of the user that created the app.
     """
-    deployment_artifacts: NotRequired[pulumi.Input[Optional['AppActiveDeploymentDeploymentArtifactsArgs']]]
+    deployment_artifacts: NotRequired[pulumi.Input[Optional['AppActiveDeploymentDeploymentArtifactsArgsDict']]]
     deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppActiveDeploymentEnvVarArgs']]]]]
-    git_source: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceArgs']]]
+    env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppActiveDeploymentEnvVarArgsDict']]]]]
+    git_source: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceArgsDict']]]
     mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    status: NotRequired[pulumi.Input[Optional['AppActiveDeploymentStatusArgs']]]
+    status: NotRequired[pulumi.Input[Optional['AppActiveDeploymentStatusArgsDict']]]
     update_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The update time of the app.
@@ -10849,7 +10849,7 @@ class AppActiveDeploymentEnvVarArgs:
 class AppActiveDeploymentGitSourceArgsDict(TypedDict):
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    git_repository: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceGitRepositoryArgs']]]
+    git_repository: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceGitRepositoryArgsDict']]]
     resolved_commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     tag: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -11181,13 +11181,13 @@ class AppPendingDeploymentArgsDict(TypedDict):
     """
     The email of the user that created the app.
     """
-    deployment_artifacts: NotRequired[pulumi.Input[Optional['AppPendingDeploymentDeploymentArtifactsArgs']]]
+    deployment_artifacts: NotRequired[pulumi.Input[Optional['AppPendingDeploymentDeploymentArtifactsArgsDict']]]
     deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppPendingDeploymentEnvVarArgs']]]]]
-    git_source: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceArgs']]]
+    env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppPendingDeploymentEnvVarArgsDict']]]]]
+    git_source: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceArgsDict']]]
     mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    status: NotRequired[pulumi.Input[Optional['AppPendingDeploymentStatusArgs']]]
+    status: NotRequired[pulumi.Input[Optional['AppPendingDeploymentStatusArgsDict']]]
     update_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The update time of the app.
@@ -11422,7 +11422,7 @@ class AppPendingDeploymentEnvVarArgs:
 class AppPendingDeploymentGitSourceArgsDict(TypedDict):
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    git_repository: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceGitRepositoryArgs']]]
+    git_repository: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceGitRepositoryArgsDict']]]
     resolved_commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     tag: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -11618,8 +11618,8 @@ class AppResourceArgsDict(TypedDict):
     """
     The name of the resource.
     """
-    app: NotRequired[pulumi.Input[Optional['AppResourceAppArgs']]]
-    database: NotRequired[pulumi.Input[Optional['AppResourceDatabaseArgs']]]
+    app: NotRequired[pulumi.Input[Optional['AppResourceAppArgsDict']]]
+    database: NotRequired[pulumi.Input[Optional['AppResourceDatabaseArgsDict']]]
     """
     attribute
     """
@@ -11629,29 +11629,29 @@ class AppResourceArgsDict(TypedDict):
 
     Exactly one of the following attributes must be provided:
     """
-    experiment: NotRequired[pulumi.Input[Optional['AppResourceExperimentArgs']]]
-    genie_space: NotRequired[pulumi.Input[Optional['AppResourceGenieSpaceArgs']]]
+    experiment: NotRequired[pulumi.Input[Optional['AppResourceExperimentArgsDict']]]
+    genie_space: NotRequired[pulumi.Input[Optional['AppResourceGenieSpaceArgsDict']]]
     """
     attribute
     """
-    job: NotRequired[pulumi.Input[Optional['AppResourceJobArgs']]]
+    job: NotRequired[pulumi.Input[Optional['AppResourceJobArgsDict']]]
     """
     attribute
     """
-    postgres: NotRequired[pulumi.Input[Optional['AppResourcePostgresArgs']]]
-    secret: NotRequired[pulumi.Input[Optional['AppResourceSecretArgs']]]
+    postgres: NotRequired[pulumi.Input[Optional['AppResourcePostgresArgsDict']]]
+    secret: NotRequired[pulumi.Input[Optional['AppResourceSecretArgsDict']]]
     """
     attribute
     """
-    serving_endpoint: NotRequired[pulumi.Input[Optional['AppResourceServingEndpointArgs']]]
+    serving_endpoint: NotRequired[pulumi.Input[Optional['AppResourceServingEndpointArgsDict']]]
     """
     attribute
     """
-    sql_warehouse: NotRequired[pulumi.Input[Optional['AppResourceSqlWarehouseArgs']]]
+    sql_warehouse: NotRequired[pulumi.Input[Optional['AppResourceSqlWarehouseArgsDict']]]
     """
     attribute
     """
-    uc_securable: NotRequired[pulumi.Input[Optional['AppResourceUcSecurableArgs']]]
+    uc_securable: NotRequired[pulumi.Input[Optional['AppResourceUcSecurableArgsDict']]]
     """
     attribute (see the [API docs](https://docs.databricks.com/api/workspace/apps/create#resources-uc_securable) for full list of supported UC objects)
     """
@@ -12420,20 +12420,20 @@ class AppSpaceResourceArgsDict(TypedDict):
     The name of the app space. The name must contain only lowercase alphanumeric characters and hyphens.
     It must be unique within the workspace
     """
-    app: NotRequired[pulumi.Input[Optional['AppSpaceResourceAppArgs']]]
-    database: NotRequired[pulumi.Input[Optional['AppSpaceResourceDatabaseArgs']]]
+    app: NotRequired[pulumi.Input[Optional['AppSpaceResourceAppArgsDict']]]
+    database: NotRequired[pulumi.Input[Optional['AppSpaceResourceDatabaseArgsDict']]]
     description: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The description of the app space
     """
-    experiment: NotRequired[pulumi.Input[Optional['AppSpaceResourceExperimentArgs']]]
-    genie_space: NotRequired[pulumi.Input[Optional['AppSpaceResourceGenieSpaceArgs']]]
-    job: NotRequired[pulumi.Input[Optional['AppSpaceResourceJobArgs']]]
-    postgres: NotRequired[pulumi.Input[Optional['AppSpaceResourcePostgresArgs']]]
-    secret: NotRequired[pulumi.Input[Optional['AppSpaceResourceSecretArgs']]]
-    serving_endpoint: NotRequired[pulumi.Input[Optional['AppSpaceResourceServingEndpointArgs']]]
-    sql_warehouse: NotRequired[pulumi.Input[Optional['AppSpaceResourceSqlWarehouseArgs']]]
-    uc_securable: NotRequired[pulumi.Input[Optional['AppSpaceResourceUcSecurableArgs']]]
+    experiment: NotRequired[pulumi.Input[Optional['AppSpaceResourceExperimentArgsDict']]]
+    genie_space: NotRequired[pulumi.Input[Optional['AppSpaceResourceGenieSpaceArgsDict']]]
+    job: NotRequired[pulumi.Input[Optional['AppSpaceResourceJobArgsDict']]]
+    postgres: NotRequired[pulumi.Input[Optional['AppSpaceResourcePostgresArgsDict']]]
+    secret: NotRequired[pulumi.Input[Optional['AppSpaceResourceSecretArgsDict']]]
+    serving_endpoint: NotRequired[pulumi.Input[Optional['AppSpaceResourceServingEndpointArgsDict']]]
+    sql_warehouse: NotRequired[pulumi.Input[Optional['AppSpaceResourceSqlWarehouseArgsDict']]]
+    uc_securable: NotRequired[pulumi.Input[Optional['AppSpaceResourceUcSecurableArgsDict']]]
 
 @pulumi.input_type
 class AppSpaceResourceArgs:
@@ -13122,7 +13122,7 @@ class AppSpaceStatusArgs:
 
 
 class AppTelemetryExportDestinationArgsDict(TypedDict):
-    unity_catalog: NotRequired[pulumi.Input[Optional['AppTelemetryExportDestinationUnityCatalogArgs']]]
+    unity_catalog: NotRequired[pulumi.Input[Optional['AppTelemetryExportDestinationUnityCatalogArgsDict']]]
 
 @pulumi.input_type
 class AppTelemetryExportDestinationArgs:
@@ -13198,7 +13198,7 @@ class AppsSettingsCustomTemplateManifestArgsDict(TypedDict):
     """
     The description of the template
     """
-    resource_specs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppsSettingsCustomTemplateManifestResourceSpecArgs']]]]]
+    resource_specs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppsSettingsCustomTemplateManifestResourceSpecArgsDict']]]]]
 
 @pulumi.input_type
 class AppsSettingsCustomTemplateManifestArgs:
@@ -13277,12 +13277,12 @@ class AppsSettingsCustomTemplateManifestResourceSpecArgsDict(TypedDict):
     """
     The description of the template
     """
-    experiment_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecExperimentSpecArgs']]]
-    job_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecJobSpecArgs']]]
-    secret_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecSecretSpecArgs']]]
-    serving_endpoint_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecServingEndpointSpecArgs']]]
-    sql_warehouse_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecSqlWarehouseSpecArgs']]]
-    uc_securable_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecUcSecurableSpecArgs']]]
+    experiment_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecExperimentSpecArgsDict']]]
+    job_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecJobSpecArgsDict']]]
+    secret_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecSecretSpecArgsDict']]]
+    serving_endpoint_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecServingEndpointSpecArgsDict']]]
+    sql_warehouse_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecSqlWarehouseSpecArgsDict']]]
+    uc_securable_spec: NotRequired[pulumi.Input[Optional['AppsSettingsCustomTemplateManifestResourceSpecUcSecurableSpecArgsDict']]]
 
 @pulumi.input_type
 class AppsSettingsCustomTemplateManifestResourceSpecArgs:
@@ -13639,8 +13639,8 @@ class ArtifactAllowlistProviderConfigArgs:
 class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     enabled: pulumi.Input[_builtins.bool]
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    enablement_details: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceEnablementDetailsArgs']]]
-    maintenance_window: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs']]]
+    enablement_details: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceEnablementDetailsArgsDict']]]
+    maintenance_window: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict']]]
     restart_even_if_no_updates_available: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
 
 @pulumi.input_type
@@ -13754,7 +13754,7 @@ class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceEnabl
 
 
 class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict(TypedDict):
-    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs']]]
+    week_day_based_schedule: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict']]]
 
 @pulumi.input_type
 class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs:
@@ -13776,7 +13776,7 @@ class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaint
 class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict(TypedDict):
     day_of_week: pulumi.Input[_builtins.str]
     frequency: pulumi.Input[_builtins.str]
-    window_start_time: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgs']]]
+    window_start_time: NotRequired[pulumi.Input[Optional['AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict']]]
 
 @pulumi.input_type
 class AutomaticClusterUpdateWorkspaceSettingAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs:
@@ -13869,7 +13869,7 @@ class AutomaticClusterUpdateWorkspaceSettingProviderConfigArgs:
 
 
 class BudgetAlertConfigurationArgsDict(TypedDict):
-    action_configurations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BudgetAlertConfigurationActionConfigurationArgs']]]]]
+    action_configurations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BudgetAlertConfigurationActionConfigurationArgsDict']]]]]
     """
     List of action configurations to take when the budget alert is triggered. Consists of the following fields:
     """
@@ -14053,11 +14053,11 @@ class BudgetAlertConfigurationActionConfigurationArgs:
 
 
 class BudgetFilterArgsDict(TypedDict):
-    tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BudgetFilterTagArgs']]]]]
+    tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BudgetFilterTagArgsDict']]]]]
     """
     List of tags to filter by. Consists of the following fields:
     """
-    workspace_id: NotRequired[pulumi.Input[Optional['BudgetFilterWorkspaceIdArgs']]]
+    workspace_id: NotRequired[pulumi.Input[Optional['BudgetFilterWorkspaceIdArgsDict']]]
     """
     Filter by workspace ID (if empty, include usage all usage for this account). Consists of the following fields:
     """
@@ -14106,7 +14106,7 @@ class BudgetFilterTagArgsDict(TypedDict):
     """
     The key of the tag.
     """
-    value: NotRequired[pulumi.Input[Optional['BudgetFilterTagValueArgs']]]
+    value: NotRequired[pulumi.Input[Optional['BudgetFilterTagValueArgsDict']]]
     """
     Consists of the following fields:
     """
@@ -14351,7 +14351,7 @@ class CatalogEffectivePredictiveOptimizationFlagArgs:
 
 
 class CatalogManagedEncryptionSettingsArgsDict(TypedDict):
-    azure_encryption_settings: NotRequired[pulumi.Input[Optional['CatalogManagedEncryptionSettingsAzureEncryptionSettingsArgs']]]
+    azure_encryption_settings: NotRequired[pulumi.Input[Optional['CatalogManagedEncryptionSettingsAzureEncryptionSettingsArgsDict']]]
     azure_key_vault_key_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     customer_managed_key_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -14837,7 +14837,7 @@ class ClusterAzureAttributesArgsDict(TypedDict):
     """
     The first `first_on_demand` nodes of the cluster will be placed on on-demand instances. If this value is greater than 0, the cluster driver node will be placed on an on-demand instance. If this value is greater than or equal to the current cluster size, all nodes will be placed on on-demand instances. If this value is less than the current cluster size, `first_on_demand` nodes will be placed on on-demand instances, and the remainder will be placed on availability instances. This value does not affect cluster size and cannot be mutated over the lifetime of a cluster.
     """
-    log_analytics_info: NotRequired[pulumi.Input[Optional['ClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['ClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
     """
     The max bid price used for Azure spot instances. You can set this to greater than or equal to the current spot price. You can also set this to `-1`, which specifies that the instance cannot be evicted on the basis of price. The price for the instance will be the current price for spot instances or the price for a standard instance.
@@ -14944,9 +14944,9 @@ class ClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class ClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['ClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class ClusterClusterLogConfArgs:
@@ -15367,7 +15367,7 @@ class ClusterDockerImageArgsDict(TypedDict):
     """
     URL for the Docker image
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['ClusterDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['ClusterDockerImageBasicAuthArgsDict']]]
     """
     `basic_auth.username` and `basic_auth.password` for Docker repository. Docker registry credentials are encrypted when they are stored in Databricks internal storage and when they are passed to a registry upon fetching Docker images at cluster launch.  For better security, these credentials should be stored in the secret scope and referred using secret path syntax: `{{secrets/scope/key}}`, otherwise other users of the workspace may access them via UI/API.
 
@@ -15699,13 +15699,13 @@ class ClusterGcpAttributesArgs:
 
 
 class ClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['ClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['ClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['ClusterInitScriptFileArgs']]]
-    gcs: NotRequired[pulumi.Input[Optional['ClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['ClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['ClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['ClusterInitScriptWorkspaceArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['ClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['ClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['ClusterInitScriptFileArgsDict']]]
+    gcs: NotRequired[pulumi.Input[Optional['ClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['ClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['ClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['ClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class ClusterInitScriptArgs:
@@ -16117,11 +16117,11 @@ class ClusterInitScriptWorkspaceArgs:
 
 
 class ClusterLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['ClusterLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['ClusterLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['ClusterLibraryMavenArgs']]]
-    pypi: NotRequired[pulumi.Input[Optional['ClusterLibraryPypiArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['ClusterLibraryMavenArgsDict']]]
+    pypi: NotRequired[pulumi.Input[Optional['ClusterLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -16328,15 +16328,15 @@ class ClusterLibraryPypiArgs:
 
 
 class ClusterPolicyLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['ClusterPolicyLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -17497,26 +17497,26 @@ class DataQualityMonitorDataProfilingConfigArgsDict(TypedDict):
     Baseline data is used to compute drift from the data in the monitored `table_name`.
     The baseline table and the monitored table shall have the same schema
     """
-    custom_metrics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DataQualityMonitorDataProfilingConfigCustomMetricArgs']]]]]
+    custom_metrics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DataQualityMonitorDataProfilingConfigCustomMetricArgsDict']]]]]
     """
     Custom metrics
     """
     dashboard_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     drift_metrics_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     effective_warehouse_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    inference_log: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigInferenceLogArgs']]]
+    inference_log: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigInferenceLogArgsDict']]]
     """
     `Analysis Configuration` for monitoring inference log tables
     """
     latest_monitor_failure_message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     monitor_version: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     monitored_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    notification_settings: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigNotificationSettingsArgs']]]
+    notification_settings: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigNotificationSettingsArgsDict']]]
     """
     Field for specifying notification settings
     """
     profile_metrics_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    schedule: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigScheduleArgs']]]
+    schedule: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigScheduleArgsDict']]]
     """
     The cron schedule
     """
@@ -17533,12 +17533,12 @@ class DataQualityMonitorDataProfilingConfigArgsDict(TypedDict):
     `col1`. For high-cardinality columns, only the top 100 unique values by frequency will
     generate slices
     """
-    snapshot: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigSnapshotArgs']]]
+    snapshot: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigSnapshotArgsDict']]]
     """
     `Analysis Configuration` for monitoring snapshot tables
     """
     status: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    time_series: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigTimeSeriesArgs']]]
+    time_series: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigTimeSeriesArgsDict']]]
     """
     `Analysis Configuration` for monitoring time series tables
     """
@@ -18078,7 +18078,7 @@ class DataQualityMonitorDataProfilingConfigInferenceLogArgs:
 
 
 class DataQualityMonitorDataProfilingConfigNotificationSettingsArgsDict(TypedDict):
-    on_failure: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigNotificationSettingsOnFailureArgs']]]
+    on_failure: NotRequired[pulumi.Input[Optional['DataQualityMonitorDataProfilingConfigNotificationSettingsOnFailureArgsDict']]]
     """
     Destinations to send notifications on failure/timeout
     """
@@ -18758,13 +18758,13 @@ class DatabaseInstanceProviderConfigArgs:
 
 
 class DatabaseSyncedDatabaseTableDataSynchronizationStatusArgsDict(TypedDict):
-    continuous_update_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusContinuousUpdateStatusArgs']]]
+    continuous_update_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusContinuousUpdateStatusArgsDict']]]
     detailed_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     (string) - The state of the synced table. Possible values are: `SYNCED_TABLED_OFFLINE`, `SYNCED_TABLE_OFFLINE_FAILED`, `SYNCED_TABLE_ONLINE`, `SYNCED_TABLE_ONLINE_CONTINUOUS_UPDATE`, `SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE`, `SYNCED_TABLE_ONLINE_PIPELINE_FAILED`, `SYNCED_TABLE_ONLINE_TRIGGERED_UPDATE`, `SYNCED_TABLE_ONLINE_UPDATING_PIPELINE_RESOURCES`, `SYNCED_TABLE_PROVISIONING`, `SYNCED_TABLE_PROVISIONING_INITIAL_SNAPSHOT`, `SYNCED_TABLE_PROVISIONING_PIPELINE_RESOURCES`
     """
-    failed_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusFailedStatusArgs']]]
-    last_sync: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncArgs']]]
+    failed_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusFailedStatusArgsDict']]]
+    last_sync: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncArgsDict']]]
     """
     (SyncedTablePosition) - Summary of the last successful synchronization from source to destination.
     """
@@ -18777,8 +18777,8 @@ class DatabaseSyncedDatabaseTableDataSynchronizationStatusArgsDict(TypedDict):
     (string) - ID of the associated pipeline. The pipeline ID may have been provided by the client
     (in the case of bin packing), or generated by the server (when creating a new pipeline)
     """
-    provisioning_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusProvisioningStatusArgs']]]
-    triggered_update_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusTriggeredUpdateStatusArgs']]]
+    provisioning_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusProvisioningStatusArgsDict']]]
+    triggered_update_status: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusTriggeredUpdateStatusArgsDict']]]
 
 @pulumi.input_type
 class DatabaseSyncedDatabaseTableDataSynchronizationStatusArgs:
@@ -18902,7 +18902,7 @@ class DatabaseSyncedDatabaseTableDataSynchronizationStatusArgs:
 
 
 class DatabaseSyncedDatabaseTableDataSynchronizationStatusContinuousUpdateStatusArgsDict(TypedDict):
-    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusContinuousUpdateStatusInitialPipelineSyncProgressArgs']]]
+    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusContinuousUpdateStatusInitialPipelineSyncProgressArgsDict']]]
     """
     (SyncedTablePipelineProgress) - Details about initial data synchronization. Only populated when in the
     PROVISIONING_INITIAL_SNAPSHOT state
@@ -19161,7 +19161,7 @@ class DatabaseSyncedDatabaseTableDataSynchronizationStatusFailedStatusArgs:
 
 
 class DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncArgsDict(TypedDict):
-    delta_table_sync_info: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncDeltaTableSyncInfoArgs']]]
+    delta_table_sync_info: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncDeltaTableSyncInfoArgsDict']]]
     """
     (DeltaTableSyncInfo)
     """
@@ -19294,7 +19294,7 @@ class DatabaseSyncedDatabaseTableDataSynchronizationStatusLastSyncDeltaTableSync
 
 
 class DatabaseSyncedDatabaseTableDataSynchronizationStatusProvisioningStatusArgsDict(TypedDict):
-    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusProvisioningStatusInitialPipelineSyncProgressArgs']]]
+    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusProvisioningStatusInitialPipelineSyncProgressArgsDict']]]
     """
     (SyncedTablePipelineProgress) - Details about initial data synchronization. Only populated when in the
     PROVISIONING_INITIAL_SNAPSHOT state
@@ -19467,7 +19467,7 @@ class DatabaseSyncedDatabaseTableDataSynchronizationStatusTriggeredUpdateStatusA
     (string) - The end timestamp of the last time any data was synchronized from the source table to the synced
     table. This is when the data is available in the synced table
     """
-    triggered_update_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusTriggeredUpdateStatusTriggeredUpdateProgressArgs']]]
+    triggered_update_progress: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableDataSynchronizationStatusTriggeredUpdateStatusTriggeredUpdateProgressArgsDict']]]
     """
     (SyncedTablePipelineProgress) - Progress of the active data synchronization pipeline
     """
@@ -19704,7 +19704,7 @@ class DatabaseSyncedDatabaseTableSpecArgsDict(TypedDict):
     referenced. This avoids creating a new pipeline and allows sharing existing compute.
     In this case, the scheduling_policy of this synced table must match the scheduling policy of the existing pipeline
     """
-    new_pipeline_spec: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgs']]]
+    new_pipeline_spec: NotRequired[pulumi.Input[Optional['DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgsDict']]]
     """
     At most one of existing_pipeline_id and new_pipeline_spec should be defined.
 
@@ -20248,7 +20248,7 @@ class DisasterRecoveryFailoverGroupUnityCatalogAssetsArgsDict(TypedDict):
     The workspace set whose workspaces will be used for data replication
     of all UC catalogs' underlying storage
     """
-    location_mappings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingArgs']]]]]
+    location_mappings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingArgsDict']]]]]
     """
     Location mappings - storage URI per region for each location
     """
@@ -20783,27 +20783,27 @@ class EnvironmentsWorkspaceBaseEnvironmentProviderConfigArgs:
 
 
 class ExternalLocationEffectiveFileEventQueueArgsDict(TypedDict):
-    managed_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedAqsArgs']]]
+    managed_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedAqsArgsDict']]]
     """
     Configuration for managed Azure Queue Storage queue.
     """
-    managed_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedPubsubArgs']]]
+    managed_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedPubsubArgsDict']]]
     """
     Configuration for managed Google Cloud Pub/Sub queue.
     """
-    managed_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedSqsArgs']]]
+    managed_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueManagedSqsArgsDict']]]
     """
     Configuration for managed Amazon SQS queue.
     """
-    provided_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedAqsArgs']]]
+    provided_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedAqsArgsDict']]]
     """
     Configuration for provided Azure Storage Queue.
     """
-    provided_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedPubsubArgs']]]
+    provided_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedPubsubArgsDict']]]
     """
     Configuration for provided Google Cloud Pub/Sub queue.
     """
-    provided_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedSqsArgs']]]
+    provided_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationEffectiveFileEventQueueProvidedSqsArgsDict']]]
     """
     Configuration for provided Amazon SQS queue.
     """
@@ -21212,7 +21212,7 @@ class ExternalLocationEffectiveFileEventQueueProvidedSqsArgs:
 
 
 class ExternalLocationEncryptionDetailsArgsDict(TypedDict):
-    sse_encryption_details: NotRequired[pulumi.Input[Optional['ExternalLocationEncryptionDetailsSseEncryptionDetailsArgs']]]
+    sse_encryption_details: NotRequired[pulumi.Input[Optional['ExternalLocationEncryptionDetailsSseEncryptionDetailsArgsDict']]]
     """
     a block describing server-Side Encryption properties for clients communicating with AWS S3. Consists of the following attributes:
     """
@@ -21290,27 +21290,27 @@ class ExternalLocationEncryptionDetailsSseEncryptionDetailsArgs:
 
 
 class ExternalLocationFileEventQueueArgsDict(TypedDict):
-    managed_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedAqsArgs']]]
+    managed_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedAqsArgsDict']]]
     """
     Configuration for managed Azure Queue Storage queue.
     """
-    managed_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedPubsubArgs']]]
+    managed_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedPubsubArgsDict']]]
     """
     Configuration for managed Google Cloud Pub/Sub queue.
     """
-    managed_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedSqsArgs']]]
+    managed_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueManagedSqsArgsDict']]]
     """
     Configuration for managed Amazon SQS queue.
     """
-    provided_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedAqsArgs']]]
+    provided_aqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedAqsArgsDict']]]
     """
     Configuration for provided Azure Storage Queue.
     """
-    provided_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedPubsubArgs']]]
+    provided_pubsub: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedPubsubArgsDict']]]
     """
     Configuration for provided Google Cloud Pub/Sub queue.
     """
-    provided_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedSqsArgs']]]
+    provided_sqs: NotRequired[pulumi.Input[Optional['ExternalLocationFileEventQueueProvidedSqsArgsDict']]]
     """
     Configuration for provided Amazon SQS queue.
     """
@@ -21830,15 +21830,15 @@ class FeatureEngineeringFeatureEntityArgs:
 
 
 class FeatureEngineeringFeatureFunctionArgsDict(TypedDict):
-    aggregation_function: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionArgs']]]
+    aggregation_function: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionArgsDict']]]
     """
     An aggregation function applied over a time window
     """
-    column_selection: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionColumnSelectionArgs']]]
+    column_selection: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionColumnSelectionArgsDict']]]
     """
     Selects the latest value of a single column in a data source
     """
-    extra_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FeatureEngineeringFeatureFunctionExtraParameterArgs']]]]]
+    extra_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FeatureEngineeringFeatureFunctionExtraParameterArgsDict']]]]]
     """
     Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
     Extra parameters for parameterized functions
@@ -21925,24 +21925,24 @@ class FeatureEngineeringFeatureFunctionArgs:
 
 
 class FeatureEngineeringFeatureFunctionAggregationFunctionArgsDict(TypedDict):
-    approx_count_distinct: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionApproxCountDistinctArgs']]]
-    approx_percentile: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionApproxPercentileArgs']]]
-    avg: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionAvgArgs']]]
-    count_function: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionCountFunctionArgs']]]
-    first: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionFirstArgs']]]
-    last: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionLastArgs']]]
-    max: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionMaxArgs']]]
-    min: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionMinArgs']]]
-    stddev_pop: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionStddevPopArgs']]]
-    stddev_samp: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionStddevSampArgs']]]
-    sum: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionSumArgs']]]
-    time_window: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgs']]]
+    approx_count_distinct: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionApproxCountDistinctArgsDict']]]
+    approx_percentile: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionApproxPercentileArgsDict']]]
+    avg: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionAvgArgsDict']]]
+    count_function: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionCountFunctionArgsDict']]]
+    first: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionFirstArgsDict']]]
+    last: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionLastArgsDict']]]
+    max: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionMaxArgsDict']]]
+    min: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionMinArgsDict']]]
+    stddev_pop: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionStddevPopArgsDict']]]
+    stddev_samp: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionStddevSampArgsDict']]]
+    sum: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionSumArgsDict']]]
+    time_window: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgsDict']]]
     """
     Deprecated: Use Function.aggregation_function.time_window instead. Kept for backwards compatibility.
     The time window in which the feature is computed
     """
-    var_pop: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionVarPopArgs']]]
-    var_samp: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionVarSampArgs']]]
+    var_pop: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionVarPopArgsDict']]]
+    var_samp: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionVarSampArgsDict']]]
 
 @pulumi.input_type
 class FeatureEngineeringFeatureFunctionAggregationFunctionArgs:
@@ -22398,9 +22398,9 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionSumArgs:
 
 
 class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgsDict(TypedDict):
-    continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgs']]]
-    sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgs']]]
-    tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingArgs']]]
+    continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgsDict']]]
+    sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgsDict']]]
+    tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingArgsDict']]]
 
 @pulumi.input_type
 class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgs:
@@ -22657,7 +22657,7 @@ class FeatureEngineeringFeatureFunctionExtraParameterArgs:
 
 
 class FeatureEngineeringFeatureLineageContextArgsDict(TypedDict):
-    job_context: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureLineageContextJobContextArgs']]]
+    job_context: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureLineageContextJobContextArgsDict']]]
     """
     Job context information including job ID and run ID
     """
@@ -22784,15 +22784,15 @@ class FeatureEngineeringFeatureProviderConfigArgs:
 
 
 class FeatureEngineeringFeatureSourceArgsDict(TypedDict):
-    delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceDeltaTableSourceArgs']]]
+    delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceDeltaTableSourceArgsDict']]]
     """
     A Delta table data source
     """
-    kafka_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceArgs']]]
+    kafka_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceArgsDict']]]
     """
     A Kafka stream data source
     """
-    request_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceArgs']]]
+    request_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceArgsDict']]]
     """
     A request-time data source
     """
@@ -23000,7 +23000,7 @@ class FeatureEngineeringFeatureSourceDeltaTableSourceArgs:
 
 class FeatureEngineeringFeatureSourceKafkaSourceArgsDict(TypedDict):
     name: pulumi.Input[_builtins.str]
-    entity_column_identifiers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierArgs']]]]]
+    entity_column_identifiers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierArgsDict']]]]]
     """
     Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
     The entity column identifiers of the Kafka source
@@ -23010,7 +23010,7 @@ class FeatureEngineeringFeatureSourceKafkaSourceArgsDict(TypedDict):
     Deprecated: Use DeltaTableSource.filter_condition or KafkaSource.filter_condition instead. Kept for backwards compatibility.
     The filter condition applied to the source data before aggregation
     """
-    timeseries_column_identifier: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierArgs']]]
+    timeseries_column_identifier: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierArgsDict']]]
     """
     Deprecated: Use Feature.timeseries_column instead. Kept for backwards compatibility.
     The timeseries column identifier of the Kafka source
@@ -23151,7 +23151,7 @@ class FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierArgs:
 
 
 class FeatureEngineeringFeatureSourceRequestSourceArgsDict(TypedDict):
-    flat_schema: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceFlatSchemaArgs']]]
+    flat_schema: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceFlatSchemaArgsDict']]]
     """
     A flat schema with scalar-typed fields only
     """
@@ -23248,9 +23248,9 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
 
 
 class FeatureEngineeringFeatureTimeWindowArgsDict(TypedDict):
-    continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowContinuousArgs']]]
-    sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowSlidingArgs']]]
-    tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowTumblingArgs']]]
+    continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowContinuousArgsDict']]]
+    sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowSlidingArgsDict']]]
+    tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowTumblingArgsDict']]]
 
 @pulumi.input_type
 class FeatureEngineeringFeatureTimeWindowArgs:
@@ -23446,7 +23446,7 @@ class FeatureEngineeringKafkaConfigBackfillSourceArgsDict(TypedDict):
     """
     The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
     """
-    delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs']]]
+    delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgsDict']]]
     """
     Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
     The Delta table source containing the historical data to backfill.
@@ -24322,7 +24322,7 @@ class InstancePoolDiskSpecArgsDict(TypedDict):
     """
     (Integer) The size of each disk (in GiB) to attach.
     """
-    disk_type: NotRequired[pulumi.Input[Optional['InstancePoolDiskSpecDiskTypeArgs']]]
+    disk_type: NotRequired[pulumi.Input[Optional['InstancePoolDiskSpecDiskTypeArgsDict']]]
 
 @pulumi.input_type
 class InstancePoolDiskSpecArgs:
@@ -24479,8 +24479,8 @@ class InstancePoolGcpAttributesArgs:
 
 class InstancePoolInstancePoolFleetAttributesArgsDict(TypedDict):
     launch_template_overrides: pulumi.Input[Sequence[pulumi.Input['InstancePoolInstancePoolFleetAttributesLaunchTemplateOverrideArgsDict']]]
-    fleet_on_demand_option: NotRequired[pulumi.Input[Optional['InstancePoolInstancePoolFleetAttributesFleetOnDemandOptionArgs']]]
-    fleet_spot_option: NotRequired[pulumi.Input[Optional['InstancePoolInstancePoolFleetAttributesFleetSpotOptionArgs']]]
+    fleet_on_demand_option: NotRequired[pulumi.Input[Optional['InstancePoolInstancePoolFleetAttributesFleetOnDemandOptionArgsDict']]]
+    fleet_spot_option: NotRequired[pulumi.Input[Optional['InstancePoolInstancePoolFleetAttributesFleetSpotOptionArgsDict']]]
 
 @pulumi.input_type
 class InstancePoolInstancePoolFleetAttributesArgs:
@@ -24650,7 +24650,7 @@ class InstancePoolPreloadedDockerImageArgsDict(TypedDict):
     """
     URL for the Docker image
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['InstancePoolPreloadedDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['InstancePoolPreloadedDockerImageBasicAuthArgsDict']]]
     """
     `basic_auth.username` and `basic_auth.password` for Docker repository. Docker registry credentials are encrypted when they are stored in Databricks internal storage and when they are passed to a registry upon fetching Docker images at cluster launch.  For better security, these credentials should be stored in the secret scope and referred using secret path syntax: `{{secrets/scope/key}}`, otherwise other users of the workspace may access them via UI/API.
 
@@ -25255,7 +25255,7 @@ class JobEnvironmentArgsDict(TypedDict):
     """
     an unique identifier of the Environment.  It will be referenced from `environment_key` attribute of corresponding task.
     """
-    spec: NotRequired[pulumi.Input[Optional['JobEnvironmentSpecArgs']]]
+    spec: NotRequired[pulumi.Input[Optional['JobEnvironmentSpecArgsDict']]]
     """
     block describing the Environment. Consists of following attributes:
     """
@@ -25399,13 +25399,13 @@ class JobGitSourceArgsDict(TypedDict):
     """
     hash of Git commit to use. Conflicts with `branch` and `tag`.
     """
-    git_snapshot: NotRequired[pulumi.Input[Optional['JobGitSourceGitSnapshotArgs']]]
-    job_source: NotRequired[pulumi.Input[Optional['JobGitSourceJobSourceArgs']]]
+    git_snapshot: NotRequired[pulumi.Input[Optional['JobGitSourceGitSnapshotArgsDict']]]
+    job_source: NotRequired[pulumi.Input[Optional['JobGitSourceJobSourceArgsDict']]]
     provider: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     case insensitive name of the Git provider.  Following values are supported right now (could be a subject for change, consult [Repos API documentation](https://docs.databricks.com/dev-tools/api/latest/repos.html)): `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`.
     """
-    sparse_checkout: NotRequired[pulumi.Input[Optional['JobGitSourceSparseCheckoutArgs']]]
+    sparse_checkout: NotRequired[pulumi.Input[Optional['JobGitSourceSparseCheckoutArgsDict']]]
     tag: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     name of the Git branch to use. Conflicts with `branch` and `commit`.
@@ -25761,35 +25761,35 @@ class JobJobClusterArgs:
 class JobJobClusterNewClusterArgsDict(TypedDict):
     __apply_policy_default_values_allow_lists: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     apply_policy_default_values: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    autoscale: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAutoscaleArgs']]]
-    aws_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAwsAttributesArgs']]]
-    azure_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesArgs']]]
+    autoscale: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAutoscaleArgsDict']]]
+    aws_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAwsAttributesArgsDict']]]
+    azure_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesArgsDict']]]
     cluster_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfArgs']]]
-    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterClusterMountInfoArgs']]]]]
+    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfArgsDict']]]
+    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterClusterMountInfoArgsDict']]]]]
     cluster_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     custom_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     data_security_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    docker_image: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDockerImageArgs']]]
+    docker_image: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDockerImageArgsDict']]]
     driver_instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDriverNodeTypeFlexibilityArgs']]]
+    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDriverNodeTypeFlexibilityArgsDict']]]
     driver_node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     enable_elastic_disk: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enable_local_disk_encryption: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    gcp_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterGcpAttributesArgs']]]
+    gcp_attributes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterGcpAttributesArgsDict']]]
     idempotency_token: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterInitScriptArgs']]]]]
+    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterInitScriptArgsDict']]]]]
     instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     is_single_node: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     kind: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobJobClusterNewClusterLibraryArgsDict']]]]]
     """
     (List) An optional list of libraries to be installed on the cluster that will execute the job. See library Configuration Block below.
     """
     node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     num_workers: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterProviderConfigArgs']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
@@ -25802,8 +25802,8 @@ class JobJobClusterNewClusterArgsDict(TypedDict):
     ssh_public_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     total_initial_remote_disk_size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     use_ml_runtime: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterWorkerNodeTypeFlexibilityArgs']]]
-    workload_type: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterWorkloadTypeArgs']]]
+    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterWorkerNodeTypeFlexibilityArgsDict']]]
+    workload_type: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterWorkloadTypeArgsDict']]]
     """
     isn't supported
     """
@@ -26468,7 +26468,7 @@ class JobJobClusterNewClusterAwsAttributesArgs:
 class JobJobClusterNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
-    log_analytics_info: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
 
 @pulumi.input_type
@@ -26558,9 +26558,9 @@ class JobJobClusterNewClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class JobJobClusterNewClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class JobJobClusterNewClusterClusterLogConfArgs:
@@ -26819,7 +26819,7 @@ class JobJobClusterNewClusterDockerImageArgsDict(TypedDict):
     """
     URL of the job on the given workspace
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterDockerImageBasicAuthArgsDict']]]
 
 @pulumi.input_type
 class JobJobClusterNewClusterDockerImageArgs:
@@ -27018,16 +27018,16 @@ class JobJobClusterNewClusterGcpAttributesArgs:
 
 
 class JobJobClusterNewClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptFileArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptFileArgsDict']]]
     """
     block consisting of single string fields:
     """
-    gcs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptWorkspaceArgs']]]
+    gcs: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class JobJobClusterNewClusterInitScriptArgs:
@@ -27340,15 +27340,15 @@ class JobJobClusterNewClusterInitScriptWorkspaceArgs:
 
 
 class JobJobClusterNewClusterLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -27703,15 +27703,15 @@ class JobJobClusterNewClusterWorkloadTypeClientsArgs:
 
 
 class JobLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -27966,35 +27966,35 @@ class JobLibraryPypiArgs:
 
 class JobNewClusterArgsDict(TypedDict):
     apply_policy_default_values: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    autoscale: NotRequired[pulumi.Input[Optional['JobNewClusterAutoscaleArgs']]]
-    aws_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterAwsAttributesArgs']]]
-    azure_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterAzureAttributesArgs']]]
+    autoscale: NotRequired[pulumi.Input[Optional['JobNewClusterAutoscaleArgsDict']]]
+    aws_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterAwsAttributesArgsDict']]]
+    azure_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterAzureAttributesArgsDict']]]
     cluster_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfArgs']]]
-    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterClusterMountInfoArgs']]]]]
+    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfArgsDict']]]
+    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterClusterMountInfoArgsDict']]]]]
     cluster_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     custom_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     data_security_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    docker_image: NotRequired[pulumi.Input[Optional['JobNewClusterDockerImageArgs']]]
+    docker_image: NotRequired[pulumi.Input[Optional['JobNewClusterDockerImageArgsDict']]]
     driver_instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobNewClusterDriverNodeTypeFlexibilityArgs']]]
+    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobNewClusterDriverNodeTypeFlexibilityArgsDict']]]
     driver_node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     enable_elastic_disk: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enable_local_disk_encryption: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    gcp_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterGcpAttributesArgs']]]
+    gcp_attributes: NotRequired[pulumi.Input[Optional['JobNewClusterGcpAttributesArgsDict']]]
     idempotency_token: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterInitScriptArgs']]]]]
+    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterInitScriptArgsDict']]]]]
     instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     is_single_node: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     kind: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobNewClusterLibraryArgsDict']]]]]
     """
     (List) An optional list of libraries to be installed on the cluster that will execute the job. See library Configuration Block below.
     """
     node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     num_workers: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobNewClusterProviderConfigArgs']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobNewClusterProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
@@ -28007,8 +28007,8 @@ class JobNewClusterArgsDict(TypedDict):
     ssh_public_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     total_initial_remote_disk_size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     use_ml_runtime: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobNewClusterWorkerNodeTypeFlexibilityArgs']]]
-    workload_type: NotRequired[pulumi.Input[Optional['JobNewClusterWorkloadTypeArgs']]]
+    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobNewClusterWorkerNodeTypeFlexibilityArgsDict']]]
+    workload_type: NotRequired[pulumi.Input[Optional['JobNewClusterWorkloadTypeArgsDict']]]
     """
     isn't supported
     """
@@ -28661,7 +28661,7 @@ class JobNewClusterAwsAttributesArgs:
 class JobNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
-    log_analytics_info: NotRequired[pulumi.Input[Optional['JobNewClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['JobNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
 
 @pulumi.input_type
@@ -28751,9 +28751,9 @@ class JobNewClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class JobNewClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobNewClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class JobNewClusterClusterLogConfArgs:
@@ -29012,7 +29012,7 @@ class JobNewClusterDockerImageArgsDict(TypedDict):
     """
     URL of the job on the given workspace
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['JobNewClusterDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['JobNewClusterDockerImageBasicAuthArgsDict']]]
 
 @pulumi.input_type
 class JobNewClusterDockerImageArgs:
@@ -29211,16 +29211,16 @@ class JobNewClusterGcpAttributesArgs:
 
 
 class JobNewClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptFileArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptFileArgsDict']]]
     """
     block consisting of single string fields:
     """
-    gcs: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptWorkspaceArgs']]]
+    gcs: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['JobNewClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class JobNewClusterInitScriptArgs:
@@ -29533,15 +29533,15 @@ class JobNewClusterInitScriptWorkspaceArgs:
 
 
 class JobNewClusterLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobNewClusterLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -30672,20 +30672,20 @@ class JobTaskArgsDict(TypedDict):
     string specifying an unique key for a given task.
     * `*_task` - (Required) one of the specific task blocks described below:
     """
-    alert_task: NotRequired[pulumi.Input[Optional['JobTaskAlertTaskArgs']]]
-    clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskCleanRoomsNotebookTaskArgs']]]
-    compute: NotRequired[pulumi.Input[Optional['JobTaskComputeArgs']]]
+    alert_task: NotRequired[pulumi.Input[Optional['JobTaskAlertTaskArgsDict']]]
+    clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskCleanRoomsNotebookTaskArgsDict']]]
+    compute: NotRequired[pulumi.Input[Optional['JobTaskComputeArgsDict']]]
     """
     Task level compute configuration. This block is documented below.
 
     > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
     """
-    condition_task: NotRequired[pulumi.Input[Optional['JobTaskConditionTaskArgs']]]
-    dashboard_task: NotRequired[pulumi.Input[Optional['JobTaskDashboardTaskArgs']]]
-    dbt_cloud_task: NotRequired[pulumi.Input[Optional['JobTaskDbtCloudTaskArgs']]]
-    dbt_platform_task: NotRequired[pulumi.Input[Optional['JobTaskDbtPlatformTaskArgs']]]
-    dbt_task: NotRequired[pulumi.Input[Optional['JobTaskDbtTaskArgs']]]
-    depends_ons: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskDependsOnArgs']]]]]
+    condition_task: NotRequired[pulumi.Input[Optional['JobTaskConditionTaskArgsDict']]]
+    dashboard_task: NotRequired[pulumi.Input[Optional['JobTaskDashboardTaskArgsDict']]]
+    dbt_cloud_task: NotRequired[pulumi.Input[Optional['JobTaskDbtCloudTaskArgsDict']]]
+    dbt_platform_task: NotRequired[pulumi.Input[Optional['JobTaskDbtPlatformTaskArgsDict']]]
+    dbt_task: NotRequired[pulumi.Input[Optional['JobTaskDbtTaskArgsDict']]]
+    depends_ons: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskDependsOnArgsDict']]]]]
     """
     block specifying dependency(-ies) for a given task.
     """
@@ -30698,7 +30698,7 @@ class JobTaskArgsDict(TypedDict):
     A flag to disable auto optimization in serverless tasks.
     """
     disabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    email_notifications: NotRequired[pulumi.Input[Optional['JobTaskEmailNotificationsArgs']]]
+    email_notifications: NotRequired[pulumi.Input[Optional['JobTaskEmailNotificationsArgsDict']]]
     """
     An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
     """
@@ -30710,9 +30710,9 @@ class JobTaskArgsDict(TypedDict):
     """
     Identifier of the interactive cluster to run job on.  *Note: running tasks on interactive clusters may lead to increased costs!*
     """
-    for_each_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskArgs']]]
-    gen_ai_compute_task: NotRequired[pulumi.Input[Optional['JobTaskGenAiComputeTaskArgs']]]
-    health: NotRequired[pulumi.Input[Optional['JobTaskHealthArgs']]]
+    for_each_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskArgsDict']]]
+    gen_ai_compute_task: NotRequired[pulumi.Input[Optional['JobTaskGenAiComputeTaskArgsDict']]]
+    health: NotRequired[pulumi.Input[Optional['JobTaskHealthArgsDict']]]
     """
     block described below that specifies health conditions for a given task.
     """
@@ -30720,7 +30720,7 @@ class JobTaskArgsDict(TypedDict):
     """
     Identifier of the Job cluster specified in the `job_cluster` block.
     """
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskLibraryArgsDict']]]]]
     """
     (Set) An optional list of libraries to be installed on the cluster that will execute the job.
     """
@@ -30732,18 +30732,18 @@ class JobTaskArgsDict(TypedDict):
     """
     (Integer) An optional minimal interval in milliseconds between the start of the failed run and the subsequent retry run. The default behavior is that unsuccessful runs are immediately retried.
     """
-    new_cluster: NotRequired[pulumi.Input[Optional['JobTaskNewClusterArgs']]]
+    new_cluster: NotRequired[pulumi.Input[Optional['JobTaskNewClusterArgsDict']]]
     """
     Task will run on a dedicated cluster.  See Cluster documentation for specification. *Some parameters, such as `autotermination_minutes`, `is_pinned`, `workload_type` aren't supported!*
     """
-    notebook_task: NotRequired[pulumi.Input[Optional['JobTaskNotebookTaskArgs']]]
-    notification_settings: NotRequired[pulumi.Input[Optional['JobTaskNotificationSettingsArgs']]]
+    notebook_task: NotRequired[pulumi.Input[Optional['JobTaskNotebookTaskArgsDict']]]
+    notification_settings: NotRequired[pulumi.Input[Optional['JobTaskNotificationSettingsArgsDict']]]
     """
     An optional block controlling the notification settings on the job level documented below.
     """
-    pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskPipelineTaskArgs']]]
-    power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskPowerBiTaskArgs']]]
-    python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskPythonWheelTaskArgs']]]
+    pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskPipelineTaskArgsDict']]]
+    power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskPowerBiTaskArgsDict']]]
+    python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskPythonWheelTaskArgsDict']]]
     retry_on_timeout: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     (Bool) An optional policy to specify whether to retry a job when it times out. The default behavior is to not retry on timeout.
@@ -30752,16 +30752,16 @@ class JobTaskArgsDict(TypedDict):
     """
     An optional value indicating the condition that determines whether the task should be run once its dependencies have been completed. One of `ALL_SUCCESS`, `AT_LEAST_ONE_SUCCESS`, `NONE_FAILED`, `ALL_DONE`, `AT_LEAST_ONE_FAILED` or `ALL_FAILED`. When omitted, defaults to `ALL_SUCCESS`.
     """
-    run_job_task: NotRequired[pulumi.Input[Optional['JobTaskRunJobTaskArgs']]]
-    spark_jar_task: NotRequired[pulumi.Input[Optional['JobTaskSparkJarTaskArgs']]]
-    spark_python_task: NotRequired[pulumi.Input[Optional['JobTaskSparkPythonTaskArgs']]]
-    spark_submit_task: NotRequired[pulumi.Input[Optional['JobTaskSparkSubmitTaskArgs']]]
-    sql_task: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskArgs']]]
+    run_job_task: NotRequired[pulumi.Input[Optional['JobTaskRunJobTaskArgsDict']]]
+    spark_jar_task: NotRequired[pulumi.Input[Optional['JobTaskSparkJarTaskArgsDict']]]
+    spark_python_task: NotRequired[pulumi.Input[Optional['JobTaskSparkPythonTaskArgsDict']]]
+    spark_submit_task: NotRequired[pulumi.Input[Optional['JobTaskSparkSubmitTaskArgsDict']]]
+    sql_task: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskArgsDict']]]
     timeout_seconds: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     (Integer) An optional timeout applied to each run of this job. The default behavior is to have no timeout.
     """
-    webhook_notifications: NotRequired[pulumi.Input[Optional['JobTaskWebhookNotificationsArgs']]]
+    webhook_notifications: NotRequired[pulumi.Input[Optional['JobTaskWebhookNotificationsArgsDict']]]
     """
     (List) An optional set of system destinations (for example, webhook destinations or Slack) to be notified when runs of this task begins, completes or fails. The default behavior is to not send any notifications. This field is a block and is documented below.
     """
@@ -31315,7 +31315,7 @@ class JobTaskAlertTaskArgsDict(TypedDict):
     """
     (String) identifier of the Databricks Alert (databricks_alert).
     """
-    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskAlertTaskSubscriberArgs']]]]]
+    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskAlertTaskSubscriberArgsDict']]]]]
     """
     The list of subscribers to send the snapshot of the dashboard to.
     """
@@ -31627,7 +31627,7 @@ class JobTaskDashboardTaskArgsDict(TypedDict):
     The identifier of the dashboard to refresh
     """
     filters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    subscription: NotRequired[pulumi.Input[Optional['JobTaskDashboardTaskSubscriptionArgs']]]
+    subscription: NotRequired[pulumi.Input[Optional['JobTaskDashboardTaskSubscriptionArgsDict']]]
     """
     Represents a subscription configuration for scheduled dashboard snapshots.
     """
@@ -31712,7 +31712,7 @@ class JobTaskDashboardTaskSubscriptionArgsDict(TypedDict):
     """
     When true, the subscription will not send emails.
     """
-    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskDashboardTaskSubscriptionSubscriberArgs']]]]]
+    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskDashboardTaskSubscriptionSubscriberArgsDict']]]]]
     """
     The list of subscribers to send the snapshot of the dashboard to.
     """
@@ -32327,20 +32327,20 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     string specifying an unique key for a given task.
     * `*_task` - (Required) one of the specific task blocks described below:
     """
-    alert_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskAlertTaskArgs']]]
-    clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskCleanRoomsNotebookTaskArgs']]]
-    compute: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskComputeArgs']]]
+    alert_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskAlertTaskArgsDict']]]
+    clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskCleanRoomsNotebookTaskArgsDict']]]
+    compute: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskComputeArgsDict']]]
     """
     Task level compute configuration. This block is documented below.
 
     > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
     """
-    condition_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskConditionTaskArgs']]]
-    dashboard_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDashboardTaskArgs']]]
-    dbt_cloud_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtCloudTaskArgs']]]
-    dbt_platform_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtPlatformTaskArgs']]]
-    dbt_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtTaskArgs']]]
-    depends_ons: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskDependsOnArgs']]]]]
+    condition_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskConditionTaskArgsDict']]]
+    dashboard_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDashboardTaskArgsDict']]]
+    dbt_cloud_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtCloudTaskArgsDict']]]
+    dbt_platform_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtPlatformTaskArgsDict']]]
+    dbt_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDbtTaskArgsDict']]]
+    depends_ons: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskDependsOnArgsDict']]]]]
     """
     block specifying dependency(-ies) for a given task.
     """
@@ -32353,7 +32353,7 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     A flag to disable auto optimization in serverless tasks.
     """
     disabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    email_notifications: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskEmailNotificationsArgs']]]
+    email_notifications: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskEmailNotificationsArgsDict']]]
     """
     An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
     """
@@ -32365,8 +32365,8 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     """
     Identifier of the interactive cluster to run job on.  *Note: running tasks on interactive clusters may lead to increased costs!*
     """
-    gen_ai_compute_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskGenAiComputeTaskArgs']]]
-    health: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskHealthArgs']]]
+    gen_ai_compute_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskGenAiComputeTaskArgsDict']]]
+    health: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskHealthArgsDict']]]
     """
     block described below that specifies health conditions for a given task.
     """
@@ -32374,7 +32374,7 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     """
     Identifier of the Job cluster specified in the `job_cluster` block.
     """
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskLibraryArgsDict']]]]]
     """
     (Set) An optional list of libraries to be installed on the cluster that will execute the job.
     """
@@ -32386,18 +32386,18 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     """
     (Integer) An optional minimal interval in milliseconds between the start of the failed run and the subsequent retry run. The default behavior is that unsuccessful runs are immediately retried.
     """
-    new_cluster: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterArgs']]]
+    new_cluster: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterArgsDict']]]
     """
     Task will run on a dedicated cluster.  See Cluster documentation for specification. *Some parameters, such as `autotermination_minutes`, `is_pinned`, `workload_type` aren't supported!*
     """
-    notebook_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNotebookTaskArgs']]]
-    notification_settings: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNotificationSettingsArgs']]]
+    notebook_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNotebookTaskArgsDict']]]
+    notification_settings: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNotificationSettingsArgsDict']]]
     """
     An optional block controlling the notification settings on the job level documented below.
     """
-    pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPipelineTaskArgs']]]
-    power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskArgs']]]
-    python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPythonWheelTaskArgs']]]
+    pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPipelineTaskArgsDict']]]
+    power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskArgsDict']]]
+    python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPythonWheelTaskArgsDict']]]
     retry_on_timeout: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     (Bool) An optional policy to specify whether to retry a job when it times out. The default behavior is to not retry on timeout.
@@ -32406,16 +32406,16 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     """
     An optional value indicating the condition that determines whether the task should be run once its dependencies have been completed. One of `ALL_SUCCESS`, `AT_LEAST_ONE_SUCCESS`, `NONE_FAILED`, `ALL_DONE`, `AT_LEAST_ONE_FAILED` or `ALL_FAILED`. When omitted, defaults to `ALL_SUCCESS`.
     """
-    run_job_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskRunJobTaskArgs']]]
-    spark_jar_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkJarTaskArgs']]]
-    spark_python_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkPythonTaskArgs']]]
-    spark_submit_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkSubmitTaskArgs']]]
-    sql_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskArgs']]]
+    run_job_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskRunJobTaskArgsDict']]]
+    spark_jar_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkJarTaskArgsDict']]]
+    spark_python_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkPythonTaskArgsDict']]]
+    spark_submit_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSparkSubmitTaskArgsDict']]]
+    sql_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskArgsDict']]]
     timeout_seconds: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     (Integer) An optional timeout applied to each run of this job. The default behavior is to have no timeout.
     """
-    webhook_notifications: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskWebhookNotificationsArgs']]]
+    webhook_notifications: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskWebhookNotificationsArgsDict']]]
     """
     (List) An optional set of system destinations (for example, webhook destinations or Slack) to be notified when runs of this task begins, completes or fails. The default behavior is to not send any notifications. This field is a block and is documented below.
     """
@@ -32957,7 +32957,7 @@ class JobTaskForEachTaskTaskAlertTaskArgsDict(TypedDict):
     """
     (String) identifier of the Databricks Alert (databricks_alert).
     """
-    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskAlertTaskSubscriberArgs']]]]]
+    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskAlertTaskSubscriberArgsDict']]]]]
     """
     The list of subscribers to send the snapshot of the dashboard to.
     """
@@ -33269,7 +33269,7 @@ class JobTaskForEachTaskTaskDashboardTaskArgsDict(TypedDict):
     The identifier of the dashboard to refresh
     """
     filters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    subscription: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDashboardTaskSubscriptionArgs']]]
+    subscription: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskDashboardTaskSubscriptionArgsDict']]]
     """
     Represents a subscription configuration for scheduled dashboard snapshots.
     """
@@ -33354,7 +33354,7 @@ class JobTaskForEachTaskTaskDashboardTaskSubscriptionArgsDict(TypedDict):
     """
     When true, the subscription will not send emails.
     """
-    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskDashboardTaskSubscriptionSubscriberArgs']]]]]
+    subscribers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskDashboardTaskSubscriptionSubscriberArgsDict']]]]]
     """
     The list of subscribers to send the snapshot of the dashboard to.
     """
@@ -33899,7 +33899,7 @@ class JobTaskForEachTaskTaskEmailNotificationsArgs:
 class JobTaskForEachTaskTaskGenAiComputeTaskArgsDict(TypedDict):
     dl_runtime_image: pulumi.Input[_builtins.str]
     command: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    compute: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskGenAiComputeTaskComputeArgs']]]
+    compute: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskGenAiComputeTaskComputeArgsDict']]]
     """
     Task level compute configuration. This block is documented below.
 
@@ -34161,15 +34161,15 @@ class JobTaskForEachTaskTaskHealthRuleArgs:
 
 
 class JobTaskForEachTaskTaskLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -34424,35 +34424,35 @@ class JobTaskForEachTaskTaskLibraryPypiArgs:
 
 class JobTaskForEachTaskTaskNewClusterArgsDict(TypedDict):
     apply_policy_default_values: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    autoscale: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAutoscaleArgs']]]
-    aws_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAwsAttributesArgs']]]
-    azure_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesArgs']]]
+    autoscale: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAutoscaleArgsDict']]]
+    aws_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAwsAttributesArgsDict']]]
+    azure_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesArgsDict']]]
     cluster_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfArgs']]]
-    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterClusterMountInfoArgs']]]]]
+    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfArgsDict']]]
+    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterClusterMountInfoArgsDict']]]]]
     cluster_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     custom_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     data_security_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    docker_image: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDockerImageArgs']]]
+    docker_image: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDockerImageArgsDict']]]
     driver_instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDriverNodeTypeFlexibilityArgs']]]
+    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDriverNodeTypeFlexibilityArgsDict']]]
     driver_node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     enable_elastic_disk: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enable_local_disk_encryption: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    gcp_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterGcpAttributesArgs']]]
+    gcp_attributes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterGcpAttributesArgsDict']]]
     idempotency_token: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterInitScriptArgs']]]]]
+    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterInitScriptArgsDict']]]]]
     instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     is_single_node: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     kind: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskNewClusterLibraryArgsDict']]]]]
     """
     (List) An optional list of libraries to be installed on the cluster that will execute the job. See library Configuration Block below.
     """
     node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     num_workers: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterProviderConfigArgs']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
@@ -34465,8 +34465,8 @@ class JobTaskForEachTaskTaskNewClusterArgsDict(TypedDict):
     ssh_public_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     total_initial_remote_disk_size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     use_ml_runtime: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterWorkerNodeTypeFlexibilityArgs']]]
-    workload_type: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterWorkloadTypeArgs']]]
+    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterWorkerNodeTypeFlexibilityArgsDict']]]
+    workload_type: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterWorkloadTypeArgsDict']]]
     """
     isn't supported
     """
@@ -35119,7 +35119,7 @@ class JobTaskForEachTaskTaskNewClusterAwsAttributesArgs:
 class JobTaskForEachTaskTaskNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
-    log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
 
 @pulumi.input_type
@@ -35209,9 +35209,9 @@ class JobTaskForEachTaskTaskNewClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class JobTaskForEachTaskTaskNewClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class JobTaskForEachTaskTaskNewClusterClusterLogConfArgs:
@@ -35470,7 +35470,7 @@ class JobTaskForEachTaskTaskNewClusterDockerImageArgsDict(TypedDict):
     """
     URL of the job on the given workspace
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterDockerImageBasicAuthArgsDict']]]
 
 @pulumi.input_type
 class JobTaskForEachTaskTaskNewClusterDockerImageArgs:
@@ -35669,16 +35669,16 @@ class JobTaskForEachTaskTaskNewClusterGcpAttributesArgs:
 
 
 class JobTaskForEachTaskTaskNewClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptFileArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptFileArgsDict']]]
     """
     block consisting of single string fields:
     """
-    gcs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptWorkspaceArgs']]]
+    gcs: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class JobTaskForEachTaskTaskNewClusterInitScriptArgs:
@@ -35991,15 +35991,15 @@ class JobTaskForEachTaskTaskNewClusterInitScriptWorkspaceArgs:
 
 
 class JobTaskForEachTaskTaskNewClusterLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -36575,7 +36575,7 @@ class JobTaskForEachTaskTaskPowerBiTaskArgsDict(TypedDict):
     """
     The resource name of the UC connection to authenticate from Databricks to Power BI
     """
-    power_bi_model: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskPowerBiModelArgs']]]
+    power_bi_model: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskPowerBiModelArgsDict']]]
     """
     The semantic model to update. Block consists of following fields:
     """
@@ -36583,7 +36583,7 @@ class JobTaskForEachTaskTaskPowerBiTaskArgsDict(TypedDict):
     """
     Whether the model should be refreshed after the update. Default is false
     """
-    tables: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPowerBiTaskTableArgs']]]]]
+    tables: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPowerBiTaskTableArgsDict']]]]]
     """
     The tables to be exported to Power BI. Block consists of following fields:
     """
@@ -36978,7 +36978,7 @@ class JobTaskForEachTaskTaskRunJobTaskArgsDict(TypedDict):
     (Map) Job parameters for the task
     """
     notebook_params: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    pipeline_params: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgs']]]
+    pipeline_params: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgsDict']]]
     python_named_params: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     python_params: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     spark_submit_params: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -37336,15 +37336,15 @@ class JobTaskForEachTaskTaskSqlTaskArgsDict(TypedDict):
     """
     ID of the (the databricks_sql_endpoint) that will be used to execute the task.  Only Serverless & Pro warehouses are supported right now.
     """
-    alert: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskAlertArgs']]]
+    alert: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskAlertArgsDict']]]
     """
     block consisting of following fields:
     """
-    dashboard: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskDashboardArgs']]]
+    dashboard: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskDashboardArgsDict']]]
     """
     block consisting of following fields:
     """
-    file: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskFileArgs']]]
+    file: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskFileArgsDict']]]
     """
     block consisting of single string fields:
     """
@@ -37352,7 +37352,7 @@ class JobTaskForEachTaskTaskSqlTaskArgsDict(TypedDict):
     """
     (Map) parameters to be used for each run of this task. The SQL alert task does not support custom parameters.
     """
-    query: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskQueryArgs']]]
+    query: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskSqlTaskQueryArgsDict']]]
     """
     block consisting of single string field: `query_id` - identifier of the Databricks Query (databricks_query).
     """
@@ -37468,7 +37468,7 @@ class JobTaskForEachTaskTaskSqlTaskAlertArgsDict(TypedDict):
     """
     flag that specifies if subscriptions are paused or not.
     """
-    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskSqlTaskAlertSubscriptionArgs']]]]]
+    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskSqlTaskAlertSubscriptionArgsDict']]]]]
     """
     a list of subscription blocks consisting out of one of the required fields: `user_name` for user emails or `destination_id` - for Alert destination's identifier.
     """
@@ -37582,7 +37582,7 @@ class JobTaskForEachTaskTaskSqlTaskDashboardArgsDict(TypedDict):
     """
     flag that specifies if subscriptions are paused or not.
     """
-    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskSqlTaskDashboardSubscriptionArgs']]]]]
+    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskSqlTaskDashboardSubscriptionArgsDict']]]]]
     """
     a list of subscription blocks consisting out of one of the required fields: `user_name` for user emails or `destination_id` - for Alert destination's identifier.
     """
@@ -37902,19 +37902,19 @@ class JobTaskForEachTaskTaskSqlTaskQueryArgs:
 
 
 class JobTaskForEachTaskTaskWebhookNotificationsArgsDict(TypedDict):
-    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnDurationWarningThresholdExceededArgs']]]]]
+    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnDurationWarningThresholdExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when the duration of a run exceeds the threshold specified by the `RUN_DURATION_SECONDS` metric in the `health` block.
     """
-    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnFailureArgs']]]]]
+    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnFailureArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run fails. A maximum of 3 destinations can be specified.
     """
-    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnStartArgs']]]]]
+    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnStartArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run starts. A maximum of 3 destinations can be specified.
     """
-    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnStreamingBacklogExceededArgs']]]]]
+    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnStreamingBacklogExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when any streaming backlog thresholds are exceeded for any stream.
 
@@ -37922,7 +37922,7 @@ class JobTaskForEachTaskTaskWebhookNotificationsArgsDict(TypedDict):
 
     Example
     """
-    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnSuccessArgs']]]]]
+    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsOnSuccessArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run completes successfully. A maximum of 3 destinations can be specified.
     """
@@ -38165,7 +38165,7 @@ class JobTaskForEachTaskTaskWebhookNotificationsOnSuccessArgs:
 class JobTaskGenAiComputeTaskArgsDict(TypedDict):
     dl_runtime_image: pulumi.Input[_builtins.str]
     command: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    compute: NotRequired[pulumi.Input[Optional['JobTaskGenAiComputeTaskComputeArgs']]]
+    compute: NotRequired[pulumi.Input[Optional['JobTaskGenAiComputeTaskComputeArgsDict']]]
     """
     Task level compute configuration. This block is documented below.
 
@@ -38427,15 +38427,15 @@ class JobTaskHealthRuleArgs:
 
 
 class JobTaskLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobTaskLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobTaskLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobTaskLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobTaskLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobTaskLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobTaskLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -38691,35 +38691,35 @@ class JobTaskLibraryPypiArgs:
 class JobTaskNewClusterArgsDict(TypedDict):
     __apply_policy_default_values_allow_lists: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     apply_policy_default_values: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    autoscale: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAutoscaleArgs']]]
-    aws_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAwsAttributesArgs']]]
-    azure_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAzureAttributesArgs']]]
+    autoscale: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAutoscaleArgsDict']]]
+    aws_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAwsAttributesArgsDict']]]
+    azure_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAzureAttributesArgsDict']]]
     cluster_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfArgs']]]
-    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterClusterMountInfoArgs']]]]]
+    cluster_log_conf: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfArgsDict']]]
+    cluster_mount_infos: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterClusterMountInfoArgsDict']]]]]
     cluster_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     custom_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     data_security_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    docker_image: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDockerImageArgs']]]
+    docker_image: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDockerImageArgsDict']]]
     driver_instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDriverNodeTypeFlexibilityArgs']]]
+    driver_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDriverNodeTypeFlexibilityArgsDict']]]
     driver_node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     enable_elastic_disk: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enable_local_disk_encryption: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    gcp_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterGcpAttributesArgs']]]
+    gcp_attributes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterGcpAttributesArgsDict']]]
     idempotency_token: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterInitScriptArgs']]]]]
+    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterInitScriptArgsDict']]]]]
     instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     is_single_node: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     kind: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterLibraryArgs']]]]]
+    libraries: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskNewClusterLibraryArgsDict']]]]]
     """
     (List) An optional list of libraries to be installed on the cluster that will execute the job. See library Configuration Block below.
     """
     node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     num_workers: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskNewClusterProviderConfigArgs']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskNewClusterProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
@@ -38732,8 +38732,8 @@ class JobTaskNewClusterArgsDict(TypedDict):
     ssh_public_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     total_initial_remote_disk_size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     use_ml_runtime: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskNewClusterWorkerNodeTypeFlexibilityArgs']]]
-    workload_type: NotRequired[pulumi.Input[Optional['JobTaskNewClusterWorkloadTypeArgs']]]
+    worker_node_type_flexibility: NotRequired[pulumi.Input[Optional['JobTaskNewClusterWorkerNodeTypeFlexibilityArgsDict']]]
+    workload_type: NotRequired[pulumi.Input[Optional['JobTaskNewClusterWorkloadTypeArgsDict']]]
     """
     isn't supported
     """
@@ -39398,7 +39398,7 @@ class JobTaskNewClusterAwsAttributesArgs:
 class JobTaskNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
-    log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
 
 @pulumi.input_type
@@ -39488,9 +39488,9 @@ class JobTaskNewClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class JobTaskNewClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class JobTaskNewClusterClusterLogConfArgs:
@@ -39749,7 +39749,7 @@ class JobTaskNewClusterDockerImageArgsDict(TypedDict):
     """
     URL of the job on the given workspace
     """
-    basic_auth: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDockerImageBasicAuthArgs']]]
+    basic_auth: NotRequired[pulumi.Input[Optional['JobTaskNewClusterDockerImageBasicAuthArgsDict']]]
 
 @pulumi.input_type
 class JobTaskNewClusterDockerImageArgs:
@@ -39948,16 +39948,16 @@ class JobTaskNewClusterGcpAttributesArgs:
 
 
 class JobTaskNewClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptFileArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptFileArgsDict']]]
     """
     block consisting of single string fields:
     """
-    gcs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptWorkspaceArgs']]]
+    gcs: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['JobTaskNewClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class JobTaskNewClusterInitScriptArgs:
@@ -40270,15 +40270,15 @@ class JobTaskNewClusterInitScriptWorkspaceArgs:
 
 
 class JobTaskNewClusterLibraryArgsDict(TypedDict):
-    cran: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryCranArgs']]]
+    cran: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryCranArgsDict']]]
     egg: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryMavenArgs']]]
-    provider_config: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryProviderConfigArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryMavenArgsDict']]]
+    provider_config: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryProviderConfigArgsDict']]]
     """
     Configure the provider for management through account provider. This block consists of the following fields:
     """
-    pypi: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryPypiArgs']]]
+    pypi: NotRequired[pulumi.Input[Optional['JobTaskNewClusterLibraryPypiArgsDict']]]
     requirements: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     whl: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -40854,7 +40854,7 @@ class JobTaskPowerBiTaskArgsDict(TypedDict):
     """
     The resource name of the UC connection to authenticate from Databricks to Power BI
     """
-    power_bi_model: NotRequired[pulumi.Input[Optional['JobTaskPowerBiTaskPowerBiModelArgs']]]
+    power_bi_model: NotRequired[pulumi.Input[Optional['JobTaskPowerBiTaskPowerBiModelArgsDict']]]
     """
     The semantic model to update. Block consists of following fields:
     """
@@ -40862,7 +40862,7 @@ class JobTaskPowerBiTaskArgsDict(TypedDict):
     """
     Whether the model should be refreshed after the update. Default is false
     """
-    tables: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPowerBiTaskTableArgs']]]]]
+    tables: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPowerBiTaskTableArgsDict']]]]]
     """
     The tables to be exported to Power BI. Block consists of following fields:
     """
@@ -41257,7 +41257,7 @@ class JobTaskRunJobTaskArgsDict(TypedDict):
     (Map) Job parameters for the task
     """
     notebook_params: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    pipeline_params: NotRequired[pulumi.Input[Optional['JobTaskRunJobTaskPipelineParamsArgs']]]
+    pipeline_params: NotRequired[pulumi.Input[Optional['JobTaskRunJobTaskPipelineParamsArgsDict']]]
     python_named_params: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     python_params: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     spark_submit_params: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -41615,15 +41615,15 @@ class JobTaskSqlTaskArgsDict(TypedDict):
     """
     ID of the (the databricks_sql_endpoint) that will be used to execute the task.  Only Serverless & Pro warehouses are supported right now.
     """
-    alert: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskAlertArgs']]]
+    alert: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskAlertArgsDict']]]
     """
     block consisting of following fields:
     """
-    dashboard: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskDashboardArgs']]]
+    dashboard: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskDashboardArgsDict']]]
     """
     block consisting of following fields:
     """
-    file: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskFileArgs']]]
+    file: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskFileArgsDict']]]
     """
     block consisting of single string fields:
     """
@@ -41631,7 +41631,7 @@ class JobTaskSqlTaskArgsDict(TypedDict):
     """
     (Map) parameters to be used for each run of this task. The SQL alert task does not support custom parameters.
     """
-    query: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskQueryArgs']]]
+    query: NotRequired[pulumi.Input[Optional['JobTaskSqlTaskQueryArgsDict']]]
     """
     block consisting of single string field: `query_id` - identifier of the Databricks Query (databricks_query).
     """
@@ -41747,7 +41747,7 @@ class JobTaskSqlTaskAlertArgsDict(TypedDict):
     """
     flag that specifies if subscriptions are paused or not.
     """
-    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskSqlTaskAlertSubscriptionArgs']]]]]
+    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskSqlTaskAlertSubscriptionArgsDict']]]]]
     """
     a list of subscription blocks consisting out of one of the required fields: `user_name` for user emails or `destination_id` - for Alert destination's identifier.
     """
@@ -41861,7 +41861,7 @@ class JobTaskSqlTaskDashboardArgsDict(TypedDict):
     """
     flag that specifies if subscriptions are paused or not.
     """
-    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskSqlTaskDashboardSubscriptionArgs']]]]]
+    subscriptions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskSqlTaskDashboardSubscriptionArgsDict']]]]]
     """
     a list of subscription blocks consisting out of one of the required fields: `user_name` for user emails or `destination_id` - for Alert destination's identifier.
     """
@@ -42181,19 +42181,19 @@ class JobTaskSqlTaskQueryArgs:
 
 
 class JobTaskWebhookNotificationsArgsDict(TypedDict):
-    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnDurationWarningThresholdExceededArgs']]]]]
+    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnDurationWarningThresholdExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when the duration of a run exceeds the threshold specified by the `RUN_DURATION_SECONDS` metric in the `health` block.
     """
-    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnFailureArgs']]]]]
+    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnFailureArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run fails. A maximum of 3 destinations can be specified.
     """
-    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnStartArgs']]]]]
+    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnStartArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run starts. A maximum of 3 destinations can be specified.
     """
-    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnStreamingBacklogExceededArgs']]]]]
+    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnStreamingBacklogExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when any streaming backlog thresholds are exceeded for any stream.
 
@@ -42201,7 +42201,7 @@ class JobTaskWebhookNotificationsArgsDict(TypedDict):
 
     Example
     """
-    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnSuccessArgs']]]]]
+    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskWebhookNotificationsOnSuccessArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run completes successfully. A maximum of 3 destinations can be specified.
     """
@@ -42442,20 +42442,20 @@ class JobTaskWebhookNotificationsOnSuccessArgs:
 
 
 class JobTriggerArgsDict(TypedDict):
-    file_arrival: NotRequired[pulumi.Input[Optional['JobTriggerFileArrivalArgs']]]
+    file_arrival: NotRequired[pulumi.Input[Optional['JobTriggerFileArrivalArgsDict']]]
     """
     configuration block to define a trigger for [File Arrival events](https://learn.microsoft.com/en-us/azure/databricks/workflows/jobs/file-arrival-triggers) consisting of following attributes:
     """
-    model: NotRequired[pulumi.Input[Optional['JobTriggerModelArgs']]]
+    model: NotRequired[pulumi.Input[Optional['JobTriggerModelArgsDict']]]
     pause_status: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicate whether this trigger is paused or not. Either `PAUSED` or `UNPAUSED`. When the `pause_status` field is omitted in the block, the server will default to using `UNPAUSED` as a value for `pause_status`.
     """
-    periodic: NotRequired[pulumi.Input[Optional['JobTriggerPeriodicArgs']]]
+    periodic: NotRequired[pulumi.Input[Optional['JobTriggerPeriodicArgsDict']]]
     """
     configuration block to define a trigger for Periodic Triggers consisting of the following attributes:
     """
-    table_update: NotRequired[pulumi.Input[Optional['JobTriggerTableUpdateArgs']]]
+    table_update: NotRequired[pulumi.Input[Optional['JobTriggerTableUpdateArgsDict']]]
     """
     configuration block to define a trigger for [Table Updates](https://docs.databricks.com/aws/en/jobs/trigger-table-update) consisting of following attributes:
     """
@@ -42827,19 +42827,19 @@ class JobTriggerTableUpdateArgs:
 
 
 class JobWebhookNotificationsArgsDict(TypedDict):
-    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnDurationWarningThresholdExceededArgs']]]]]
+    on_duration_warning_threshold_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnDurationWarningThresholdExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when the duration of a run exceeds the threshold specified by the `RUN_DURATION_SECONDS` metric in the `health` block.
     """
-    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnFailureArgs']]]]]
+    on_failures: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnFailureArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run fails. A maximum of 3 destinations can be specified.
     """
-    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnStartArgs']]]]]
+    on_starts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnStartArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run starts. A maximum of 3 destinations can be specified.
     """
-    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnStreamingBacklogExceededArgs']]]]]
+    on_streaming_backlog_exceededs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnStreamingBacklogExceededArgsDict']]]]]
     """
     (List) list of notification IDs to call when any streaming backlog thresholds are exceeded for any stream.
 
@@ -42847,7 +42847,7 @@ class JobWebhookNotificationsArgsDict(TypedDict):
 
     Example
     """
-    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnSuccessArgs']]]]]
+    on_successes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobWebhookNotificationsOnSuccessArgsDict']]]]]
     """
     (List) list of notification IDs to call when the run completes successfully. A maximum of 3 destinations can be specified.
     """
@@ -43555,11 +43555,11 @@ class LakehouseMonitorInferenceLogArgs:
 
 
 class LakehouseMonitorNotificationsArgsDict(TypedDict):
-    on_failure: NotRequired[pulumi.Input[Optional['LakehouseMonitorNotificationsOnFailureArgs']]]
+    on_failure: NotRequired[pulumi.Input[Optional['LakehouseMonitorNotificationsOnFailureArgsDict']]]
     """
     who to send notifications to on monitor failure.
     """
-    on_new_classification_tag_detected: NotRequired[pulumi.Input[Optional['LakehouseMonitorNotificationsOnNewClassificationTagDetectedArgs']]]
+    on_new_classification_tag_detected: NotRequired[pulumi.Input[Optional['LakehouseMonitorNotificationsOnNewClassificationTagDetectedArgsDict']]]
     """
     Who to send notifications to when new data classification tags are detected.
     """
@@ -44684,23 +44684,23 @@ class MlflowWebhookProviderConfigArgs:
 
 
 class ModelServingAiGatewayArgsDict(TypedDict):
-    fallback_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayFallbackConfigArgs']]]
+    fallback_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayFallbackConfigArgsDict']]]
     """
     block with configuration for traffic fallback which auto fallbacks to other served entities if the request to a served entity fails with certain error codes, to increase availability.
     """
-    guardrails: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsArgs']]]
+    guardrails: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsArgsDict']]]
     """
     Block with configuration for AI Guardrails to prevent unwanted data and unsafe data in requests and responses. Consists of the following attributes:
     """
-    inference_table_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayInferenceTableConfigArgs']]]
+    inference_table_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayInferenceTableConfigArgsDict']]]
     """
     Block describing the configuration of usage tracking. Consists of the following attributes:
     """
-    rate_limits: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingAiGatewayRateLimitArgs']]]]]
+    rate_limits: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingAiGatewayRateLimitArgsDict']]]]]
     """
     Block describing rate limits for AI gateway. For details see the description of `rate_limits` block above.
     """
-    usage_tracking_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayUsageTrackingConfigArgs']]]
+    usage_tracking_config: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayUsageTrackingConfigArgsDict']]]
     """
     Block with configuration for payload logging using inference tables. For details see the description of `auto_capture_config` block above.
     """
@@ -44821,11 +44821,11 @@ class ModelServingAiGatewayFallbackConfigArgs:
 
 
 class ModelServingAiGatewayGuardrailsArgsDict(TypedDict):
-    input: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsInputArgs']]]
+    input: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsInputArgsDict']]]
     """
     A block with configuration for input guardrail filters:
     """
-    output: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsOutputArgs']]]
+    output: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsOutputArgsDict']]]
     """
     A block with configuration for output guardrail filters.  Has the same structure as `input` block.
     """
@@ -44874,7 +44874,7 @@ class ModelServingAiGatewayGuardrailsInputArgsDict(TypedDict):
     """
     List of invalid keywords. AI guardrail uses keyword or string matching to decide if the keyword exists in the request or response content.
     """
-    pii: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsInputPiiArgs']]]
+    pii: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsInputPiiArgsDict']]]
     """
     Block with configuration for guardrail PII filter:
     """
@@ -45000,7 +45000,7 @@ class ModelServingAiGatewayGuardrailsOutputArgsDict(TypedDict):
     """
     List of invalid keywords. AI guardrail uses keyword or string matching to decide if the keyword exists in the request or response content.
     """
-    pii: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsOutputPiiArgs']]]
+    pii: NotRequired[pulumi.Input[Optional['ModelServingAiGatewayGuardrailsOutputPiiArgsDict']]]
     """
     Block with configuration for guardrail PII filter:
     """
@@ -45339,19 +45339,19 @@ class ModelServingAiGatewayUsageTrackingConfigArgs:
 
 
 class ModelServingConfigArgsDict(TypedDict):
-    auto_capture_config: NotRequired[pulumi.Input[Optional['ModelServingConfigAutoCaptureConfigArgs']]]
+    auto_capture_config: NotRequired[pulumi.Input[Optional['ModelServingConfigAutoCaptureConfigArgsDict']]]
     """
     Configuration for Inference Tables which automatically logs requests and responses to Unity Catalog.
     """
-    served_entities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigServedEntityArgs']]]]]
+    served_entities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigServedEntityArgsDict']]]]]
     """
     A list of served entities for the endpoint to serve. A serving endpoint can have up to 10 served entities.
     """
-    served_models: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigServedModelArgs']]]]]
+    served_models: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigServedModelArgsDict']]]]]
     """
     Each block represents a served model for the endpoint to serve. A model serving endpoint can have up to 10 served models.
     """
-    traffic_config: NotRequired[pulumi.Input[Optional['ModelServingConfigTrafficConfigArgs']]]
+    traffic_config: NotRequired[pulumi.Input[Optional['ModelServingConfigTrafficConfigArgsDict']]]
     """
     A single block represents the traffic split configuration amongst the served models.
     """
@@ -45534,7 +45534,7 @@ class ModelServingConfigServedEntityArgsDict(TypedDict):
     """
     An object containing a set of optional, user-specified environment variable key-value pairs used for serving this entity. Note: this is an experimental feature and is subject to change. Example entity environment variables that refer to Databricks secrets: ```{"OPENAI_API_KEY": "{{secrets/my_scope/my_key}}", "DATABRICKS_TOKEN": "{{secrets/my_scope2/my_key2}}"}```
     """
-    external_model: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelArgs']]]
+    external_model: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelArgsDict']]]
     """
     The external model to be served. NOTE: Only one of `external_model` and (`entity_name`, `entity_version`, `workload_size`, `workload_type`, and `scale_to_zero_enabled`) can be specified with the latter set being used for custom model serving for a Databricks registered model. When an `external_model` is present, the served entities list can only have one `served_entity` object. An existing endpoint with `external_model` can not be updated to an endpoint without `external_model`. If the endpoint is created without `external_model`, users cannot update it to add `external_model` later.
     """
@@ -45828,39 +45828,39 @@ class ModelServingConfigServedEntityExternalModelArgsDict(TypedDict):
     """
     The task type of the external model.
     """
-    ai21labs_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAi21labsConfigArgs']]]
+    ai21labs_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAi21labsConfigArgsDict']]]
     """
     AI21Labs Config
     """
-    amazon_bedrock_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAmazonBedrockConfigArgs']]]
+    amazon_bedrock_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAmazonBedrockConfigArgsDict']]]
     """
     Amazon Bedrock Config
     """
-    anthropic_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAnthropicConfigArgs']]]
+    anthropic_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelAnthropicConfigArgsDict']]]
     """
     Anthropic Config
     """
-    cohere_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCohereConfigArgs']]]
+    cohere_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCohereConfigArgsDict']]]
     """
     Cohere Config
     """
-    custom_provider_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigArgs']]]
+    custom_provider_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigArgsDict']]]
     """
     Custom Provider Config. Only required if the provider is 'custom'.
     """
-    databricks_model_serving_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelDatabricksModelServingConfigArgs']]]
+    databricks_model_serving_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelDatabricksModelServingConfigArgsDict']]]
     """
     Databricks Model Serving Config
     """
-    google_cloud_vertex_ai_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelGoogleCloudVertexAiConfigArgs']]]
+    google_cloud_vertex_ai_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelGoogleCloudVertexAiConfigArgsDict']]]
     """
     Google Cloud Vertex AI Config.
     """
-    openai_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelOpenaiConfigArgs']]]
+    openai_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelOpenaiConfigArgsDict']]]
     """
     OpenAI Config
     """
-    palm_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelPalmConfigArgs']]]
+    palm_config: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelPalmConfigArgsDict']]]
     """
     PaLM Config
     """
@@ -46366,11 +46366,11 @@ class ModelServingConfigServedEntityExternalModelCustomProviderConfigArgsDict(Ty
     """
     URL of the custom provider API.
     """
-    api_key_auth: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigApiKeyAuthArgs']]]
+    api_key_auth: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigApiKeyAuthArgsDict']]]
     """
     API key authentication for the custom provider API. Conflicts with `bearer_token_auth`.
     """
-    bearer_token_auth: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigBearerTokenAuthArgs']]]
+    bearer_token_auth: NotRequired[pulumi.Input[Optional['ModelServingConfigServedEntityExternalModelCustomProviderConfigBearerTokenAuthArgsDict']]]
     """
     bearer token authentication for the custom provider API.  Conflicts with `api_key_auth`.
     """
@@ -47239,7 +47239,7 @@ class ModelServingConfigServedModelArgs:
 
 
 class ModelServingConfigTrafficConfigArgsDict(TypedDict):
-    routes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigTrafficConfigRouteArgs']]]]]
+    routes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingConfigTrafficConfigRouteArgsDict']]]]]
     """
     Each block represents a route that defines traffic to each served entity. Each `served_entity` block needs to have a corresponding `routes` block.
     """
@@ -47407,20 +47407,20 @@ class ModelServingProviderConfigArgs:
 
 
 class ModelServingProvisionedThroughputAiGatewayArgsDict(TypedDict):
-    fallback_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayFallbackConfigArgs']]]
-    guardrails: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsArgs']]]
+    fallback_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayFallbackConfigArgsDict']]]
+    guardrails: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsArgsDict']]]
     """
     Block with configuration for AI Guardrails to prevent unwanted data and unsafe data in requests and responses. Consists of the following attributes:
     """
-    inference_table_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayInferenceTableConfigArgs']]]
+    inference_table_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayInferenceTableConfigArgsDict']]]
     """
     Block describing the configuration of usage tracking. Consists of the following attributes:
     """
-    rate_limits: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputAiGatewayRateLimitArgs']]]]]
+    rate_limits: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputAiGatewayRateLimitArgsDict']]]]]
     """
     Block describing rate limits for AI gateway. For details see the description of `rate_limits` block above.
     """
-    usage_tracking_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayUsageTrackingConfigArgs']]]
+    usage_tracking_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayUsageTrackingConfigArgsDict']]]
     """
     Block with configuration for payload logging using inference tables. For details see the description of `auto_capture_config` block above.
     """
@@ -47537,11 +47537,11 @@ class ModelServingProvisionedThroughputAiGatewayFallbackConfigArgs:
 
 
 class ModelServingProvisionedThroughputAiGatewayGuardrailsArgsDict(TypedDict):
-    input: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsInputArgs']]]
+    input: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsInputArgsDict']]]
     """
     A block with configuration for input guardrail filters:
     """
-    output: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsOutputArgs']]]
+    output: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsOutputArgsDict']]]
     """
     A block with configuration for output guardrail filters.  Has the same structure as `input` block.
     """
@@ -47590,7 +47590,7 @@ class ModelServingProvisionedThroughputAiGatewayGuardrailsInputArgsDict(TypedDic
     """
     List of invalid keywords. AI guardrail uses keyword or string matching to decide if the keyword exists in the request or response content.
     """
-    pii: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsInputPiiArgs']]]
+    pii: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsInputPiiArgsDict']]]
     """
     Block with configuration for guardrail PII filter:
     """
@@ -47708,7 +47708,7 @@ class ModelServingProvisionedThroughputAiGatewayGuardrailsOutputArgsDict(TypedDi
     """
     List of invalid keywords. AI guardrail uses keyword or string matching to decide if the keyword exists in the request or response content.
     """
-    pii: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsOutputPiiArgs']]]
+    pii: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputAiGatewayGuardrailsOutputPiiArgsDict']]]
     """
     Block with configuration for guardrail PII filter:
     """
@@ -47999,11 +47999,11 @@ class ModelServingProvisionedThroughputAiGatewayUsageTrackingConfigArgs:
 
 
 class ModelServingProvisionedThroughputConfigArgsDict(TypedDict):
-    served_entities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputConfigServedEntityArgs']]]]]
+    served_entities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputConfigServedEntityArgsDict']]]]]
     """
     A list of served entities for the endpoint to serve.
     """
-    traffic_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputConfigTrafficConfigArgs']]]
+    traffic_config: NotRequired[pulumi.Input[Optional['ModelServingProvisionedThroughputConfigTrafficConfigArgsDict']]]
     """
     A single block represents the traffic split configuration amongst the served models.
     """
@@ -48147,7 +48147,7 @@ class ModelServingProvisionedThroughputConfigServedEntityArgs:
 
 
 class ModelServingProvisionedThroughputConfigTrafficConfigArgsDict(TypedDict):
-    routes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputConfigTrafficConfigRouteArgs']]]]]
+    routes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ModelServingProvisionedThroughputConfigTrafficConfigRouteArgsDict']]]]]
     """
     Each block represents a route that defines traffic to each served entity. Each `served_entity` block needs to have a corresponding `routes` block.
     """
@@ -48975,11 +48975,11 @@ class MwsNccPrivateEndpointRuleGcpEndpointArgs:
 
 
 class MwsNetworkConnectivityConfigEgressConfigArgsDict(TypedDict):
-    default_rules: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesArgs']]]
+    default_rules: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesArgsDict']]]
     """
     block describing network connectivity rules that are applied by default without resource specific configurations.  Consists of the following fields:
     """
-    target_rules: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigTargetRulesArgs']]]
+    target_rules: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigTargetRulesArgsDict']]]
     """
     block describing network connectivity rules that configured for each destinations. These rules override default rules.  Consists of the following fields:
     """
@@ -49024,11 +49024,11 @@ class MwsNetworkConnectivityConfigEgressConfigArgs:
 
 
 class MwsNetworkConnectivityConfigEgressConfigDefaultRulesArgsDict(TypedDict):
-    aws_stable_ip_rule: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesAwsStableIpRuleArgs']]]
+    aws_stable_ip_rule: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesAwsStableIpRuleArgsDict']]]
     """
     (AWS only) - block with information about stable AWS IP CIDR blocks. You can use these to configure the firewall of your resources to allow traffic from your Databricks workspace.  Consists of the following fields:
     """
-    azure_service_endpoint_rule: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesAzureServiceEndpointRuleArgs']]]
+    azure_service_endpoint_rule: NotRequired[pulumi.Input[Optional['MwsNetworkConnectivityConfigEgressConfigDefaultRulesAzureServiceEndpointRuleArgsDict']]]
     """
     (Azure only) - block with information about stable Azure service endpoints. You can configure the firewall of your Azure resources to allow traffic from your Databricks serverless compute resources.  Consists of the following fields:
     """
@@ -49171,11 +49171,11 @@ class MwsNetworkConnectivityConfigEgressConfigDefaultRulesAzureServiceEndpointRu
 
 
 class MwsNetworkConnectivityConfigEgressConfigTargetRulesArgsDict(TypedDict):
-    aws_private_endpoint_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['MwsNetworkConnectivityConfigEgressConfigTargetRulesAwsPrivateEndpointRuleArgs']]]]]
+    aws_private_endpoint_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['MwsNetworkConnectivityConfigEgressConfigTargetRulesAwsPrivateEndpointRuleArgsDict']]]]]
     """
     (AWS only) - list containing information about configure AWS Private Endpoints.
     """
-    azure_private_endpoint_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['MwsNetworkConnectivityConfigEgressConfigTargetRulesAzurePrivateEndpointRuleArgs']]]]]
+    azure_private_endpoint_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['MwsNetworkConnectivityConfigEgressConfigTargetRulesAzurePrivateEndpointRuleArgsDict']]]]]
     """
     (Azure only) - list containing information about configure Azure Private Endpoints.
     """
@@ -50196,23 +50196,23 @@ class NotebookProviderConfigArgs:
 
 
 class NotificationDestinationConfigArgsDict(TypedDict):
-    email: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigEmailArgs']]]
+    email: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigEmailArgsDict']]]
     """
     The email configuration of the Notification Destination. It must contain the following:
     """
-    generic_webhook: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigGenericWebhookArgs']]]
+    generic_webhook: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigGenericWebhookArgsDict']]]
     """
     The Generic Webhook configuration of the Notification Destination. It must contain the following:
     """
-    microsoft_teams: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigMicrosoftTeamsArgs']]]
+    microsoft_teams: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigMicrosoftTeamsArgsDict']]]
     """
     The Microsoft Teams configuration of the Notification Destination. It must contain the following:
     """
-    pagerduty: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigPagerdutyArgs']]]
+    pagerduty: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigPagerdutyArgsDict']]]
     """
     The PagerDuty configuration of the Notification Destination. It must contain the following:
     """
-    slack: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigSlackArgs']]]
+    slack: NotRequired[pulumi.Input[Optional['NotificationDestinationConfigSlackArgsDict']]]
     """
     The Slack configuration of the Notification Destination. It must contain the following:
     """
@@ -50900,11 +50900,11 @@ class OnlineTableSpecArgsDict(TypedDict):
     """
     list of the columns comprising the primary key.
     """
-    run_continuously: NotRequired[pulumi.Input[Optional['OnlineTableSpecRunContinuouslyArgs']]]
+    run_continuously: NotRequired[pulumi.Input[Optional['OnlineTableSpecRunContinuouslyArgsDict']]]
     """
     empty block that specifies that pipeline runs continuously after generating the initial data.  Conflicts with `run_triggered`.
     """
-    run_triggered: NotRequired[pulumi.Input[Optional['OnlineTableSpecRunTriggeredArgs']]]
+    run_triggered: NotRequired[pulumi.Input[Optional['OnlineTableSpecRunTriggeredArgsDict']]]
     """
     empty block that specifies that pipeline stops after generating the initial data and can be triggered later (manually, through a cron job or through data triggers).
     """
@@ -51055,18 +51055,18 @@ class OnlineTableSpecRunTriggeredArgs:
 
 
 class OnlineTableStatusArgsDict(TypedDict):
-    continuous_update_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusContinuousUpdateStatusArgs']]]
+    continuous_update_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusContinuousUpdateStatusArgsDict']]]
     detailed_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The state of the online table.
     """
-    failed_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusFailedStatusArgs']]]
+    failed_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusFailedStatusArgsDict']]]
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     A text description of the current state of the online table.
     """
-    provisioning_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusProvisioningStatusArgs']]]
-    triggered_update_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusTriggeredUpdateStatusArgs']]]
+    provisioning_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusProvisioningStatusArgsDict']]]
+    triggered_update_status: NotRequired[pulumi.Input[Optional['OnlineTableStatusTriggeredUpdateStatusArgsDict']]]
 
 @pulumi.input_type
 class OnlineTableStatusArgs:
@@ -51156,7 +51156,7 @@ class OnlineTableStatusArgs:
 
 
 class OnlineTableStatusContinuousUpdateStatusArgsDict(TypedDict):
-    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusContinuousUpdateStatusInitialPipelineSyncProgressArgs']]]
+    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusContinuousUpdateStatusInitialPipelineSyncProgressArgsDict']]]
     last_processed_commit_version: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     timestamp: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -51307,7 +51307,7 @@ class OnlineTableStatusFailedStatusArgs:
 
 
 class OnlineTableStatusProvisioningStatusArgsDict(TypedDict):
-    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusProvisioningStatusInitialPipelineSyncProgressArgs']]]
+    initial_pipeline_sync_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusProvisioningStatusInitialPipelineSyncProgressArgsDict']]]
 
 @pulumi.input_type
 class OnlineTableStatusProvisioningStatusArgs:
@@ -51401,7 +51401,7 @@ class OnlineTableStatusProvisioningStatusInitialPipelineSyncProgressArgs:
 class OnlineTableStatusTriggeredUpdateStatusArgsDict(TypedDict):
     last_processed_commit_version: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     timestamp: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    triggered_update_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusTriggeredUpdateStatusTriggeredUpdateProgressArgs']]]
+    triggered_update_progress: NotRequired[pulumi.Input[Optional['OnlineTableStatusTriggeredUpdateStatusTriggeredUpdateProgressArgsDict']]]
 
 @pulumi.input_type
 class OnlineTableStatusTriggeredUpdateStatusArgs:
@@ -51671,16 +51671,16 @@ class PermissionsProviderConfigArgs:
 
 class PipelineClusterArgsDict(TypedDict):
     apply_policy_default_values: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    autoscale: NotRequired[pulumi.Input[Optional['PipelineClusterAutoscaleArgs']]]
-    aws_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterAwsAttributesArgs']]]
-    azure_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterAzureAttributesArgs']]]
-    cluster_log_conf: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfArgs']]]
+    autoscale: NotRequired[pulumi.Input[Optional['PipelineClusterAutoscaleArgsDict']]]
+    aws_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterAwsAttributesArgsDict']]]
+    azure_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterAzureAttributesArgsDict']]]
+    cluster_log_conf: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfArgsDict']]]
     custom_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     driver_instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     driver_node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     enable_local_disk_encryption: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    gcp_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterGcpAttributesArgs']]]
-    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineClusterInitScriptArgs']]]]]
+    gcp_attributes: NotRequired[pulumi.Input[Optional['PipelineClusterGcpAttributesArgsDict']]]
+    init_scripts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineClusterInitScriptArgsDict']]]]]
     instance_pool_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     node_type_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -52107,7 +52107,7 @@ class PipelineClusterAwsAttributesArgs:
 class PipelineClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
-    log_analytics_info: NotRequired[pulumi.Input[Optional['PipelineClusterAzureAttributesLogAnalyticsInfoArgs']]]
+    log_analytics_info: NotRequired[pulumi.Input[Optional['PipelineClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
 
 @pulumi.input_type
@@ -52197,9 +52197,9 @@ class PipelineClusterAzureAttributesLogAnalyticsInfoArgs:
 
 
 class PipelineClusterClusterLogConfArgsDict(TypedDict):
-    dbfs: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfDbfsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfVolumesArgs']]]
+    dbfs: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfDbfsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['PipelineClusterClusterLogConfVolumesArgsDict']]]
 
 @pulumi.input_type
 class PipelineClusterClusterLogConfArgs:
@@ -52463,16 +52463,16 @@ class PipelineClusterGcpAttributesArgs:
 
 
 class PipelineClusterInitScriptArgsDict(TypedDict):
-    abfss: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptAbfssArgs']]]
-    dbfs: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptDbfsArgs']]]
-    file: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptFileArgs']]]
+    abfss: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptAbfssArgsDict']]]
+    dbfs: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptDbfsArgsDict']]]
+    file: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptFileArgsDict']]]
     """
     specifies path to a file in Databricks Workspace to include as source. Actual path is specified as `path` attribute inside the block.
     """
-    gcs: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptGcsArgs']]]
-    s3: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptS3Args']]]
-    volumes: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptVolumesArgs']]]
-    workspace: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptWorkspaceArgs']]]
+    gcs: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptGcsArgsDict']]]
+    s3: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptS3ArgsDict']]]
+    volumes: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptVolumesArgsDict']]]
+    workspace: NotRequired[pulumi.Input[Optional['PipelineClusterInitScriptWorkspaceArgsDict']]]
 
 @pulumi.input_type
 class PipelineClusterInitScriptArgs:
@@ -53068,7 +53068,7 @@ class PipelineGatewayDefinitionArgsDict(TypedDict):
     """
     Deprecated, Immutable. The Unity Catalog connection this gateway pipeline uses to communicate with the source. *Use `connection_name` instead!*
     """
-    connection_parameters: NotRequired[pulumi.Input[Optional['PipelineGatewayDefinitionConnectionParametersArgs']]]
+    connection_parameters: NotRequired[pulumi.Input[Optional['PipelineGatewayDefinitionConnectionParametersArgsDict']]]
     gateway_storage_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Required. The Unity Catalog-compatible naming for the gateway storage location. This is the destination to use for the data that is extracted by the gateway. Lakeflow Declarative Pipelines system will automatically create the storage location under the catalog and schema.
@@ -53193,15 +53193,15 @@ class PipelineGatewayDefinitionConnectionParametersArgs:
 class PipelineIngestionDefinitionArgsDict(TypedDict):
     connection_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     connector_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    data_staging_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionDataStagingOptionsArgs']]]
-    full_refresh_window: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionFullRefreshWindowArgs']]]
+    data_staging_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionDataStagingOptionsArgsDict']]]
+    full_refresh_window: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionFullRefreshWindowArgsDict']]]
     ingest_from_uc_foreign_catalog: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     ingestion_gateway_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     netsuite_jar_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    objects: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectArgs']]]]]
-    source_configurations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionSourceConfigurationArgs']]]]]
+    objects: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectArgsDict']]]]]
+    source_configurations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionSourceConfigurationArgsDict']]]]]
     source_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationArgs']]]
+    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionArgs:
@@ -53430,12 +53430,12 @@ class PipelineIngestionDefinitionFullRefreshWindowArgs:
 
 
 class PipelineIngestionDefinitionObjectArgsDict(TypedDict):
-    report: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportArgs']]]
-    schema: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaArgs']]]
+    report: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportArgsDict']]]
+    schema: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaArgsDict']]]
     """
     The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
     """
-    table: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableArgs']]]
+    table: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectArgs:
@@ -53489,7 +53489,7 @@ class PipelineIngestionDefinitionObjectReportArgsDict(TypedDict):
     destination_schema: pulumi.Input[_builtins.str]
     source_url: pulumi.Input[_builtins.str]
     destination_table: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationArgs']]]
+    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectReportArgs:
@@ -53554,16 +53554,16 @@ class PipelineIngestionDefinitionObjectReportArgs:
 
 
 class PipelineIngestionDefinitionObjectReportTableConfigurationArgsDict(TypedDict):
-    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationAutoFullRefreshPolicyArgs']]]
+    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationAutoFullRefreshPolicyArgsDict']]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationQueryBasedConnectorConfigArgs']]]
+    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationQueryBasedConnectorConfigArgsDict']]]
     row_filter: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgs']]]
+    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
@@ -53771,7 +53771,7 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationQueryBasedConnect
 class PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgsDict(TypedDict):
     incremental: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersReportParameterArgs']]]]]
+    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersReportParameterArgsDict']]]]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgs:
@@ -53851,9 +53851,9 @@ class PipelineIngestionDefinitionObjectSchemaArgsDict(TypedDict):
     destination_catalog: pulumi.Input[_builtins.str]
     destination_schema: pulumi.Input[_builtins.str]
     source_schema: pulumi.Input[_builtins.str]
-    connector_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgs']]]
+    connector_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgsDict']]]
     source_catalog: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs']]]
+    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectSchemaArgs:
@@ -53930,16 +53930,16 @@ class PipelineIngestionDefinitionObjectSchemaArgs:
 
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgsDict(TypedDict):
-    confluence_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptionsArgs']]]
-    gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgs']]]
-    google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptionsArgs']]]
-    jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgs']]]
-    meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgs']]]
-    outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgs']]]
-    sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsArgs']]]
-    smartsheet_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptionsArgs']]]
-    tiktok_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptionsArgs']]]
-    zendesk_support_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptionsArgs']]]
+    confluence_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptionsArgsDict']]]
+    gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgsDict']]]
+    google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptionsArgsDict']]]
+    jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgsDict']]]
+    meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgsDict']]]
+    outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgsDict']]]
+    sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsArgsDict']]]
+    smartsheet_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptionsArgsDict']]]
+    tiktok_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptionsArgsDict']]]
+    zendesk_support_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptionsArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgs:
@@ -54088,7 +54088,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptionsAr
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgsDict(TypedDict):
     entity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsArgs']]]
+    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsArgsDict']]]
     url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     URL of the Lakeflow Declarative Pipeline on the given workspace.
@@ -54143,7 +54143,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgs:
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsArgsDict(TypedDict):
     corrupt_record_column: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilterArgs']]]]]
+    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilterArgsDict']]]]]
     format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     format_options: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     ignore_corrupt_files: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -54652,7 +54652,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgs:
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsArgsDict(TypedDict):
     entity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsArgs']]]
+    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsArgsDict']]]
     url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     URL of the Lakeflow Declarative Pipeline on the given workspace.
@@ -54707,7 +54707,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsAr
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsArgsDict(TypedDict):
     corrupt_record_column: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilterArgs']]]]]
+    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilterArgsDict']]]]]
     format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     format_options: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     ignore_corrupt_files: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -55040,16 +55040,16 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptio
 
 
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgsDict(TypedDict):
-    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicyArgs']]]
+    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicyArgsDict']]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationQueryBasedConnectorConfigArgs']]]
+    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationQueryBasedConnectorConfigArgsDict']]]
     row_filter: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgs']]]
+    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
@@ -55257,7 +55257,7 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationQueryBasedConnect
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgsDict(TypedDict):
     incremental: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersReportParameterArgs']]]]]
+    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersReportParameterArgsDict']]]]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgs:
@@ -55337,11 +55337,11 @@ class PipelineIngestionDefinitionObjectTableArgsDict(TypedDict):
     destination_catalog: pulumi.Input[_builtins.str]
     destination_schema: pulumi.Input[_builtins.str]
     source_table: pulumi.Input[_builtins.str]
-    connector_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsArgs']]]
+    connector_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsArgsDict']]]
     destination_table: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_catalog: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationArgs']]]
+    table_configuration: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectTableArgs:
@@ -55442,16 +55442,16 @@ class PipelineIngestionDefinitionObjectTableArgs:
 
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsArgsDict(TypedDict):
-    confluence_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptionsArgs']]]
-    gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgs']]]
-    google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptionsArgs']]]
-    jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgs']]]
-    meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgs']]]
-    outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgs']]]
-    sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArgs']]]
-    smartsheet_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptionsArgs']]]
-    tiktok_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptionsArgs']]]
-    zendesk_support_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptionsArgs']]]
+    confluence_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptionsArgsDict']]]
+    gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgsDict']]]
+    google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptionsArgsDict']]]
+    jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgsDict']]]
+    meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgsDict']]]
+    outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgsDict']]]
+    sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArgsDict']]]
+    smartsheet_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptionsArgsDict']]]
+    tiktok_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptionsArgsDict']]]
+    zendesk_support_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptionsArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectTableConnectorOptionsArgs:
@@ -55600,7 +55600,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptionsArg
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgsDict(TypedDict):
     entity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsArgs']]]
+    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsArgsDict']]]
     url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     URL of the Lakeflow Declarative Pipeline on the given workspace.
@@ -55655,7 +55655,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgs:
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsArgsDict(TypedDict):
     corrupt_record_column: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilterArgs']]]]]
+    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilterArgsDict']]]]]
     format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     format_options: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     ignore_corrupt_files: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -56164,7 +56164,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgs:
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArgsDict(TypedDict):
     entity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsArgs']]]
+    file_ingestion_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsArgsDict']]]
     url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     URL of the Lakeflow Declarative Pipeline on the given workspace.
@@ -56219,7 +56219,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArg
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsArgsDict(TypedDict):
     corrupt_record_column: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilterArgs']]]]]
+    file_filters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilterArgsDict']]]]]
     format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     format_options: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     ignore_corrupt_files: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -56552,16 +56552,16 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOption
 
 
 class PipelineIngestionDefinitionObjectTableTableConfigurationArgsDict(TypedDict):
-    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicyArgs']]]
+    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicyArgsDict']]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationQueryBasedConnectorConfigArgs']]]
+    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationQueryBasedConnectorConfigArgsDict']]]
     row_filter: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgs']]]
+    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
@@ -56769,7 +56769,7 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationQueryBasedConnecto
 class PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgsDict(TypedDict):
     incremental: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersReportParameterArgs']]]]]
+    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersReportParameterArgsDict']]]]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgs:
@@ -56846,11 +56846,11 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParam
 
 
 class PipelineIngestionDefinitionSourceConfigurationArgsDict(TypedDict):
-    catalog: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogArgs']]]
+    catalog: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogArgsDict']]]
     """
     The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
     """
-    google_ads_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfigArgs']]]
+    google_ads_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfigArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionSourceConfigurationArgs:
@@ -56888,7 +56888,7 @@ class PipelineIngestionDefinitionSourceConfigurationArgs:
 
 
 class PipelineIngestionDefinitionSourceConfigurationCatalogArgsDict(TypedDict):
-    postgres: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogPostgresArgs']]]
+    postgres: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogPostgresArgsDict']]]
     source_catalog: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
@@ -56921,7 +56921,7 @@ class PipelineIngestionDefinitionSourceConfigurationCatalogArgs:
 
 
 class PipelineIngestionDefinitionSourceConfigurationCatalogPostgresArgsDict(TypedDict):
-    slot_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogPostgresSlotConfigArgs']]]
+    slot_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionSourceConfigurationCatalogPostgresSlotConfigArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionSourceConfigurationCatalogPostgresArgs:
@@ -56994,16 +56994,16 @@ class PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfigArgs:
 
 
 class PipelineIngestionDefinitionTableConfigurationArgsDict(TypedDict):
-    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicyArgs']]]
+    auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicyArgsDict']]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationQueryBasedConnectorConfigArgs']]]
+    query_based_connector_config: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationQueryBasedConnectorConfigArgsDict']]]
     row_filter: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgs']]]
+    workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionTableConfigurationArgs:
@@ -57211,7 +57211,7 @@ class PipelineIngestionDefinitionTableConfigurationQueryBasedConnectorConfigArgs
 class PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgsDict(TypedDict):
     incremental: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
-    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersReportParameterArgs']]]]]
+    report_parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersReportParameterArgsDict']]]]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgs:
@@ -57334,17 +57334,17 @@ class PipelineLatestUpdateArgs:
 
 
 class PipelineLibraryArgsDict(TypedDict):
-    file: NotRequired[pulumi.Input[Optional['PipelineLibraryFileArgs']]]
+    file: NotRequired[pulumi.Input[Optional['PipelineLibraryFileArgsDict']]]
     """
     specifies path to a file in Databricks Workspace to include as source. Actual path is specified as `path` attribute inside the block.
     """
-    glob: NotRequired[pulumi.Input[Optional['PipelineLibraryGlobArgs']]]
+    glob: NotRequired[pulumi.Input[Optional['PipelineLibraryGlobArgsDict']]]
     """
     The unified field to include source code. Each entry should have the `include` attribute that can specify a notebook path, a file path, or a folder path that ends `/**` (to include everything from that folder). This field cannot be used together with `notebook` or `file`.
     """
     jar: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    maven: NotRequired[pulumi.Input[Optional['PipelineLibraryMavenArgs']]]
-    notebook: NotRequired[pulumi.Input[Optional['PipelineLibraryNotebookArgs']]]
+    maven: NotRequired[pulumi.Input[Optional['PipelineLibraryMavenArgsDict']]]
+    notebook: NotRequired[pulumi.Input[Optional['PipelineLibraryNotebookArgsDict']]]
     """
     specifies path to a Databricks Notebook to include as source. Actual path is specified as `path` attribute inside the block.
     """
@@ -57765,8 +57765,8 @@ class PipelineRunAsArgs:
 
 
 class PipelineTriggerArgsDict(TypedDict):
-    cron: NotRequired[pulumi.Input[Optional['PipelineTriggerCronArgs']]]
-    manual: NotRequired[pulumi.Input[Optional['PipelineTriggerManualArgs']]]
+    cron: NotRequired[pulumi.Input[Optional['PipelineTriggerCronArgsDict']]]
+    manual: NotRequired[pulumi.Input[Optional['PipelineTriggerManualArgsDict']]]
 
 @pulumi.input_type
 class PipelineTriggerArgs:
@@ -57847,7 +57847,7 @@ class PolicyInfoColumnMaskArgsDict(TypedDict):
     The values of the column is passed to the column mask function as the first argument.
     Required on create and update
     """
-    usings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PolicyInfoColumnMaskUsingArgs']]]]]
+    usings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PolicyInfoColumnMaskUsingArgsDict']]]]]
 
 @pulumi.input_type
 class PolicyInfoColumnMaskArgs:
@@ -58013,7 +58013,7 @@ class PolicyInfoProviderConfigArgs:
 
 class PolicyInfoRowFilterArgsDict(TypedDict):
     function_name: pulumi.Input[_builtins.str]
-    usings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PolicyInfoRowFilterUsingArgs']]]]]
+    usings: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PolicyInfoRowFilterUsingArgsDict']]]]]
 
 @pulumi.input_type
 class PolicyInfoRowFilterArgs:
@@ -58902,7 +58902,7 @@ class PostgresEndpointSpecArgsDict(TypedDict):
     A disabled compute endpoint cannot be enabled by a connection or
     console action
     """
-    group: NotRequired[pulumi.Input[Optional['PostgresEndpointSpecGroupArgs']]]
+    group: NotRequired[pulumi.Input[Optional['PostgresEndpointSpecGroupArgsDict']]]
     """
     (EndpointGroupStatus) - Details on the HA configuration of the endpoint
     """
@@ -58912,7 +58912,7 @@ class PostgresEndpointSpecArgsDict(TypedDict):
     Should be set to true when provided.
     Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.suspension` in the update_mask
     """
-    settings: NotRequired[pulumi.Input[Optional['PostgresEndpointSpecSettingsArgs']]]
+    settings: NotRequired[pulumi.Input[Optional['PostgresEndpointSpecSettingsArgsDict']]]
     """
     (EndpointSettings)
     """
@@ -59183,11 +59183,11 @@ class PostgresEndpointStatusArgsDict(TypedDict):
     """
     (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
     """
-    group: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusGroupArgs']]]
+    group: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusGroupArgsDict']]]
     """
     (EndpointGroupStatus) - Details on the HA configuration of the endpoint
     """
-    hosts: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusHostsArgs']]]
+    hosts: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusHostsArgsDict']]]
     """
     (EndpointHosts) - Contains host information for connecting to the endpoint
     """
@@ -59195,7 +59195,7 @@ class PostgresEndpointStatusArgsDict(TypedDict):
     """
     (string) - Possible values are: `ACTIVE`, `DEGRADED`, `IDLE`, `INIT`
     """
-    settings: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusSettingsArgs']]]
+    settings: NotRequired[pulumi.Input[Optional['PostgresEndpointStatusSettingsArgsDict']]]
     """
     (EndpointSettings)
     """
@@ -59543,7 +59543,7 @@ class PostgresEndpointStatusSettingsArgs:
 
 
 class PostgresProjectInitialEndpointSpecArgsDict(TypedDict):
-    group: NotRequired[pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgs']]]
+    group: NotRequired[pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgsDict']]]
     """
     Settings for HA configuration of the endpoint
     """
@@ -59684,7 +59684,7 @@ class PostgresProjectSpecArgsDict(TypedDict):
     """
     (string) - The budget policy that is applied to the project
     """
-    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectSpecCustomTagArgs']]]]]
+    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectSpecCustomTagArgsDict']]]]]
     """
     (list of ProjectCustomTag) - The effective custom tags associated with the project
     """
@@ -59692,7 +59692,7 @@ class PostgresProjectSpecArgsDict(TypedDict):
     """
     (string) - The full resource path of the default branch of the project
     """
-    default_endpoint_settings: NotRequired[pulumi.Input[Optional['PostgresProjectSpecDefaultEndpointSettingsArgs']]]
+    default_endpoint_settings: NotRequired[pulumi.Input[Optional['PostgresProjectSpecDefaultEndpointSettingsArgsDict']]]
     """
     (ProjectDefaultEndpointSettings) - The effective default endpoint settings
     """
@@ -60027,7 +60027,7 @@ class PostgresProjectStatusArgsDict(TypedDict):
     """
     (string) - The budget policy that is applied to the project
     """
-    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectStatusCustomTagArgs']]]]]
+    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectStatusCustomTagArgsDict']]]]]
     """
     (list of ProjectCustomTag) - The effective custom tags associated with the project
     """
@@ -60035,7 +60035,7 @@ class PostgresProjectStatusArgsDict(TypedDict):
     """
     (string) - The full resource path of the default branch of the project
     """
-    default_endpoint_settings: NotRequired[pulumi.Input[Optional['PostgresProjectStatusDefaultEndpointSettingsArgs']]]
+    default_endpoint_settings: NotRequired[pulumi.Input[Optional['PostgresProjectStatusDefaultEndpointSettingsArgsDict']]]
     """
     (ProjectDefaultEndpointSettings) - The effective default endpoint settings
     """
@@ -60473,7 +60473,7 @@ class PostgresRoleProviderConfigArgs:
 
 
 class PostgresRoleSpecArgsDict(TypedDict):
-    attributes: NotRequired[pulumi.Input[Optional['PostgresRoleSpecAttributesArgs']]]
+    attributes: NotRequired[pulumi.Input[Optional['PostgresRoleSpecAttributesArgsDict']]]
     auth_method: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     membership_roles: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -60591,7 +60591,7 @@ class PostgresRoleSpecAttributesArgs:
 
 
 class PostgresRoleStatusArgsDict(TypedDict):
-    attributes: NotRequired[pulumi.Input[Optional['PostgresRoleStatusAttributesArgs']]]
+    attributes: NotRequired[pulumi.Input[Optional['PostgresRoleStatusAttributesArgsDict']]]
     auth_method: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     membership_roles: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -60802,7 +60802,7 @@ class PostgresSyncedTableSpecArgsDict(TypedDict):
 
     The pipeline used for the synced table is returned via the top level pipeline_id attribute
     """
-    new_pipeline_spec: NotRequired[pulumi.Input[Optional['PostgresSyncedTableSpecNewPipelineSpecArgs']]]
+    new_pipeline_spec: NotRequired[pulumi.Input[Optional['PostgresSyncedTableSpecNewPipelineSpecArgsDict']]]
     """
     Specification for creating a new pipeline.
     At most one of existing_pipeline_id and new_pipeline_spec should be defined.
@@ -61119,7 +61119,7 @@ class PostgresSyncedTableStatusArgsDict(TypedDict):
     """
     (integer) - The last source table Delta version that was successfully synced to the synced table
     """
-    last_sync: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusLastSyncArgs']]]
+    last_sync: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusLastSyncArgsDict']]]
     """
     (SyncedTablePosition) - Summary of the last successful synchronization from source to destination
     """
@@ -61132,7 +61132,7 @@ class PostgresSyncedTableStatusArgsDict(TypedDict):
     """
     (string) - A text description of the current state of the synced table
     """
-    ongoing_sync_progress: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusOngoingSyncProgressArgs']]]
+    ongoing_sync_progress: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusOngoingSyncProgressArgsDict']]]
     """
     (SyncedTablePipelineProgress)
     """
@@ -61323,7 +61323,7 @@ class PostgresSyncedTableStatusArgs:
 
 
 class PostgresSyncedTableStatusLastSyncArgsDict(TypedDict):
-    delta_table_sync_info: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusLastSyncDeltaTableSyncInfoArgs']]]
+    delta_table_sync_info: NotRequired[pulumi.Input[Optional['PostgresSyncedTableStatusLastSyncDeltaTableSyncInfoArgsDict']]]
     """
     (DeltaTableSyncInfo)
     """
@@ -61845,11 +61845,11 @@ class QualityMonitorInferenceLogArgs:
 
 
 class QualityMonitorNotificationsArgsDict(TypedDict):
-    on_failure: NotRequired[pulumi.Input[Optional['QualityMonitorNotificationsOnFailureArgs']]]
+    on_failure: NotRequired[pulumi.Input[Optional['QualityMonitorNotificationsOnFailureArgsDict']]]
     """
     who to send notifications to on monitor failure.
     """
-    on_new_classification_tag_detected: NotRequired[pulumi.Input[Optional['QualityMonitorNotificationsOnNewClassificationTagDetectedArgs']]]
+    on_new_classification_tag_detected: NotRequired[pulumi.Input[Optional['QualityMonitorNotificationsOnNewClassificationTagDetectedArgsDict']]]
     """
     Who to send notifications to when new data classification tags are detected.
     """
@@ -62180,9 +62180,9 @@ class QualityMonitorV2ValidityCheckConfigurationArgsDict(TypedDict):
     """
     Can be set by system. Does not need to be user facing
     """
-    percent_null_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationPercentNullValidityCheckArgs']]]
-    range_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationRangeValidityCheckArgs']]]
-    uniqueness_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationUniquenessValidityCheckArgs']]]
+    percent_null_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationPercentNullValidityCheckArgsDict']]]
+    range_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationRangeValidityCheckArgsDict']]]
+    uniqueness_validity_check: NotRequired[pulumi.Input[Optional['QualityMonitorV2ValidityCheckConfigurationUniquenessValidityCheckArgsDict']]]
 
 @pulumi.input_type
 class QualityMonitorV2ValidityCheckConfigurationArgs:
@@ -62356,27 +62356,27 @@ class QueryParameterArgsDict(TypedDict):
     """
     Literal parameter marker that appears between double curly braces in the query text.
     """
-    date_range_value: NotRequired[pulumi.Input[Optional['QueryParameterDateRangeValueArgs']]]
+    date_range_value: NotRequired[pulumi.Input[Optional['QueryParameterDateRangeValueArgsDict']]]
     """
     Date-range query parameter value. Consists of following attributes (Can only specify one of `dynamic_date_range_value` or `date_range_value`):
     """
-    date_value: NotRequired[pulumi.Input[Optional['QueryParameterDateValueArgs']]]
+    date_value: NotRequired[pulumi.Input[Optional['QueryParameterDateValueArgsDict']]]
     """
     Date query parameter value. Consists of following attributes (Can only specify one of `dynamic_date_value` or `date_value`):
     """
-    enum_value: NotRequired[pulumi.Input[Optional['QueryParameterEnumValueArgs']]]
+    enum_value: NotRequired[pulumi.Input[Optional['QueryParameterEnumValueArgsDict']]]
     """
     Dropdown parameter value. Consists of following attributes:
     """
-    numeric_value: NotRequired[pulumi.Input[Optional['QueryParameterNumericValueArgs']]]
+    numeric_value: NotRequired[pulumi.Input[Optional['QueryParameterNumericValueArgsDict']]]
     """
     Numeric parameter value. Consists of following attributes:
     """
-    query_backed_value: NotRequired[pulumi.Input[Optional['QueryParameterQueryBackedValueArgs']]]
+    query_backed_value: NotRequired[pulumi.Input[Optional['QueryParameterQueryBackedValueArgsDict']]]
     """
     Query-based dropdown parameter value. Consists of following attributes:
     """
-    text_value: NotRequired[pulumi.Input[Optional['QueryParameterTextValueArgs']]]
+    text_value: NotRequired[pulumi.Input[Optional['QueryParameterTextValueArgsDict']]]
     """
     Text parameter value. Consists of following attributes:
     """
@@ -62520,7 +62520,7 @@ class QueryParameterArgs:
 
 
 class QueryParameterDateRangeValueArgsDict(TypedDict):
-    date_range_value: NotRequired[pulumi.Input[Optional['QueryParameterDateRangeValueDateRangeValueArgs']]]
+    date_range_value: NotRequired[pulumi.Input[Optional['QueryParameterDateRangeValueDateRangeValueArgsDict']]]
     """
     Manually specified date-time range value.  Consists of the following attributes:
     """
@@ -62729,7 +62729,7 @@ class QueryParameterEnumValueArgsDict(TypedDict):
     """
     List of valid query parameter values, newline delimited.
     """
-    multi_values_options: NotRequired[pulumi.Input[Optional['QueryParameterEnumValueMultiValuesOptionsArgs']]]
+    multi_values_options: NotRequired[pulumi.Input[Optional['QueryParameterEnumValueMultiValuesOptionsArgsDict']]]
     """
     If specified, allows multiple values to be selected for this parameter. Consists of following attributes:
     """
@@ -62895,7 +62895,7 @@ class QueryParameterQueryBackedValueArgsDict(TypedDict):
     """
     ID of the query that provides the parameter values.
     """
-    multi_values_options: NotRequired[pulumi.Input[Optional['QueryParameterQueryBackedValueMultiValuesOptionsArgs']]]
+    multi_values_options: NotRequired[pulumi.Input[Optional['QueryParameterQueryBackedValueMultiValuesOptionsArgsDict']]]
     """
     If specified, allows multiple values to be selected for this parameter. Consists of following attributes:
     """
@@ -64308,7 +64308,7 @@ class ShareObjectArgsDict(TypedDict):
 
     To share only part of a table when you add the table to a share, you can provide partition specifications. This is specified by a number of `partition` blocks. Each entry in `partition` block takes a list of `value` blocks. The field is documented below.
     """
-    partitions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ShareObjectPartitionArgs']]]]]
+    partitions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ShareObjectPartitionArgsDict']]]]]
     """
     Array of partitions for the shared data.
     """
@@ -64599,7 +64599,7 @@ class ShareObjectArgs:
 
 
 class ShareObjectPartitionArgsDict(TypedDict):
-    values: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ShareObjectPartitionValueArgs']]]]]
+    values: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ShareObjectPartitionValueArgsDict']]]]]
     """
     The value of the partition column. When this value is not set, it means null value. When this field is set, field `recipient_property_key` can not be set.
     """
@@ -64981,7 +64981,7 @@ class SqlEndpointChannelArgs:
 
 class SqlEndpointHealthArgsDict(TypedDict):
     details: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    failure_reason: NotRequired[pulumi.Input[Optional['SqlEndpointHealthFailureReasonArgs']]]
+    failure_reason: NotRequired[pulumi.Input[Optional['SqlEndpointHealthFailureReasonArgsDict']]]
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     status: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     summary: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -65186,7 +65186,7 @@ class SqlEndpointProviderConfigArgs:
 
 
 class SqlEndpointTagsArgsDict(TypedDict):
-    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['SqlEndpointTagsCustomTagArgs']]]]]
+    custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['SqlEndpointTagsCustomTagArgsDict']]]]]
 
 @pulumi.input_type
 class SqlEndpointTagsArgs:
@@ -65412,19 +65412,19 @@ class SqlQueryParameterArgsDict(TypedDict):
 
     For `text`, `number`, `date`, `datetime`, `datetimesec` block
     """
-    date: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateArgs']]]
-    date_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateRangeArgs']]]
-    datetime: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeArgs']]]
-    datetime_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeRangeArgs']]]
-    datetimesec: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecArgs']]]
-    datetimesec_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecRangeArgs']]]
-    enum: NotRequired[pulumi.Input[Optional['SqlQueryParameterEnumArgs']]]
-    number: NotRequired[pulumi.Input[Optional['SqlQueryParameterNumberArgs']]]
-    query: NotRequired[pulumi.Input[Optional['SqlQueryParameterQueryArgs']]]
+    date: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateArgsDict']]]
+    date_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateRangeArgsDict']]]
+    datetime: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeArgsDict']]]
+    datetime_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeRangeArgsDict']]]
+    datetimesec: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecArgsDict']]]
+    datetimesec_range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecRangeArgsDict']]]
+    enum: NotRequired[pulumi.Input[Optional['SqlQueryParameterEnumArgsDict']]]
+    number: NotRequired[pulumi.Input[Optional['SqlQueryParameterNumberArgsDict']]]
+    query: NotRequired[pulumi.Input[Optional['SqlQueryParameterQueryArgsDict']]]
     """
     The text of the query to be run.
     """
-    text: NotRequired[pulumi.Input[Optional['SqlQueryParameterTextArgs']]]
+    text: NotRequired[pulumi.Input[Optional['SqlQueryParameterTextArgsDict']]]
     title: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The text displayed in a parameter picking widget.
@@ -65627,7 +65627,7 @@ class SqlQueryParameterDateArgs:
 
 
 class SqlQueryParameterDateRangeArgsDict(TypedDict):
-    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateRangeRangeArgs']]]
+    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDateRangeRangeArgsDict']]]
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The default value for this parameter.
@@ -65728,7 +65728,7 @@ class SqlQueryParameterDatetimeArgs:
 
 
 class SqlQueryParameterDatetimeRangeArgsDict(TypedDict):
-    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeRangeRangeArgs']]]
+    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimeRangeRangeArgsDict']]]
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The default value for this parameter.
@@ -65829,7 +65829,7 @@ class SqlQueryParameterDatetimesecArgs:
 
 
 class SqlQueryParameterDatetimesecRangeArgsDict(TypedDict):
-    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecRangeRangeArgs']]]
+    range: NotRequired[pulumi.Input[Optional['SqlQueryParameterDatetimesecRangeRangeArgsDict']]]
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The default value for this parameter.
@@ -65903,7 +65903,7 @@ class SqlQueryParameterDatetimesecRangeRangeArgs:
 
 class SqlQueryParameterEnumArgsDict(TypedDict):
     options: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
-    multiple: NotRequired[pulumi.Input[Optional['SqlQueryParameterEnumMultipleArgs']]]
+    multiple: NotRequired[pulumi.Input[Optional['SqlQueryParameterEnumMultipleArgsDict']]]
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The default value for this parameter.
@@ -66043,7 +66043,7 @@ class SqlQueryParameterNumberArgs:
 
 class SqlQueryParameterQueryArgsDict(TypedDict):
     query_id: pulumi.Input[_builtins.str]
-    multiple: NotRequired[pulumi.Input[Optional['SqlQueryParameterQueryMultipleArgs']]]
+    multiple: NotRequired[pulumi.Input[Optional['SqlQueryParameterQueryMultipleArgsDict']]]
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The default value for this parameter.
@@ -66211,9 +66211,9 @@ class SqlQueryProviderConfigArgs:
 
 
 class SqlQueryScheduleArgsDict(TypedDict):
-    continuous: NotRequired[pulumi.Input[Optional['SqlQueryScheduleContinuousArgs']]]
-    daily: NotRequired[pulumi.Input[Optional['SqlQueryScheduleDailyArgs']]]
-    weekly: NotRequired[pulumi.Input[Optional['SqlQueryScheduleWeeklyArgs']]]
+    continuous: NotRequired[pulumi.Input[Optional['SqlQueryScheduleContinuousArgsDict']]]
+    daily: NotRequired[pulumi.Input[Optional['SqlQueryScheduleDailyArgsDict']]]
+    weekly: NotRequired[pulumi.Input[Optional['SqlQueryScheduleWeeklyArgsDict']]]
 
 @pulumi.input_type
 class SqlQueryScheduleArgs:
@@ -67879,11 +67879,11 @@ class VectorSearchIndexDeltaSyncIndexSpecArgsDict(TypedDict):
     """
     list of columns to sync. If not specified, all columns are syncronized.
     """
-    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs']]]]]
+    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgsDict']]]]]
     """
     array of objects representing columns that contain the embedding source.  Each entry consists of:
     """
-    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs']]]]]
+    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgsDict']]]]]
     """
     array of objects representing columns that contain the embedding vectors. Each entry consists of:
     """
@@ -68160,11 +68160,11 @@ class VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs:
 
 
 class VectorSearchIndexDirectAccessIndexSpecArgsDict(TypedDict):
-    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs']]]]]
+    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgsDict']]]]]
     """
     array of objects representing columns that contain the embedding source.  Each entry consists of:
     """
-    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs']]]]]
+    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgsDict']]]]]
     """
     array of objects representing columns that contain the embedding vectors. Each entry consists of:
     """
@@ -68689,8 +68689,8 @@ class WorkspaceSettingV2AibiDashboardEmbeddingApprovedDomainsArgs:
 class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    enablement_details: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs']]]
-    maintenance_window: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgs']]]
+    enablement_details: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgsDict']]]
+    maintenance_window: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict']]]
     restart_even_if_no_updates_available: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
 
 @pulumi.input_type
@@ -68828,7 +68828,7 @@ class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs:
 
 
 class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict(TypedDict):
-    week_day_based_schedule: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs']]]
+    week_day_based_schedule: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict']]]
 
 @pulumi.input_type
 class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowArgs:
@@ -68856,7 +68856,7 @@ class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayB
     """
     Possible values are: `EVERY_WEEK`, `FIRST_AND_THIRD_OF_MONTH`, `FIRST_OF_MONTH`, `FOURTH_OF_MONTH`, `SECOND_AND_FOURTH_OF_MONTH`, `SECOND_OF_MONTH`, `THIRD_OF_MONTH`
     """
-    window_start_time: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgs']]]
+    window_start_time: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict']]]
 
 @pulumi.input_type
 class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs:
@@ -69013,8 +69013,8 @@ class WorkspaceSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs:
 class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    enablement_details: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgs']]]
-    maintenance_window: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs']]]
+    enablement_details: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgsDict']]]
+    maintenance_window: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict']]]
     restart_even_if_no_updates_available: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
 
 @pulumi.input_type
@@ -69152,7 +69152,7 @@ class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetail
 
 
 class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgsDict(TypedDict):
-    week_day_based_schedule: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs']]]
+    week_day_based_schedule: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgsDict']]]
 
 @pulumi.input_type
 class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowArgs:
@@ -69180,7 +69180,7 @@ class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindo
     """
     Possible values are: `EVERY_WEEK`, `FIRST_AND_THIRD_OF_MONTH`, `FIRST_OF_MONTH`, `FOURTH_OF_MONTH`, `SECOND_AND_FOURTH_OF_MONTH`, `SECOND_OF_MONTH`, `THIRD_OF_MONTH`
     """
-    window_start_time: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgs']]]
+    window_start_time: NotRequired[pulumi.Input[Optional['WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict']]]
 
 @pulumi.input_type
 class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleArgs:

@@ -363,19 +363,28 @@ class SageHostedProvider(ProviderBase):
         payload = self._build_request_payload(
             messages, model_name, temperature, max_tokens, stream=False,
         )
-        # generate() uses stream=False → backend returns a JSON response with
-        # Content-Length. Large payloads cause "peer closed / server disconnected"
-        # when the backend drops the connection mid-response. Retry up to 3 times
-        # with backoff — same pattern as stream().
-        _MAX_RETRIES = 3
+        # FAIL FAST on cloud overload: 5 retries × max 20s = ~75s total
+        # before giving up on a single file. Per-file failures bubble up to
+        # the principal builder, which catches them and CONTINUES to the
+        # next file. The heal loop later retries any failed files. The
+        # resume logic on re-run also picks up missing files.
+        #
+        # Old behavior: 20 retries × 60s = 20 min/file × parallel × stuck
+        # files = sage blocked for hours doing nothing useful.
+        # Higher retry ceiling for overnight builds: a 5-retry cap was killing
+        # the principal builder mid-feature when qwen3-coder hit a transient
+        # 5xx during scale-up. 15 retries with capped 30s delays still fails
+        # fast on truly-broken backends (~5 min total) but survives multi-minute
+        # cold-start windows on a fresh GPU instance.
+        _MAX_RETRIES = 15
         _last_exc: Exception | None = None
 
         for _attempt in range(_MAX_RETRIES):
             if _attempt > 0:
-                _delay = 5 * (2 ** (_attempt - 1))
+                _delay = min(30, 3 * _attempt)  # 3,6,9,12,15,18,21,24,27,30...
                 import sys as _sys
                 _sys.stderr.write(
-                    f"  ↺ generate() retry {_attempt}/{_MAX_RETRIES - 1}, waiting {_delay}s...\n"
+                    f"  ↺ retry {_attempt}/{_MAX_RETRIES - 1} ({_delay}s)...\n"
                 )
                 _sys.stderr.flush()
                 _time.sleep(_delay)
@@ -429,6 +438,22 @@ class SageHostedProvider(ProviderBase):
                 _last_exc = exc
                 if _attempt < _MAX_RETRIES - 1:
                     continue
+            except RuntimeError as exc:
+                # Backend 5xx errors (overload, transient failures) come through
+                # as RuntimeError from _raise_for_status. Retry these too —
+                # they're typically temporary capacity issues.
+                _exc_msg = str(exc).lower()
+                _retryable = any(s in _exc_msg for s in (
+                    "500", "502", "503", "504",
+                    "internal server error", "bad gateway",
+                    "service unavailable", "gateway timeout",
+                    "overloaded", "rate limit", "timeout",
+                ))
+                if _retryable:
+                    _last_exc = exc
+                    if _attempt < _MAX_RETRIES - 1:
+                        continue
+                raise
 
         raise RuntimeError(
             f"Cloud model generate() failed after {_MAX_RETRIES} attempts. "
@@ -458,20 +483,19 @@ class SageHostedProvider(ProviderBase):
         # Large write timeout handles big request payloads; read=None allows
         # long generation; connect=60s covers cold-start GPU pod boot.
         _stream_timeout = httpx.Timeout(connect=60.0, read=None, write=120.0, pool=10.0)
-        _MAX_STREAM_RETRIES = 3
+        # FAIL FAST on stream errors too — 5 retries × max 20s = ~75s
+        _MAX_STREAM_RETRIES = 5
         _last_exc: Exception | None = None
 
         for _attempt in range(_MAX_STREAM_RETRIES):
             if _attempt > 0:
-                _delay = 5 * (2 ** (_attempt - 1))  # 5s, 10s
+                _delay = min(20, 3 * _attempt)
                 print(
-                    f"\n  [dim]↺ Connection dropped — retrying"
-                    f" ({_attempt}/{_MAX_STREAM_RETRIES - 1}),"
-                    f" waiting {_delay}s...[/dim]",
+                    f"\n  [dim]↺ stream retry {_attempt}/{_MAX_STREAM_RETRIES - 1} ({_delay}s)[/dim]",
                     flush=True,
                 )
                 _time.sleep(_delay)
-                auth = self._auth_or_raise()  # refresh token on retry
+                auth = self._auth_or_raise()
 
             try:
                 yield from self._stream_once(auth, payload, _stream_timeout)

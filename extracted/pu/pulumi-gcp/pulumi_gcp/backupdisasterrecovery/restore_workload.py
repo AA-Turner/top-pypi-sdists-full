@@ -25,15 +25,16 @@ class RestoreWorkloadArgs:
                  backup_vault_id: pulumi.Input[_builtins.str],
                  data_source_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 clear_overrides_field_mask: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_instance_restore_properties: Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']] = None,
-                 compute_instance_target_environment: Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']] = None,
-                 delete_restored_instance: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disk_restore_properties: Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']] = None,
-                 disk_target_environment: Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 region_disk_target_environment: Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']] = None,
-                 request_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 clear_overrides_field_mask: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_instance_restore_properties: pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']] = None,
+                 compute_instance_target_environment: pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']] = None,
+                 delete_restored_instance: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disk_restore_properties: pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']] = None,
+                 disk_target_environment: pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 region_disk_target_environment: pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']] = None,
+                 request_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RestoreWorkload resource.
 
@@ -48,6 +49,12 @@ class RestoreWorkloadArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] delete_restored_instance: Optional. If true (default), running terraform destroy will delete the live resource in GCP.
                If false, only the restore record is removed from the state, leaving the resource active.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs'] disk_restore_properties: Optional. Disk properties to be overridden during restore.
                Structure is documented below.
         :param pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs'] disk_target_environment: Optional. The destination environment for zonal disk restoration.
@@ -74,6 +81,8 @@ class RestoreWorkloadArgs:
             pulumi.set(__self__, "compute_instance_target_environment", compute_instance_target_environment)
         if delete_restored_instance is not None:
             pulumi.set(__self__, "delete_restored_instance", delete_restored_instance)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disk_restore_properties is not None:
             pulumi.set(__self__, "disk_restore_properties", disk_restore_properties)
         if disk_target_environment is not None:
@@ -138,19 +147,19 @@ class RestoreWorkloadArgs:
 
     @_builtins.property
     @pulumi.getter(name="clearOverridesFieldMask")
-    def clear_overrides_field_mask(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def clear_overrides_field_mask(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A field mask used to clear server-side default values during restore.
         """
         return pulumi.get(self, "clear_overrides_field_mask")
 
     @clear_overrides_field_mask.setter
-    def clear_overrides_field_mask(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def clear_overrides_field_mask(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "clear_overrides_field_mask", value)
 
     @_builtins.property
     @pulumi.getter(name="computeInstanceRestoreProperties")
-    def compute_instance_restore_properties(self) -> Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]:
+    def compute_instance_restore_properties(self) -> pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]:
         """
         Optional. Compute Engine instance properties to be overridden during restore.
         Structure is documented below.
@@ -158,12 +167,12 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "compute_instance_restore_properties")
 
     @compute_instance_restore_properties.setter
-    def compute_instance_restore_properties(self, value: Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]):
+    def compute_instance_restore_properties(self, value: pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]):
         pulumi.set(self, "compute_instance_restore_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="computeInstanceTargetEnvironment")
-    def compute_instance_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]:
+    def compute_instance_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for GCE VM restoration.
         Structure is documented below.
@@ -171,12 +180,12 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "compute_instance_target_environment")
 
     @compute_instance_target_environment.setter
-    def compute_instance_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]):
+    def compute_instance_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]):
         pulumi.set(self, "compute_instance_target_environment", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteRestoredInstance")
-    def delete_restored_instance(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def delete_restored_instance(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Optional. If true (default), running terraform destroy will delete the live resource in GCP.
         If false, only the restore record is removed from the state, leaving the resource active.
@@ -184,12 +193,29 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "delete_restored_instance")
 
     @delete_restored_instance.setter
-    def delete_restored_instance(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def delete_restored_instance(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "delete_restored_instance", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="diskRestoreProperties")
-    def disk_restore_properties(self) -> Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']]:
+    def disk_restore_properties(self) -> pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']]:
         """
         Optional. Disk properties to be overridden during restore.
         Structure is documented below.
@@ -197,12 +223,12 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "disk_restore_properties")
 
     @disk_restore_properties.setter
-    def disk_restore_properties(self, value: Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']]):
+    def disk_restore_properties(self, value: pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']]):
         pulumi.set(self, "disk_restore_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="diskTargetEnvironment")
-    def disk_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']]:
+    def disk_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for zonal disk restoration.
         Structure is documented below.
@@ -210,13 +236,13 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "disk_target_environment")
 
     @disk_target_environment.setter
-    def disk_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']]):
+    def disk_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']]):
         pulumi.set(self, "disk_target_environment", value)
 
     @_builtins.property
     @pulumi.getter
     @_utilities.deprecated("""`name` is deprecated and will be removed in a future major release. The backup is identified by the parameters (location, backup_vault_id, data_source_id, backup_id).""")
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Deprecated)
         The resource name of the backup instance.
@@ -226,12 +252,12 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="regionDiskTargetEnvironment")
-    def region_disk_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]:
+    def region_disk_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for regional disk restoration.
         Structure is documented below.
@@ -239,12 +265,12 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "region_disk_target_environment")
 
     @region_disk_target_environment.setter
-    def region_disk_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]):
+    def region_disk_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]):
         pulumi.set(self, "region_disk_target_environment", value)
 
     @_builtins.property
     @pulumi.getter(name="requestId")
-    def request_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def request_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. An optional request ID to identify requests. Specify a unique request ID
         so that if you must retry your request, the server will know to ignore
@@ -253,27 +279,28 @@ class RestoreWorkloadArgs:
         return pulumi.get(self, "request_id")
 
     @request_id.setter
-    def request_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def request_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "request_id", value)
 
 
 @pulumi.input_type
 class _RestoreWorkloadState:
     def __init__(__self__, *,
-                 backup_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_vault_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 clear_overrides_field_mask: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_instance_restore_properties: Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']] = None,
-                 compute_instance_target_environment: Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_restored_instance: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disk_restore_properties: Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']] = None,
-                 disk_target_environment: Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 region_disk_target_environment: Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']] = None,
-                 request_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resources: Optional[pulumi.Input[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]] = None):
+                 backup_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_vault_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 clear_overrides_field_mask: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_instance_restore_properties: pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']] = None,
+                 compute_instance_target_environment: pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_restored_instance: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disk_restore_properties: pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']] = None,
+                 disk_target_environment: pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 region_disk_target_environment: pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']] = None,
+                 request_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resources: pulumi.Input[Optional[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]] = None):
         """
         Input properties used for looking up and filtering RestoreWorkload resources.
 
@@ -287,6 +314,12 @@ class _RestoreWorkloadState:
         :param pulumi.Input[_builtins.str] data_source_id: Required. The ID of the data source.
         :param pulumi.Input[_builtins.bool] delete_restored_instance: Optional. If true (default), running terraform destroy will delete the live resource in GCP.
                If false, only the restore record is removed from the state, leaving the resource active.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs'] disk_restore_properties: Optional. Disk properties to be overridden during restore.
                Structure is documented below.
         :param pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs'] disk_target_environment: Optional. The destination environment for zonal disk restoration.
@@ -318,6 +351,8 @@ class _RestoreWorkloadState:
             pulumi.set(__self__, "data_source_id", data_source_id)
         if delete_restored_instance is not None:
             pulumi.set(__self__, "delete_restored_instance", delete_restored_instance)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disk_restore_properties is not None:
             pulumi.set(__self__, "disk_restore_properties", disk_restore_properties)
         if disk_target_environment is not None:
@@ -338,43 +373,43 @@ class _RestoreWorkloadState:
 
     @_builtins.property
     @pulumi.getter(name="backupId")
-    def backup_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The ID of the backup to restore from.
         """
         return pulumi.get(self, "backup_id")
 
     @backup_id.setter
-    def backup_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_id", value)
 
     @_builtins.property
     @pulumi.getter(name="backupVaultId")
-    def backup_vault_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_vault_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The ID of the backup vault.
         """
         return pulumi.get(self, "backup_vault_id")
 
     @backup_vault_id.setter
-    def backup_vault_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_vault_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_vault_id", value)
 
     @_builtins.property
     @pulumi.getter(name="clearOverridesFieldMask")
-    def clear_overrides_field_mask(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def clear_overrides_field_mask(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A field mask used to clear server-side default values during restore.
         """
         return pulumi.get(self, "clear_overrides_field_mask")
 
     @clear_overrides_field_mask.setter
-    def clear_overrides_field_mask(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def clear_overrides_field_mask(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "clear_overrides_field_mask", value)
 
     @_builtins.property
     @pulumi.getter(name="computeInstanceRestoreProperties")
-    def compute_instance_restore_properties(self) -> Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]:
+    def compute_instance_restore_properties(self) -> pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]:
         """
         Optional. Compute Engine instance properties to be overridden during restore.
         Structure is documented below.
@@ -382,12 +417,12 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "compute_instance_restore_properties")
 
     @compute_instance_restore_properties.setter
-    def compute_instance_restore_properties(self, value: Optional[pulumi.Input['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]):
+    def compute_instance_restore_properties(self, value: pulumi.Input[Optional['RestoreWorkloadComputeInstanceRestorePropertiesArgs']]):
         pulumi.set(self, "compute_instance_restore_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="computeInstanceTargetEnvironment")
-    def compute_instance_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]:
+    def compute_instance_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for GCE VM restoration.
         Structure is documented below.
@@ -395,24 +430,24 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "compute_instance_target_environment")
 
     @compute_instance_target_environment.setter
-    def compute_instance_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]):
+    def compute_instance_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadComputeInstanceTargetEnvironmentArgs']]):
         pulumi.set(self, "compute_instance_target_environment", value)
 
     @_builtins.property
     @pulumi.getter(name="dataSourceId")
-    def data_source_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_source_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The ID of the data source.
         """
         return pulumi.get(self, "data_source_id")
 
     @data_source_id.setter
-    def data_source_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_source_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_source_id", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteRestoredInstance")
-    def delete_restored_instance(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def delete_restored_instance(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Optional. If true (default), running terraform destroy will delete the live resource in GCP.
         If false, only the restore record is removed from the state, leaving the resource active.
@@ -420,12 +455,29 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "delete_restored_instance")
 
     @delete_restored_instance.setter
-    def delete_restored_instance(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def delete_restored_instance(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "delete_restored_instance", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="diskRestoreProperties")
-    def disk_restore_properties(self) -> Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']]:
+    def disk_restore_properties(self) -> pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']]:
         """
         Optional. Disk properties to be overridden during restore.
         Structure is documented below.
@@ -433,12 +485,12 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "disk_restore_properties")
 
     @disk_restore_properties.setter
-    def disk_restore_properties(self, value: Optional[pulumi.Input['RestoreWorkloadDiskRestorePropertiesArgs']]):
+    def disk_restore_properties(self, value: pulumi.Input[Optional['RestoreWorkloadDiskRestorePropertiesArgs']]):
         pulumi.set(self, "disk_restore_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="diskTargetEnvironment")
-    def disk_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']]:
+    def disk_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for zonal disk restoration.
         Structure is documented below.
@@ -446,25 +498,25 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "disk_target_environment")
 
     @disk_target_environment.setter
-    def disk_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadDiskTargetEnvironmentArgs']]):
+    def disk_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadDiskTargetEnvironmentArgs']]):
         pulumi.set(self, "disk_target_environment", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The location for the backup vault.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
     @_utilities.deprecated("""`name` is deprecated and will be removed in a future major release. The backup is identified by the parameters (location, backup_vault_id, data_source_id, backup_id).""")
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Deprecated)
         The resource name of the backup instance.
@@ -474,12 +526,12 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="regionDiskTargetEnvironment")
-    def region_disk_target_environment(self) -> Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]:
+    def region_disk_target_environment(self) -> pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]:
         """
         Optional. The destination environment for regional disk restoration.
         Structure is documented below.
@@ -487,12 +539,12 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "region_disk_target_environment")
 
     @region_disk_target_environment.setter
-    def region_disk_target_environment(self, value: Optional[pulumi.Input['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]):
+    def region_disk_target_environment(self, value: pulumi.Input[Optional['RestoreWorkloadRegionDiskTargetEnvironmentArgs']]):
         pulumi.set(self, "region_disk_target_environment", value)
 
     @_builtins.property
     @pulumi.getter(name="requestId")
-    def request_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def request_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. An optional request ID to identify requests. Specify a unique request ID
         so that if you must retry your request, the server will know to ignore
@@ -501,12 +553,12 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "request_id")
 
     @request_id.setter
-    def request_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def request_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "request_id", value)
 
     @_builtins.property
     @pulumi.getter(name="targetResources")
-    def target_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]]:
+    def target_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]]:
         """
         Output only. Details of the target resource created/modified as part of restore.
         Structure is documented below.
@@ -514,7 +566,7 @@ class _RestoreWorkloadState:
         return pulumi.get(self, "target_resources")
 
     @target_resources.setter
-    def target_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]]):
+    def target_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RestoreWorkloadTargetResourceArgs']]]]):
         pulumi.set(self, "target_resources", value)
 
 
@@ -524,19 +576,20 @@ class RestoreWorkload(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_vault_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 clear_overrides_field_mask: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_instance_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
-                 compute_instance_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_restored_instance: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disk_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
-                 disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 region_disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
-                 request_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 backup_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_vault_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 clear_overrides_field_mask: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_instance_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
+                 compute_instance_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_restored_instance: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disk_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
+                 disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 region_disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
+                 request_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An imperative resource that triggers a GCBDR restoration event.
@@ -760,6 +813,12 @@ class RestoreWorkload(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_source_id: Required. The ID of the data source.
         :param pulumi.Input[_builtins.bool] delete_restored_instance: Optional. If true (default), running terraform destroy will delete the live resource in GCP.
                If false, only the restore record is removed from the state, leaving the resource active.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']] disk_restore_properties: Optional. Disk properties to be overridden during restore.
                Structure is documented below.
         :param pulumi.Input[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']] disk_target_environment: Optional. The destination environment for zonal disk restoration.
@@ -1006,19 +1065,20 @@ class RestoreWorkload(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_vault_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 clear_overrides_field_mask: Optional[pulumi.Input[_builtins.str]] = None,
-                 compute_instance_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
-                 compute_instance_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_restored_instance: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disk_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
-                 disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 region_disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
-                 request_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 backup_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_vault_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 clear_overrides_field_mask: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_instance_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
+                 compute_instance_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_restored_instance: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disk_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
+                 disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 region_disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
+                 request_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1041,6 +1101,7 @@ class RestoreWorkload(pulumi.CustomResource):
                 raise TypeError("Missing required property 'data_source_id'")
             __props__.__dict__["data_source_id"] = data_source_id
             __props__.__dict__["delete_restored_instance"] = delete_restored_instance
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disk_restore_properties"] = disk_restore_properties
             __props__.__dict__["disk_target_environment"] = disk_target_environment
             if location is None and not opts.urn:
@@ -1060,20 +1121,21 @@ class RestoreWorkload(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backup_id: Optional[pulumi.Input[_builtins.str]] = None,
-            backup_vault_id: Optional[pulumi.Input[_builtins.str]] = None,
-            clear_overrides_field_mask: Optional[pulumi.Input[_builtins.str]] = None,
-            compute_instance_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
-            compute_instance_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
-            data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-            delete_restored_instance: Optional[pulumi.Input[_builtins.bool]] = None,
-            disk_restore_properties: Optional[pulumi.Input[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
-            disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            region_disk_target_environment: Optional[pulumi.Input[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
-            request_id: Optional[pulumi.Input[_builtins.str]] = None,
-            target_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RestoreWorkloadTargetResourceArgs', 'RestoreWorkloadTargetResourceArgsDict']]]]] = None) -> 'RestoreWorkload':
+            backup_id: pulumi.Input[Optional[_builtins.str]] = None,
+            backup_vault_id: pulumi.Input[Optional[_builtins.str]] = None,
+            clear_overrides_field_mask: pulumi.Input[Optional[_builtins.str]] = None,
+            compute_instance_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceRestorePropertiesArgs', 'RestoreWorkloadComputeInstanceRestorePropertiesArgsDict']]] = None,
+            compute_instance_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadComputeInstanceTargetEnvironmentArgs', 'RestoreWorkloadComputeInstanceTargetEnvironmentArgsDict']]] = None,
+            data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+            delete_restored_instance: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disk_restore_properties: pulumi.Input[Optional[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']]] = None,
+            disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            region_disk_target_environment: pulumi.Input[Optional[Union['RestoreWorkloadRegionDiskTargetEnvironmentArgs', 'RestoreWorkloadRegionDiskTargetEnvironmentArgsDict']]] = None,
+            request_id: pulumi.Input[Optional[_builtins.str]] = None,
+            target_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RestoreWorkloadTargetResourceArgs', 'RestoreWorkloadTargetResourceArgsDict']]]]] = None) -> 'RestoreWorkload':
         """
         Get an existing RestoreWorkload resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1091,6 +1153,12 @@ class RestoreWorkload(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_source_id: Required. The ID of the data source.
         :param pulumi.Input[_builtins.bool] delete_restored_instance: Optional. If true (default), running terraform destroy will delete the live resource in GCP.
                If false, only the restore record is removed from the state, leaving the resource active.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['RestoreWorkloadDiskRestorePropertiesArgs', 'RestoreWorkloadDiskRestorePropertiesArgsDict']] disk_restore_properties: Optional. Disk properties to be overridden during restore.
                Structure is documented below.
         :param pulumi.Input[Union['RestoreWorkloadDiskTargetEnvironmentArgs', 'RestoreWorkloadDiskTargetEnvironmentArgsDict']] disk_target_environment: Optional. The destination environment for zonal disk restoration.
@@ -1119,6 +1187,7 @@ class RestoreWorkload(pulumi.CustomResource):
         __props__.__dict__["compute_instance_target_environment"] = compute_instance_target_environment
         __props__.__dict__["data_source_id"] = data_source_id
         __props__.__dict__["delete_restored_instance"] = delete_restored_instance
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disk_restore_properties"] = disk_restore_properties
         __props__.__dict__["disk_target_environment"] = disk_target_environment
         __props__.__dict__["location"] = location
@@ -1186,6 +1255,19 @@ class RestoreWorkload(pulumi.CustomResource):
         If false, only the restore record is removed from the state, leaving the resource active.
         """
         return pulumi.get(self, "delete_restored_instance")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="diskRestoreProperties")

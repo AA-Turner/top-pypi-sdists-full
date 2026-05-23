@@ -24,18 +24,19 @@ class DataTransferConfigArgs:
                  data_source_id: pulumi.Input[_builtins.str],
                  display_name: pulumi.Input[_builtins.str],
                  params: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]],
-                 data_refresh_window_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 destination_dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 email_preferences: Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']] = None,
-                 encryption_configuration: Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_options: Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']] = None,
-                 sensitive_params: Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']] = None,
-                 service_account_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 data_refresh_window_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 email_preferences: pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']] = None,
+                 encryption_configuration: pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_options: pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']] = None,
+                 sensitive_params: pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']] = None,
+                 service_account_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DataTransferConfig resource.
 
@@ -50,6 +51,12 @@ class DataTransferConfigArgs:
                reingests data for [today-10, today-1], rather than ingesting data for
                just [today-1]. Only valid if the data source supports the feature.
                Set the value to 0 to use the default value.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination_dataset_id: The BigQuery target dataset id.
         :param pulumi.Input[_builtins.bool] disabled: When set to true, no runs are scheduled for a given transfer.
         :param pulumi.Input['DataTransferConfigEmailPreferencesArgs'] email_preferences: Email notifications will be sent according to these preferences to the
@@ -90,6 +97,8 @@ class DataTransferConfigArgs:
         pulumi.set(__self__, "params", params)
         if data_refresh_window_days is not None:
             pulumi.set(__self__, "data_refresh_window_days", data_refresh_window_days)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if destination_dataset_id is not None:
             pulumi.set(__self__, "destination_dataset_id", destination_dataset_id)
         if disabled is not None:
@@ -154,7 +163,7 @@ class DataTransferConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="dataRefreshWindowDays")
-    def data_refresh_window_days(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def data_refresh_window_days(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of days to look back to automatically refresh the data.
         For example, if dataRefreshWindowDays = 10, then every day BigQuery
@@ -165,36 +174,53 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "data_refresh_window_days")
 
     @data_refresh_window_days.setter
-    def data_refresh_window_days(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def data_refresh_window_days(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "data_refresh_window_days", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="destinationDatasetId")
-    def destination_dataset_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination_dataset_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The BigQuery target dataset id.
         """
         return pulumi.get(self, "destination_dataset_id")
 
     @destination_dataset_id.setter
-    def destination_dataset_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination_dataset_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination_dataset_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         When set to true, no runs are scheduled for a given transfer.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="emailPreferences")
-    def email_preferences(self) -> Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']]:
+    def email_preferences(self) -> pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']]:
         """
         Email notifications will be sent according to these preferences to the
         email address of the user who owns this transfer config.
@@ -203,12 +229,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "email_preferences")
 
     @email_preferences.setter
-    def email_preferences(self, value: Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']]):
+    def email_preferences(self, value: pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']]):
         pulumi.set(self, "email_preferences", value)
 
     @_builtins.property
     @pulumi.getter(name="encryptionConfiguration")
-    def encryption_configuration(self) -> Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']]:
+    def encryption_configuration(self) -> pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']]:
         """
         Represents the encryption configuration for a transfer.
         Structure is documented below.
@@ -216,12 +242,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "encryption_configuration")
 
     @encryption_configuration.setter
-    def encryption_configuration(self, value: Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']]):
+    def encryption_configuration(self, value: pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']]):
         pulumi.set(self, "encryption_configuration", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the transfer config should reside.
         Examples: US, EU, asia-northeast1. The default value is US.
@@ -229,12 +255,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="notificationPubsubTopic")
-    def notification_pubsub_topic(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notification_pubsub_topic(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Pub/Sub topic where notifications will be sent after transfer runs
         associated with this transfer config finish.
@@ -242,12 +268,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "notification_pubsub_topic")
 
     @notification_pubsub_topic.setter
-    def notification_pubsub_topic(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notification_pubsub_topic(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notification_pubsub_topic", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -255,12 +281,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def schedule(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def schedule(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Data transfer schedule. If the data source does not support a custom
         schedule, this should be empty. If it is empty, the default value for
@@ -275,12 +301,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "schedule")
 
     @schedule.setter
-    def schedule(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def schedule(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "schedule", value)
 
     @_builtins.property
     @pulumi.getter(name="scheduleOptions")
-    def schedule_options(self) -> Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']]:
+    def schedule_options(self) -> pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']]:
         """
         Options customizing the data transfer schedule.
         Structure is documented below.
@@ -288,12 +314,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "schedule_options")
 
     @schedule_options.setter
-    def schedule_options(self, value: Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']]):
+    def schedule_options(self, value: pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']]):
         pulumi.set(self, "schedule_options", value)
 
     @_builtins.property
     @pulumi.getter(name="sensitiveParams")
-    def sensitive_params(self) -> Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']]:
+    def sensitive_params(self) -> pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']]:
         """
         Different parameters are configured primarily using the the `params` field on this
         resource. This block contains the parameters which contain secrets or passwords so that they can be marked
@@ -306,12 +332,12 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "sensitive_params")
 
     @sensitive_params.setter
-    def sensitive_params(self, value: Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']]):
+    def sensitive_params(self, value: pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']]):
         pulumi.set(self, "sensitive_params", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccountName")
-    def service_account_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Service account email. If this field is set, transfer config will
         be created with this service account credentials. It requires that
@@ -320,29 +346,30 @@ class DataTransferConfigArgs:
         return pulumi.get(self, "service_account_name")
 
     @service_account_name.setter
-    def service_account_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account_name", value)
 
 
 @pulumi.input_type
 class _DataTransferConfigState:
     def __init__(__self__, *,
-                 data_refresh_window_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 email_preferences: Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']] = None,
-                 encryption_configuration: Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_options: Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']] = None,
-                 sensitive_params: Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']] = None,
-                 service_account_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 data_refresh_window_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 email_preferences: pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']] = None,
+                 encryption_configuration: pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_options: pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']] = None,
+                 sensitive_params: pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']] = None,
+                 service_account_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DataTransferConfig resources.
 
@@ -352,6 +379,12 @@ class _DataTransferConfigState:
                just [today-1]. Only valid if the data source supports the feature.
                Set the value to 0 to use the default value.
         :param pulumi.Input[_builtins.str] data_source_id: The data source id. Cannot be changed once the transfer config is created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination_dataset_id: The BigQuery target dataset id.
         :param pulumi.Input[_builtins.bool] disabled: When set to true, no runs are scheduled for a given transfer.
         :param pulumi.Input[_builtins.str] display_name: The user specified display name for the transfer config.
@@ -401,6 +434,8 @@ class _DataTransferConfigState:
             pulumi.set(__self__, "data_refresh_window_days", data_refresh_window_days)
         if data_source_id is not None:
             pulumi.set(__self__, "data_source_id", data_source_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if destination_dataset_id is not None:
             pulumi.set(__self__, "destination_dataset_id", destination_dataset_id)
         if disabled is not None:
@@ -432,7 +467,7 @@ class _DataTransferConfigState:
 
     @_builtins.property
     @pulumi.getter(name="dataRefreshWindowDays")
-    def data_refresh_window_days(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def data_refresh_window_days(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of days to look back to automatically refresh the data.
         For example, if dataRefreshWindowDays = 10, then every day BigQuery
@@ -443,60 +478,77 @@ class _DataTransferConfigState:
         return pulumi.get(self, "data_refresh_window_days")
 
     @data_refresh_window_days.setter
-    def data_refresh_window_days(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def data_refresh_window_days(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "data_refresh_window_days", value)
 
     @_builtins.property
     @pulumi.getter(name="dataSourceId")
-    def data_source_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_source_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The data source id. Cannot be changed once the transfer config is created.
         """
         return pulumi.get(self, "data_source_id")
 
     @data_source_id.setter
-    def data_source_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_source_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_source_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="destinationDatasetId")
-    def destination_dataset_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination_dataset_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The BigQuery target dataset id.
         """
         return pulumi.get(self, "destination_dataset_id")
 
     @destination_dataset_id.setter
-    def destination_dataset_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination_dataset_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination_dataset_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         When set to true, no runs are scheduled for a given transfer.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user specified display name for the transfer config.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="emailPreferences")
-    def email_preferences(self) -> Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']]:
+    def email_preferences(self) -> pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']]:
         """
         Email notifications will be sent according to these preferences to the
         email address of the user who owns this transfer config.
@@ -505,12 +557,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "email_preferences")
 
     @email_preferences.setter
-    def email_preferences(self, value: Optional[pulumi.Input['DataTransferConfigEmailPreferencesArgs']]):
+    def email_preferences(self, value: pulumi.Input[Optional['DataTransferConfigEmailPreferencesArgs']]):
         pulumi.set(self, "email_preferences", value)
 
     @_builtins.property
     @pulumi.getter(name="encryptionConfiguration")
-    def encryption_configuration(self) -> Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']]:
+    def encryption_configuration(self) -> pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']]:
         """
         Represents the encryption configuration for a transfer.
         Structure is documented below.
@@ -518,12 +570,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "encryption_configuration")
 
     @encryption_configuration.setter
-    def encryption_configuration(self, value: Optional[pulumi.Input['DataTransferConfigEncryptionConfigurationArgs']]):
+    def encryption_configuration(self, value: pulumi.Input[Optional['DataTransferConfigEncryptionConfigurationArgs']]):
         pulumi.set(self, "encryption_configuration", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the transfer config should reside.
         Examples: US, EU, asia-northeast1. The default value is US.
@@ -531,12 +583,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the transfer config. Transfer config names have the
         form projects/{projectId}/locations/{location}/transferConfigs/{configId}
@@ -547,12 +599,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="notificationPubsubTopic")
-    def notification_pubsub_topic(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notification_pubsub_topic(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Pub/Sub topic where notifications will be sent after transfer runs
         associated with this transfer config finish.
@@ -560,12 +612,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "notification_pubsub_topic")
 
     @notification_pubsub_topic.setter
-    def notification_pubsub_topic(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notification_pubsub_topic(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notification_pubsub_topic", value)
 
     @_builtins.property
     @pulumi.getter
-    def params(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def params(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Parameters specific to each data source. For more information see the bq tab in the 'Setting up a data transfer'
         section for each data source. For example the parameters for Cloud Storage transfers are listed here:
@@ -575,12 +627,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "params")
 
     @params.setter
-    def params(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def params(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "params", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -588,12 +640,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def schedule(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def schedule(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Data transfer schedule. If the data source does not support a custom
         schedule, this should be empty. If it is empty, the default value for
@@ -608,12 +660,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "schedule")
 
     @schedule.setter
-    def schedule(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def schedule(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "schedule", value)
 
     @_builtins.property
     @pulumi.getter(name="scheduleOptions")
-    def schedule_options(self) -> Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']]:
+    def schedule_options(self) -> pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']]:
         """
         Options customizing the data transfer schedule.
         Structure is documented below.
@@ -621,12 +673,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "schedule_options")
 
     @schedule_options.setter
-    def schedule_options(self, value: Optional[pulumi.Input['DataTransferConfigScheduleOptionsArgs']]):
+    def schedule_options(self, value: pulumi.Input[Optional['DataTransferConfigScheduleOptionsArgs']]):
         pulumi.set(self, "schedule_options", value)
 
     @_builtins.property
     @pulumi.getter(name="sensitiveParams")
-    def sensitive_params(self) -> Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']]:
+    def sensitive_params(self) -> pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']]:
         """
         Different parameters are configured primarily using the the `params` field on this
         resource. This block contains the parameters which contain secrets or passwords so that they can be marked
@@ -639,12 +691,12 @@ class _DataTransferConfigState:
         return pulumi.get(self, "sensitive_params")
 
     @sensitive_params.setter
-    def sensitive_params(self, value: Optional[pulumi.Input['DataTransferConfigSensitiveParamsArgs']]):
+    def sensitive_params(self, value: pulumi.Input[Optional['DataTransferConfigSensitiveParamsArgs']]):
         pulumi.set(self, "sensitive_params", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccountName")
-    def service_account_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Service account email. If this field is set, transfer config will
         be created with this service account credentials. It requires that
@@ -653,7 +705,7 @@ class _DataTransferConfigState:
         return pulumi.get(self, "service_account_name")
 
     @service_account_name.setter
-    def service_account_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account_name", value)
 
 
@@ -663,21 +715,22 @@ class DataTransferConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_refresh_window_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 email_preferences: Optional[pulumi.Input[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
-                 encryption_configuration: Optional[pulumi.Input[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_options: Optional[pulumi.Input[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
-                 sensitive_params: Optional[pulumi.Input[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
-                 service_account_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_refresh_window_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 email_preferences: pulumi.Input[Optional[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_options: pulumi.Input[Optional[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
+                 sensitive_params: pulumi.Input[Optional[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
+                 service_account_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a data transfer configuration. A transfer configuration
@@ -813,6 +866,12 @@ class DataTransferConfig(pulumi.CustomResource):
                just [today-1]. Only valid if the data source supports the feature.
                Set the value to 0 to use the default value.
         :param pulumi.Input[_builtins.str] data_source_id: The data source id. Cannot be changed once the transfer config is created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination_dataset_id: The BigQuery target dataset id.
         :param pulumi.Input[_builtins.bool] disabled: When set to true, no runs are scheduled for a given transfer.
         :param pulumi.Input[_builtins.str] display_name: The user specified display name for the transfer config.
@@ -1000,21 +1059,22 @@ class DataTransferConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_refresh_window_days: Optional[pulumi.Input[_builtins.int]] = None,
-                 data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 email_preferences: Optional[pulumi.Input[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
-                 encryption_configuration: Optional[pulumi.Input[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 params: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_options: Optional[pulumi.Input[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
-                 sensitive_params: Optional[pulumi.Input[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
-                 service_account_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_refresh_window_days: pulumi.Input[Optional[_builtins.int]] = None,
+                 data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 email_preferences: pulumi.Input[Optional[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 params: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_options: pulumi.Input[Optional[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
+                 sensitive_params: pulumi.Input[Optional[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
+                 service_account_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1028,6 +1088,7 @@ class DataTransferConfig(pulumi.CustomResource):
             if data_source_id is None and not opts.urn:
                 raise TypeError("Missing required property 'data_source_id'")
             __props__.__dict__["data_source_id"] = data_source_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["destination_dataset_id"] = destination_dataset_id
             __props__.__dict__["disabled"] = disabled
             if display_name is None and not opts.urn:
@@ -1056,22 +1117,23 @@ class DataTransferConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            data_refresh_window_days: Optional[pulumi.Input[_builtins.int]] = None,
-            data_source_id: Optional[pulumi.Input[_builtins.str]] = None,
-            destination_dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            email_preferences: Optional[pulumi.Input[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
-            encryption_configuration: Optional[pulumi.Input[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            notification_pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-            params: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            schedule: Optional[pulumi.Input[_builtins.str]] = None,
-            schedule_options: Optional[pulumi.Input[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
-            sensitive_params: Optional[pulumi.Input[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
-            service_account_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'DataTransferConfig':
+            data_refresh_window_days: pulumi.Input[Optional[_builtins.int]] = None,
+            data_source_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            destination_dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            email_preferences: pulumi.Input[Optional[Union['DataTransferConfigEmailPreferencesArgs', 'DataTransferConfigEmailPreferencesArgsDict']]] = None,
+            encryption_configuration: pulumi.Input[Optional[Union['DataTransferConfigEncryptionConfigurationArgs', 'DataTransferConfigEncryptionConfigurationArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            notification_pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+            params: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            schedule: pulumi.Input[Optional[_builtins.str]] = None,
+            schedule_options: pulumi.Input[Optional[Union['DataTransferConfigScheduleOptionsArgs', 'DataTransferConfigScheduleOptionsArgsDict']]] = None,
+            sensitive_params: pulumi.Input[Optional[Union['DataTransferConfigSensitiveParamsArgs', 'DataTransferConfigSensitiveParamsArgsDict']]] = None,
+            service_account_name: pulumi.Input[Optional[_builtins.str]] = None) -> 'DataTransferConfig':
         """
         Get an existing DataTransferConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1085,6 +1147,12 @@ class DataTransferConfig(pulumi.CustomResource):
                just [today-1]. Only valid if the data source supports the feature.
                Set the value to 0 to use the default value.
         :param pulumi.Input[_builtins.str] data_source_id: The data source id. Cannot be changed once the transfer config is created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination_dataset_id: The BigQuery target dataset id.
         :param pulumi.Input[_builtins.bool] disabled: When set to true, no runs are scheduled for a given transfer.
         :param pulumi.Input[_builtins.str] display_name: The user specified display name for the transfer config.
@@ -1136,6 +1204,7 @@ class DataTransferConfig(pulumi.CustomResource):
 
         __props__.__dict__["data_refresh_window_days"] = data_refresh_window_days
         __props__.__dict__["data_source_id"] = data_source_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["destination_dataset_id"] = destination_dataset_id
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["display_name"] = display_name
@@ -1171,6 +1240,19 @@ class DataTransferConfig(pulumi.CustomResource):
         The data source id. Cannot be changed once the transfer config is created.
         """
         return pulumi.get(self, "data_source_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="destinationDatasetId")

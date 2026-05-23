@@ -24,17 +24,18 @@ class WorkforcePoolProviderArgs:
                  location: pulumi.Input[_builtins.str],
                  provider_id: pulumi.Input[_builtins.str],
                  workforce_pool_id: pulumi.Input[_builtins.str],
-                 attribute_condition: Optional[pulumi.Input[_builtins.str]] = None,
-                 attribute_mapping: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 detailed_audit_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 extended_attributes_oauth2_client: Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']] = None,
-                 extra_attributes_oauth2_client: Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']] = None,
-                 oidc: Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']] = None,
-                 saml: Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']] = None,
-                 scim_usage: Optional[pulumi.Input[_builtins.str]] = None):
+                 attribute_condition: pulumi.Input[Optional[_builtins.str]] = None,
+                 attribute_mapping: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 detailed_audit_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 extended_attributes_oauth2_client: pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']] = None,
+                 extra_attributes_oauth2_client: pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']] = None,
+                 oidc: pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']] = None,
+                 saml: pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']] = None,
+                 scim_usage: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkforcePoolProvider resource.
 
@@ -93,6 +94,12 @@ class WorkforcePoolProviderArgs:
                ```
                An object containing a list of `"key": value` pairs.
                Example: `{ "name": "wrench", "mass": "1.3kg", "count": "3" }`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-specified description of the provider. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] detailed_audit_logging: If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         :param pulumi.Input[_builtins.bool] disabled: Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
@@ -139,6 +146,8 @@ class WorkforcePoolProviderArgs:
             pulumi.set(__self__, "attribute_condition", attribute_condition)
         if attribute_mapping is not None:
             pulumi.set(__self__, "attribute_mapping", attribute_mapping)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if detailed_audit_logging is not None:
@@ -204,7 +213,7 @@ class WorkforcePoolProviderArgs:
 
     @_builtins.property
     @pulumi.getter(name="attributeCondition")
-    def attribute_condition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def attribute_condition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A [Common Expression Language](https://github.com/google/cel-spec) expression, in
         plain text, to restrict what otherwise valid authentication credentials issued by the
@@ -215,12 +224,12 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "attribute_condition")
 
     @attribute_condition.setter
-    def attribute_condition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def attribute_condition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "attribute_condition", value)
 
     @_builtins.property
     @pulumi.getter(name="attributeMapping")
-    def attribute_mapping(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def attribute_mapping(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Maps attributes from the authentication credentials issued by an external identity provider
         to Google Cloud attributes, such as `subject` and `segment`.
@@ -268,36 +277,53 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "attribute_mapping")
 
     @attribute_mapping.setter
-    def attribute_mapping(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def attribute_mapping(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "attribute_mapping", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified description of the provider. Cannot exceed 256 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="detailedAuditLogging")
-    def detailed_audit_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def detailed_audit_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         """
         return pulumi.get(self, "detailed_audit_logging")
 
     @detailed_audit_logging.setter
-    def detailed_audit_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def detailed_audit_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "detailed_audit_logging", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
         However, existing tokens still grant access.
@@ -305,25 +331,25 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name for the provider. Cannot exceed 32 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="extendedAttributesOauth2Client")
     @_utilities.deprecated("""`extended_attributes_oauth2_client` is deprecated. Use SCIM instead.""")
-    def extended_attributes_oauth2_client(self) -> Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]:
+    def extended_attributes_oauth2_client(self) -> pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]:
         """
         (Optional, Deprecated)
         The configuration for OAuth 2.0 client used to get the extended group
@@ -343,12 +369,12 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "extended_attributes_oauth2_client")
 
     @extended_attributes_oauth2_client.setter
-    def extended_attributes_oauth2_client(self, value: Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]):
+    def extended_attributes_oauth2_client(self, value: pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]):
         pulumi.set(self, "extended_attributes_oauth2_client", value)
 
     @_builtins.property
     @pulumi.getter(name="extraAttributesOauth2Client")
-    def extra_attributes_oauth2_client(self) -> Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]:
+    def extra_attributes_oauth2_client(self) -> pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]:
         """
         The configuration for OAuth 2.0 client used to get the additional user
         attributes. This should be used when users can't get the desired claims
@@ -359,12 +385,12 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "extra_attributes_oauth2_client")
 
     @extra_attributes_oauth2_client.setter
-    def extra_attributes_oauth2_client(self, value: Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]):
+    def extra_attributes_oauth2_client(self, value: pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]):
         pulumi.set(self, "extra_attributes_oauth2_client", value)
 
     @_builtins.property
     @pulumi.getter
-    def oidc(self) -> Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']]:
+    def oidc(self) -> pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']]:
         """
         Represents an OpenId Connect 1.0 identity provider.
         Structure is documented below.
@@ -372,12 +398,12 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "oidc")
 
     @oidc.setter
-    def oidc(self, value: Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']]):
+    def oidc(self, value: pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']]):
         pulumi.set(self, "oidc", value)
 
     @_builtins.property
     @pulumi.getter
-    def saml(self) -> Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']]:
+    def saml(self) -> pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']]:
         """
         Represents a SAML identity provider.
         Structure is documented below.
@@ -385,12 +411,12 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "saml")
 
     @saml.setter
-    def saml(self, value: Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']]):
+    def saml(self, value: pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']]):
         pulumi.set(self, "saml", value)
 
     @_builtins.property
     @pulumi.getter(name="scimUsage")
-    def scim_usage(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scim_usage(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Agentspace only. Specifies whether the workforce identity pool
         provider uses SCIM-managed groups instead of the `google.groups`
@@ -406,29 +432,30 @@ class WorkforcePoolProviderArgs:
         return pulumi.get(self, "scim_usage")
 
     @scim_usage.setter
-    def scim_usage(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scim_usage(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scim_usage", value)
 
 
 @pulumi.input_type
 class _WorkforcePoolProviderState:
     def __init__(__self__, *,
-                 attribute_condition: Optional[pulumi.Input[_builtins.str]] = None,
-                 attribute_mapping: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 detailed_audit_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 extended_attributes_oauth2_client: Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']] = None,
-                 extra_attributes_oauth2_client: Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 oidc: Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 saml: Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']] = None,
-                 scim_usage: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 attribute_condition: pulumi.Input[Optional[_builtins.str]] = None,
+                 attribute_mapping: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 detailed_audit_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 extended_attributes_oauth2_client: pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']] = None,
+                 extra_attributes_oauth2_client: pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 oidc: pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 saml: pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']] = None,
+                 scim_usage: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkforcePoolProvider resources.
 
@@ -479,6 +506,12 @@ class _WorkforcePoolProviderState:
                ```
                An object containing a list of `"key": value` pairs.
                Example: `{ "name": "wrench", "mass": "1.3kg", "count": "3" }`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-specified description of the provider. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] detailed_audit_logging: If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         :param pulumi.Input[_builtins.bool] disabled: Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
@@ -538,6 +571,8 @@ class _WorkforcePoolProviderState:
             pulumi.set(__self__, "attribute_condition", attribute_condition)
         if attribute_mapping is not None:
             pulumi.set(__self__, "attribute_mapping", attribute_mapping)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if detailed_audit_logging is not None:
@@ -572,7 +607,7 @@ class _WorkforcePoolProviderState:
 
     @_builtins.property
     @pulumi.getter(name="attributeCondition")
-    def attribute_condition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def attribute_condition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A [Common Expression Language](https://github.com/google/cel-spec) expression, in
         plain text, to restrict what otherwise valid authentication credentials issued by the
@@ -583,12 +618,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "attribute_condition")
 
     @attribute_condition.setter
-    def attribute_condition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def attribute_condition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "attribute_condition", value)
 
     @_builtins.property
     @pulumi.getter(name="attributeMapping")
-    def attribute_mapping(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def attribute_mapping(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Maps attributes from the authentication credentials issued by an external identity provider
         to Google Cloud attributes, such as `subject` and `segment`.
@@ -636,36 +671,53 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "attribute_mapping")
 
     @attribute_mapping.setter
-    def attribute_mapping(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def attribute_mapping(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "attribute_mapping", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified description of the provider. Cannot exceed 256 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="detailedAuditLogging")
-    def detailed_audit_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def detailed_audit_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         """
         return pulumi.get(self, "detailed_audit_logging")
 
     @detailed_audit_logging.setter
-    def detailed_audit_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def detailed_audit_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "detailed_audit_logging", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
         However, existing tokens still grant access.
@@ -673,25 +725,25 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name for the provider. Cannot exceed 32 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="extendedAttributesOauth2Client")
     @_utilities.deprecated("""`extended_attributes_oauth2_client` is deprecated. Use SCIM instead.""")
-    def extended_attributes_oauth2_client(self) -> Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]:
+    def extended_attributes_oauth2_client(self) -> pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]:
         """
         (Optional, Deprecated)
         The configuration for OAuth 2.0 client used to get the extended group
@@ -711,12 +763,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "extended_attributes_oauth2_client")
 
     @extended_attributes_oauth2_client.setter
-    def extended_attributes_oauth2_client(self, value: Optional[pulumi.Input['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]):
+    def extended_attributes_oauth2_client(self, value: pulumi.Input[Optional['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs']]):
         pulumi.set(self, "extended_attributes_oauth2_client", value)
 
     @_builtins.property
     @pulumi.getter(name="extraAttributesOauth2Client")
-    def extra_attributes_oauth2_client(self) -> Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]:
+    def extra_attributes_oauth2_client(self) -> pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]:
         """
         The configuration for OAuth 2.0 client used to get the additional user
         attributes. This should be used when users can't get the desired claims
@@ -727,24 +779,24 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "extra_attributes_oauth2_client")
 
     @extra_attributes_oauth2_client.setter
-    def extra_attributes_oauth2_client(self, value: Optional[pulumi.Input['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]):
+    def extra_attributes_oauth2_client(self, value: pulumi.Input[Optional['WorkforcePoolProviderExtraAttributesOauth2ClientArgs']]):
         pulumi.set(self, "extra_attributes_oauth2_client", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The resource name of the provider.
         Format: `locations/{location}/workforcePools/{workforcePoolId}/providers/{providerId}`
@@ -752,12 +804,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def oidc(self) -> Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']]:
+    def oidc(self) -> pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']]:
         """
         Represents an OpenId Connect 1.0 identity provider.
         Structure is documented below.
@@ -765,12 +817,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "oidc")
 
     @oidc.setter
-    def oidc(self, value: Optional[pulumi.Input['WorkforcePoolProviderOidcArgs']]):
+    def oidc(self, value: pulumi.Input[Optional['WorkforcePoolProviderOidcArgs']]):
         pulumi.set(self, "oidc", value)
 
     @_builtins.property
     @pulumi.getter(name="providerId")
-    def provider_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def provider_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID for the provider, which becomes the final component of the resource name.
         This value must be 4-32 characters, and may contain the characters [a-z0-9-].
@@ -779,12 +831,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "provider_id")
 
     @provider_id.setter
-    def provider_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def provider_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "provider_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def saml(self) -> Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']]:
+    def saml(self) -> pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']]:
         """
         Represents a SAML identity provider.
         Structure is documented below.
@@ -792,12 +844,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "saml")
 
     @saml.setter
-    def saml(self, value: Optional[pulumi.Input['WorkforcePoolProviderSamlArgs']]):
+    def saml(self, value: pulumi.Input[Optional['WorkforcePoolProviderSamlArgs']]):
         pulumi.set(self, "saml", value)
 
     @_builtins.property
     @pulumi.getter(name="scimUsage")
-    def scim_usage(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scim_usage(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Agentspace only. Specifies whether the workforce identity pool
         provider uses SCIM-managed groups instead of the `google.groups`
@@ -813,12 +865,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "scim_usage")
 
     @scim_usage.setter
-    def scim_usage(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scim_usage(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scim_usage", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the provider.
         * STATE_UNSPECIFIED: State unspecified.
@@ -830,12 +882,12 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="workforcePoolId")
-    def workforce_pool_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def workforce_pool_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the pool, which becomes the final component of the resource name.
         The IDs must be a globally unique string of 6 to 63 lowercase letters, digits, or hyphens.
@@ -845,7 +897,7 @@ class _WorkforcePoolProviderState:
         return pulumi.get(self, "workforce_pool_id")
 
     @workforce_pool_id.setter
-    def workforce_pool_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def workforce_pool_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workforce_pool_id", value)
 
 
@@ -855,20 +907,21 @@ class WorkforcePoolProvider(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attribute_condition: Optional[pulumi.Input[_builtins.str]] = None,
-                 attribute_mapping: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 detailed_audit_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 extended_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
-                 extra_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 oidc: Optional[pulumi.Input[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 saml: Optional[pulumi.Input[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
-                 scim_usage: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 attribute_condition: pulumi.Input[Optional[_builtins.str]] = None,
+                 attribute_mapping: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 detailed_audit_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 extended_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
+                 extra_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 oidc: pulumi.Input[Optional[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 saml: pulumi.Input[Optional[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
+                 scim_usage: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A configuration for an external identity provider.
@@ -1378,6 +1431,12 @@ class WorkforcePoolProvider(pulumi.CustomResource):
                ```
                An object containing a list of `"key": value` pairs.
                Example: `{ "name": "wrench", "mass": "1.3kg", "count": "3" }`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-specified description of the provider. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] detailed_audit_logging: If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         :param pulumi.Input[_builtins.bool] disabled: Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
@@ -1905,20 +1964,21 @@ class WorkforcePoolProvider(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attribute_condition: Optional[pulumi.Input[_builtins.str]] = None,
-                 attribute_mapping: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 detailed_audit_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 extended_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
-                 extra_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 oidc: Optional[pulumi.Input[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 saml: Optional[pulumi.Input[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
-                 scim_usage: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 attribute_condition: pulumi.Input[Optional[_builtins.str]] = None,
+                 attribute_mapping: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 detailed_audit_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 extended_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
+                 extra_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 oidc: pulumi.Input[Optional[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 saml: pulumi.Input[Optional[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
+                 scim_usage: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1930,6 +1990,7 @@ class WorkforcePoolProvider(pulumi.CustomResource):
 
             __props__.__dict__["attribute_condition"] = attribute_condition
             __props__.__dict__["attribute_mapping"] = attribute_mapping
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["detailed_audit_logging"] = detailed_audit_logging
             __props__.__dict__["disabled"] = disabled
@@ -1960,22 +2021,23 @@ class WorkforcePoolProvider(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            attribute_condition: Optional[pulumi.Input[_builtins.str]] = None,
-            attribute_mapping: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            detailed_audit_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            extended_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
-            extra_attributes_oauth2_client: Optional[pulumi.Input[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            oidc: Optional[pulumi.Input[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
-            provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-            saml: Optional[pulumi.Input[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
-            scim_usage: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkforcePoolProvider':
+            attribute_condition: pulumi.Input[Optional[_builtins.str]] = None,
+            attribute_mapping: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            detailed_audit_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            extended_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtendedAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtendedAttributesOauth2ClientArgsDict']]] = None,
+            extra_attributes_oauth2_client: pulumi.Input[Optional[Union['WorkforcePoolProviderExtraAttributesOauth2ClientArgs', 'WorkforcePoolProviderExtraAttributesOauth2ClientArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            oidc: pulumi.Input[Optional[Union['WorkforcePoolProviderOidcArgs', 'WorkforcePoolProviderOidcArgsDict']]] = None,
+            provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+            saml: pulumi.Input[Optional[Union['WorkforcePoolProviderSamlArgs', 'WorkforcePoolProviderSamlArgsDict']]] = None,
+            scim_usage: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'WorkforcePoolProvider':
         """
         Get an existing WorkforcePoolProvider resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -2030,6 +2092,12 @@ class WorkforcePoolProvider(pulumi.CustomResource):
                ```
                An object containing a list of `"key": value` pairs.
                Example: `{ "name": "wrench", "mass": "1.3kg", "count": "3" }`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-specified description of the provider. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] detailed_audit_logging: If true, populates additional debug information in Cloud Audit Logs for this provider. Logged attribute mappings and values can be found in `sts.googleapis.com` data access logs. Default value is false.
         :param pulumi.Input[_builtins.bool] disabled: Whether the provider is disabled. You cannot use a disabled provider to exchange tokens.
@@ -2091,6 +2159,7 @@ class WorkforcePoolProvider(pulumi.CustomResource):
 
         __props__.__dict__["attribute_condition"] = attribute_condition
         __props__.__dict__["attribute_mapping"] = attribute_mapping
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["detailed_audit_logging"] = detailed_audit_logging
         __props__.__dict__["disabled"] = disabled
@@ -2167,6 +2236,19 @@ class WorkforcePoolProvider(pulumi.CustomResource):
         Example: `{ "name": "wrench", "mass": "1.3kg", "count": "3" }`.
         """
         return pulumi.get(self, "attribute_mapping")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

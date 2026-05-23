@@ -1133,9 +1133,12 @@ int s2n_connection_get_alert(struct s2n_connection *conn)
 
     S2N_ERROR_IF(s2n_stuffer_data_available(&conn->alert_in) != 2, S2N_ERR_NO_ALERT);
 
+    /* Shallow copy the stuffer. We assume that multiple threads might call this
+     * function concurrently, so we must not mutate anything outside of the function scope */
+    struct s2n_stuffer alert_stuffer = conn->alert_in;
     uint8_t alert_code = 0;
-    POSIX_GUARD(s2n_stuffer_read_uint8(&conn->alert_in, &alert_code));
-    POSIX_GUARD(s2n_stuffer_read_uint8(&conn->alert_in, &alert_code));
+    POSIX_GUARD(s2n_stuffer_read_uint8(&alert_stuffer, &alert_code));
+    POSIX_GUARD(s2n_stuffer_read_uint8(&alert_stuffer, &alert_code));
 
     return alert_code;
 }
@@ -1268,7 +1271,7 @@ S2N_RESULT s2n_connection_calculate_blinding(struct s2n_connection *conn, int64_
     RESULT_ENSURE_REF(conn->config);
 
     /*
-     * The default delay is a random value between 10-30s. The rational behind the range is that the
+     * The default delay is a random value between 10-30s. The rationale behind the range is that the
      * floor is the fixed cost that an attacker must pay per attempt, in this case, 10s. The length of
      * the range then affects the number of attempts that an attacker must perform in order to recover a
      * byte of plaintext with a certain degree of confidence.

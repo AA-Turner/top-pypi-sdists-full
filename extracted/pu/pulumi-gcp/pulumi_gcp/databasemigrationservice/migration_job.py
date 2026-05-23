@@ -25,18 +25,20 @@ class MigrationJobArgs:
                  migration_job_id: pulumi.Input[_builtins.str],
                  source: pulumi.Input[_builtins.str],
                  type: pulumi.Input[_builtins.str],
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_flags: Optional[pulumi.Input['MigrationJobDumpFlagsArgs']] = None,
-                 dump_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 objects_config: Optional[pulumi.Input['MigrationJobObjectsConfigArgs']] = None,
-                 performance_config: Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reverse_ssh_connectivity: Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']] = None,
-                 static_ip_connectivity: Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']] = None,
-                 vpc_peering_connectivity: Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_flags: pulumi.Input[Optional['MigrationJobDumpFlagsArgs']] = None,
+                 dump_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 objects_config: pulumi.Input[Optional['MigrationJobObjectsConfigArgs']] = None,
+                 performance_config: pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']] = None,
+                 postgres_homogeneous_config: pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reverse_ssh_connectivity: pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']] = None,
+                 static_ip_connectivity: pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']] = None,
+                 vpc_peering_connectivity: pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']] = None):
         """
         The set of arguments for constructing a MigrationJob resource.
 
@@ -45,6 +47,12 @@ class MigrationJobArgs:
         :param pulumi.Input[_builtins.str] source: The name of the source connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{sourceConnectionProfile}.
         :param pulumi.Input[_builtins.str] type: The type of the migration job.
                Possible values are: `ONE_TIME`, `CONTINUOUS`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The migration job display name.
         :param pulumi.Input['MigrationJobDumpFlagsArgs'] dump_flags: The initial dump flags.
                Structure is documented below.
@@ -64,6 +72,8 @@ class MigrationJobArgs:
                Structure is documented below.
         :param pulumi.Input['MigrationJobPerformanceConfigArgs'] performance_config: Data dump parallelism settings used by the migration.
                Structure is documented below.
+        :param pulumi.Input['MigrationJobPostgresHomogeneousConfigArgs'] postgres_homogeneous_config: PostgreSQL to PostgreSQL configuration.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input['MigrationJobReverseSshConnectivityArgs'] reverse_ssh_connectivity: The details of the VPC network that the source database is located in.
@@ -79,6 +89,8 @@ class MigrationJobArgs:
         pulumi.set(__self__, "migration_job_id", migration_job_id)
         pulumi.set(__self__, "source", source)
         pulumi.set(__self__, "type", type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if dump_flags is not None:
@@ -95,6 +107,8 @@ class MigrationJobArgs:
             pulumi.set(__self__, "objects_config", objects_config)
         if performance_config is not None:
             pulumi.set(__self__, "performance_config", performance_config)
+        if postgres_homogeneous_config is not None:
+            pulumi.set(__self__, "postgres_homogeneous_config", postgres_homogeneous_config)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if reverse_ssh_connectivity is not None:
@@ -154,20 +168,37 @@ class MigrationJobArgs:
         pulumi.set(self, "type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The migration job display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpFlags")
-    def dump_flags(self) -> Optional[pulumi.Input['MigrationJobDumpFlagsArgs']]:
+    def dump_flags(self) -> pulumi.Input[Optional['MigrationJobDumpFlagsArgs']]:
         """
         The initial dump flags.
         Structure is documented below.
@@ -175,12 +206,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "dump_flags")
 
     @dump_flags.setter
-    def dump_flags(self, value: Optional[pulumi.Input['MigrationJobDumpFlagsArgs']]):
+    def dump_flags(self, value: pulumi.Input[Optional['MigrationJobDumpFlagsArgs']]):
         pulumi.set(self, "dump_flags", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpPath")
-    def dump_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The path to the dump file in Google Cloud Storage,
         in the format: (gs://[BUCKET_NAME]/[OBJECT_NAME]).
@@ -189,12 +220,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "dump_path")
 
     @dump_path.setter
-    def dump_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_path", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpType")
-    def dump_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the data dump. Supported for MySQL to CloudSQL for MySQL
         migrations only.
@@ -203,12 +234,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "dump_type")
 
     @dump_type.setter
-    def dump_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The resource labels for migration job to use to annotate any related underlying resources such as Compute Engine VMs.
 
@@ -218,24 +249,24 @@ class MigrationJobArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where the migration job should reside.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="objectsConfig")
-    def objects_config(self) -> Optional[pulumi.Input['MigrationJobObjectsConfigArgs']]:
+    def objects_config(self) -> pulumi.Input[Optional['MigrationJobObjectsConfigArgs']]:
         """
         The objects that need to be migrated. If unset, the default is to migrate
         all objects available on the source.
@@ -244,12 +275,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "objects_config")
 
     @objects_config.setter
-    def objects_config(self, value: Optional[pulumi.Input['MigrationJobObjectsConfigArgs']]):
+    def objects_config(self, value: pulumi.Input[Optional['MigrationJobObjectsConfigArgs']]):
         pulumi.set(self, "objects_config", value)
 
     @_builtins.property
     @pulumi.getter(name="performanceConfig")
-    def performance_config(self) -> Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']]:
+    def performance_config(self) -> pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']]:
         """
         Data dump parallelism settings used by the migration.
         Structure is documented below.
@@ -257,12 +288,25 @@ class MigrationJobArgs:
         return pulumi.get(self, "performance_config")
 
     @performance_config.setter
-    def performance_config(self, value: Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']]):
+    def performance_config(self, value: pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']]):
         pulumi.set(self, "performance_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="postgresHomogeneousConfig")
+    def postgres_homogeneous_config(self) -> pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']]:
+        """
+        PostgreSQL to PostgreSQL configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "postgres_homogeneous_config")
+
+    @postgres_homogeneous_config.setter
+    def postgres_homogeneous_config(self, value: pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']]):
+        pulumi.set(self, "postgres_homogeneous_config", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -270,12 +314,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="reverseSshConnectivity")
-    def reverse_ssh_connectivity(self) -> Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']]:
+    def reverse_ssh_connectivity(self) -> pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']]:
         """
         The details of the VPC network that the source database is located in.
         Structure is documented below.
@@ -283,12 +327,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "reverse_ssh_connectivity")
 
     @reverse_ssh_connectivity.setter
-    def reverse_ssh_connectivity(self, value: Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']]):
+    def reverse_ssh_connectivity(self, value: pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']]):
         pulumi.set(self, "reverse_ssh_connectivity", value)
 
     @_builtins.property
     @pulumi.getter(name="staticIpConnectivity")
-    def static_ip_connectivity(self) -> Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']]:
+    def static_ip_connectivity(self) -> pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']]:
         """
         If set to an empty object (`{}`), the source database will allow incoming
         connections from the public IP of the destination database.
@@ -298,12 +342,12 @@ class MigrationJobArgs:
         return pulumi.get(self, "static_ip_connectivity")
 
     @static_ip_connectivity.setter
-    def static_ip_connectivity(self, value: Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']]):
+    def static_ip_connectivity(self, value: pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']]):
         pulumi.set(self, "static_ip_connectivity", value)
 
     @_builtins.property
     @pulumi.getter(name="vpcPeeringConnectivity")
-    def vpc_peering_connectivity(self) -> Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']]:
+    def vpc_peering_connectivity(self) -> pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']]:
         """
         The details of the VPC network that the source database is located in.
         Structure is documented below.
@@ -311,40 +355,48 @@ class MigrationJobArgs:
         return pulumi.get(self, "vpc_peering_connectivity")
 
     @vpc_peering_connectivity.setter
-    def vpc_peering_connectivity(self, value: Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']]):
+    def vpc_peering_connectivity(self, value: pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']]):
         pulumi.set(self, "vpc_peering_connectivity", value)
 
 
 @pulumi.input_type
 class _MigrationJobState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_flags: Optional[pulumi.Input['MigrationJobDumpFlagsArgs']] = None,
-                 dump_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 errors: Optional[pulumi.Input[Sequence[pulumi.Input['MigrationJobErrorArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 migration_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 objects_config: Optional[pulumi.Input['MigrationJobObjectsConfigArgs']] = None,
-                 performance_config: Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']] = None,
-                 phase: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 reverse_ssh_connectivity: Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']] = None,
-                 source: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 static_ip_connectivity: Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpc_peering_connectivity: Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_flags: pulumi.Input[Optional['MigrationJobDumpFlagsArgs']] = None,
+                 dump_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 errors: pulumi.Input[Optional[Sequence[pulumi.Input['MigrationJobErrorArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 migration_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 objects_config: pulumi.Input[Optional['MigrationJobObjectsConfigArgs']] = None,
+                 performance_config: pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']] = None,
+                 phase: pulumi.Input[Optional[_builtins.str]] = None,
+                 postgres_homogeneous_config: pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 reverse_ssh_connectivity: pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']] = None,
+                 source: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 static_ip_connectivity: pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpc_peering_connectivity: pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']] = None):
         """
         Input properties used for looking up and filtering MigrationJob resources.
 
         :param pulumi.Input[_builtins.str] create_time: Output only. The timestamp when the resource was created. A timestamp in RFC3339 UTC 'Zulu' format, accurate to nanoseconds. Example: '2014-10-02T15:01:23.045123456Z'.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination: The name of the destination connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{destinationConnectionProfile}.
         :param pulumi.Input[_builtins.str] display_name: The migration job display name.
         :param pulumi.Input['MigrationJobDumpFlagsArgs'] dump_flags: The initial dump flags.
@@ -371,6 +423,8 @@ class _MigrationJobState:
         :param pulumi.Input['MigrationJobPerformanceConfigArgs'] performance_config: Data dump parallelism settings used by the migration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] phase: The current migration job phase.
+        :param pulumi.Input['MigrationJobPostgresHomogeneousConfigArgs'] postgres_homogeneous_config: PostgreSQL to PostgreSQL configuration.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pulumi_labels: The combination of labels configured directly on the resource
@@ -390,6 +444,8 @@ class _MigrationJobState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if destination is not None:
             pulumi.set(__self__, "destination", destination)
         if display_name is not None:
@@ -418,6 +474,8 @@ class _MigrationJobState:
             pulumi.set(__self__, "performance_config", performance_config)
         if phase is not None:
             pulumi.set(__self__, "phase", phase)
+        if postgres_homogeneous_config is not None:
+            pulumi.set(__self__, "postgres_homogeneous_config", postgres_homogeneous_config)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if pulumi_labels is not None:
@@ -437,43 +495,60 @@ class _MigrationJobState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The timestamp when the resource was created. A timestamp in RFC3339 UTC 'Zulu' format, accurate to nanoseconds. Example: '2014-10-02T15:01:23.045123456Z'.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def destination(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the destination connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{destinationConnectionProfile}.
         """
         return pulumi.get(self, "destination")
 
     @destination.setter
-    def destination(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The migration job display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpFlags")
-    def dump_flags(self) -> Optional[pulumi.Input['MigrationJobDumpFlagsArgs']]:
+    def dump_flags(self) -> pulumi.Input[Optional['MigrationJobDumpFlagsArgs']]:
         """
         The initial dump flags.
         Structure is documented below.
@@ -481,12 +556,12 @@ class _MigrationJobState:
         return pulumi.get(self, "dump_flags")
 
     @dump_flags.setter
-    def dump_flags(self, value: Optional[pulumi.Input['MigrationJobDumpFlagsArgs']]):
+    def dump_flags(self, value: pulumi.Input[Optional['MigrationJobDumpFlagsArgs']]):
         pulumi.set(self, "dump_flags", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpPath")
-    def dump_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The path to the dump file in Google Cloud Storage,
         in the format: (gs://[BUCKET_NAME]/[OBJECT_NAME]).
@@ -495,12 +570,12 @@ class _MigrationJobState:
         return pulumi.get(self, "dump_path")
 
     @dump_path.setter
-    def dump_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_path", value)
 
     @_builtins.property
     @pulumi.getter(name="dumpType")
-    def dump_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the data dump. Supported for MySQL to CloudSQL for MySQL
         migrations only.
@@ -509,24 +584,24 @@ class _MigrationJobState:
         return pulumi.get(self, "dump_type")
 
     @dump_type.setter
-    def dump_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_type", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def errors(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['MigrationJobErrorArgs']]]]:
+    def errors(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['MigrationJobErrorArgs']]]]:
         """
         Output only. The error details in case of state FAILED.
         Structure is documented below.
@@ -534,12 +609,12 @@ class _MigrationJobState:
         return pulumi.get(self, "errors")
 
     @errors.setter
-    def errors(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MigrationJobErrorArgs']]]]):
+    def errors(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['MigrationJobErrorArgs']]]]):
         pulumi.set(self, "errors", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The resource labels for migration job to use to annotate any related underlying resources such as Compute Engine VMs.
 
@@ -549,48 +624,48 @@ class _MigrationJobState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where the migration job should reside.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="migrationJobId")
-    def migration_job_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def migration_job_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the migration job.
         """
         return pulumi.get(self, "migration_job_id")
 
     @migration_job_id.setter
-    def migration_job_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def migration_job_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "migration_job_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this migration job resource in the form of projects/{project}/locations/{location}/migrationJobs/{migrationJob}.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="objectsConfig")
-    def objects_config(self) -> Optional[pulumi.Input['MigrationJobObjectsConfigArgs']]:
+    def objects_config(self) -> pulumi.Input[Optional['MigrationJobObjectsConfigArgs']]:
         """
         The objects that need to be migrated. If unset, the default is to migrate
         all objects available on the source.
@@ -599,12 +674,12 @@ class _MigrationJobState:
         return pulumi.get(self, "objects_config")
 
     @objects_config.setter
-    def objects_config(self, value: Optional[pulumi.Input['MigrationJobObjectsConfigArgs']]):
+    def objects_config(self, value: pulumi.Input[Optional['MigrationJobObjectsConfigArgs']]):
         pulumi.set(self, "objects_config", value)
 
     @_builtins.property
     @pulumi.getter(name="performanceConfig")
-    def performance_config(self) -> Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']]:
+    def performance_config(self) -> pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']]:
         """
         Data dump parallelism settings used by the migration.
         Structure is documented below.
@@ -612,24 +687,37 @@ class _MigrationJobState:
         return pulumi.get(self, "performance_config")
 
     @performance_config.setter
-    def performance_config(self, value: Optional[pulumi.Input['MigrationJobPerformanceConfigArgs']]):
+    def performance_config(self, value: pulumi.Input[Optional['MigrationJobPerformanceConfigArgs']]):
         pulumi.set(self, "performance_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def phase(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def phase(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current migration job phase.
         """
         return pulumi.get(self, "phase")
 
     @phase.setter
-    def phase(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def phase(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "phase", value)
 
     @_builtins.property
+    @pulumi.getter(name="postgresHomogeneousConfig")
+    def postgres_homogeneous_config(self) -> pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']]:
+        """
+        PostgreSQL to PostgreSQL configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "postgres_homogeneous_config")
+
+    @postgres_homogeneous_config.setter
+    def postgres_homogeneous_config(self, value: pulumi.Input[Optional['MigrationJobPostgresHomogeneousConfigArgs']]):
+        pulumi.set(self, "postgres_homogeneous_config", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -637,12 +725,12 @@ class _MigrationJobState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -650,12 +738,12 @@ class _MigrationJobState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="reverseSshConnectivity")
-    def reverse_ssh_connectivity(self) -> Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']]:
+    def reverse_ssh_connectivity(self) -> pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']]:
         """
         The details of the VPC network that the source database is located in.
         Structure is documented below.
@@ -663,36 +751,36 @@ class _MigrationJobState:
         return pulumi.get(self, "reverse_ssh_connectivity")
 
     @reverse_ssh_connectivity.setter
-    def reverse_ssh_connectivity(self, value: Optional[pulumi.Input['MigrationJobReverseSshConnectivityArgs']]):
+    def reverse_ssh_connectivity(self, value: pulumi.Input[Optional['MigrationJobReverseSshConnectivityArgs']]):
         pulumi.set(self, "reverse_ssh_connectivity", value)
 
     @_builtins.property
     @pulumi.getter
-    def source(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def source(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the source connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{sourceConnectionProfile}.
         """
         return pulumi.get(self, "source")
 
     @source.setter
-    def source(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def source(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "source", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current migration job state.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="staticIpConnectivity")
-    def static_ip_connectivity(self) -> Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']]:
+    def static_ip_connectivity(self) -> pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']]:
         """
         If set to an empty object (`{}`), the source database will allow incoming
         connections from the public IP of the destination database.
@@ -702,12 +790,12 @@ class _MigrationJobState:
         return pulumi.get(self, "static_ip_connectivity")
 
     @static_ip_connectivity.setter
-    def static_ip_connectivity(self, value: Optional[pulumi.Input['MigrationJobStaticIpConnectivityArgs']]):
+    def static_ip_connectivity(self, value: pulumi.Input[Optional['MigrationJobStaticIpConnectivityArgs']]):
         pulumi.set(self, "static_ip_connectivity", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the migration job.
         Possible values are: `ONE_TIME`, `CONTINUOUS`.
@@ -715,12 +803,12 @@ class _MigrationJobState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter(name="vpcPeeringConnectivity")
-    def vpc_peering_connectivity(self) -> Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']]:
+    def vpc_peering_connectivity(self) -> pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']]:
         """
         The details of the VPC network that the source database is located in.
         Structure is documented below.
@@ -728,7 +816,7 @@ class _MigrationJobState:
         return pulumi.get(self, "vpc_peering_connectivity")
 
     @vpc_peering_connectivity.setter
-    def vpc_peering_connectivity(self, value: Optional[pulumi.Input['MigrationJobVpcPeeringConnectivityArgs']]):
+    def vpc_peering_connectivity(self, value: pulumi.Input[Optional['MigrationJobVpcPeeringConnectivityArgs']]):
         pulumi.set(self, "vpc_peering_connectivity", value)
 
 
@@ -738,22 +826,24 @@ class MigrationJob(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_flags: Optional[pulumi.Input[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
-                 dump_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 migration_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 objects_config: Optional[pulumi.Input[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
-                 performance_config: Optional[pulumi.Input[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reverse_ssh_connectivity: Optional[pulumi.Input[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
-                 source: Optional[pulumi.Input[_builtins.str]] = None,
-                 static_ip_connectivity: Optional[pulumi.Input[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpc_peering_connectivity: Optional[pulumi.Input[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_flags: pulumi.Input[Optional[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
+                 dump_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 migration_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 objects_config: pulumi.Input[Optional[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
+                 performance_config: pulumi.Input[Optional[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
+                 postgres_homogeneous_config: pulumi.Input[Optional[Union['MigrationJobPostgresHomogeneousConfigArgs', 'MigrationJobPostgresHomogeneousConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reverse_ssh_connectivity: pulumi.Input[Optional[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
+                 source: pulumi.Input[Optional[_builtins.str]] = None,
+                 static_ip_connectivity: pulumi.Input[Optional[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpc_peering_connectivity: pulumi.Input[Optional[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None,
                  __props__=None):
         """
         A migration job definition.
@@ -1147,6 +1237,12 @@ class MigrationJob(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination: The name of the destination connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{destinationConnectionProfile}.
         :param pulumi.Input[_builtins.str] display_name: The migration job display name.
         :param pulumi.Input[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']] dump_flags: The initial dump flags.
@@ -1167,6 +1263,8 @@ class MigrationJob(pulumi.CustomResource):
                all objects available on the source.
                Structure is documented below.
         :param pulumi.Input[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']] performance_config: Data dump parallelism settings used by the migration.
+               Structure is documented below.
+        :param pulumi.Input[Union['MigrationJobPostgresHomogeneousConfigArgs', 'MigrationJobPostgresHomogeneousConfigArgsDict']] postgres_homogeneous_config: PostgreSQL to PostgreSQL configuration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -1593,22 +1691,24 @@ class MigrationJob(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_flags: Optional[pulumi.Input[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
-                 dump_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 migration_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 objects_config: Optional[pulumi.Input[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
-                 performance_config: Optional[pulumi.Input[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reverse_ssh_connectivity: Optional[pulumi.Input[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
-                 source: Optional[pulumi.Input[_builtins.str]] = None,
-                 static_ip_connectivity: Optional[pulumi.Input[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpc_peering_connectivity: Optional[pulumi.Input[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_flags: pulumi.Input[Optional[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
+                 dump_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 migration_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 objects_config: pulumi.Input[Optional[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
+                 performance_config: pulumi.Input[Optional[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
+                 postgres_homogeneous_config: pulumi.Input[Optional[Union['MigrationJobPostgresHomogeneousConfigArgs', 'MigrationJobPostgresHomogeneousConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reverse_ssh_connectivity: pulumi.Input[Optional[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
+                 source: pulumi.Input[Optional[_builtins.str]] = None,
+                 static_ip_connectivity: pulumi.Input[Optional[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpc_peering_connectivity: pulumi.Input[Optional[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1618,6 +1718,7 @@ class MigrationJob(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = MigrationJobArgs.__new__(MigrationJobArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if destination is None and not opts.urn:
                 raise TypeError("Missing required property 'destination'")
             __props__.__dict__["destination"] = destination
@@ -1632,6 +1733,7 @@ class MigrationJob(pulumi.CustomResource):
             __props__.__dict__["migration_job_id"] = migration_job_id
             __props__.__dict__["objects_config"] = objects_config
             __props__.__dict__["performance_config"] = performance_config
+            __props__.__dict__["postgres_homogeneous_config"] = postgres_homogeneous_config
             __props__.__dict__["project"] = project
             __props__.__dict__["reverse_ssh_connectivity"] = reverse_ssh_connectivity
             if source is None and not opts.urn:
@@ -1661,29 +1763,31 @@ class MigrationJob(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            destination: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            dump_flags: Optional[pulumi.Input[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
-            dump_path: Optional[pulumi.Input[_builtins.str]] = None,
-            dump_type: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            errors: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MigrationJobErrorArgs', 'MigrationJobErrorArgsDict']]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            migration_job_id: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            objects_config: Optional[pulumi.Input[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
-            performance_config: Optional[pulumi.Input[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
-            phase: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            reverse_ssh_connectivity: Optional[pulumi.Input[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
-            source: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            static_ip_connectivity: Optional[pulumi.Input[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            vpc_peering_connectivity: Optional[pulumi.Input[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None) -> 'MigrationJob':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            destination: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            dump_flags: pulumi.Input[Optional[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']]] = None,
+            dump_path: pulumi.Input[Optional[_builtins.str]] = None,
+            dump_type: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            errors: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MigrationJobErrorArgs', 'MigrationJobErrorArgsDict']]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            migration_job_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            objects_config: pulumi.Input[Optional[Union['MigrationJobObjectsConfigArgs', 'MigrationJobObjectsConfigArgsDict']]] = None,
+            performance_config: pulumi.Input[Optional[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']]] = None,
+            phase: pulumi.Input[Optional[_builtins.str]] = None,
+            postgres_homogeneous_config: pulumi.Input[Optional[Union['MigrationJobPostgresHomogeneousConfigArgs', 'MigrationJobPostgresHomogeneousConfigArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            reverse_ssh_connectivity: pulumi.Input[Optional[Union['MigrationJobReverseSshConnectivityArgs', 'MigrationJobReverseSshConnectivityArgsDict']]] = None,
+            source: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            static_ip_connectivity: pulumi.Input[Optional[Union['MigrationJobStaticIpConnectivityArgs', 'MigrationJobStaticIpConnectivityArgsDict']]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            vpc_peering_connectivity: pulumi.Input[Optional[Union['MigrationJobVpcPeeringConnectivityArgs', 'MigrationJobVpcPeeringConnectivityArgsDict']]] = None) -> 'MigrationJob':
         """
         Get an existing MigrationJob resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1692,6 +1796,12 @@ class MigrationJob(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Output only. The timestamp when the resource was created. A timestamp in RFC3339 UTC 'Zulu' format, accurate to nanoseconds. Example: '2014-10-02T15:01:23.045123456Z'.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] destination: The name of the destination connection profile resource in the form of projects/{project}/locations/{location}/connectionProfiles/{destinationConnectionProfile}.
         :param pulumi.Input[_builtins.str] display_name: The migration job display name.
         :param pulumi.Input[Union['MigrationJobDumpFlagsArgs', 'MigrationJobDumpFlagsArgsDict']] dump_flags: The initial dump flags.
@@ -1718,6 +1828,8 @@ class MigrationJob(pulumi.CustomResource):
         :param pulumi.Input[Union['MigrationJobPerformanceConfigArgs', 'MigrationJobPerformanceConfigArgsDict']] performance_config: Data dump parallelism settings used by the migration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] phase: The current migration job phase.
+        :param pulumi.Input[Union['MigrationJobPostgresHomogeneousConfigArgs', 'MigrationJobPostgresHomogeneousConfigArgsDict']] postgres_homogeneous_config: PostgreSQL to PostgreSQL configuration.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pulumi_labels: The combination of labels configured directly on the resource
@@ -1740,6 +1852,7 @@ class MigrationJob(pulumi.CustomResource):
         __props__ = _MigrationJobState.__new__(_MigrationJobState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["destination"] = destination
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["dump_flags"] = dump_flags
@@ -1754,6 +1867,7 @@ class MigrationJob(pulumi.CustomResource):
         __props__.__dict__["objects_config"] = objects_config
         __props__.__dict__["performance_config"] = performance_config
         __props__.__dict__["phase"] = phase
+        __props__.__dict__["postgres_homogeneous_config"] = postgres_homogeneous_config
         __props__.__dict__["project"] = project
         __props__.__dict__["pulumi_labels"] = pulumi_labels
         __props__.__dict__["reverse_ssh_connectivity"] = reverse_ssh_connectivity
@@ -1771,6 +1885,19 @@ class MigrationJob(pulumi.CustomResource):
         Output only. The timestamp when the resource was created. A timestamp in RFC3339 UTC 'Zulu' format, accurate to nanoseconds. Example: '2014-10-02T15:01:23.045123456Z'.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -1895,6 +2022,15 @@ class MigrationJob(pulumi.CustomResource):
         The current migration job phase.
         """
         return pulumi.get(self, "phase")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresHomogeneousConfig")
+    def postgres_homogeneous_config(self) -> pulumi.Output[Optional['outputs.MigrationJobPostgresHomogeneousConfig']]:
+        """
+        PostgreSQL to PostgreSQL configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "postgres_homogeneous_config")
 
     @_builtins.property
     @pulumi.getter

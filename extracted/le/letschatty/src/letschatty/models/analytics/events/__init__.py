@@ -30,6 +30,7 @@ from ...company.CRM.funnel import Funnel, FunnelStage
 from ...utils.types import Status
 from .chat_based_events.chat_based_event import CustomerEventData
 from .chat_based_events.ai_agent_chat import ChattyAIChatEvent, ChattyAIChatData
+from .chat_based_events.ai_agent_escalate_event import AiAgentEscalateEvent, AiAgentEscalateEventData
 from .user_notification_intent import (
     UserNotificationIntentEvent,
     UserNotificationIntentEventData,

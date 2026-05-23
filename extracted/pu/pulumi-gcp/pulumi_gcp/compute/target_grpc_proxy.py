@@ -19,14 +19,21 @@ __all__ = ['TargetGrpcProxyArgs', 'TargetGrpcProxy']
 @pulumi.input_type
 class TargetGrpcProxyArgs:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 url_map: Optional[pulumi.Input[_builtins.str]] = None,
-                 validate_for_proxyless: Optional[pulumi.Input[_builtins.bool]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 url_map: pulumi.Input[Optional[_builtins.str]] = None,
+                 validate_for_proxyless: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a TargetGrpcProxy resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource
                is created. The name must be 1-63 characters long, and comply
@@ -51,6 +58,8 @@ class TargetGrpcProxyArgs:
                must not use "xds:///" scheme in the target URI of the service
                it is connecting to
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
@@ -63,20 +72,37 @@ class TargetGrpcProxyArgs:
             pulumi.set(__self__, "validate_for_proxyless", validate_for_proxyless)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource
         is created. The name must be 1-63 characters long, and comply
@@ -89,12 +115,12 @@ class TargetGrpcProxyArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -102,12 +128,12 @@ class TargetGrpcProxyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="urlMap")
-    def url_map(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def url_map(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         URL to the UrlMap resource that defines the mapping from URL to
         the BackendService. The protocol field in the BackendService
@@ -116,12 +142,12 @@ class TargetGrpcProxyArgs:
         return pulumi.get(self, "url_map")
 
     @url_map.setter
-    def url_map(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def url_map(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "url_map", value)
 
     @_builtins.property
     @pulumi.getter(name="validateForProxyless")
-    def validate_for_proxyless(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def validate_for_proxyless(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, indicates that the BackendServices referenced by
         the urlMap may be accessed by gRPC applications without using
@@ -137,26 +163,33 @@ class TargetGrpcProxyArgs:
         return pulumi.get(self, "validate_for_proxyless")
 
     @validate_for_proxyless.setter
-    def validate_for_proxyless(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def validate_for_proxyless(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "validate_for_proxyless", value)
 
 
 @pulumi.input_type
 class _TargetGrpcProxyState:
     def __init__(__self__, *,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link_with_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 url_map: Optional[pulumi.Input[_builtins.str]] = None,
-                 validate_for_proxyless: Optional[pulumi.Input[_builtins.bool]] = None):
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link_with_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 url_map: pulumi.Input[Optional[_builtins.str]] = None,
+                 validate_for_proxyless: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering TargetGrpcProxy resources.
 
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. A hash of the contents stored in
                this object. This field is used in optimistic locking. This field
@@ -192,6 +225,8 @@ class _TargetGrpcProxyState:
         """
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if fingerprint is not None:
@@ -211,31 +246,48 @@ class _TargetGrpcProxyState:
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fingerprint of this resource. A hash of the contents stored in
         this object. This field is used in optimistic locking. This field
@@ -248,12 +300,12 @@ class _TargetGrpcProxyState:
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource
         is created. The name must be 1-63 characters long, and comply
@@ -266,12 +318,12 @@ class _TargetGrpcProxyState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -279,36 +331,36 @@ class _TargetGrpcProxyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLinkWithId")
-    def self_link_with_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link_with_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-defined URL with id for the resource.
         """
         return pulumi.get(self, "self_link_with_id")
 
     @self_link_with_id.setter
-    def self_link_with_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link_with_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link_with_id", value)
 
     @_builtins.property
     @pulumi.getter(name="urlMap")
-    def url_map(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def url_map(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         URL to the UrlMap resource that defines the mapping from URL to
         the BackendService. The protocol field in the BackendService
@@ -317,12 +369,12 @@ class _TargetGrpcProxyState:
         return pulumi.get(self, "url_map")
 
     @url_map.setter
-    def url_map(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def url_map(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "url_map", value)
 
     @_builtins.property
     @pulumi.getter(name="validateForProxyless")
-    def validate_for_proxyless(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def validate_for_proxyless(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, indicates that the BackendServices referenced by
         the urlMap may be accessed by gRPC applications without using
@@ -338,7 +390,7 @@ class _TargetGrpcProxyState:
         return pulumi.get(self, "validate_for_proxyless")
 
     @validate_for_proxyless.setter
-    def validate_for_proxyless(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def validate_for_proxyless(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "validate_for_proxyless", value)
 
 
@@ -348,11 +400,12 @@ class TargetGrpcProxy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 url_map: Optional[pulumi.Input[_builtins.str]] = None,
-                 validate_for_proxyless: Optional[pulumi.Input[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 url_map: pulumi.Input[Optional[_builtins.str]] = None,
+                 validate_for_proxyless: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         Represents a Target gRPC Proxy resource. A target gRPC proxy is a component
@@ -476,6 +529,12 @@ class TargetGrpcProxy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource
                is created. The name must be 1-63 characters long, and comply
@@ -641,11 +700,12 @@ class TargetGrpcProxy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 url_map: Optional[pulumi.Input[_builtins.str]] = None,
-                 validate_for_proxyless: Optional[pulumi.Input[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 url_map: pulumi.Input[Optional[_builtins.str]] = None,
+                 validate_for_proxyless: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -655,6 +715,7 @@ class TargetGrpcProxy(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = TargetGrpcProxyArgs.__new__(TargetGrpcProxyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["name"] = name
             __props__.__dict__["project"] = project
@@ -674,15 +735,16 @@ class TargetGrpcProxy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link_with_id: Optional[pulumi.Input[_builtins.str]] = None,
-            url_map: Optional[pulumi.Input[_builtins.str]] = None,
-            validate_for_proxyless: Optional[pulumi.Input[_builtins.bool]] = None) -> 'TargetGrpcProxy':
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link_with_id: pulumi.Input[Optional[_builtins.str]] = None,
+            url_map: pulumi.Input[Optional[_builtins.str]] = None,
+            validate_for_proxyless: pulumi.Input[Optional[_builtins.bool]] = None) -> 'TargetGrpcProxy':
         """
         Get an existing TargetGrpcProxy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -691,6 +753,12 @@ class TargetGrpcProxy(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. A hash of the contents stored in
                this object. This field is used in optimistic locking. This field
@@ -729,6 +797,7 @@ class TargetGrpcProxy(pulumi.CustomResource):
         __props__ = _TargetGrpcProxyState.__new__(_TargetGrpcProxyState)
 
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["fingerprint"] = fingerprint
         __props__.__dict__["name"] = name
@@ -746,6 +815,19 @@ class TargetGrpcProxy(pulumi.CustomResource):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

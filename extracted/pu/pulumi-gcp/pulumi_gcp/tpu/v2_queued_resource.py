@@ -21,13 +21,20 @@ __all__ = ['V2QueuedResourceArgs', 'V2QueuedResource']
 @pulumi.input_type
 class V2QueuedResourceArgs:
     def __init__(__self__, *,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tpu: Optional[pulumi.Input['V2QueuedResourceTpuArgs']] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tpu: pulumi.Input[Optional['V2QueuedResourceTpuArgs']] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a V2QueuedResource resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The immutable name of the Queued Resource.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -35,6 +42,8 @@ class V2QueuedResourceArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] zone: The GCP location for the Queued Resource. If it is not provided, the provider zone is used.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -45,20 +54,37 @@ class V2QueuedResourceArgs:
             pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The immutable name of the Queued Resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -66,12 +92,12 @@ class V2QueuedResourceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def tpu(self) -> Optional[pulumi.Input['V2QueuedResourceTpuArgs']]:
+    def tpu(self) -> pulumi.Input[Optional['V2QueuedResourceTpuArgs']]:
         """
         Defines a TPU resource.
         Structure is documented below.
@@ -79,32 +105,39 @@ class V2QueuedResourceArgs:
         return pulumi.get(self, "tpu")
 
     @tpu.setter
-    def tpu(self, value: Optional[pulumi.Input['V2QueuedResourceTpuArgs']]):
+    def tpu(self, value: pulumi.Input[Optional['V2QueuedResourceTpuArgs']]):
         pulumi.set(self, "tpu", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The GCP location for the Queued Resource. If it is not provided, the provider zone is used.
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
 @pulumi.input_type
 class _V2QueuedResourceState:
     def __init__(__self__, *,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tpu: Optional[pulumi.Input['V2QueuedResourceTpuArgs']] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tpu: pulumi.Input[Optional['V2QueuedResourceTpuArgs']] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering V2QueuedResource resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The immutable name of the Queued Resource.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -112,6 +145,8 @@ class _V2QueuedResourceState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] zone: The GCP location for the Queued Resource. If it is not provided, the provider zone is used.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -122,20 +157,37 @@ class _V2QueuedResourceState:
             pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The immutable name of the Queued Resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -143,12 +195,12 @@ class _V2QueuedResourceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def tpu(self) -> Optional[pulumi.Input['V2QueuedResourceTpuArgs']]:
+    def tpu(self) -> pulumi.Input[Optional['V2QueuedResourceTpuArgs']]:
         """
         Defines a TPU resource.
         Structure is documented below.
@@ -156,19 +208,19 @@ class _V2QueuedResourceState:
         return pulumi.get(self, "tpu")
 
     @tpu.setter
-    def tpu(self, value: Optional[pulumi.Input['V2QueuedResourceTpuArgs']]):
+    def tpu(self, value: pulumi.Input[Optional['V2QueuedResourceTpuArgs']]):
         pulumi.set(self, "tpu", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The GCP location for the Queued Resource. If it is not provided, the provider zone is used.
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
@@ -178,10 +230,11 @@ class V2QueuedResource(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tpu: Optional[pulumi.Input[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tpu: pulumi.Input[Optional[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Cloud TPU Queued Resource.
@@ -278,6 +331,12 @@ class V2QueuedResource(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The immutable name of the Queued Resource.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -399,10 +458,11 @@ class V2QueuedResource(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tpu: Optional[pulumi.Input[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tpu: pulumi.Input[Optional[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -412,6 +472,7 @@ class V2QueuedResource(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = V2QueuedResourceArgs.__new__(V2QueuedResourceArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["name"] = name
             __props__.__dict__["project"] = project
             __props__.__dict__["tpu"] = tpu
@@ -426,10 +487,11 @@ class V2QueuedResource(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            tpu: Optional[pulumi.Input[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
-            zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'V2QueuedResource':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            tpu: pulumi.Input[Optional[Union['V2QueuedResourceTpuArgs', 'V2QueuedResourceTpuArgsDict']]] = None,
+            zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'V2QueuedResource':
         """
         Get an existing V2QueuedResource resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -437,6 +499,12 @@ class V2QueuedResource(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The immutable name of the Queued Resource.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -448,11 +516,25 @@ class V2QueuedResource(pulumi.CustomResource):
 
         __props__ = _V2QueuedResourceState.__new__(_V2QueuedResourceState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         __props__.__dict__["tpu"] = tpu
         __props__.__dict__["zone"] = zone
         return V2QueuedResource(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

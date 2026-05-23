@@ -202,6 +202,20 @@ class IndexDeploymentResponse(_message.Message):
     build_id: str
     def __init__(self, build_id: _Optional[str] = ...) -> None: ...
 
+class ValidateNamedQueriesRequest(_message.Message):
+    __slots__ = ("existing_deployment_id", "shadow_run_id")
+    EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    existing_deployment_id: str
+    shadow_run_id: str
+    def __init__(self, existing_deployment_id: _Optional[str] = ..., shadow_run_id: _Optional[str] = ...) -> None: ...
+
+class ValidateNamedQueriesResponse(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
 class StartShadowBuildFromDeploymentRequest(_message.Message):
     __slots__ = ("existing_deployment_id", "force_venv_rebuild", "skip_handle_conversion_errors")
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]

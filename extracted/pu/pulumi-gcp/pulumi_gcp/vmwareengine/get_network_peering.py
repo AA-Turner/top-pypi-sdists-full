@@ -26,10 +26,13 @@ class GetNetworkPeeringResult:
     """
     A collection of values returned by getNetworkPeering.
     """
-    def __init__(__self__, create_time=None, description=None, export_custom_routes=None, export_custom_routes_with_public_ip=None, id=None, import_custom_routes=None, import_custom_routes_with_public_ip=None, name=None, peer_network=None, peer_network_type=None, project=None, state=None, state_details=None, uid=None, update_time=None, vmware_engine_network=None, vmware_engine_network_canonical=None):
+    def __init__(__self__, create_time=None, deletion_policy=None, description=None, export_custom_routes=None, export_custom_routes_with_public_ip=None, id=None, import_custom_routes=None, import_custom_routes_with_public_ip=None, name=None, peer_network=None, peer_network_type=None, project=None, state=None, state_details=None, uid=None, update_time=None, vmware_engine_network=None, vmware_engine_network_canonical=None):
         if create_time and not isinstance(create_time, str):
             raise TypeError("Expected argument 'create_time' to be a str")
         pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy and not isinstance(deletion_policy, str):
+            raise TypeError("Expected argument 'deletion_policy' to be a str")
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description and not isinstance(description, str):
             raise TypeError("Expected argument 'description' to be a str")
         pulumi.set(__self__, "description", description)
@@ -83,6 +86,11 @@ class GetNetworkPeeringResult:
     @pulumi.getter(name="createTime")
     def create_time(self) -> _builtins.str:
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -175,6 +183,7 @@ class AwaitableGetNetworkPeeringResult(GetNetworkPeeringResult):
             yield self
         return GetNetworkPeeringResult(
             create_time=self.create_time,
+            deletion_policy=self.deletion_policy,
             description=self.description,
             export_custom_routes=self.export_custom_routes,
             export_custom_routes_with_public_ip=self.export_custom_routes_with_public_ip,
@@ -222,6 +231,7 @@ def get_network_peering(name: Optional[_builtins.str] = None,
 
     return AwaitableGetNetworkPeeringResult(
         create_time=pulumi.get(__ret__, 'create_time'),
+        deletion_policy=pulumi.get(__ret__, 'deletion_policy'),
         description=pulumi.get(__ret__, 'description'),
         export_custom_routes=pulumi.get(__ret__, 'export_custom_routes'),
         export_custom_routes_with_public_ip=pulumi.get(__ret__, 'export_custom_routes_with_public_ip'),
@@ -238,8 +248,8 @@ def get_network_peering(name: Optional[_builtins.str] = None,
         update_time=pulumi.get(__ret__, 'update_time'),
         vmware_engine_network=pulumi.get(__ret__, 'vmware_engine_network'),
         vmware_engine_network_canonical=pulumi.get(__ret__, 'vmware_engine_network_canonical'))
-def get_network_peering_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                               project: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_network_peering_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                               project: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetNetworkPeeringResult]:
     """
     Use this data source to get details about a network peering resource.
@@ -266,6 +276,7 @@ def get_network_peering_output(name: Optional[pulumi.Input[_builtins.str]] = Non
     __ret__ = pulumi.runtime.invoke_output('gcp:vmwareengine/getNetworkPeering:getNetworkPeering', __args__, opts=opts, typ=GetNetworkPeeringResult)
     return __ret__.apply(lambda __response__: GetNetworkPeeringResult(
         create_time=pulumi.get(__response__, 'create_time'),
+        deletion_policy=pulumi.get(__response__, 'deletion_policy'),
         description=pulumi.get(__response__, 'description'),
         export_custom_routes=pulumi.get(__response__, 'export_custom_routes'),
         export_custom_routes_with_public_ip=pulumi.get(__response__, 'export_custom_routes_with_public_ip'),

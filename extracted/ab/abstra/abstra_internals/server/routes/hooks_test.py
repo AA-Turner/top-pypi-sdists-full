@@ -28,7 +28,7 @@ class TestHooksRoutes(unittest.TestCase):
     def test_create_hook(self):
         mock_hook = MagicMock()
         mock_hook.editor_dto = {"id": "hook2", "title": "New Hook"}
-        self.controller.create_hook.return_value = mock_hook
+        self.controller.create_stage.return_value = mock_hook
 
         payload = {"title": "New Hook", "file": "new_hook.py", "position": [10, 20]}
         resp = self.client.post("/hooks/", json=payload)
@@ -45,22 +45,22 @@ class TestHooksRoutes(unittest.TestCase):
         # This confirms the code PASSED A LIST.
         # This means my conversion logic `position = (int(req.position[0]), ...)` was NOT executed or `req.position` was used directly?
         # Let's check the file content.
-        self.controller.create_hook.assert_called_with(
-            "New Hook", "new_hook.py", (10, 20), None
+        self.controller.create_stage.assert_called_with(
+            "hook", "New Hook", "new_hook.py", (10, 20), None
         )
 
     def test_create_hook_default_position(self):
         mock_hook = MagicMock()
         mock_hook.editor_dto = {"id": "hook2", "title": "New Hook"}
-        self.controller.create_hook.return_value = mock_hook
+        self.controller.create_stage.return_value = mock_hook
 
         payload = {"title": "New Hook", "file": "new_hook.py"}
         resp = self.client.post("/hooks/", json=payload)
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json, {"id": "hook2", "title": "New Hook"})
-        self.controller.create_hook.assert_called_with(
-            "New Hook", "new_hook.py", (0, 0), None
+        self.controller.create_stage.assert_called_with(
+            "hook", "New Hook", "new_hook.py", (0, 0), None
         )
 
     def test_update_hook(self):

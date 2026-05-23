@@ -356,6 +356,8 @@ __all__ = [
     'NodeTemplateDisk',
     'NodeTemplateNodeTypeFlexibility',
     'NodeTemplateServerBinding',
+    'OrganizationSecurityPolicyAdvancedOptionsConfig',
+    'OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig',
     'OrganizationSecurityPolicyRuleHeaderAction',
     'OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAdd',
     'OrganizationSecurityPolicyRuleMatch',
@@ -437,6 +439,7 @@ __all__ = [
     'RegionDiskGuestOsFeature',
     'RegionDiskIamBindingCondition',
     'RegionDiskIamMemberCondition',
+    'RegionDiskSourceImageEncryptionKey',
     'RegionDiskSourceSnapshotEncryptionKey',
     'RegionHealthCheckGrpcHealthCheck',
     'RegionHealthCheckGrpcTlsHealthCheck',
@@ -498,6 +501,10 @@ __all__ = [
     'RegionInstanceTemplateSchedulingPreemptionNoticeDuration',
     'RegionInstanceTemplateServiceAccount',
     'RegionInstanceTemplateShieldedInstanceConfig',
+    'RegionInstantSnapshotIamBindingCondition',
+    'RegionInstantSnapshotIamMemberCondition',
+    'RegionInstantSnapshotParams',
+    'RegionInstantSnapshotResourceStatus',
     'RegionNetworkEndpointGroupAppEngine',
     'RegionNetworkEndpointGroupCloudFunction',
     'RegionNetworkEndpointGroupCloudRun',
@@ -750,6 +757,7 @@ __all__ = [
     'SecurityPolicyRuleMatchExprOptionsRecaptchaOptions',
     'SecurityPolicyRulePreconfiguredWafConfig',
     'SecurityPolicyRulePreconfiguredWafConfigExclusion',
+    'SecurityPolicyRulePreconfiguredWafConfigExclusionRequestBody',
     'SecurityPolicyRulePreconfiguredWafConfigExclusionRequestCooky',
     'SecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader',
     'SecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam',
@@ -1106,6 +1114,7 @@ __all__ = [
     'GetRegionDiskAsyncPrimaryDiskResult',
     'GetRegionDiskDiskEncryptionKeyResult',
     'GetRegionDiskGuestOsFeatureResult',
+    'GetRegionDiskSourceImageEncryptionKeyResult',
     'GetRegionDiskSourceSnapshotEncryptionKeyResult',
     'GetRegionInstanceGroupInstanceResult',
     'GetRegionInstanceGroupInstanceNamedPortResult',
@@ -1304,6 +1313,8 @@ class AutoscalerAutoscalingPolicy(dict):
             suggest = "scale_in_control"
         elif key == "scalingSchedules":
             suggest = "scaling_schedules"
+        elif key == "stabilizationPeriod":
+            suggest = "stabilization_period"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in AutoscalerAutoscalingPolicy. Access the value via the '{suggest}' property getter instead.")
@@ -1326,7 +1337,8 @@ class AutoscalerAutoscalingPolicy(dict):
                  mode: Optional[_builtins.str] = None,
                  scale_down_control: Optional['outputs.AutoscalerAutoscalingPolicyScaleDownControl'] = None,
                  scale_in_control: Optional['outputs.AutoscalerAutoscalingPolicyScaleInControl'] = None,
-                 scaling_schedules: Optional[Sequence['outputs.AutoscalerAutoscalingPolicyScalingSchedule']] = None):
+                 scaling_schedules: Optional[Sequence['outputs.AutoscalerAutoscalingPolicyScalingSchedule']] = None,
+                 stabilization_period: Optional[_builtins.int] = None):
         """
         :param _builtins.int max_replicas: The maximum number of instances that the autoscaler can scale up
                to. This is required when creating or updating an autoscaler. The
@@ -1363,6 +1375,11 @@ class AutoscalerAutoscalingPolicy(dict):
                Structure is documented below.
         :param Sequence['AutoscalerAutoscalingPolicyScalingScheduleArgs'] scaling_schedules: Scaling schedules defined for an autoscaler. Multiple schedules can be set on an autoscaler and they can overlap.
                Structure is documented below.
+        :param _builtins.int stabilization_period: The number of seconds that the autoscaler waits for load stabilization
+               before making scale-in decisions.
+               This might appear as a delay in scaling in but it is an important mechanism
+               for your application to not have fluctuating size due to short term load
+               fluctuations.
         """
         pulumi.set(__self__, "max_replicas", max_replicas)
         pulumi.set(__self__, "min_replicas", min_replicas)
@@ -1382,6 +1399,8 @@ class AutoscalerAutoscalingPolicy(dict):
             pulumi.set(__self__, "scale_in_control", scale_in_control)
         if scaling_schedules is not None:
             pulumi.set(__self__, "scaling_schedules", scaling_schedules)
+        if stabilization_period is not None:
+            pulumi.set(__self__, "stabilization_period", stabilization_period)
 
     @_builtins.property
     @pulumi.getter(name="maxReplicas")
@@ -1487,6 +1506,18 @@ class AutoscalerAutoscalingPolicy(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "scaling_schedules")
+
+    @_builtins.property
+    @pulumi.getter(name="stabilizationPeriod")
+    def stabilization_period(self) -> Optional[_builtins.int]:
+        """
+        The number of seconds that the autoscaler waits for load stabilization
+        before making scale-in decisions.
+        This might appear as a delay in scaling in but it is an important mechanism
+        for your application to not have fluctuating size due to short term load
+        fluctuations.
+        """
+        return pulumi.get(self, "stabilization_period")
 
 
 @pulumi.output_type
@@ -11913,6 +11944,8 @@ class InstanceBootDiskInitializeParams(dict):
             suggest = "provisioned_iops"
         elif key == "provisionedThroughput":
             suggest = "provisioned_throughput"
+        elif key == "replicaZones":
+            suggest = "replica_zones"
         elif key == "resourceManagerTags":
             suggest = "resource_manager_tags"
         elif key == "resourcePolicies":
@@ -11942,6 +11975,7 @@ class InstanceBootDiskInitializeParams(dict):
                  labels: Optional[Mapping[str, _builtins.str]] = None,
                  provisioned_iops: Optional[_builtins.int] = None,
                  provisioned_throughput: Optional[_builtins.int] = None,
+                 replica_zones: Optional[Sequence[_builtins.str]] = None,
                  resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None,
                  resource_policies: Optional[_builtins.str] = None,
                  size: Optional[_builtins.int] = None,
@@ -11979,6 +12013,7 @@ class InstanceBootDiskInitializeParams(dict):
                api/gcloud without the need to delete and recreate the disk, hyperdisk allows
                for an update of throughput every 4 hours. To update your hyperdisk more
                frequently, you'll need to manually delete and recreate it.
+        :param Sequence[_builtins.str] replica_zones: A list of short names or self_links of zones in which to create the disk. Setting this field converts the disk to a regional disk. You must provide exactly two replica zones, and one zone must be the same as the instance zone.
         :param Mapping[str, _builtins.str] resource_manager_tags: A tag is a key-value pair that can be attached to a Google Cloud resource. You can use tags to conditionally allow or deny policies based on whether a resource has a specific tag. This value is not returned by the API. In Terraform, this value cannot be updated and changing it will recreate the resource.
         :param _builtins.str resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate, so any external values are not set until the user specifies this field. Currently a max of 1 resource policy is supported.
         :param _builtins.int size: The size of the image in gigabytes. If not specified, it
@@ -12006,6 +12041,8 @@ class InstanceBootDiskInitializeParams(dict):
             pulumi.set(__self__, "provisioned_iops", provisioned_iops)
         if provisioned_throughput is not None:
             pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if replica_zones is not None:
+            pulumi.set(__self__, "replica_zones", replica_zones)
         if resource_manager_tags is not None:
             pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
         if resource_policies is not None:
@@ -12092,6 +12129,14 @@ class InstanceBootDiskInitializeParams(dict):
         frequently, you'll need to manually delete and recreate it.
         """
         return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="replicaZones")
+    def replica_zones(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of short names or self_links of zones in which to create the disk. Setting this field converts the disk to a regional disk. You must provide exactly two replica zones, and one zone must be the same as the instance zone.
+        """
+        return pulumi.get(self, "replica_zones")
 
     @_builtins.property
     @pulumi.getter(name="resourceManagerTags")
@@ -12385,8 +12430,8 @@ class InstanceConfidentialInstanceConfig(dict):
                  confidential_instance_type: Optional[_builtins.str] = None,
                  enable_confidential_compute: Optional[_builtins.bool] = None):
         """
-        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
-        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         if confidential_instance_type is not None:
             pulumi.set(__self__, "confidential_instance_type", confidential_instance_type)
@@ -12397,7 +12442,7 @@ class InstanceConfidentialInstanceConfig(dict):
     @pulumi.getter(name="confidentialInstanceType")
     def confidential_instance_type(self) -> Optional[_builtins.str]:
         """
-        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
         """
         return pulumi.get(self, "confidential_instance_type")
 
@@ -12405,7 +12450,7 @@ class InstanceConfidentialInstanceConfig(dict):
     @pulumi.getter(name="enableConfidentialCompute")
     def enable_confidential_compute(self) -> Optional[_builtins.bool]:
         """
-        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         return pulumi.get(self, "enable_confidential_compute")
 
@@ -12868,6 +12913,8 @@ class InstanceFromMachineImageBootDiskInitializeParams(dict):
             suggest = "provisioned_iops"
         elif key == "provisionedThroughput":
             suggest = "provisioned_throughput"
+        elif key == "replicaZones":
+            suggest = "replica_zones"
         elif key == "resourceManagerTags":
             suggest = "resource_manager_tags"
         elif key == "resourcePolicies":
@@ -12897,6 +12944,7 @@ class InstanceFromMachineImageBootDiskInitializeParams(dict):
                  labels: Optional[Mapping[str, _builtins.str]] = None,
                  provisioned_iops: Optional[_builtins.int] = None,
                  provisioned_throughput: Optional[_builtins.int] = None,
+                 replica_zones: Optional[Sequence[_builtins.str]] = None,
                  resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None,
                  resource_policies: Optional[_builtins.str] = None,
                  size: Optional[_builtins.int] = None,
@@ -12912,6 +12960,7 @@ class InstanceFromMachineImageBootDiskInitializeParams(dict):
         :param Mapping[str, _builtins.str] labels: A set of key/value label pairs assigned to the disk.
         :param _builtins.int provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle.
         :param _builtins.int provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
+        :param Sequence[_builtins.str] replica_zones: A list of short names or self_links of zones in which to create a regional disk.
         :param Mapping[str, _builtins.str] resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
         :param _builtins.str resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported.
         :param _builtins.int size: The size of the image in gigabytes.
@@ -12933,6 +12982,8 @@ class InstanceFromMachineImageBootDiskInitializeParams(dict):
             pulumi.set(__self__, "provisioned_iops", provisioned_iops)
         if provisioned_throughput is not None:
             pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if replica_zones is not None:
+            pulumi.set(__self__, "replica_zones", replica_zones)
         if resource_manager_tags is not None:
             pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
         if resource_policies is not None:
@@ -12997,6 +13048,14 @@ class InstanceFromMachineImageBootDiskInitializeParams(dict):
         Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
         """
         return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="replicaZones")
+    def replica_zones(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of short names or self_links of zones in which to create a regional disk.
+        """
+        return pulumi.get(self, "replica_zones")
 
     @_builtins.property
     @pulumi.getter(name="resourceManagerTags")
@@ -13474,7 +13533,7 @@ class InstanceFromMachineImageNetworkInterface(dict):
         :param _builtins.str network: The name or self_link of the network attached to this interface.
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address assigned to the instance.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str security_policy: A full or partial URL to a security policy to add to this instance. If this field is set to an empty string it will remove the associated security policy.
@@ -13625,7 +13684,7 @@ class InstanceFromMachineImageNetworkInterface(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> Optional[_builtins.str]:
         """
-        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -15265,6 +15324,8 @@ class InstanceFromTemplateBootDiskInitializeParams(dict):
             suggest = "provisioned_iops"
         elif key == "provisionedThroughput":
             suggest = "provisioned_throughput"
+        elif key == "replicaZones":
+            suggest = "replica_zones"
         elif key == "resourceManagerTags":
             suggest = "resource_manager_tags"
         elif key == "resourcePolicies":
@@ -15294,6 +15355,7 @@ class InstanceFromTemplateBootDiskInitializeParams(dict):
                  labels: Optional[Mapping[str, _builtins.str]] = None,
                  provisioned_iops: Optional[_builtins.int] = None,
                  provisioned_throughput: Optional[_builtins.int] = None,
+                 replica_zones: Optional[Sequence[_builtins.str]] = None,
                  resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None,
                  resource_policies: Optional[_builtins.str] = None,
                  size: Optional[_builtins.int] = None,
@@ -15309,6 +15371,7 @@ class InstanceFromTemplateBootDiskInitializeParams(dict):
         :param Mapping[str, _builtins.str] labels: A set of key/value label pairs assigned to the disk.
         :param _builtins.int provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle.
         :param _builtins.int provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
+        :param Sequence[_builtins.str] replica_zones: A list of short names or self_links of zones in which to create a regional disk.
         :param Mapping[str, _builtins.str] resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
         :param _builtins.str resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported.
         :param _builtins.int size: The size of the image in gigabytes.
@@ -15330,6 +15393,8 @@ class InstanceFromTemplateBootDiskInitializeParams(dict):
             pulumi.set(__self__, "provisioned_iops", provisioned_iops)
         if provisioned_throughput is not None:
             pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if replica_zones is not None:
+            pulumi.set(__self__, "replica_zones", replica_zones)
         if resource_manager_tags is not None:
             pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
         if resource_policies is not None:
@@ -15394,6 +15459,14 @@ class InstanceFromTemplateBootDiskInitializeParams(dict):
         Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
         """
         return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="replicaZones")
+    def replica_zones(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of short names or self_links of zones in which to create a regional disk.
+        """
+        return pulumi.get(self, "replica_zones")
 
     @_builtins.property
     @pulumi.getter(name="resourceManagerTags")
@@ -15871,7 +15944,7 @@ class InstanceFromTemplateNetworkInterface(dict):
         :param _builtins.str network: The name or self_link of the network attached to this interface.
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address assigned to the instance.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str security_policy: A full or partial URL to a security policy to add to this instance. If this field is set to an empty string it will remove the associated security policy.
@@ -16022,7 +16095,7 @@ class InstanceFromTemplateNetworkInterface(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> Optional[_builtins.str]:
         """
-        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -18480,7 +18553,7 @@ class InstanceNetworkInterface(dict):
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: `projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}`.
         :param _builtins.str network_ip: The private IP address to assign to the instance. If
                empty, the address will be automatically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA.
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA, IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str security_policy: Beta A full or partial URL to a security policy to add to this instance. If this field is set to an empty string it will remove the associated security policy.
@@ -18653,7 +18726,7 @@ class InstanceNetworkInterface(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> Optional[_builtins.str]:
         """
-        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA.
+        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA, IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -20010,8 +20083,8 @@ class InstanceTemplateConfidentialInstanceConfig(dict):
                  confidential_instance_type: Optional[_builtins.str] = None,
                  enable_confidential_compute: Optional[_builtins.bool] = None):
         """
-        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
-        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         if confidential_instance_type is not None:
             pulumi.set(__self__, "confidential_instance_type", confidential_instance_type)
@@ -20022,7 +20095,7 @@ class InstanceTemplateConfidentialInstanceConfig(dict):
     @pulumi.getter(name="confidentialInstanceType")
     def confidential_instance_type(self) -> Optional[_builtins.str]:
         """
-        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
         """
         return pulumi.get(self, "confidential_instance_type")
 
@@ -20030,7 +20103,7 @@ class InstanceTemplateConfidentialInstanceConfig(dict):
     @pulumi.getter(name="enableConfidentialCompute")
     def enable_confidential_compute(self) -> Optional[_builtins.bool]:
         """
-        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         return pulumi.get(self, "enable_confidential_compute")
 
@@ -20909,7 +20982,7 @@ class InstanceTemplateNetworkInterface(dict):
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address to assign to the instance. If
                empty, the address will be automatically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA.
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA, IDPF.
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. Values are IPV4_IPV6, IPV6_ONLY or IPV4_ONLY. If not specified, IPV4_ONLY will be used.
@@ -21062,7 +21135,7 @@ class InstanceTemplateNetworkInterface(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> Optional[_builtins.str]:
         """
-        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA.
+        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA, IDPF.
         """
         return pulumi.get(self, "nic_type")
 
@@ -27041,6 +27114,143 @@ class NodeTemplateServerBinding(dict):
 
 
 @pulumi.output_type
+class OrganizationSecurityPolicyAdvancedOptionsConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "jsonCustomConfig":
+            suggest = "json_custom_config"
+        elif key == "jsonParsing":
+            suggest = "json_parsing"
+        elif key == "logLevel":
+            suggest = "log_level"
+        elif key == "requestBodyInspectionSize":
+            suggest = "request_body_inspection_size"
+        elif key == "userIpRequestHeaders":
+            suggest = "user_ip_request_headers"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationSecurityPolicyAdvancedOptionsConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationSecurityPolicyAdvancedOptionsConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationSecurityPolicyAdvancedOptionsConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 json_custom_config: Optional['outputs.OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig'] = None,
+                 json_parsing: Optional[_builtins.str] = None,
+                 log_level: Optional[_builtins.str] = None,
+                 request_body_inspection_size: Optional[_builtins.str] = None,
+                 user_ip_request_headers: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param 'OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfigArgs' json_custom_config: Custom JSON parsing configurations.
+               Structure is documented below.
+        :param _builtins.str json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL".
+               Possible values are: `DISABLED`, `STANDARD`, `STANDARD_WITH_GRAPHQL`.
+        :param _builtins.str log_level: Logging level. Supported values include: "NORMAL", "VERBOSE".
+               Possible values are: `NORMAL`, `VERBOSE`.
+        :param _builtins.str request_body_inspection_size: The maximum request size chosen by the customer with Waf enabled. Values supported are "8KB", "16KB", "32KB", "48KB" and "64KB".
+               Values are case insensitive.
+               Possible values are: `8KB`, `16KB`, `32KB`, `48KB`, `64KB`.
+        :param Sequence[_builtins.str] user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the client source IP address.
+        """
+        if json_custom_config is not None:
+            pulumi.set(__self__, "json_custom_config", json_custom_config)
+        if json_parsing is not None:
+            pulumi.set(__self__, "json_parsing", json_parsing)
+        if log_level is not None:
+            pulumi.set(__self__, "log_level", log_level)
+        if request_body_inspection_size is not None:
+            pulumi.set(__self__, "request_body_inspection_size", request_body_inspection_size)
+        if user_ip_request_headers is not None:
+            pulumi.set(__self__, "user_ip_request_headers", user_ip_request_headers)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonCustomConfig")
+    def json_custom_config(self) -> Optional['outputs.OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig']:
+        """
+        Custom JSON parsing configurations.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "json_custom_config")
+
+    @_builtins.property
+    @pulumi.getter(name="jsonParsing")
+    def json_parsing(self) -> Optional[_builtins.str]:
+        """
+        JSON body parsing. Supported values include: "DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL".
+        Possible values are: `DISABLED`, `STANDARD`, `STANDARD_WITH_GRAPHQL`.
+        """
+        return pulumi.get(self, "json_parsing")
+
+    @_builtins.property
+    @pulumi.getter(name="logLevel")
+    def log_level(self) -> Optional[_builtins.str]:
+        """
+        Logging level. Supported values include: "NORMAL", "VERBOSE".
+        Possible values are: `NORMAL`, `VERBOSE`.
+        """
+        return pulumi.get(self, "log_level")
+
+    @_builtins.property
+    @pulumi.getter(name="requestBodyInspectionSize")
+    def request_body_inspection_size(self) -> Optional[_builtins.str]:
+        """
+        The maximum request size chosen by the customer with Waf enabled. Values supported are "8KB", "16KB", "32KB", "48KB" and "64KB".
+        Values are case insensitive.
+        Possible values are: `8KB`, `16KB`, `32KB`, `48KB`, `64KB`.
+        """
+        return pulumi.get(self, "request_body_inspection_size")
+
+    @_builtins.property
+    @pulumi.getter(name="userIpRequestHeaders")
+    def user_ip_request_headers(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        An optional list of case-insensitive request header names to use for resolving the client source IP address.
+        """
+        return pulumi.get(self, "user_ip_request_headers")
+
+
+@pulumi.output_type
+class OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "contentTypes":
+            suggest = "content_types"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationSecurityPolicyAdvancedOptionsConfigJsonCustomConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 content_types: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] content_types: A list of content types to be parsed as JSON.
+        """
+        pulumi.set(__self__, "content_types", content_types)
+
+    @_builtins.property
+    @pulumi.getter(name="contentTypes")
+    def content_types(self) -> Sequence[_builtins.str]:
+        """
+        A list of content types to be parsed as JSON.
+        """
+        return pulumi.get(self, "content_types")
+
+
+@pulumi.output_type
 class OrganizationSecurityPolicyRuleHeaderAction(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -28556,6 +28766,8 @@ class RegionAutoscalerAutoscalingPolicy(dict):
             suggest = "scale_in_control"
         elif key == "scalingSchedules":
             suggest = "scaling_schedules"
+        elif key == "stabilizationPeriod":
+            suggest = "stabilization_period"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RegionAutoscalerAutoscalingPolicy. Access the value via the '{suggest}' property getter instead.")
@@ -28578,7 +28790,8 @@ class RegionAutoscalerAutoscalingPolicy(dict):
                  mode: Optional[_builtins.str] = None,
                  scale_down_control: Optional['outputs.RegionAutoscalerAutoscalingPolicyScaleDownControl'] = None,
                  scale_in_control: Optional['outputs.RegionAutoscalerAutoscalingPolicyScaleInControl'] = None,
-                 scaling_schedules: Optional[Sequence['outputs.RegionAutoscalerAutoscalingPolicyScalingSchedule']] = None):
+                 scaling_schedules: Optional[Sequence['outputs.RegionAutoscalerAutoscalingPolicyScalingSchedule']] = None,
+                 stabilization_period: Optional[_builtins.int] = None):
         """
         :param _builtins.int max_replicas: The maximum number of instances that the autoscaler can scale up
                to. This is required when creating or updating an autoscaler. The
@@ -28615,6 +28828,11 @@ class RegionAutoscalerAutoscalingPolicy(dict):
                Structure is documented below.
         :param Sequence['RegionAutoscalerAutoscalingPolicyScalingScheduleArgs'] scaling_schedules: Scaling schedules defined for an autoscaler. Multiple schedules can be set on an autoscaler and they can overlap.
                Structure is documented below.
+        :param _builtins.int stabilization_period: The number of seconds that the autoscaler waits for load stabilization
+               before making scale-in decisions.
+               This might appear as a delay in scaling in but it is an important mechanism
+               for your application to not have fluctuating size due to short term load
+               fluctuations.
         """
         pulumi.set(__self__, "max_replicas", max_replicas)
         pulumi.set(__self__, "min_replicas", min_replicas)
@@ -28634,6 +28852,8 @@ class RegionAutoscalerAutoscalingPolicy(dict):
             pulumi.set(__self__, "scale_in_control", scale_in_control)
         if scaling_schedules is not None:
             pulumi.set(__self__, "scaling_schedules", scaling_schedules)
+        if stabilization_period is not None:
+            pulumi.set(__self__, "stabilization_period", stabilization_period)
 
     @_builtins.property
     @pulumi.getter(name="maxReplicas")
@@ -28739,6 +28959,18 @@ class RegionAutoscalerAutoscalingPolicy(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "scaling_schedules")
+
+    @_builtins.property
+    @pulumi.getter(name="stabilizationPeriod")
+    def stabilization_period(self) -> Optional[_builtins.int]:
+        """
+        The number of seconds that the autoscaler waits for load stabilization
+        before making scale-in decisions.
+        This might appear as a delay in scaling in but it is an important mechanism
+        for your application to not have fluctuating size due to short term load
+        fluctuations.
+        """
+        return pulumi.get(self, "stabilization_period")
 
 
 @pulumi.output_type
@@ -32449,6 +32681,112 @@ class RegionDiskIamMemberCondition(dict):
 
 
 @pulumi.output_type
+class RegionDiskSourceImageEncryptionKey(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeyName":
+            suggest = "kms_key_name"
+        elif key == "kmsKeyServiceAccount":
+            suggest = "kms_key_service_account"
+        elif key == "rawKey":
+            suggest = "raw_key"
+        elif key == "rsaEncryptedKey":
+            suggest = "rsa_encrypted_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionDiskSourceImageEncryptionKey. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionDiskSourceImageEncryptionKey.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionDiskSourceImageEncryptionKey.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_name: Optional[_builtins.str] = None,
+                 kms_key_service_account: Optional[_builtins.str] = None,
+                 raw_key: Optional[_builtins.str] = None,
+                 rsa_encrypted_key: Optional[_builtins.str] = None,
+                 sha256: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str kms_key_name: The name of the encryption key that is stored in Google Cloud KMS.
+        :param _builtins.str kms_key_service_account: The service account used for the encryption request for the given KMS key.
+               If absent, the Compute Engine Service Agent service account is used.
+        :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
+               RFC 4648 base64 to either encrypt or decrypt this resource.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit
+               customer-supplied encryption key to either encrypt or decrypt
+               this resource. You can provide either the rawKey or the rsaEncryptedKey.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.str sha256: (Output)
+               The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
+               encryption key that protects this resource.
+        """
+        if kms_key_name is not None:
+            pulumi.set(__self__, "kms_key_name", kms_key_name)
+        if kms_key_service_account is not None:
+            pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        if raw_key is not None:
+            pulumi.set(__self__, "raw_key", raw_key)
+        if rsa_encrypted_key is not None:
+            pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+        if sha256 is not None:
+            pulumi.set(__self__, "sha256", sha256)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the encryption key that is stored in Google Cloud KMS.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> Optional[_builtins.str]:
+        """
+        The service account used for the encryption request for the given KMS key.
+        If absent, the Compute Engine Service Agent service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> Optional[_builtins.str]:
+        """
+        Specifies a 256-bit customer-supplied encryption key, encoded in
+        RFC 4648 base64 to either encrypt or decrypt this resource.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> Optional[_builtins.str]:
+        """
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit
+        customer-supplied encryption key to either encrypt or decrypt
+        this resource. You can provide either the rawKey or the rsaEncryptedKey.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+    @_builtins.property
+    @pulumi.getter
+    def sha256(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
+        encryption key that protects this resource.
+        """
+        return pulumi.get(self, "sha256")
+
+
+@pulumi.output_type
 class RegionDiskSourceSnapshotEncryptionKey(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -35405,8 +35743,8 @@ class RegionInstanceTemplateConfidentialInstanceConfig(dict):
                  confidential_instance_type: Optional[_builtins.str] = None,
                  enable_confidential_compute: Optional[_builtins.bool] = None):
         """
-        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
-        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        :param _builtins.str confidential_instance_type: Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        :param _builtins.bool enable_confidential_compute: Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         if confidential_instance_type is not None:
             pulumi.set(__self__, "confidential_instance_type", confidential_instance_type)
@@ -35417,7 +35755,7 @@ class RegionInstanceTemplateConfidentialInstanceConfig(dict):
     @pulumi.getter(name="confidentialInstanceType")
     def confidential_instance_type(self) -> Optional[_builtins.str]:
         """
-        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
+        Defines the confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: `SEV`, `SEV_SNP`, `TDX`. `on_host_maintenance` can be set to MIGRATE if `confidential_instance_type` is set to `SEV` and `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM. If `SEV_SNP`, currently `min_cpu_platform` has to be set to `"AMD Milan"` or this will fail to create the VM.
         """
         return pulumi.get(self, "confidential_instance_type")
 
@@ -35425,7 +35763,7 @@ class RegionInstanceTemplateConfidentialInstanceConfig(dict):
     @pulumi.getter(name="enableConfidentialCompute")
     def enable_confidential_compute(self) -> Optional[_builtins.bool]:
         """
-        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
+        Defines whether the instance should have confidential compute enabled with AMD SEV. If enabled, `on_host_maintenance` can be set to MIGRATE if `min_cpu_platform` is set to `"AMD Milan"` or `"AMD Genoa"`. Otherwise, `on_host_maintenance` has to be set to TERMINATE or this will fail to create the VM.
         """
         return pulumi.get(self, "enable_confidential_compute")
 
@@ -36206,7 +36544,7 @@ class RegionInstanceTemplateNetworkInterface(dict):
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address to assign to the instance. If
                empty, the address will be automatically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA.
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA, IDPF.
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. Values are IPV4_IPV6, IPV6_ONLY or IPV4_ONLY. If not specified, IPV4_ONLY will be used.
@@ -36359,7 +36697,7 @@ class RegionInstanceTemplateNetworkInterface(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> Optional[_builtins.str]:
         """
-        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA.
+        The type of vNIC to be used on this interface. Possible values: GVNIC, VIRTIO_NET, MRDMA, IRDMA, IDPF.
         """
         return pulumi.get(self, "nic_type")
 
@@ -37433,6 +37771,182 @@ class RegionInstanceTemplateShieldedInstanceConfig(dict):
         - Use a virtualized trusted platform module, which is a specialized computer chip you can use to encrypt objects like keys and certificates. Defaults to true.
         """
         return pulumi.get(self, "enable_vtpm")
+
+
+@pulumi.output_type
+class RegionInstantSnapshotIamBindingCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str expression: Textual representation of an expression in Common Expression Language syntax.
+        :param _builtins.str title: A title for the expression, i.e. a short string describing its purpose.
+        :param _builtins.str description: An optional description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
+               
+               > **Warning:** Terraform considers the `role` and condition contents (`title`+`description`+`expression`) as the
+               identifier for the binding. This means that if any part of the condition is changed out-of-band, Terraform will
+               consider it to be an entirely different resource and will treat it as such.
+        """
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        An optional description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
+
+        > **Warning:** Terraform considers the `role` and condition contents (`title`+`description`+`expression`) as the
+        identifier for the binding. This means that if any part of the condition is changed out-of-band, Terraform will
+        consider it to be an entirely different resource and will treat it as such.
+        """
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class RegionInstantSnapshotIamMemberCondition(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 title: _builtins.str,
+                 description: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str expression: Textual representation of an expression in Common Expression Language syntax.
+        :param _builtins.str title: A title for the expression, i.e. a short string describing its purpose.
+        :param _builtins.str description: An optional description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
+               
+               > **Warning:** Terraform considers the `role` and condition contents (`title`+`description`+`expression`) as the
+               identifier for the binding. This means that if any part of the condition is changed out-of-band, Terraform will
+               consider it to be an entirely different resource and will treat it as such.
+        """
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> _builtins.str:
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
+        return pulumi.get(self, "title")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        An optional description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
+
+        > **Warning:** Terraform considers the `role` and condition contents (`title`+`description`+`expression`) as the
+        identifier for the binding. This means that if any part of the condition is changed out-of-band, Terraform will
+        consider it to be an entirely different resource and will treat it as such.
+        """
+        return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class RegionInstantSnapshotParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstantSnapshotParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstantSnapshotParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstantSnapshotParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the instant snapshot. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the instant snapshot. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
+class RegionInstantSnapshotResourceStatus(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "storageSizeBytes":
+            suggest = "storage_size_bytes"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstantSnapshotResourceStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstantSnapshotResourceStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstantSnapshotResourceStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 storage_size_bytes: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int storage_size_bytes: (Output)
+               The size of the storage used by the instant snapshot.
+        """
+        if storage_size_bytes is not None:
+            pulumi.set(__self__, "storage_size_bytes", storage_size_bytes)
+
+    @_builtins.property
+    @pulumi.getter(name="storageSizeBytes")
+    def storage_size_bytes(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        The size of the storage used by the instant snapshot.
+        """
+        return pulumi.get(self, "storage_size_bytes")
 
 
 @pulumi.output_type
@@ -53417,6 +53931,7 @@ class RouterStatusBestRouteResult(dict):
     def __init__(__self__, *,
                  as_paths: Sequence['outputs.RouterStatusBestRouteAsPathResult'],
                  creation_timestamp: _builtins.str,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  dest_range: _builtins.str,
                  name: _builtins.str,
@@ -53443,6 +53958,12 @@ class RouterStatusBestRouteResult(dict):
                  warnings: Sequence['outputs.RouterStatusBestRouteWarningResult']):
         """
         :param _builtins.str creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property
                when you create the resource.
         :param _builtins.str dest_range: The destination range of outgoing packets that this route applies to.
@@ -53511,6 +54032,7 @@ class RouterStatusBestRouteResult(dict):
         """
         pulumi.set(__self__, "as_paths", as_paths)
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "dest_range", dest_range)
         pulumi.set(__self__, "name", name)
@@ -53548,6 +54070,19 @@ class RouterStatusBestRouteResult(dict):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -53924,6 +54459,7 @@ class RouterStatusBestRoutesForRouterResult(dict):
     def __init__(__self__, *,
                  as_paths: Sequence['outputs.RouterStatusBestRoutesForRouterAsPathResult'],
                  creation_timestamp: _builtins.str,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  dest_range: _builtins.str,
                  name: _builtins.str,
@@ -53950,6 +54486,12 @@ class RouterStatusBestRoutesForRouterResult(dict):
                  warnings: Sequence['outputs.RouterStatusBestRoutesForRouterWarningResult']):
         """
         :param _builtins.str creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property
                when you create the resource.
         :param _builtins.str dest_range: The destination range of outgoing packets that this route applies to.
@@ -54018,6 +54560,7 @@ class RouterStatusBestRoutesForRouterResult(dict):
         """
         pulumi.set(__self__, "as_paths", as_paths)
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "dest_range", dest_range)
         pulumi.set(__self__, "name", name)
@@ -54055,6 +54598,19 @@ class RouterStatusBestRoutesForRouterResult(dict):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -55492,6 +56048,8 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
         suggest = None
         if key == "targetRuleSet":
             suggest = "target_rule_set"
+        elif key == "requestBodies":
+            suggest = "request_bodies"
         elif key == "requestCookies":
             suggest = "request_cookies"
         elif key == "requestHeaders":
@@ -55516,6 +56074,7 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
 
     def __init__(__self__, *,
                  target_rule_set: _builtins.str,
+                 request_bodies: Optional[Sequence['outputs.SecurityPolicyRulePreconfiguredWafConfigExclusionRequestBody']] = None,
                  request_cookies: Optional[Sequence['outputs.SecurityPolicyRulePreconfiguredWafConfigExclusionRequestCooky']] = None,
                  request_headers: Optional[Sequence['outputs.SecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader']] = None,
                  request_query_params: Optional[Sequence['outputs.SecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam']] = None,
@@ -55523,6 +56082,9 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
                  target_rule_ids: Optional[Sequence[_builtins.str]] = None):
         """
         :param _builtins.str target_rule_set: Target WAF rule set to apply the preconfigured WAF exclusion.
+        :param Sequence['SecurityPolicyRulePreconfiguredWafConfigExclusionRequestBodyArgs'] request_bodies: (Optional, Beta)
+               A list of request body fields to be excluded from inspection during\\npreconfigured WAF evaluation.
+               Structure is documented below.
         :param Sequence['SecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs'] request_cookies: Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
                Structure is documented below.
         :param Sequence['SecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs'] request_headers: Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
@@ -55537,6 +56099,8 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
                If omitted, it refers to all the rule IDs under the WAF rule set.
         """
         pulumi.set(__self__, "target_rule_set", target_rule_set)
+        if request_bodies is not None:
+            pulumi.set(__self__, "request_bodies", request_bodies)
         if request_cookies is not None:
             pulumi.set(__self__, "request_cookies", request_cookies)
         if request_headers is not None:
@@ -55555,6 +56119,16 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
         Target WAF rule set to apply the preconfigured WAF exclusion.
         """
         return pulumi.get(self, "target_rule_set")
+
+    @_builtins.property
+    @pulumi.getter(name="requestBodies")
+    def request_bodies(self) -> Optional[Sequence['outputs.SecurityPolicyRulePreconfiguredWafConfigExclusionRequestBody']]:
+        """
+        (Optional, Beta)
+        A list of request body fields to be excluded from inspection during\\npreconfigured WAF evaluation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_bodies")
 
     @_builtins.property
     @pulumi.getter(name="requestCookies")
@@ -55602,6 +56176,50 @@ class SecurityPolicyRulePreconfiguredWafConfigExclusion(dict):
         If omitted, it refers to all the rule IDs under the WAF rule set.
         """
         return pulumi.get(self, "target_rule_ids")
+
+
+@pulumi.output_type
+class SecurityPolicyRulePreconfiguredWafConfigExclusionRequestBody(dict):
+    def __init__(__self__, *,
+                 operator: _builtins.str,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value.
+        :param _builtins.str value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> _builtins.str:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value.
+        """
+        return pulumi.get(self, "operator")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
 
 
 @pulumi.output_type
@@ -71715,6 +72333,7 @@ class GetForwardingRulesRuleResult(dict):
                  backend_service: _builtins.str,
                  base_forwarding_rule: _builtins.str,
                  creation_timestamp: _builtins.str,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  effective_labels: Mapping[str, _builtins.str],
                  forwarding_rule_id: _builtins.int,
@@ -71777,6 +72396,12 @@ class GetForwardingRulesRuleResult(dict):
                must be omitted for all other load balancer types.
         :param _builtins.str base_forwarding_rule: [Output Only] The URL for the corresponding base Forwarding Rule. By base Forwarding Rule, we mean the Forwarding Rule that has the same IP address, protocol, and port settings with the current Forwarding Rule, but without sourceIPRanges specified. Always empty if the current Forwarding Rule does not have sourceIPRanges specified.
         :param _builtins.str creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property when
                you create the resource.
         :param Mapping[str, _builtins.str] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.
@@ -72001,6 +72626,7 @@ class GetForwardingRulesRuleResult(dict):
         pulumi.set(__self__, "backend_service", backend_service)
         pulumi.set(__self__, "base_forwarding_rule", base_forwarding_rule)
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "effective_labels", effective_labels)
         pulumi.set(__self__, "forwarding_rule_id", forwarding_rule_id)
@@ -72104,6 +72730,19 @@ class GetForwardingRulesRuleResult(dict):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -74029,6 +74668,7 @@ class GetInstanceBootDiskInitializeParamResult(dict):
                  labels: Mapping[str, _builtins.str],
                  provisioned_iops: _builtins.int,
                  provisioned_throughput: _builtins.int,
+                 replica_zones: Sequence[_builtins.str],
                  resource_manager_tags: Mapping[str, _builtins.str],
                  resource_policies: Sequence[_builtins.str],
                  size: _builtins.int,
@@ -74044,6 +74684,7 @@ class GetInstanceBootDiskInitializeParamResult(dict):
         :param Mapping[str, _builtins.str] labels: A set of key/value label pairs assigned to the disk.
         :param _builtins.int provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle.
         :param _builtins.int provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
+        :param Sequence[_builtins.str] replica_zones: A list of short names or self_links of zones in which to create a regional disk.
         :param Mapping[str, _builtins.str] resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
         :param Sequence[_builtins.str] resource_policies: A list of self_links to resource policies attached to the selected `boot_disk`
         :param _builtins.int size: The size of the image in gigabytes.
@@ -74059,6 +74700,7 @@ class GetInstanceBootDiskInitializeParamResult(dict):
         pulumi.set(__self__, "labels", labels)
         pulumi.set(__self__, "provisioned_iops", provisioned_iops)
         pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        pulumi.set(__self__, "replica_zones", replica_zones)
         pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
         pulumi.set(__self__, "resource_policies", resource_policies)
         pulumi.set(__self__, "size", size)
@@ -74115,6 +74757,14 @@ class GetInstanceBootDiskInitializeParamResult(dict):
         Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle.
         """
         return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="replicaZones")
+    def replica_zones(self) -> Sequence[_builtins.str]:
+        """
+        A list of short names or self_links of zones in which to create a regional disk.
+        """
+        return pulumi.get(self, "replica_zones")
 
     @_builtins.property
     @pulumi.getter(name="resourceManagerTags")
@@ -75157,7 +75807,7 @@ class GetInstanceNetworkInterfaceResult(dict):
         :param _builtins.str network: The name or self_link of the network attached to this interface.
         :param _builtins.str network_attachment: The URL of the network attachment to this interface.
         :param _builtins.str network_ip: The internal ip address of the instance, either manually or dynamically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str security_policy: A full or partial URL to a security policy to add to this instance. If this field is set to an empty string it will remove the associated security policy.
@@ -75288,7 +75938,7 @@ class GetInstanceNetworkInterfaceResult(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> _builtins.str:
         """
-        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA
+        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, IRDMA and IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -76781,7 +77431,7 @@ class GetInstanceTemplateNetworkInterfaceResult(dict):
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address to assign to the instance. If
                empty, the address will be automatically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, and IRDMA
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, IRDMA and IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used.
@@ -76913,7 +77563,7 @@ class GetInstanceTemplateNetworkInterfaceResult(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> _builtins.str:
         """
-        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, and IRDMA
+        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, IRDMA and IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -78162,6 +78812,7 @@ class GetNetworkAttachmentConnectionEndpointResult(dict):
 class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
     def __init__(__self__, *,
                  default_port: _builtins.int,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  generated_id: _builtins.int,
                  name: _builtins.str,
@@ -78175,6 +78826,12 @@ class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
         """
         :param _builtins.int default_port: The default port used if the port number is not specified in the
                network endpoint.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property when
                you create the resource.
         :param _builtins.int generated_id: The uniquely generated identifier for the resource. This identifier is defined by the server.
@@ -78195,7 +78852,7 @@ class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
                INTERNAL_MANAGED, and INTERNAL_SELF_MANAGED and 2) support the RATE or
                CONNECTION balancing modes.
                
-               Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT"]
+               Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT", "GCE_VM_IP_DEDICATED_BACKEND"]
         :param _builtins.str project: The ID of the project to list Network Endpoint Groups in. If it is not provided, the provider project is used.
         :param _builtins.int size: Number of network endpoints in the network endpoint group.
         :param _builtins.str subnetwork: Optional subnetwork to which all network endpoints in the NEG belong.
@@ -78203,6 +78860,7 @@ class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
                instead.
         """
         pulumi.set(__self__, "default_port", default_port)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "generated_id", generated_id)
         pulumi.set(__self__, "name", name)
@@ -78222,6 +78880,19 @@ class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
         network endpoint.
         """
         return pulumi.get(self, "default_port")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -78275,7 +78946,7 @@ class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
         INTERNAL_MANAGED, and INTERNAL_SELF_MANAGED and 2) support the RATE or
         CONNECTION balancing modes.
 
-        Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT"]
+        Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT", "GCE_VM_IP_DEDICATED_BACKEND"]
         """
         return pulumi.get(self, "network_endpoint_type")
 
@@ -80361,6 +81032,78 @@ class GetRegionDiskGuestOsFeatureResult(dict):
 
 
 @pulumi.output_type
+class GetRegionDiskSourceImageEncryptionKeyResult(dict):
+    def __init__(__self__, *,
+                 kms_key_name: _builtins.str,
+                 kms_key_service_account: _builtins.str,
+                 raw_key: _builtins.str,
+                 rsa_encrypted_key: _builtins.str,
+                 sha256: _builtins.str):
+        """
+        :param _builtins.str kms_key_name: The name of the encryption key that is stored in Google Cloud KMS.
+        :param _builtins.str kms_key_service_account: The service account used for the encryption request for the given KMS key.
+               If absent, the Compute Engine Service Agent service account is used.
+        :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
+               RFC 4648 base64 to either encrypt or decrypt this resource.
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit
+               customer-supplied encryption key to either encrypt or decrypt
+               this resource. You can provide either the rawKey or the rsaEncryptedKey.
+        :param _builtins.str sha256: The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
+               encryption key that protects this resource.
+        """
+        pulumi.set(__self__, "kms_key_name", kms_key_name)
+        pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        pulumi.set(__self__, "raw_key", raw_key)
+        pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+        pulumi.set(__self__, "sha256", sha256)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> _builtins.str:
+        """
+        The name of the encryption key that is stored in Google Cloud KMS.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> _builtins.str:
+        """
+        The service account used for the encryption request for the given KMS key.
+        If absent, the Compute Engine Service Agent service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> _builtins.str:
+        """
+        Specifies a 256-bit customer-supplied encryption key, encoded in
+        RFC 4648 base64 to either encrypt or decrypt this resource.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> _builtins.str:
+        """
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit
+        customer-supplied encryption key to either encrypt or decrypt
+        this resource. You can provide either the rawKey or the rsaEncryptedKey.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+    @_builtins.property
+    @pulumi.getter
+    def sha256(self) -> _builtins.str:
+        """
+        The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
+        encryption key that protects this resource.
+        """
+        return pulumi.get(self, "sha256")
+
+
+@pulumi.output_type
 class GetRegionDiskSourceSnapshotEncryptionKeyResult(dict):
     def __init__(__self__, *,
                  kms_key_name: _builtins.str,
@@ -82317,7 +83060,7 @@ class GetRegionInstanceTemplateNetworkInterfaceResult(dict):
         :param _builtins.str network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
         :param _builtins.str network_ip: The private IP address to assign to the instance. If
                empty, the address will be automatically assigned.
-        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, and IRDMA
+        :param _builtins.str nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, IRDMA and IDPF
         :param _builtins.str parent_nic_name: Name of the parent network interface of a dynamic network interface.
         :param _builtins.int queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.
         :param _builtins.str stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used.
@@ -82449,7 +83192,7 @@ class GetRegionInstanceTemplateNetworkInterfaceResult(dict):
     @pulumi.getter(name="nicType")
     def nic_type(self) -> _builtins.str:
         """
-        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, and IRDMA
+        The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, MRDMA, IRDMA and IDPF
         """
         return pulumi.get(self, "nic_type")
 
@@ -86542,6 +87285,7 @@ class GetRouterStatusBestRouteResult(dict):
     def __init__(__self__, *,
                  as_paths: Sequence['outputs.GetRouterStatusBestRouteAsPathResult'],
                  creation_timestamp: _builtins.str,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  dest_range: _builtins.str,
                  name: _builtins.str,
@@ -86568,6 +87312,12 @@ class GetRouterStatusBestRouteResult(dict):
                  warnings: Sequence['outputs.GetRouterStatusBestRouteWarningResult']):
         """
         :param _builtins.str creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property
                when you create the resource.
         :param _builtins.str dest_range: The destination range of outgoing packets that this route applies to.
@@ -86636,6 +87386,7 @@ class GetRouterStatusBestRouteResult(dict):
         """
         pulumi.set(__self__, "as_paths", as_paths)
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "dest_range", dest_range)
         pulumi.set(__self__, "name", name)
@@ -86673,6 +87424,19 @@ class GetRouterStatusBestRouteResult(dict):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -87049,6 +87813,7 @@ class GetRouterStatusBestRoutesForRouterResult(dict):
     def __init__(__self__, *,
                  as_paths: Sequence['outputs.GetRouterStatusBestRoutesForRouterAsPathResult'],
                  creation_timestamp: _builtins.str,
+                 deletion_policy: _builtins.str,
                  description: _builtins.str,
                  dest_range: _builtins.str,
                  name: _builtins.str,
@@ -87075,6 +87840,12 @@ class GetRouterStatusBestRoutesForRouterResult(dict):
                  warnings: Sequence['outputs.GetRouterStatusBestRoutesForRouterWarningResult']):
         """
         :param _builtins.str creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param _builtins.str deletion_policy: Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+               When a 'terraform destroy' or 'terraform apply' would delete the instance,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param _builtins.str description: An optional description of this resource. Provide this property
                when you create the resource.
         :param _builtins.str dest_range: The destination range of outgoing packets that this route applies to.
@@ -87143,6 +87914,7 @@ class GetRouterStatusBestRoutesForRouterResult(dict):
         """
         pulumi.set(__self__, "as_paths", as_paths)
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "dest_range", dest_range)
         pulumi.set(__self__, "name", name)
@@ -87180,6 +87952,19 @@ class GetRouterStatusBestRoutesForRouterResult(dict):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        """
+        Whether Terraform will be prevented from destroying the instance. Defaults to "DELETE".
+        When a 'terraform destroy' or 'terraform apply' would delete the instance,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

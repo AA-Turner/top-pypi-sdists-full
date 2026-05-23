@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 from dateutil.tz import tzlocal
 from pandas import DataFrame
@@ -122,8 +122,9 @@ class TestSqlutils(unittest.TestCase):
         result = sqlutils.sql(query, connection_name="project.athena")
 
         # Verify the interaction with helper factory
-        # Connection is called once for get_engine
-        mock_project.connection.assert_called_once_with("project.athena")
+        # Connection is called only once due to refactored _resolve_connection
+        assert mock_project.connection.call_count == 1
+        mock_project.connection.assert_called_with("project.athena")
         mock_helper_factory.get_sql_helper.assert_called_once_with("ATHENA")
 
         # Verify sql helper was called
@@ -349,8 +350,9 @@ class TestSqlutils(unittest.TestCase):
 
         result = sqlutils.sql("SELECT 1", connection_id="conn123")
 
-        # Connection is called once for get_engine
-        mock_project.connection.assert_called_once_with(id="conn123")
+        # Connection is called only once due to refactored _resolve_connection
+        assert mock_project.connection.call_count == 1
+        mock_project.connection.assert_called_with(id="conn123")
         self.assertIsInstance(result, DataFrame)
 
     @patch("sagemaker_studio.sqlutils._ensure_project")
@@ -440,12 +442,20 @@ class TestSqlutils(unittest.TestCase):
 
     @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
     @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    @patch("sagemaker_studio.sqlutils.get_engine")
-    def test_sql_athena_injects_catalog_and_schema(self, mock_get_engine, mock_executor, mock_ctx):
+    @patch("sagemaker_studio.sqlutils._get_or_create_connection")
+    @patch("sagemaker_studio.sqlutils._resolve_connection")
+    def test_sql_athena_injects_catalog_and_schema(
+        self, mock_resolve, mock_get_or_create, mock_executor, mock_ctx
+    ):
         """When Athena query has catalog+database, they are passed as kwargs"""
-        mock_engine = Mock()
-        mock_engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_get_engine.return_value = mock_engine
+        mock_conn = Mock()
+        mock_conn.type = "ATHENA"
+        mock_resolve.return_value = mock_conn
+        mock_managed = Mock()
+        mock_managed.engine = Mock()
+        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
+        mock_managed.connection = None
+        mock_get_or_create.return_value = mock_managed
         mock_ctx.return_value = {"catalog": "my_cat", "database": "my_db"}
         mock_exec_result = Mock()
         mock_exec_result.result = "df"
@@ -456,14 +466,20 @@ class TestSqlutils(unittest.TestCase):
 
     @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
     @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    @patch("sagemaker_studio.sqlutils.get_engine")
+    @patch("sagemaker_studio.sqlutils._get_or_create_connection")
+    @patch("sagemaker_studio.sqlutils._resolve_connection")
     def test_sql_stream_athena_injects_catalog_and_schema(
-        self, mock_get_engine, mock_executor, mock_ctx
+        self, mock_resolve, mock_get_or_create, mock_executor, mock_ctx
     ):
         """sql_stream with Athena also calls _apply_athena_context"""
-        mock_engine = Mock()
-        mock_engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_get_engine.return_value = mock_engine
+        mock_conn = Mock()
+        mock_conn.type = "ATHENA"
+        mock_resolve.return_value = mock_conn
+        mock_managed = Mock()
+        mock_managed.engine = Mock()
+        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
+        mock_managed.connection = None
+        mock_get_or_create.return_value = mock_managed
         mock_ctx.return_value = {"catalog": "cat1", "database": "db1"}
         mock_executor.return_value.execute.return_value = iter([])
 
@@ -1543,3 +1559,152 @@ class TestCacheKeyIntegration(unittest.TestCase):
 
         # Verify two engines were created
         self.assertEqual(mock_sql_executor.create_engine.call_count, 2)
+
+
+class TestIRCGlueConnectionPaths(unittest.TestCase):
+    """Tests for IRC/Glue connection (WORKDAYICEBERGRESTCATALOG) paths."""
+
+    def setUp(self):
+        sqlutils._project = None
+        sqlutils._connection_cache.clear()
+
+    def tearDown(self):
+        sqlutils._connection_cache.clear()
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_irc_glue_success(self, mock_ensure_project, mock_ensure_spark):
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df = Mock()
+        mock_df.limit.return_value.collect.return_value = [Mock()]
+        mock_spark.sql.return_value = mock_df
+        mock_ensure_spark.return_value = mock_spark
+
+        result = sqlutils.sql("SELECT 1", connection_name="irc_conn")
+        self.assertEqual(result, mock_df)
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_irc_glue_token_refresh_on_not_authorized(
+        self, mock_ensure_project, mock_ensure_spark
+    ):
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+        mock_conn._spark_catalog_configs.return_value = {
+            "SOURCE_CATALOG_LIST": '["catalog1", "catalog2"]',
+            "ACCESS_TOKEN": "new_token",
+        }
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df_fail = Mock()
+        type(mock_df_fail).schema = PropertyMock(
+            side_effect=Exception(
+                "org.apache.iceberg.exceptions.NotAuthorizedException: token expired"
+            )
+        )
+        mock_df_success = Mock()
+        mock_spark.sql.side_effect = [mock_df_fail, mock_df_success]
+        mock_ensure_spark.return_value = mock_spark
+
+        result = sqlutils.sql("SELECT 1", connection_name="irc_conn")
+        self.assertEqual(result, mock_df_success)
+        mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog1.token", "new_token")
+        mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog2.token", "new_token")
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_irc_glue_non_auth_error_raises(self, mock_ensure_project, mock_ensure_spark):
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df = Mock()
+        type(mock_df).schema = PropertyMock(side_effect=Exception("some other error"))
+        mock_spark.sql.return_value = mock_df
+        mock_ensure_spark.return_value = mock_spark
+
+        with self.assertRaises(Exception) as cm:
+            sqlutils.sql("SELECT 1", connection_name="irc_conn")
+        self.assertIn("some other error", str(cm.exception))
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_stream_irc_glue_success(self, mock_ensure_project, mock_ensure_spark):
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df = Mock()
+        mock_df.limit.return_value.collect.return_value = [Mock()]
+        mock_spark.sql.return_value = mock_df
+        mock_ensure_spark.return_value = mock_spark
+
+        results = list(sqlutils.sql_stream("SELECT 1", connection_name="irc_conn"))
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "success")
+        self.assertEqual(results[0].result, mock_df)
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_sql_stream_irc_glue_token_refresh(self, mock_ensure_project, mock_ensure_spark):
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+        mock_conn._spark_catalog_configs.return_value = {
+            "SOURCE_CATALOG_LIST": '["cat1"]',
+            "ACCESS_TOKEN": "refreshed_token",
+        }
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_spark = Mock()
+        mock_df_fail = Mock()
+        type(mock_df_fail).schema = PropertyMock(
+            side_effect=Exception("org.apache.iceberg.exceptions.NotAuthorizedException: expired")
+        )
+        mock_df_success = Mock()
+        mock_spark.sql.side_effect = [mock_df_fail, mock_df_success]
+        mock_ensure_spark.return_value = mock_spark
+
+        results = list(sqlutils.sql_stream("SELECT 1", connection_name="irc_conn"))
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].result, mock_df_success)
+        mock_spark.conf.set.assert_called_with("spark.sql.catalog.cat1.token", "refreshed_token")
+
+
+class TestGetEngineFromConnection(unittest.TestCase):
+    """Tests for _get_engine_from_connection."""
+
+    def test_none_conn_returns_none(self):
+        self.assertIsNone(sqlutils._get_engine_from_connection(None))
+
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_unsupported_type_raises(self, mock_ensure_sql_executor):
+        mock_executor = Mock()
+        mock_executor.get_supported_connection_types.return_value = ["ATHENA", "REDSHIFT"]
+        mock_ensure_sql_executor.return_value = mock_executor
+
+        mock_conn = Mock()
+        mock_conn.type = "UNSUPPORTED_TYPE"
+
+        with self.assertRaises(RuntimeError) as cm:
+            sqlutils._get_engine_from_connection(mock_conn)
+        self.assertIn(
+            "SQL is not supported for connection type UNSUPPORTED_TYPE", str(cm.exception)
+        )
+        self.assertIn("ATHENA", str(cm.exception))

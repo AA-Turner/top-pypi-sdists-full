@@ -2,9 +2,28 @@ from typing import Any, Dict, Optional, Type, Union
 
 from langchain_classic.chains.openai_functions import create_structured_output_chain
 from langchain_classic.schema import BaseLLMOutputParser, BasePromptTemplate
-from langchain_community.chat_models import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel
+
+try:
+    from langchain_community.chat_models import ChatOpenAI
+except ImportError as e:
+    _IMPORT_ERROR = e
+
+    class ChatOpenAI:  # type: ignore[no-redef]
+        """Stub for environments where `langchain-community` no longer exports
+        `ChatOpenAI` (removed in 0.4.2)."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "`langchain_experimental.tabular_synthetic_data.openai` depends "
+                "on `langchain_community.chat_models.ChatOpenAI`, which was "
+                "removed in `langchain-community>=0.4.2`. Use "
+                "`langchain_openai.ChatOpenAI` directly instead. Note: "
+                "`langchain-experimental` is being sunset; see "
+                "https://github.com/langchain-ai/langchain-experimental/issues/87."
+            ) from _IMPORT_ERROR
+
 
 from langchain_experimental.tabular_synthetic_data.base import SyntheticDataGenerator
 

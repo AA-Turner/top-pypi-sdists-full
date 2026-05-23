@@ -27,10 +27,11 @@ class BitbucketServerConfigArgs:
                  location: pulumi.Input[_builtins.str],
                  secrets: pulumi.Input['BitbucketServerConfigSecretsArgs'],
                  username: pulumi.Input[_builtins.str],
-                 connected_repositories: Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]] = None,
-                 peered_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_ca: Optional[pulumi.Input[_builtins.str]] = None):
+                 connected_repositories: pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 peered_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_ca: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a BitbucketServerConfig resource.
 
@@ -45,6 +46,12 @@ class BitbucketServerConfigArgs:
         :param pulumi.Input[_builtins.str] username: Username of the account Cloud Build will use on Bitbucket Server.
         :param pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]] connected_repositories: Connected Bitbucket Server repositories for this config.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] peered_network: The network to be used when reaching out to the Bitbucket Server instance. The VPC network must be enabled for private service connection.
                This should be set if the Bitbucket Server instance is hosted on-premises and not reachable by public internet. If this field is left empty,
                no network peering will occur and calls to the Bitbucket Server instance will be made over the public internet. Must be in the format
@@ -61,6 +68,8 @@ class BitbucketServerConfigArgs:
         pulumi.set(__self__, "username", username)
         if connected_repositories is not None:
             pulumi.set(__self__, "connected_repositories", connected_repositories)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if peered_network is not None:
             pulumi.set(__self__, "peered_network", peered_network)
         if project is not None:
@@ -145,7 +154,7 @@ class BitbucketServerConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="connectedRepositories")
-    def connected_repositories(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]:
+    def connected_repositories(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]:
         """
         Connected Bitbucket Server repositories for this config.
         Structure is documented below.
@@ -153,12 +162,29 @@ class BitbucketServerConfigArgs:
         return pulumi.get(self, "connected_repositories")
 
     @connected_repositories.setter
-    def connected_repositories(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]):
+    def connected_repositories(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]):
         pulumi.set(self, "connected_repositories", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="peeredNetwork")
-    def peered_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def peered_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The network to be used when reaching out to the Bitbucket Server instance. The VPC network must be enabled for private service connection.
         This should be set if the Bitbucket Server instance is hosted on-premises and not reachable by public internet. If this field is left empty,
@@ -168,12 +194,12 @@ class BitbucketServerConfigArgs:
         return pulumi.get(self, "peered_network")
 
     @peered_network.setter
-    def peered_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def peered_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "peered_network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -181,37 +207,38 @@ class BitbucketServerConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="sslCa")
-    def ssl_ca(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ssl_ca(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         SSL certificate to use for requests to Bitbucket Server. The format should be PEM format but the extension can be one of .pem, .cer, or .crt.
         """
         return pulumi.get(self, "ssl_ca")
 
     @ssl_ca.setter
-    def ssl_ca(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ssl_ca(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ssl_ca", value)
 
 
 @pulumi.input_type
 class _BitbucketServerConfigState:
     def __init__(__self__, *,
-                 api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 connected_repositories: Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]] = None,
-                 host_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 peered_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 secrets: Optional[pulumi.Input['BitbucketServerConfigSecretsArgs']] = None,
-                 ssl_ca: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None,
-                 webhook_key: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 connected_repositories: pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 host_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 peered_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 secrets: pulumi.Input[Optional['BitbucketServerConfigSecretsArgs']] = None,
+                 ssl_ca: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None,
+                 webhook_key: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BitbucketServerConfig resources.
 
@@ -220,6 +247,12 @@ class _BitbucketServerConfigState:
         :param pulumi.Input[_builtins.str] config_id: The ID to use for the BitbucketServerConfig, which will become the final component of the BitbucketServerConfig's resource name.
         :param pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]] connected_repositories: Connected Bitbucket Server repositories for this config.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] host_uri: Immutable. The URI of the Bitbucket Server host. Once this field has been set, it cannot be changed.
                If you need to change it, please create another BitbucketServerConfig.
         :param pulumi.Input[_builtins.str] location: The location of this bitbucket server config.
@@ -242,6 +275,8 @@ class _BitbucketServerConfigState:
             pulumi.set(__self__, "config_id", config_id)
         if connected_repositories is not None:
             pulumi.set(__self__, "connected_repositories", connected_repositories)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if host_uri is not None:
             pulumi.set(__self__, "host_uri", host_uri)
         if location is not None:
@@ -263,7 +298,7 @@ class _BitbucketServerConfigState:
 
     @_builtins.property
     @pulumi.getter(name="apiKey")
-    def api_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. API Key that will be attached to webhook. Once this field has been set, it cannot be changed.
         Changing this field will result in deleting/ recreating the resource.
@@ -271,24 +306,24 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "api_key")
 
     @api_key.setter
-    def api_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api_key", value)
 
     @_builtins.property
     @pulumi.getter(name="configId")
-    def config_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the BitbucketServerConfig, which will become the final component of the BitbucketServerConfig's resource name.
         """
         return pulumi.get(self, "config_id")
 
     @config_id.setter
-    def config_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config_id", value)
 
     @_builtins.property
     @pulumi.getter(name="connectedRepositories")
-    def connected_repositories(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]:
+    def connected_repositories(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]:
         """
         Connected Bitbucket Server repositories for this config.
         Structure is documented below.
@@ -296,12 +331,29 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "connected_repositories")
 
     @connected_repositories.setter
-    def connected_repositories(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]):
+    def connected_repositories(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BitbucketServerConfigConnectedRepositoryArgs']]]]):
         pulumi.set(self, "connected_repositories", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="hostUri")
-    def host_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def host_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. The URI of the Bitbucket Server host. Once this field has been set, it cannot be changed.
         If you need to change it, please create another BitbucketServerConfig.
@@ -309,36 +361,36 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "host_uri")
 
     @host_uri.setter
-    def host_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def host_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "host_uri", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of this bitbucket server config.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for the config.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="peeredNetwork")
-    def peered_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def peered_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The network to be used when reaching out to the Bitbucket Server instance. The VPC network must be enabled for private service connection.
         This should be set if the Bitbucket Server instance is hosted on-premises and not reachable by public internet. If this field is left empty,
@@ -348,12 +400,12 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "peered_network")
 
     @peered_network.setter
-    def peered_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def peered_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "peered_network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -361,12 +413,12 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def secrets(self) -> Optional[pulumi.Input['BitbucketServerConfigSecretsArgs']]:
+    def secrets(self) -> pulumi.Input[Optional['BitbucketServerConfigSecretsArgs']]:
         """
         Secret Manager secrets needed by the config.
         Structure is documented below.
@@ -374,43 +426,43 @@ class _BitbucketServerConfigState:
         return pulumi.get(self, "secrets")
 
     @secrets.setter
-    def secrets(self, value: Optional[pulumi.Input['BitbucketServerConfigSecretsArgs']]):
+    def secrets(self, value: pulumi.Input[Optional['BitbucketServerConfigSecretsArgs']]):
         pulumi.set(self, "secrets", value)
 
     @_builtins.property
     @pulumi.getter(name="sslCa")
-    def ssl_ca(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ssl_ca(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         SSL certificate to use for requests to Bitbucket Server. The format should be PEM format but the extension can be one of .pem, .cer, or .crt.
         """
         return pulumi.get(self, "ssl_ca")
 
     @ssl_ca.setter
-    def ssl_ca(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ssl_ca(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ssl_ca", value)
 
     @_builtins.property
     @pulumi.getter
-    def username(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def username(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Username of the account Cloud Build will use on Bitbucket Server.
         """
         return pulumi.get(self, "username")
 
     @username.setter
-    def username(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def username(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "username", value)
 
     @_builtins.property
     @pulumi.getter(name="webhookKey")
-    def webhook_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def webhook_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. UUID included in webhook requests. The UUID is used to look up the corresponding config.
         """
         return pulumi.get(self, "webhook_key")
 
     @webhook_key.setter
-    def webhook_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def webhook_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "webhook_key", value)
 
 
@@ -420,16 +472,17 @@ class BitbucketServerConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 connected_repositories: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
-                 host_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 peered_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 secrets: Optional[pulumi.Input[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
-                 ssl_ca: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 connected_repositories: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 host_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 peered_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 secrets: pulumi.Input[Optional[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
+                 ssl_ca: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         BitbucketServerConfig represents the configuration for a Bitbucket Server.
@@ -521,9 +574,9 @@ class BitbucketServerConfig(pulumi.CustomResource):
             },
             username="test",
             api_key="<api-key>",
-            peered_network=vpc_network.id.apply(lambda id: std.replace(text=id,
+            peered_network=std.replace_output(text=vpc_network.id,
                 search=project.name,
-                replace=project.number)).apply(lambda invoke: invoke.result),
+                replace=project.number).apply(lambda invoke: invoke.result),
             ssl_ca=\"\"\"-----BEGIN CERTIFICATE-----
         -----END CERTIFICATE-----
         -----BEGIN CERTIFICATE-----
@@ -556,6 +609,12 @@ class BitbucketServerConfig(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] config_id: The ID to use for the BitbucketServerConfig, which will become the final component of the BitbucketServerConfig's resource name.
         :param pulumi.Input[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]] connected_repositories: Connected Bitbucket Server repositories for this config.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] host_uri: Immutable. The URI of the Bitbucket Server host. Once this field has been set, it cannot be changed.
                If you need to change it, please create another BitbucketServerConfig.
         :param pulumi.Input[_builtins.str] location: The location of this bitbucket server config.
@@ -666,9 +725,9 @@ class BitbucketServerConfig(pulumi.CustomResource):
             },
             username="test",
             api_key="<api-key>",
-            peered_network=vpc_network.id.apply(lambda id: std.replace(text=id,
+            peered_network=std.replace_output(text=vpc_network.id,
                 search=project.name,
-                replace=project.number)).apply(lambda invoke: invoke.result),
+                replace=project.number).apply(lambda invoke: invoke.result),
             ssl_ca=\"\"\"-----BEGIN CERTIFICATE-----
         -----END CERTIFICATE-----
         -----BEGIN CERTIFICATE-----
@@ -709,16 +768,17 @@ class BitbucketServerConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 connected_repositories: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
-                 host_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 peered_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 secrets: Optional[pulumi.Input[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
-                 ssl_ca: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 connected_repositories: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 host_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 peered_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 secrets: pulumi.Input[Optional[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
+                 ssl_ca: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -735,6 +795,7 @@ class BitbucketServerConfig(pulumi.CustomResource):
                 raise TypeError("Missing required property 'config_id'")
             __props__.__dict__["config_id"] = config_id
             __props__.__dict__["connected_repositories"] = connected_repositories
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if host_uri is None and not opts.urn:
                 raise TypeError("Missing required property 'host_uri'")
             __props__.__dict__["host_uri"] = host_uri
@@ -762,18 +823,19 @@ class BitbucketServerConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            api_key: Optional[pulumi.Input[_builtins.str]] = None,
-            config_id: Optional[pulumi.Input[_builtins.str]] = None,
-            connected_repositories: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
-            host_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            peered_network: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            secrets: Optional[pulumi.Input[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
-            ssl_ca: Optional[pulumi.Input[_builtins.str]] = None,
-            username: Optional[pulumi.Input[_builtins.str]] = None,
-            webhook_key: Optional[pulumi.Input[_builtins.str]] = None) -> 'BitbucketServerConfig':
+            api_key: pulumi.Input[Optional[_builtins.str]] = None,
+            config_id: pulumi.Input[Optional[_builtins.str]] = None,
+            connected_repositories: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            host_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            peered_network: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            secrets: pulumi.Input[Optional[Union['BitbucketServerConfigSecretsArgs', 'BitbucketServerConfigSecretsArgsDict']]] = None,
+            ssl_ca: pulumi.Input[Optional[_builtins.str]] = None,
+            username: pulumi.Input[Optional[_builtins.str]] = None,
+            webhook_key: pulumi.Input[Optional[_builtins.str]] = None) -> 'BitbucketServerConfig':
         """
         Get an existing BitbucketServerConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -786,6 +848,12 @@ class BitbucketServerConfig(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] config_id: The ID to use for the BitbucketServerConfig, which will become the final component of the BitbucketServerConfig's resource name.
         :param pulumi.Input[Sequence[pulumi.Input[Union['BitbucketServerConfigConnectedRepositoryArgs', 'BitbucketServerConfigConnectedRepositoryArgsDict']]]] connected_repositories: Connected Bitbucket Server repositories for this config.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] host_uri: Immutable. The URI of the Bitbucket Server host. Once this field has been set, it cannot be changed.
                If you need to change it, please create another BitbucketServerConfig.
         :param pulumi.Input[_builtins.str] location: The location of this bitbucket server config.
@@ -809,6 +877,7 @@ class BitbucketServerConfig(pulumi.CustomResource):
         __props__.__dict__["api_key"] = api_key
         __props__.__dict__["config_id"] = config_id
         __props__.__dict__["connected_repositories"] = connected_repositories
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["host_uri"] = host_uri
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -845,6 +914,19 @@ class BitbucketServerConfig(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "connected_repositories")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="hostUri")

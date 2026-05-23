@@ -23,10 +23,11 @@ class SchemaBundleArgs:
     def __init__(__self__, *,
                  proto_schema: pulumi.Input['SchemaBundleProtoSchemaArgs'],
                  schema_bundle_id: pulumi.Input[_builtins.str],
-                 ignore_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 table: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ignore_warnings: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 table: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a SchemaBundle resource.
 
@@ -35,6 +36,12 @@ class SchemaBundleArgs:
                $ protoc --include_imports --include_source_info test.proto -o out.pb
                Structure is documented below.
         :param pulumi.Input[_builtins.str] schema_bundle_id: The unique name of the schema bundle in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, allow backwards incompatible changes.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the schema bundle within.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -43,6 +50,8 @@ class SchemaBundleArgs:
         """
         pulumi.set(__self__, "proto_schema", proto_schema)
         pulumi.set(__self__, "schema_bundle_id", schema_bundle_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if ignore_warnings is not None:
             pulumi.set(__self__, "ignore_warnings", ignore_warnings)
         if instance is not None:
@@ -80,32 +89,49 @@ class SchemaBundleArgs:
         pulumi.set(self, "schema_bundle_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="ignoreWarnings")
-    def ignore_warnings(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def ignore_warnings(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, allow backwards incompatible changes.
         """
         return pulumi.get(self, "ignore_warnings")
 
     @ignore_warnings.setter
-    def ignore_warnings(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def ignore_warnings(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "ignore_warnings", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance to create the schema bundle within.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -113,36 +139,43 @@ class SchemaBundleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def table(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def table(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the table to create the schema bundle within.
         """
         return pulumi.get(self, "table")
 
     @table.setter
-    def table(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def table(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "table", value)
 
 
 @pulumi.input_type
 class _SchemaBundleState:
     def __init__(__self__, *,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 ignore_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proto_schema: Optional[pulumi.Input['SchemaBundleProtoSchemaArgs']] = None,
-                 schema_bundle_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 table: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 ignore_warnings: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proto_schema: pulumi.Input[Optional['SchemaBundleProtoSchemaArgs']] = None,
+                 schema_bundle_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 table: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SchemaBundle resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] etag: etag is used for optimistic concurrency control as a way to help prevent simultaneous
                updates of a schema bundle from overwriting each other. This may be sent on update and delete
                requests to ensure the client has an update-to-date value before proceeding. The server returns
@@ -159,6 +192,8 @@ class _SchemaBundleState:
         :param pulumi.Input[_builtins.str] schema_bundle_id: The unique name of the schema bundle in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
         :param pulumi.Input[_builtins.str] table: The name of the table to create the schema bundle within.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if etag is not None:
             pulumi.set(__self__, "etag", etag)
         if ignore_warnings is not None:
@@ -177,8 +212,25 @@ class _SchemaBundleState:
             pulumi.set(__self__, "table", table)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         etag is used for optimistic concurrency control as a way to help prevent simultaneous
         updates of a schema bundle from overwriting each other. This may be sent on update and delete
@@ -188,48 +240,48 @@ class _SchemaBundleState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="ignoreWarnings")
-    def ignore_warnings(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def ignore_warnings(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, allow backwards incompatible changes.
         """
         return pulumi.get(self, "ignore_warnings")
 
     @ignore_warnings.setter
-    def ignore_warnings(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def ignore_warnings(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "ignore_warnings", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance to create the schema bundle within.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique name of the requested schema bundle. Values are of the form `projects/<project>/instances/<instance>/tables/<table>/schemaBundles/<schemaBundleId>`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -237,12 +289,12 @@ class _SchemaBundleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="protoSchema")
-    def proto_schema(self) -> Optional[pulumi.Input['SchemaBundleProtoSchemaArgs']]:
+    def proto_schema(self) -> pulumi.Input[Optional['SchemaBundleProtoSchemaArgs']]:
         """
         File descriptor set, generated by protoc.
         To generate, use protoc with imports and source info included. For an example test.proto file, the following command would put the value in a new file named out.pb.
@@ -252,31 +304,31 @@ class _SchemaBundleState:
         return pulumi.get(self, "proto_schema")
 
     @proto_schema.setter
-    def proto_schema(self, value: Optional[pulumi.Input['SchemaBundleProtoSchemaArgs']]):
+    def proto_schema(self, value: pulumi.Input[Optional['SchemaBundleProtoSchemaArgs']]):
         pulumi.set(self, "proto_schema", value)
 
     @_builtins.property
     @pulumi.getter(name="schemaBundleId")
-    def schema_bundle_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def schema_bundle_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique name of the schema bundle in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
         """
         return pulumi.get(self, "schema_bundle_id")
 
     @schema_bundle_id.setter
-    def schema_bundle_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def schema_bundle_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "schema_bundle_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def table(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def table(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the table to create the schema bundle within.
         """
         return pulumi.get(self, "table")
 
     @table.setter
-    def table(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def table(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "table", value)
 
 
@@ -286,12 +338,13 @@ class SchemaBundle(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ignore_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proto_schema: Optional[pulumi.Input[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
-                 schema_bundle_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 table: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ignore_warnings: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proto_schema: pulumi.Input[Optional[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
+                 schema_bundle_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 table: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A schema bundle object that can be referenced in SQL queries.
@@ -352,6 +405,12 @@ class SchemaBundle(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, allow backwards incompatible changes.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the schema bundle within.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -441,12 +500,13 @@ class SchemaBundle(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ignore_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proto_schema: Optional[pulumi.Input[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
-                 schema_bundle_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 table: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ignore_warnings: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proto_schema: pulumi.Input[Optional[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
+                 schema_bundle_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 table: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -456,6 +516,7 @@ class SchemaBundle(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = SchemaBundleArgs.__new__(SchemaBundleArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["ignore_warnings"] = ignore_warnings
             __props__.__dict__["instance"] = instance
             __props__.__dict__["project"] = project
@@ -478,14 +539,15 @@ class SchemaBundle(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            ignore_warnings: Optional[pulumi.Input[_builtins.bool]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            proto_schema: Optional[pulumi.Input[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
-            schema_bundle_id: Optional[pulumi.Input[_builtins.str]] = None,
-            table: Optional[pulumi.Input[_builtins.str]] = None) -> 'SchemaBundle':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            ignore_warnings: pulumi.Input[Optional[_builtins.bool]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            proto_schema: pulumi.Input[Optional[Union['SchemaBundleProtoSchemaArgs', 'SchemaBundleProtoSchemaArgsDict']]] = None,
+            schema_bundle_id: pulumi.Input[Optional[_builtins.str]] = None,
+            table: pulumi.Input[Optional[_builtins.str]] = None) -> 'SchemaBundle':
         """
         Get an existing SchemaBundle resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -493,6 +555,12 @@ class SchemaBundle(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] etag: etag is used for optimistic concurrency control as a way to help prevent simultaneous
                updates of a schema bundle from overwriting each other. This may be sent on update and delete
                requests to ensure the client has an update-to-date value before proceeding. The server returns
@@ -513,6 +581,7 @@ class SchemaBundle(pulumi.CustomResource):
 
         __props__ = _SchemaBundleState.__new__(_SchemaBundleState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["etag"] = etag
         __props__.__dict__["ignore_warnings"] = ignore_warnings
         __props__.__dict__["instance"] = instance
@@ -522,6 +591,19 @@ class SchemaBundle(pulumi.CustomResource):
         __props__.__dict__["schema_bundle_id"] = schema_bundle_id
         __props__.__dict__["table"] = table
         return SchemaBundle(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

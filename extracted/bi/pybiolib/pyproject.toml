@@ -1,6 +1,6 @@
 [project]
 name = "pybiolib"
-version = "1.4.20"
+version = "1.4.36"
 description = "BioLib Python Client"
 readme = "PYPI_README.md"
 license = "MIT"
@@ -26,7 +26,6 @@ biolib = "biolib:call_cli"
 
 [project.optional-dependencies]
 sdk = [
-    "docker>=5.0.3",
     "pyyaml>=5.3.1",
 ]
 
@@ -41,7 +40,6 @@ dev = [
     "pytest-timeout==2.2.0; python_version >= '3.9'",
     "setuptools==69.1.1; python_version >= '3.9'",
     "types-PyYAML==6.0.12.12; python_version >= '3.9'",
-    "types-docker==7.1.0.20250705; python_version >= '3.9'",
 ]
 
 [build-system]

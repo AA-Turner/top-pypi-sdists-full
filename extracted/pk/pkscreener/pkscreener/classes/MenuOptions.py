@@ -28,9 +28,117 @@ from PKDevTools.classes.ColorText import colorText
 from PKDevTools.classes.log import default_logger
 from PKDevTools.classes.OutputControls import OutputControls
 import pkscreener.classes.ConfigManager as ConfigManager
-from pkscreener.classes.OtaUpdater import OTAUpdater
 from PKDevTools.classes.Environment import PKEnvironment
 from pkscreener.classes import VERSION
+
+import threading
+import time
+import os
+import json
+from pkscreener.classes.OtaUpdater import OTAUpdater
+from PKDevTools.classes import Archiver
+
+# Global cache for update status (shared across menu instances)
+_update_cache = {
+    "is_available": None,      # True/False/None
+    "latest_version": None,
+    "last_checked": 0,         # Unix timestamp (seconds)
+    "in_progress": False,
+    "status_text": ""
+}
+_update_thread = None
+
+def _get_cache_file_path():
+    """Return path to the persistent cache file."""
+    return os.path.join(Archiver.get_user_data_dir(), "update_check_cache.json")
+
+def _load_cached_update_status():
+    """Load previously stored update status from disk."""
+    global _update_cache
+    cache_file = _get_cache_file_path()
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                data = json.load(f)
+                # Only restore if the cache is from today
+                last_checked_date = time.strftime('%Y-%m-%d', time.localtime(data.get("last_checked", 0)))
+                today = time.strftime('%Y-%m-%d')
+                if last_checked_date == today:
+                    _update_cache["is_available"] = data.get("is_available")
+                    _update_cache["latest_version"] = data.get("latest_version")
+                    _update_cache["last_checked"] = data.get("last_checked", 0)
+                    _update_cache["status_text"] = data.get("status_text", "")
+        except Exception as e:
+            pass
+
+def _save_cached_update_status():
+    """Persist current update status to disk."""
+    cache_file = _get_cache_file_path()
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump({
+                "is_available": _update_cache["is_available"],
+                "latest_version": _update_cache["latest_version"],
+                "last_checked": _update_cache["last_checked"],
+                "status_text": _update_cache["status_text"]
+            }, f)
+    except Exception as e:
+        pass
+
+def _should_check_today():
+    """Return True if no check has been performed today."""
+    last = _update_cache.get("last_checked", 0)
+    if last == 0:
+        return True
+    last_date = time.strftime('%Y-%m-%d', time.localtime(last))
+    today = time.strftime('%Y-%m-%d')
+    return last_date != today
+
+def _background_update_check():
+    """Run silent update check in background thread and store result."""
+    global _update_cache, _update_thread
+    try:
+        _update_cache["in_progress"] = True
+        is_available, latest_version, error = OTAUpdater.checkForUpdateSilent()
+        _update_cache["is_available"] = is_available
+        _update_cache["latest_version"] = latest_version
+        _update_cache["last_checked"] = time.time()
+        if error:
+            _update_cache["status_text"] = "⚠ Update check failed"
+        elif is_available:
+            _update_cache["status_text"] = f"⚠ Update v{latest_version} available"
+        else:
+            _update_cache["status_text"] = "✓ Up to date"
+        # Save to disk for future runs
+        _save_cached_update_status()
+    except Exception as e:
+        _update_cache["is_available"] = False
+        _update_cache["status_text"] = "⚠ Update check error"
+        _update_cache["last_checked"] = time.time()
+    finally:
+        _update_cache["in_progress"] = False
+        _update_thread = None
+
+def _start_background_update_check():
+    """
+    Start a background thread only if:
+      - not already running,
+      - no check has been done today,
+      - and the cache is not already fresh.
+    """
+    global _update_thread
+    # Load persisted cache on first call
+    if _update_cache["last_checked"] == 0:
+        _load_cached_update_status()
+    
+    # Skip if already checked today
+    if not _should_check_today():
+        return
+    
+    # Start only if not already in progress
+    if (_update_thread is None or not _update_thread.is_alive()) and not _update_cache["in_progress"]:
+        _update_thread = threading.Thread(target=_background_update_check, daemon=True)
+        _update_thread.start()
 
 configManager = ConfigManager.tools()
 MENU_SEPARATOR = ""
@@ -740,7 +848,6 @@ class menus:
     @classmethod
     def _is_cache_valid(cls, key):
         """Check if cached menu is still valid."""
-        import time
         if key not in cls._menu_cache_time:
             return False
         return (time.time() - cls._menu_cache_time[key]) < cls.CACHE_TTL
@@ -748,7 +855,6 @@ class menus:
     @classmethod
     def _get_cached_menu(cls, key, loader_func):
         """Get cached menu or load it."""
-        import time
         
         # if key in cls._menu_cache and cls._is_cache_valid(key):
         #     return cls._menu_cache[key]
@@ -1391,9 +1497,18 @@ class menus:
                     "" + colorText.END
                 )
                 if checkUpdate:
-                    try:
-                        OTAUpdater.checkForUpdate(VERSION, skipDownload=True)
-                    except: # pragma: no cover
+                    # Start background check only if not yet checked today
+                    _start_background_update_check()
+                    
+                    # Display cached status (non-blocking)
+                    if _update_cache["is_available"] is True:
+                        optionText = f"{optionText}\n{colorText.WARN}  [+] ✅ Update v{_update_cache['latest_version']} available!{colorText.END}"
+                        OutputControls().printOutput(optionText)
+                    elif _update_cache["in_progress"]:
+                        optionText = f"{optionText}\n{colorText.WARN}  [+] ⚠️ Checking for updates...{colorText.END}"
+                        OutputControls().printOutput(optionText)
+                    elif _update_cache["is_available"] is False and _update_cache["status_text"]:
+                        # Optionally show "Up to date" – but may be noisy; skip or show as debug
                         pass
             return menuText
         

@@ -8,7 +8,8 @@ class TestPlayerApi(BaseTest):
         self.assertEqual(res.text, "dev")
 
     def test_get_page_by_path(self):
-        page = self.controller.create_page_stage(
+        page = self.controller.create_stage(
+            "page",
             title="My Page",
             file="page_test.py",
         )
@@ -24,7 +25,8 @@ class TestPlayerApi(BaseTest):
         self.assertEqual(data["page"]["title"], "My Page")
 
     def test_get_page_empty_path(self):
-        page = self.controller.create_page_stage(
+        page = self.controller.create_stage(
+            "page",
             title="Homepage Page",
             file="page_home.py",
         )
@@ -39,7 +41,8 @@ class TestPlayerApi(BaseTest):
         self.assertEqual(data["page"]["path"], "")
 
     def test_get_form_by_path_still_works(self):
-        form = self.controller.create_form(
+        form = self.controller.create_stage(
+            "form",
             title="My Form",
             file="form_test.py",
         )
@@ -58,7 +61,8 @@ class TestPlayerApi(BaseTest):
         self.assertEqual(res.status_code, 401)
 
     def test_workspace_includes_pages_in_sidebar(self):
-        page = self.controller.create_page_stage(
+        page = self.controller.create_stage(
+            "page",
             title="Dashboard",
             file="page_dashboard.py",
         )

@@ -195,12 +195,15 @@ class TraceItemAttributeValuesResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     VALUES_FIELD_NUMBER: builtins.int
+    COUNTS_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     META_FIELD_NUMBER: builtins.int
     @property
     def values(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """all the values that matched the criteria specified in the request"""
 
+    @property
+    def counts(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
     @property
     def page_token(self) -> sentry_protos.snuba.v1.request_common_pb2.PageToken:
         """page token for the next page of results"""
@@ -213,10 +216,11 @@ class TraceItemAttributeValuesResponse(google.protobuf.message.Message):
         self,
         *,
         values: collections.abc.Iterable[builtins.str] | None = ...,
+        counts: collections.abc.Iterable[builtins.int] | None = ...,
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
         meta: sentry_protos.snuba.v1.request_common_pb2.ResponseMeta | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["meta", b"meta", "page_token", b"page_token", "values", b"values"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["counts", b"counts", "meta", b"meta", "page_token", b"page_token", "values", b"values"]) -> None: ...
 
 global___TraceItemAttributeValuesResponse = TraceItemAttributeValuesResponse

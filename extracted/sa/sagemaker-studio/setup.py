@@ -95,7 +95,9 @@ setup(
         "deltalake>=1.0.0",
         "sqlglot>=27.28.1",
         "opensearch-py>=2.5.0",
-        "vertica-python>=1.4.0"
+        "vertica-python>=1.4.0",
+        "trino>=0.308.0",
+        "PyJWT[crypto]>=2.0.0",
     ],
     tests_require=["pytest"],
     test_suite="src.sagemaker_studio._test",

@@ -159,13 +159,9 @@ def get_project_service_account_secret(client_id: Optional[_builtins.str] = None
         project_id=project_id,
         client_id=this_project_service_account.client_id,
         secret_expires_after_hours=2160)
-    this = pulumi.Output.all(
+    this = mongodbatlas.get_project_service_account_secret_output(project_id=project_id,
         client_id=this_project_service_account.client_id,
-        secret_id=this_project_service_account_secret.secret_id
-    ).apply(lambda resolved_outputs: mongodbatlas.get_project_service_account_secret_output(project_id=project_id,
-        client_id=resolved_outputs['client_id'],
-        secret_id=resolved_outputs['secret_id']))
-
+        secret_id=this_project_service_account_secret.secret_id)
     pulumi.export("secretId", this_project_service_account_secret.secret_id)
     pulumi.export("secret", this_project_service_account_secret.secret)
     pulumi.export("secretExpiresAt", this.expires_at)
@@ -192,9 +188,9 @@ def get_project_service_account_secret(client_id: Optional[_builtins.str] = None
         masked_secret_value=pulumi.get(__ret__, 'masked_secret_value'),
         project_id=pulumi.get(__ret__, 'project_id'),
         secret_id=pulumi.get(__ret__, 'secret_id'))
-def get_project_service_account_secret_output(client_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                              project_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                              secret_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_project_service_account_secret_output(client_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                              project_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                              secret_id: pulumi.Input[Optional[_builtins.str]] = None,
                                               opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetProjectServiceAccountSecretResult]:
     """
     `ProjectServiceAccountSecret` describes a Project Service Account Secret.
@@ -218,13 +214,9 @@ def get_project_service_account_secret_output(client_id: Optional[pulumi.Input[_
         project_id=project_id,
         client_id=this_project_service_account.client_id,
         secret_expires_after_hours=2160)
-    this = pulumi.Output.all(
+    this = mongodbatlas.get_project_service_account_secret_output(project_id=project_id,
         client_id=this_project_service_account.client_id,
-        secret_id=this_project_service_account_secret.secret_id
-    ).apply(lambda resolved_outputs: mongodbatlas.get_project_service_account_secret_output(project_id=project_id,
-        client_id=resolved_outputs['client_id'],
-        secret_id=resolved_outputs['secret_id']))
-
+        secret_id=this_project_service_account_secret.secret_id)
     pulumi.export("secretId", this_project_service_account_secret.secret_id)
     pulumi.export("secret", this_project_service_account_secret.secret)
     pulumi.export("secretExpiresAt", this.expires_at)

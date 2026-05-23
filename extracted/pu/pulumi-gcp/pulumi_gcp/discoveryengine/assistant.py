@@ -26,11 +26,12 @@ class AssistantArgs:
                  display_name: pulumi.Input[_builtins.str],
                  engine_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 customer_policy: Optional[pulumi.Input['AssistantCustomerPolicyArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 generation_config: Optional[pulumi.Input['AssistantGenerationConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 customer_policy: pulumi.Input[Optional['AssistantCustomerPolicyArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 generation_config: pulumi.Input[Optional['AssistantGenerationConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Assistant resource.
 
@@ -43,6 +44,12 @@ class AssistantArgs:
                only be one of "global", "us" and "eu".
         :param pulumi.Input['AssistantCustomerPolicyArgs'] customer_policy: Customer policy for the assistant.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for additional information. Expected to be shown on the
                configuration UI, not to the users of the assistant.
         :param pulumi.Input['AssistantGenerationConfigArgs'] generation_config: Configuration for the generation of the assistant response.
@@ -59,6 +66,8 @@ class AssistantArgs:
         pulumi.set(__self__, "location", location)
         if customer_policy is not None:
             pulumi.set(__self__, "customer_policy", customer_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if generation_config is not None:
@@ -132,7 +141,7 @@ class AssistantArgs:
 
     @_builtins.property
     @pulumi.getter(name="customerPolicy")
-    def customer_policy(self) -> Optional[pulumi.Input['AssistantCustomerPolicyArgs']]:
+    def customer_policy(self) -> pulumi.Input[Optional['AssistantCustomerPolicyArgs']]:
         """
         Customer policy for the assistant.
         Structure is documented below.
@@ -140,12 +149,29 @@ class AssistantArgs:
         return pulumi.get(self, "customer_policy")
 
     @customer_policy.setter
-    def customer_policy(self, value: Optional[pulumi.Input['AssistantCustomerPolicyArgs']]):
+    def customer_policy(self, value: pulumi.Input[Optional['AssistantCustomerPolicyArgs']]):
         pulumi.set(self, "customer_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description for additional information. Expected to be shown on the
         configuration UI, not to the users of the assistant.
@@ -153,12 +179,12 @@ class AssistantArgs:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="generationConfig")
-    def generation_config(self) -> Optional[pulumi.Input['AssistantGenerationConfigArgs']]:
+    def generation_config(self) -> pulumi.Input[Optional['AssistantGenerationConfigArgs']]:
         """
         Configuration for the generation of the assistant response.
         Structure is documented below.
@@ -166,12 +192,12 @@ class AssistantArgs:
         return pulumi.get(self, "generation_config")
 
     @generation_config.setter
-    def generation_config(self, value: Optional[pulumi.Input['AssistantGenerationConfigArgs']]):
+    def generation_config(self, value: pulumi.Input[Optional['AssistantGenerationConfigArgs']]):
         pulumi.set(self, "generation_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -179,12 +205,12 @@ class AssistantArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="webGroundingType")
-    def web_grounding_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def web_grounding_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of web grounding to use.
         The supported values: 'WEB_GROUNDING_TYPE_DISABLED', 'WEB_GROUNDING_TYPE_GOOGLE_SEARCH', 'WEB_GROUNDING_TYPE_ENTERPRISE_WEB_SEARCH'.
@@ -192,24 +218,25 @@ class AssistantArgs:
         return pulumi.get(self, "web_grounding_type")
 
     @web_grounding_type.setter
-    def web_grounding_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def web_grounding_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "web_grounding_type", value)
 
 
 @pulumi.input_type
 class _AssistantState:
     def __init__(__self__, *,
-                 assistant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 customer_policy: Optional[pulumi.Input['AssistantCustomerPolicyArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 generation_config: Optional[pulumi.Input['AssistantGenerationConfigArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 customer_policy: pulumi.Input[Optional['AssistantCustomerPolicyArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 generation_config: pulumi.Input[Optional['AssistantGenerationConfigArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Assistant resources.
 
@@ -217,6 +244,12 @@ class _AssistantState:
         :param pulumi.Input[_builtins.str] collection_id: The unique id of the collection.
         :param pulumi.Input['AssistantCustomerPolicyArgs'] customer_policy: Customer policy for the assistant.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for additional information. Expected to be shown on the
                configuration UI, not to the users of the assistant.
         :param pulumi.Input[_builtins.str] display_name: The assistant display name.
@@ -241,6 +274,8 @@ class _AssistantState:
             pulumi.set(__self__, "collection_id", collection_id)
         if customer_policy is not None:
             pulumi.set(__self__, "customer_policy", customer_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -260,31 +295,31 @@ class _AssistantState:
 
     @_builtins.property
     @pulumi.getter(name="assistantId")
-    def assistant_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def assistant_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the assistant.
         """
         return pulumi.get(self, "assistant_id")
 
     @assistant_id.setter
-    def assistant_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def assistant_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "assistant_id", value)
 
     @_builtins.property
     @pulumi.getter(name="collectionId")
-    def collection_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the collection.
         """
         return pulumi.get(self, "collection_id")
 
     @collection_id.setter
-    def collection_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection_id", value)
 
     @_builtins.property
     @pulumi.getter(name="customerPolicy")
-    def customer_policy(self) -> Optional[pulumi.Input['AssistantCustomerPolicyArgs']]:
+    def customer_policy(self) -> pulumi.Input[Optional['AssistantCustomerPolicyArgs']]:
         """
         Customer policy for the assistant.
         Structure is documented below.
@@ -292,12 +327,29 @@ class _AssistantState:
         return pulumi.get(self, "customer_policy")
 
     @customer_policy.setter
-    def customer_policy(self, value: Optional[pulumi.Input['AssistantCustomerPolicyArgs']]):
+    def customer_policy(self, value: pulumi.Input[Optional['AssistantCustomerPolicyArgs']]):
         pulumi.set(self, "customer_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description for additional information. Expected to be shown on the
         configuration UI, not to the users of the assistant.
@@ -305,12 +357,12 @@ class _AssistantState:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The assistant display name.
         It must be a UTF-8 encoded string with a length limit of 128 characters.
@@ -318,24 +370,24 @@ class _AssistantState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="engineId")
-    def engine_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def engine_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the engine.
         """
         return pulumi.get(self, "engine_id")
 
     @engine_id.setter
-    def engine_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def engine_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "engine_id", value)
 
     @_builtins.property
     @pulumi.getter(name="generationConfig")
-    def generation_config(self) -> Optional[pulumi.Input['AssistantGenerationConfigArgs']]:
+    def generation_config(self) -> pulumi.Input[Optional['AssistantGenerationConfigArgs']]:
         """
         Configuration for the generation of the assistant response.
         Structure is documented below.
@@ -343,12 +395,12 @@ class _AssistantState:
         return pulumi.get(self, "generation_config")
 
     @generation_config.setter
-    def generation_config(self, value: Optional[pulumi.Input['AssistantGenerationConfigArgs']]):
+    def generation_config(self, value: pulumi.Input[Optional['AssistantGenerationConfigArgs']]):
         pulumi.set(self, "generation_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the data store should reside. The value can
         only be one of "global", "us" and "eu".
@@ -356,12 +408,12 @@ class _AssistantState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource name of the assistant.
         Format:
@@ -371,12 +423,12 @@ class _AssistantState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -384,12 +436,12 @@ class _AssistantState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="webGroundingType")
-    def web_grounding_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def web_grounding_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of web grounding to use.
         The supported values: 'WEB_GROUNDING_TYPE_DISABLED', 'WEB_GROUNDING_TYPE_GOOGLE_SEARCH', 'WEB_GROUNDING_TYPE_ENTERPRISE_WEB_SEARCH'.
@@ -397,7 +449,7 @@ class _AssistantState:
         return pulumi.get(self, "web_grounding_type")
 
     @web_grounding_type.setter
-    def web_grounding_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def web_grounding_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "web_grounding_type", value)
 
 
@@ -407,16 +459,17 @@ class Assistant(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 assistant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 customer_policy: Optional[pulumi.Input[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 generation_config: Optional[pulumi.Input[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 customer_policy: pulumi.Input[Optional[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 generation_config: pulumi.Input[Optional[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Assistant
@@ -494,6 +547,12 @@ class Assistant(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] collection_id: The unique id of the collection.
         :param pulumi.Input[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']] customer_policy: Customer policy for the assistant.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for additional information. Expected to be shown on the
                configuration UI, not to the users of the assistant.
         :param pulumi.Input[_builtins.str] display_name: The assistant display name.
@@ -599,16 +658,17 @@ class Assistant(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 assistant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 customer_policy: Optional[pulumi.Input[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 generation_config: Optional[pulumi.Input[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 customer_policy: pulumi.Input[Optional[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 generation_config: pulumi.Input[Optional[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -625,6 +685,7 @@ class Assistant(pulumi.CustomResource):
                 raise TypeError("Missing required property 'collection_id'")
             __props__.__dict__["collection_id"] = collection_id
             __props__.__dict__["customer_policy"] = customer_policy
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -649,17 +710,18 @@ class Assistant(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            assistant_id: Optional[pulumi.Input[_builtins.str]] = None,
-            collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-            customer_policy: Optional[pulumi.Input[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-            generation_config: Optional[pulumi.Input[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None) -> 'Assistant':
+            assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
+            collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_policy: pulumi.Input[Optional[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+            generation_config: pulumi.Input[Optional[Union['AssistantGenerationConfigArgs', 'AssistantGenerationConfigArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None) -> 'Assistant':
         """
         Get an existing Assistant resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -671,6 +733,12 @@ class Assistant(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] collection_id: The unique id of the collection.
         :param pulumi.Input[Union['AssistantCustomerPolicyArgs', 'AssistantCustomerPolicyArgsDict']] customer_policy: Customer policy for the assistant.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description for additional information. Expected to be shown on the
                configuration UI, not to the users of the assistant.
         :param pulumi.Input[_builtins.str] display_name: The assistant display name.
@@ -696,6 +764,7 @@ class Assistant(pulumi.CustomResource):
         __props__.__dict__["assistant_id"] = assistant_id
         __props__.__dict__["collection_id"] = collection_id
         __props__.__dict__["customer_policy"] = customer_policy
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["engine_id"] = engine_id
@@ -730,6 +799,19 @@ class Assistant(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "customer_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

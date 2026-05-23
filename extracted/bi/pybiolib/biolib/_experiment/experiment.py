@@ -5,6 +5,7 @@ from pathlib import Path
 from biolib import api
 from biolib._internal.result.job_result import PathFilter
 from biolib._internal.result.types import JobsPaginatedResponse
+from biolib._internal.tables import BioLibTable
 from biolib._internal.utils import open_browser_window_from_notebook
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
 from biolib._result.result import Result
@@ -13,7 +14,6 @@ from biolib._shared.types.typing import Dict, List, Optional, Union
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError, WaitTimeoutError
-from biolib.tables import BioLibTable
 from biolib.utils import IS_RUNNING_IN_NOTEBOOK
 
 

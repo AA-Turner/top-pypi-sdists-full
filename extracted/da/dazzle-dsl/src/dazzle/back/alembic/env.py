@@ -17,6 +17,8 @@ import sqlalchemy
 from alembic import context
 from alembic.operations import ops as alembic_ops
 
+from dazzle.core.db_url import add_psycopg_driver, normalise_postgres_scheme
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -72,13 +74,9 @@ def _get_url() -> str:
     ensures the psycopg v3 driver is used.
     """
     url = config.get_main_option("sqlalchemy.url", "") or os.environ.get("DATABASE_URL", "")
-    # Heroku uses the deprecated postgres:// scheme — normalise it
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    # Ensure SQLAlchemy uses psycopg v3, not psycopg2
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return url
+    # Heroku uses the deprecated postgres:// scheme — normalise it, then
+    # ensure SQLAlchemy uses psycopg v3, not psycopg2.
+    return add_psycopg_driver(normalise_postgres_scheme(url))
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +128,25 @@ def _process_revision_directives(context: Any, revision: Any, directives: list[A
 # Migration runners
 # ---------------------------------------------------------------------------
 
+# Framework-owned tables created at runtime, absent from the DSL-derived
+# metadata — autogenerate must not propose dropping them (#1188).
+_FRAMEWORK_TABLES = {"_dazzle_params"}
+
+
+def _include_object(
+    obj: Any, name: str | None, type_: str, reflected: bool, compare_to: Any
+) -> bool:
+    """Exclude objects autogenerate would otherwise churn on every run (#1188).
+
+    Framework-owned tables are not in the DSL metadata; unnamed unique
+    constraints cannot be reconciled by name, so Alembic re-emits them.
+    """
+    if type_ == "table" and name in _FRAMEWORK_TABLES:
+        return False
+    if type_ == "unique_constraint" and name is None:
+        return False
+    return True
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode (emit SQL without connecting)."""
@@ -140,6 +157,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=_include_object,
         process_revision_directives=_process_revision_directives,
     )
 
@@ -162,6 +180,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=_include_object,
             process_revision_directives=_process_revision_directives,
         )
 
@@ -184,7 +203,14 @@ def run_migrations_online() -> None:
                 dbapi_conn: Any = connection.connection
                 cur = dbapi_conn.cursor()
                 try:
-                    cur.execute("SET search_path TO %s, public", (tenant_schema,))
+                    from psycopg import sql as pgsql
+
+                    # SET cannot take a bound parameter; compose the
+                    # already-validated identifier safely instead (#1201).
+                    stmt = pgsql.SQL("SET search_path TO {}, public").format(
+                        pgsql.Identifier(tenant_schema)
+                    )
+                    cur.execute(stmt)  # nosemgrep
                 finally:
                     cur.close()
             context.run_migrations()

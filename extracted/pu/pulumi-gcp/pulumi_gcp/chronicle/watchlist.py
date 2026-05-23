@@ -25,11 +25,12 @@ class WatchlistArgs:
                  entity_population_mechanism: pulumi.Input['WatchlistEntityPopulationMechanismArgs'],
                  instance: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 multiplying_factor: Optional[pulumi.Input[_builtins.float]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_user_preferences: Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 multiplying_factor: pulumi.Input[Optional[_builtins.float]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_user_preferences: pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']] = None):
         """
         The set of arguments for constructing a Watchlist resource.
 
@@ -40,6 +41,12 @@ class WatchlistArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] instance: The unique identifier for the Chronicle instance, which is the same as the customer ID.
         :param pulumi.Input[_builtins.str] location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Description of the watchlist.
         :param pulumi.Input[_builtins.float] multiplying_factor: Optional. Weight applied to the risk score for entities
                in this watchlist.
@@ -57,6 +64,8 @@ class WatchlistArgs:
         pulumi.set(__self__, "entity_population_mechanism", entity_population_mechanism)
         pulumi.set(__self__, "instance", instance)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if multiplying_factor is not None:
@@ -120,20 +129,37 @@ class WatchlistArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Description of the watchlist.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="multiplyingFactor")
-    def multiplying_factor(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def multiplying_factor(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         Optional. Weight applied to the risk score for entities
         in this watchlist.
@@ -142,12 +168,12 @@ class WatchlistArgs:
         return pulumi.get(self, "multiplying_factor")
 
     @multiplying_factor.setter
-    def multiplying_factor(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def multiplying_factor(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "multiplying_factor", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -155,12 +181,12 @@ class WatchlistArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="watchlistId")
-    def watchlist_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def watchlist_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The ID to use for the watchlist,
         which will become the final component of the watchlist's resource name.
@@ -170,12 +196,12 @@ class WatchlistArgs:
         return pulumi.get(self, "watchlist_id")
 
     @watchlist_id.setter
-    def watchlist_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def watchlist_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "watchlist_id", value)
 
     @_builtins.property
     @pulumi.getter(name="watchlistUserPreferences")
-    def watchlist_user_preferences(self) -> Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']]:
+    def watchlist_user_preferences(self) -> pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']]:
         """
         A collection of user preferences for watchlist UI configuration.
         Structure is documented below.
@@ -183,30 +209,37 @@ class WatchlistArgs:
         return pulumi.get(self, "watchlist_user_preferences")
 
     @watchlist_user_preferences.setter
-    def watchlist_user_preferences(self, value: Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']]):
+    def watchlist_user_preferences(self, value: pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']]):
         pulumi.set(self, "watchlist_user_preferences", value)
 
 
 @pulumi.input_type
 class _WatchlistState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity_counts: Optional[pulumi.Input[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]] = None,
-                 entity_population_mechanism: Optional[pulumi.Input['WatchlistEntityPopulationMechanismArgs']] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multiplying_factor: Optional[pulumi.Input[_builtins.float]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_user_preferences: Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity_counts: pulumi.Input[Optional[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]] = None,
+                 entity_population_mechanism: pulumi.Input[Optional['WatchlistEntityPopulationMechanismArgs']] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multiplying_factor: pulumi.Input[Optional[_builtins.float]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_user_preferences: pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']] = None):
         """
         Input properties used for looking up and filtering Watchlist resources.
 
         :param pulumi.Input[_builtins.str] create_time: Output only. Time the watchlist was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Description of the watchlist.
         :param pulumi.Input[_builtins.str] display_name: Required. Display name of the watchlist.
                Note that it must be at least one character and less than 63 characters
@@ -235,6 +268,8 @@ class _WatchlistState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -262,31 +297,48 @@ class _WatchlistState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Time the watchlist was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Description of the watchlist.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Display name of the watchlist.
         Note that it must be at least one character and less than 63 characters
@@ -295,12 +347,12 @@ class _WatchlistState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="entityCounts")
-    def entity_counts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]]:
+    def entity_counts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]]:
         """
         Count of different types of entities in the watchlist.
         Structure is documented below.
@@ -308,12 +360,12 @@ class _WatchlistState:
         return pulumi.get(self, "entity_counts")
 
     @entity_counts.setter
-    def entity_counts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]]):
+    def entity_counts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WatchlistEntityCountArgs']]]]):
         pulumi.set(self, "entity_counts", value)
 
     @_builtins.property
     @pulumi.getter(name="entityPopulationMechanism")
-    def entity_population_mechanism(self) -> Optional[pulumi.Input['WatchlistEntityPopulationMechanismArgs']]:
+    def entity_population_mechanism(self) -> pulumi.Input[Optional['WatchlistEntityPopulationMechanismArgs']]:
         """
         Mechanism to populate entities in the watchlist.
         Structure is documented below.
@@ -321,36 +373,36 @@ class _WatchlistState:
         return pulumi.get(self, "entity_population_mechanism")
 
     @entity_population_mechanism.setter
-    def entity_population_mechanism(self, value: Optional[pulumi.Input['WatchlistEntityPopulationMechanismArgs']]):
+    def entity_population_mechanism(self, value: pulumi.Input[Optional['WatchlistEntityPopulationMechanismArgs']]):
         pulumi.set(self, "entity_population_mechanism", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier for the Chronicle instance, which is the same as the customer ID.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="multiplyingFactor")
-    def multiplying_factor(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def multiplying_factor(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         Optional. Weight applied to the risk score for entities
         in this watchlist.
@@ -359,12 +411,12 @@ class _WatchlistState:
         return pulumi.get(self, "multiplying_factor")
 
     @multiplying_factor.setter
-    def multiplying_factor(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def multiplying_factor(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "multiplying_factor", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. Resource name of the watchlist. This unique identifier is generated using values provided for the URL parameters.
         Format:
@@ -373,12 +425,12 @@ class _WatchlistState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -386,24 +438,24 @@ class _WatchlistState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Time the watchlist was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="watchlistId")
-    def watchlist_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def watchlist_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The ID to use for the watchlist,
         which will become the final component of the watchlist's resource name.
@@ -413,12 +465,12 @@ class _WatchlistState:
         return pulumi.get(self, "watchlist_id")
 
     @watchlist_id.setter
-    def watchlist_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def watchlist_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "watchlist_id", value)
 
     @_builtins.property
     @pulumi.getter(name="watchlistUserPreferences")
-    def watchlist_user_preferences(self) -> Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']]:
+    def watchlist_user_preferences(self) -> pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']]:
         """
         A collection of user preferences for watchlist UI configuration.
         Structure is documented below.
@@ -426,7 +478,7 @@ class _WatchlistState:
         return pulumi.get(self, "watchlist_user_preferences")
 
     @watchlist_user_preferences.setter
-    def watchlist_user_preferences(self, value: Optional[pulumi.Input['WatchlistWatchlistUserPreferencesArgs']]):
+    def watchlist_user_preferences(self, value: pulumi.Input[Optional['WatchlistWatchlistUserPreferencesArgs']]):
         pulumi.set(self, "watchlist_user_preferences", value)
 
 
@@ -436,15 +488,16 @@ class Watchlist(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity_population_mechanism: Optional[pulumi.Input[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multiplying_factor: Optional[pulumi.Input[_builtins.float]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_user_preferences: Optional[pulumi.Input[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity_population_mechanism: pulumi.Input[Optional[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multiplying_factor: pulumi.Input[Optional[_builtins.float]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_user_preferences: pulumi.Input[Optional[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None,
                  __props__=None):
         """
         A watchlist is a list of entities that allows for bulk operations over the included entities.
@@ -469,7 +522,7 @@ class Watchlist(pulumi.CustomResource):
             watchlist_id="watchlist-id",
             description="watchlist-description",
             display_name="watchlist_name",
-            multiplying_factor=1,
+            multiplying_factor=float(1),
             entity_population_mechanism={
                 "manual": {},
             },
@@ -488,7 +541,7 @@ class Watchlist(pulumi.CustomResource):
             instance="00000000-0000-0000-0000-000000000000",
             description="watchlist-description",
             display_name="watchlist-name",
-            multiplying_factor=1,
+            multiplying_factor=float(1),
             entity_population_mechanism={
                 "manual": {},
             },
@@ -516,6 +569,12 @@ class Watchlist(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Description of the watchlist.
         :param pulumi.Input[_builtins.str] display_name: Required. Display name of the watchlist.
                Note that it must be at least one character and less than 63 characters
@@ -565,7 +624,7 @@ class Watchlist(pulumi.CustomResource):
             watchlist_id="watchlist-id",
             description="watchlist-description",
             display_name="watchlist_name",
-            multiplying_factor=1,
+            multiplying_factor=float(1),
             entity_population_mechanism={
                 "manual": {},
             },
@@ -584,7 +643,7 @@ class Watchlist(pulumi.CustomResource):
             instance="00000000-0000-0000-0000-000000000000",
             description="watchlist-description",
             display_name="watchlist-name",
-            multiplying_factor=1,
+            multiplying_factor=float(1),
             entity_population_mechanism={
                 "manual": {},
             },
@@ -625,15 +684,16 @@ class Watchlist(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity_population_mechanism: Optional[pulumi.Input[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multiplying_factor: Optional[pulumi.Input[_builtins.float]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 watchlist_user_preferences: Optional[pulumi.Input[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity_population_mechanism: pulumi.Input[Optional[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multiplying_factor: pulumi.Input[Optional[_builtins.float]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 watchlist_user_preferences: pulumi.Input[Optional[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -643,6 +703,7 @@ class Watchlist(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = WatchlistArgs.__new__(WatchlistArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -674,19 +735,20 @@ class Watchlist(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            entity_counts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WatchlistEntityCountArgs', 'WatchlistEntityCountArgsDict']]]]] = None,
-            entity_population_mechanism: Optional[pulumi.Input[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            multiplying_factor: Optional[pulumi.Input[_builtins.float]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            watchlist_id: Optional[pulumi.Input[_builtins.str]] = None,
-            watchlist_user_preferences: Optional[pulumi.Input[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None) -> 'Watchlist':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            entity_counts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WatchlistEntityCountArgs', 'WatchlistEntityCountArgsDict']]]]] = None,
+            entity_population_mechanism: pulumi.Input[Optional[Union['WatchlistEntityPopulationMechanismArgs', 'WatchlistEntityPopulationMechanismArgsDict']]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            multiplying_factor: pulumi.Input[Optional[_builtins.float]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            watchlist_id: pulumi.Input[Optional[_builtins.str]] = None,
+            watchlist_user_preferences: pulumi.Input[Optional[Union['WatchlistWatchlistUserPreferencesArgs', 'WatchlistWatchlistUserPreferencesArgsDict']]] = None) -> 'Watchlist':
         """
         Get an existing Watchlist resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -695,6 +757,12 @@ class Watchlist(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Output only. Time the watchlist was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Description of the watchlist.
         :param pulumi.Input[_builtins.str] display_name: Required. Display name of the watchlist.
                Note that it must be at least one character and less than 63 characters
@@ -726,6 +794,7 @@ class Watchlist(pulumi.CustomResource):
         __props__ = _WatchlistState.__new__(_WatchlistState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["entity_counts"] = entity_counts
@@ -747,6 +816,19 @@ class Watchlist(pulumi.CustomResource):
         Output only. Time the watchlist was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

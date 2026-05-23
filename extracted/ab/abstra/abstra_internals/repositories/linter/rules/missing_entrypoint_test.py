@@ -17,15 +17,15 @@ class MissingEntrypointTest(BaseTest):
         self.assertEqual(len(rule.find_issues()), 0)
 
     def test_missing_entrypoint_valid_with_entrypoint(self):
-        self.controller.create_tasklet("New script", "script.py")
-        self.controller.create_form("New form", "form.py")
-        self.controller.create_hook("New hook", "hook.py")
-        self.controller.create_job("New job", "job.py")
+        self.controller.create_stage("tasklet", "New script", "script.py")
+        self.controller.create_stage("form", "New form", "form.py")
+        self.controller.create_stage("hook", "New hook", "hook.py")
+        self.controller.create_stage("job", "New job", "job.py")
         rule = MissingEntrypoint()
         self.assertEqual(len(rule.find_issues()), 0)
 
     def test_missing_entrypoint_invalid_without_entrypoint(self):
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.unlink()
         rule = MissingEntrypoint()
         self.assertEqual(len(rule.find_issues()), 1)
@@ -37,7 +37,7 @@ class MissingEntrypointTest(BaseTest):
         self.assertEqual(len(rule.find_issues()), 0)
 
     def test_missing_entrypoint_has_delete_stage_fix(self):
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.unlink()
         rule = MissingEntrypoint()
         issues = rule.find_issues()
@@ -47,7 +47,7 @@ class MissingEntrypointTest(BaseTest):
         self.assertEqual(issues[0].fixes[1], DeleteStage(script))
 
     def test_delete_stage_fix_removes_stage(self):
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.unlink()
         rule = MissingEntrypoint()
         issues = rule.find_issues()

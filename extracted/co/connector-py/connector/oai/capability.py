@@ -119,7 +119,7 @@ from connector_sdk_types.generated import (
 from connector_sdk_types.oai.capability import AuthRequest, Request
 from pydantic import BaseModel, ValidationError
 
-from connector.oai.errors import InvalidConfigurationError, MissingParameterError
+from connector.oai.errors import InternalError, InvalidConfigurationError, MissingParameterError
 from connector.oai.fingerprint import request_fingerprint
 
 BaseModelType = t.TypeVar("BaseModelType", bound=BaseModel)
@@ -130,6 +130,7 @@ CredentialType = t.TypeVar(
     "CredentialType",
     OAuthCredential,
     OAuthClientCredential,
+    OAuth1Credential,
     BasicCredential,
     TokenCredential,
     JWTCredential,
@@ -162,8 +163,28 @@ def get_credential(
     ...
 
 
+@t.overload
 def get_credential(
-    request: Request,
+    request: ValidateCredentialConfigRequest,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: t.Literal[False],
+) -> CredentialType | None:
+    ...
+
+
+@t.overload
+def get_credential(
+    request: ValidateCredentialConfigRequest,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: t.Literal[True] = True,
+) -> CredentialType:
+    ...
+
+
+def get_credential(
+    request: Request | ValidateCredentialConfigRequest,
     credential_id: str,
     credential_type: type[CredentialType],
     strict: bool = True,
@@ -172,9 +193,55 @@ def get_credential(
     Return the particular credential from the request.
     Similarly to get_settings, the credential is identified by the credential_id and the root credentials model.
 
+    For regular capability requests (Request), this reads request.credentials.
+    For validate-config requests (ValidateCredentialConfigRequest), this reads
+    request.request.credential.
+
     When strict=True (default), raises if the credential is missing or has the wrong type.
     When strict=False, returns None instead.
+
+    For validate-config requests specifically, credential ID mismatches are treated
+    as invariant violations and always raise InternalError, regardless of strict.
     """
+    if isinstance(request, ValidateCredentialConfigRequest):
+        return _get_credential_from_validate_config_request(
+            request, credential_id, credential_type, strict
+        )
+
+    return _get_credential_from_capability_request(request, credential_id, credential_type, strict)
+
+
+def _extract_typed_credential_payload(
+    credential: AuthCredential,
+    credential_type: type[CredentialType],
+) -> CredentialType | None:
+    if credential.oauth and isinstance(credential.oauth, credential_type):
+        return credential.oauth
+    if credential.oauth_client_credentials and isinstance(
+        credential.oauth_client_credentials, credential_type
+    ):
+        return credential.oauth_client_credentials
+    if credential.oauth1 and isinstance(credential.oauth1, credential_type):
+        return credential.oauth1
+    if credential.basic and isinstance(credential.basic, credential_type):
+        return credential.basic
+    if credential.token and isinstance(credential.token, credential_type):
+        return credential.token
+    if credential.jwt and isinstance(credential.jwt, credential_type):
+        return credential.jwt
+    if credential.service_account and isinstance(credential.service_account, credential_type):
+        return credential.service_account
+    if credential.key_pair and isinstance(credential.key_pair, credential_type):
+        return credential.key_pair
+    return None
+
+
+def _get_credential_from_capability_request(
+    request: Request,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: bool,
+) -> CredentialType | None:
     if not request.credentials or not isinstance(request.credentials, list):
         logger.warning(f"Credential '{credential_id}' not provided in credentials.")
 
@@ -190,22 +257,9 @@ def get_credential(
         if credential.id != credential_id:
             continue
 
-        if credential.oauth and isinstance(credential.oauth, credential_type):
-            return credential.oauth
-        elif credential.oauth_client_credentials and isinstance(
-            credential.oauth_client_credentials, credential_type
-        ):
-            return credential.oauth_client_credentials
-        elif credential.basic and isinstance(credential.basic, credential_type):
-            return credential.basic
-        elif credential.token and isinstance(credential.token, credential_type):
-            return credential.token
-        elif credential.jwt and isinstance(credential.jwt, credential_type):
-            return credential.jwt
-        elif credential.service_account and isinstance(credential.service_account, credential_type):
-            return credential.service_account
-        elif credential.key_pair and isinstance(credential.key_pair, credential_type):
-            return credential.key_pair
+        payload = _extract_typed_credential_payload(credential, credential_type)
+        if payload is not None:
+            return payload
 
         logger.warning(f"Credential '{credential_id}' found but is not of type {credential_type}.")
 
@@ -222,6 +276,51 @@ def get_credential(
         raise MissingParameterError(
             message=f"Credential '{credential_id}' not provided in credentials."
         )
+
+    return None
+
+
+def _get_credential_from_validate_config_request(
+    request: ValidateCredentialConfigRequest,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: bool,
+) -> CredentialType | None:
+    credential = request.request.credential
+
+    if not credential.id:
+        raise InternalError(
+            message=(
+                "Credential validation invariant breached: received credential "
+                f"without ID, expected '{credential_id}'."
+            )
+        )
+
+    if credential.id != credential_id:
+        raise InternalError(
+            message=(
+                "Credential validation invariant breached: received credential "
+                f"ID '{credential.id}', expected '{credential_id}'."
+            )
+        )
+
+    payload = _extract_typed_credential_payload(credential, credential_type)
+    if payload is not None:
+        return payload
+
+    if strict:
+        raise InternalError(
+            message=(
+                "Credential validation invariant breached for "
+                f"'{credential_id}': expected payload type '{credential_type.__name__}'."
+            )
+        )
+
+    logger.warning(
+        "Credential '%s' does not contain expected payload type '%s'.",
+        credential_id,
+        credential_type.__name__,
+    )
 
     return None
 

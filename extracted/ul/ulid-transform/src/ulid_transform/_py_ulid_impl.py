@@ -287,6 +287,9 @@ def ulid_at_time_bytes(timestamp: float) -> bytes:
 
     uuid.UUID(bytes=ulid_bytes)
     """
+    if not isinstance(timestamp, (int, float)):
+        msg = f"must be real number, not {type(timestamp).__name__}"  # type: ignore[unreachable]
+        raise TypeError(msg)
     return int(timestamp * 1000).to_bytes(6, byteorder="big") + int(
         getrandbits(80)
     ).to_bytes(10, byteorder="big")
@@ -362,8 +365,19 @@ def _encode(ulid_bytes: bytes) -> str:
 
 def ulid_to_bytes(value: str) -> bytes:
     """Decode a ulid to bytes."""
-    if len(value) != 26:
-        raise ValueError(f"ULID must be a 26 character string: {value}")
+    if not isinstance(value, str):
+        msg = f"ULID must be a string, not {type(value).__name__}"  # type: ignore[unreachable]
+        raise TypeError(msg)
+    if len(value) != 26 or not value.isascii():
+        # The C extension measures length in UTF-8 bytes via
+        # PyUnicode_AsUTF8AndSize, so any non-ASCII codepoint pushes the byte
+        # length past 26 and is rejected with ValueError there. Match that: a
+        # non-ASCII string is never a valid 26-character ULID, and folding the
+        # check here keeps the exception type aligned (C raises ValueError; the
+        # bare value.encode("ascii") below would otherwise raise
+        # UnicodeEncodeError).
+        msg = f"ULID must be a 26 character string: {value}"
+        raise ValueError(msg)
     encoded = value.encode("ascii")
     decoding = _DECODE
     return bytes(
@@ -420,29 +434,30 @@ def ulid_to_bytes(value: str) -> bytes:
 
 def bytes_to_ulid(value: bytes) -> str:
     """Encode bytes to a ulid."""
+    if not isinstance(value, bytes):
+        msg = f"ULID bytes must be bytes, not {type(value).__name__}"  # type: ignore[unreachable]
+        raise TypeError(msg)
     if len(value) != 16:
-        raise ValueError(f"ULID bytes must be 16 bytes: {value!r}")
+        msg = f"ULID bytes must be 16 bytes: {value!r}"
+        raise ValueError(msg)
     return _encode(value)
 
 
 def ulid_to_bytes_or_none(ulid: str | None) -> bytes | None:
     """Convert an ulid to bytes."""
-    if ulid is None:
+    if not isinstance(ulid, str) or len(ulid) != 26:
         return None
     try:
         return ulid_to_bytes(ulid)
-    except ValueError:
+    except (ValueError, UnicodeEncodeError):
         return None
 
 
 def bytes_to_ulid_or_none(ulid_bytes: bytes | None) -> str | None:
     """Convert bytes to a ulid."""
-    if ulid_bytes is None:
+    if not isinstance(ulid_bytes, bytes) or len(ulid_bytes) != 16:
         return None
-    try:
-        return bytes_to_ulid(ulid_bytes)
-    except ValueError:
-        return None
+    return bytes_to_ulid(ulid_bytes)
 
 
 def ulid_to_timestamp(ulid: str | bytes) -> int:
@@ -450,8 +465,14 @@ def ulid_to_timestamp(ulid: str | bytes) -> int:
     Get the timestamp from a ULID.
     The returned value is in milliseconds since the UNIX epoch.
     """
-    if not isinstance(ulid, bytes):
+    if isinstance(ulid, bytes):
+        if len(ulid) != 16:
+            msg = f"ULID bytes must be 16 bytes: {ulid!r}"
+            raise ValueError(msg)
+        ulid_bytes = ulid
+    elif isinstance(ulid, str):
         ulid_bytes = ulid_to_bytes(ulid)
     else:
-        ulid_bytes = ulid
+        msg = f"ULID must be a string or bytes, not {type(ulid).__name__}"  # type: ignore[unreachable]
+        raise TypeError(msg)
     return int.from_bytes(b"\x00\x00" + ulid_bytes[:6], "big")

@@ -27,23 +27,30 @@ classifiers = [
 ]
 
 dependencies = [
-    "opentelemetry-api == 1.40.0",
-    "opentelemetry-exporter-otlp == 1.40.0",
-    "opentelemetry-instrumentation == 0.61b0",
-    "opentelemetry-instrumentation-system-metrics == 0.61b0",
-    "opentelemetry-resourcedetector-gcp ~= 1.8.0a0",
+    "opentelemetry-api == 1.41.1",
+    "opentelemetry-exporter-otlp == 1.41.1",
+    "opentelemetry-instrumentation == 0.62b1",
+    "opentelemetry-instrumentation-system-metrics == 0.62b1",
+    "opentelemetry-resourcedetector-gcp ~= 1.12.0a0",
     "opentelemetry-resource-detector-azure ~= 0.1.5",
-    "opentelemetry-resource-detector-containerid == 0.61b0",
-    "opentelemetry-sdk == 1.40.0",
+    "opentelemetry-resource-detector-containerid == 0.62b1",
+    "opentelemetry-sdk == 1.41.1",
     "opentelemetry-sdk-extension-aws ~= 2.1.0",
-    "opentelemetry-semantic-conventions == 0.61b0",
+    "opentelemetry-semantic-conventions == 0.62b1",
     "opentelemetry-opamp-client == 0.2b0",
     "packaging",
     "uuid-utils",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pip-tools", "oteltest==0.24.0", "leb128", "pytest-vcr ; python_version > '3.9'"]
+dev = [
+    "pytest",
+    "pip-tools",
+    "oteltest==0.24.0",
+    "leb128",
+    "pytest-vcr ; python_version > '3.9'",
+    "opentelemetry-instrumentation-logging",
+]
 
 [project.entry-points.opentelemetry_configurator]
 configurator = "elasticotel.distro:ElasticOpenTelemetryConfigurator"
@@ -55,7 +62,6 @@ distro = "elasticotel.distro:ElasticOpenTelemetryDistro"
 process_runtime = "elasticotel.sdk.resources:ProcessRuntimeResourceDetector"
 telemetry_distro = "elasticotel.sdk.resources:TelemetryDistroResourceDetector"
 service_instance = "elasticotel.sdk.resources:ServiceInstanceResourceDetector"
-_gcp = "opentelemetry.resourcedetector.gcp_resource_detector._detector:GoogleCloudResourceDetector"
 
 [project.entry-points.opentelemetry_traces_sampler]
 experimental_composite_parentbased_traceidratio = "elasticotel.sdk.sampler:DefaultSampler"

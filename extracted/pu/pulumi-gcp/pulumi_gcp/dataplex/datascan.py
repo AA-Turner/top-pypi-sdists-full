@@ -25,15 +25,16 @@ class DatascanArgs:
                  data_scan_id: pulumi.Input[_builtins.str],
                  execution_spec: pulumi.Input['DatascanExecutionSpecArgs'],
                  location: pulumi.Input[_builtins.str],
-                 data_discovery_spec: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']] = None,
-                 data_documentation_spec: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']] = None,
-                 data_profile_spec: Optional[pulumi.Input['DatascanDataProfileSpecArgs']] = None,
-                 data_quality_spec: Optional[pulumi.Input['DatascanDataQualitySpecArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_identity: Optional[pulumi.Input['DatascanExecutionIdentityArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 data_discovery_spec: pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']] = None,
+                 data_documentation_spec: pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']] = None,
+                 data_profile_spec: pulumi.Input[Optional['DatascanDataProfileSpecArgs']] = None,
+                 data_quality_spec: pulumi.Input[Optional['DatascanDataQualitySpecArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_identity: pulumi.Input[Optional['DatascanExecutionIdentityArgs']] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Datascan resource.
 
@@ -50,6 +51,12 @@ class DatascanArgs:
                Structure is documented below.
         :param pulumi.Input['DatascanDataQualitySpecArgs'] data_quality_spec: DataQualityScan related setting.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the scan.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input['DatascanExecutionIdentityArgs'] execution_identity: The identity to run the datascan. If not specified, defaults to the Dataplex Service Agent.
@@ -73,6 +80,8 @@ class DatascanArgs:
             pulumi.set(__self__, "data_profile_spec", data_profile_spec)
         if data_quality_spec is not None:
             pulumi.set(__self__, "data_quality_spec", data_quality_spec)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -136,7 +145,7 @@ class DatascanArgs:
 
     @_builtins.property
     @pulumi.getter(name="dataDiscoverySpec")
-    def data_discovery_spec(self) -> Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]:
+    def data_discovery_spec(self) -> pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']]:
         """
         DataDiscoveryScan related setting.
         Structure is documented below.
@@ -144,24 +153,24 @@ class DatascanArgs:
         return pulumi.get(self, "data_discovery_spec")
 
     @data_discovery_spec.setter
-    def data_discovery_spec(self, value: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]):
+    def data_discovery_spec(self, value: pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']]):
         pulumi.set(self, "data_discovery_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataDocumentationSpec")
-    def data_documentation_spec(self) -> Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]:
+    def data_documentation_spec(self) -> pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']]:
         """
         DataDocumentationScan related setting.
         """
         return pulumi.get(self, "data_documentation_spec")
 
     @data_documentation_spec.setter
-    def data_documentation_spec(self, value: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]):
+    def data_documentation_spec(self, value: pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']]):
         pulumi.set(self, "data_documentation_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataProfileSpec")
-    def data_profile_spec(self) -> Optional[pulumi.Input['DatascanDataProfileSpecArgs']]:
+    def data_profile_spec(self) -> pulumi.Input[Optional['DatascanDataProfileSpecArgs']]:
         """
         DataProfileScan related setting.
         Structure is documented below.
@@ -169,12 +178,12 @@ class DatascanArgs:
         return pulumi.get(self, "data_profile_spec")
 
     @data_profile_spec.setter
-    def data_profile_spec(self, value: Optional[pulumi.Input['DatascanDataProfileSpecArgs']]):
+    def data_profile_spec(self, value: pulumi.Input[Optional['DatascanDataProfileSpecArgs']]):
         pulumi.set(self, "data_profile_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataQualitySpec")
-    def data_quality_spec(self) -> Optional[pulumi.Input['DatascanDataQualitySpecArgs']]:
+    def data_quality_spec(self) -> pulumi.Input[Optional['DatascanDataQualitySpecArgs']]:
         """
         DataQualityScan related setting.
         Structure is documented below.
@@ -182,36 +191,53 @@ class DatascanArgs:
         return pulumi.get(self, "data_quality_spec")
 
     @data_quality_spec.setter
-    def data_quality_spec(self, value: Optional[pulumi.Input['DatascanDataQualitySpecArgs']]):
+    def data_quality_spec(self, value: pulumi.Input[Optional['DatascanDataQualitySpecArgs']]):
         pulumi.set(self, "data_quality_spec", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the scan.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User friendly display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="executionIdentity")
-    def execution_identity(self) -> Optional[pulumi.Input['DatascanExecutionIdentityArgs']]:
+    def execution_identity(self) -> pulumi.Input[Optional['DatascanExecutionIdentityArgs']]:
         """
         The identity to run the datascan. If not specified, defaults to the Dataplex Service Agent.
         Structure is documented below.
@@ -219,12 +245,12 @@ class DatascanArgs:
         return pulumi.get(self, "execution_identity")
 
     @execution_identity.setter
-    def execution_identity(self, value: Optional[pulumi.Input['DatascanExecutionIdentityArgs']]):
+    def execution_identity(self, value: pulumi.Input[Optional['DatascanExecutionIdentityArgs']]):
         pulumi.set(self, "execution_identity", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels for the scan. A list of key->value pairs.
 
@@ -234,12 +260,12 @@ class DatascanArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -247,35 +273,36 @@ class DatascanArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DatascanState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data: Optional[pulumi.Input['DatascanDataArgs']] = None,
-                 data_discovery_spec: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']] = None,
-                 data_documentation_spec: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']] = None,
-                 data_profile_spec: Optional[pulumi.Input['DatascanDataProfileSpecArgs']] = None,
-                 data_quality_spec: Optional[pulumi.Input['DatascanDataQualitySpecArgs']] = None,
-                 data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 execution_identity: Optional[pulumi.Input['DatascanExecutionIdentityArgs']] = None,
-                 execution_spec: Optional[pulumi.Input['DatascanExecutionSpecArgs']] = None,
-                 execution_statuses: Optional[pulumi.Input[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data: pulumi.Input[Optional['DatascanDataArgs']] = None,
+                 data_discovery_spec: pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']] = None,
+                 data_documentation_spec: pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']] = None,
+                 data_profile_spec: pulumi.Input[Optional['DatascanDataProfileSpecArgs']] = None,
+                 data_quality_spec: pulumi.Input[Optional['DatascanDataQualitySpecArgs']] = None,
+                 data_scan_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 execution_identity: pulumi.Input[Optional['DatascanExecutionIdentityArgs']] = None,
+                 execution_spec: pulumi.Input[Optional['DatascanExecutionSpecArgs']] = None,
+                 execution_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Datascan resources.
 
@@ -290,6 +317,12 @@ class _DatascanState:
         :param pulumi.Input['DatascanDataQualitySpecArgs'] data_quality_spec: DataQualityScan related setting.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the scan.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -328,6 +361,8 @@ class _DatascanState:
             pulumi.set(__self__, "data_quality_spec", data_quality_spec)
         if data_scan_id is not None:
             pulumi.set(__self__, "data_scan_id", data_scan_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -361,19 +396,19 @@ class _DatascanState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the scan was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def data(self) -> Optional[pulumi.Input['DatascanDataArgs']]:
+    def data(self) -> pulumi.Input[Optional['DatascanDataArgs']]:
         """
         The data source for DataScan.
         Structure is documented below.
@@ -381,12 +416,12 @@ class _DatascanState:
         return pulumi.get(self, "data")
 
     @data.setter
-    def data(self, value: Optional[pulumi.Input['DatascanDataArgs']]):
+    def data(self, value: pulumi.Input[Optional['DatascanDataArgs']]):
         pulumi.set(self, "data", value)
 
     @_builtins.property
     @pulumi.getter(name="dataDiscoverySpec")
-    def data_discovery_spec(self) -> Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]:
+    def data_discovery_spec(self) -> pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']]:
         """
         DataDiscoveryScan related setting.
         Structure is documented below.
@@ -394,24 +429,24 @@ class _DatascanState:
         return pulumi.get(self, "data_discovery_spec")
 
     @data_discovery_spec.setter
-    def data_discovery_spec(self, value: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]):
+    def data_discovery_spec(self, value: pulumi.Input[Optional['DatascanDataDiscoverySpecArgs']]):
         pulumi.set(self, "data_discovery_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataDocumentationSpec")
-    def data_documentation_spec(self) -> Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]:
+    def data_documentation_spec(self) -> pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']]:
         """
         DataDocumentationScan related setting.
         """
         return pulumi.get(self, "data_documentation_spec")
 
     @data_documentation_spec.setter
-    def data_documentation_spec(self, value: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]):
+    def data_documentation_spec(self, value: pulumi.Input[Optional['DatascanDataDocumentationSpecArgs']]):
         pulumi.set(self, "data_documentation_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataProfileSpec")
-    def data_profile_spec(self) -> Optional[pulumi.Input['DatascanDataProfileSpecArgs']]:
+    def data_profile_spec(self) -> pulumi.Input[Optional['DatascanDataProfileSpecArgs']]:
         """
         DataProfileScan related setting.
         Structure is documented below.
@@ -419,12 +454,12 @@ class _DatascanState:
         return pulumi.get(self, "data_profile_spec")
 
     @data_profile_spec.setter
-    def data_profile_spec(self, value: Optional[pulumi.Input['DatascanDataProfileSpecArgs']]):
+    def data_profile_spec(self, value: pulumi.Input[Optional['DatascanDataProfileSpecArgs']]):
         pulumi.set(self, "data_profile_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataQualitySpec")
-    def data_quality_spec(self) -> Optional[pulumi.Input['DatascanDataQualitySpecArgs']]:
+    def data_quality_spec(self) -> pulumi.Input[Optional['DatascanDataQualitySpecArgs']]:
         """
         DataQualityScan related setting.
         Structure is documented below.
@@ -432,60 +467,77 @@ class _DatascanState:
         return pulumi.get(self, "data_quality_spec")
 
     @data_quality_spec.setter
-    def data_quality_spec(self, value: Optional[pulumi.Input['DatascanDataQualitySpecArgs']]):
+    def data_quality_spec(self, value: pulumi.Input[Optional['DatascanDataQualitySpecArgs']]):
         pulumi.set(self, "data_quality_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataScanId")
-    def data_scan_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_scan_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
         """
         return pulumi.get(self, "data_scan_id")
 
     @data_scan_id.setter
-    def data_scan_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_scan_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_scan_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the scan.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User friendly display name.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="executionIdentity")
-    def execution_identity(self) -> Optional[pulumi.Input['DatascanExecutionIdentityArgs']]:
+    def execution_identity(self) -> pulumi.Input[Optional['DatascanExecutionIdentityArgs']]:
         """
         The identity to run the datascan. If not specified, defaults to the Dataplex Service Agent.
         Structure is documented below.
@@ -493,12 +545,12 @@ class _DatascanState:
         return pulumi.get(self, "execution_identity")
 
     @execution_identity.setter
-    def execution_identity(self, value: Optional[pulumi.Input['DatascanExecutionIdentityArgs']]):
+    def execution_identity(self, value: pulumi.Input[Optional['DatascanExecutionIdentityArgs']]):
         pulumi.set(self, "execution_identity", value)
 
     @_builtins.property
     @pulumi.getter(name="executionSpec")
-    def execution_spec(self) -> Optional[pulumi.Input['DatascanExecutionSpecArgs']]:
+    def execution_spec(self) -> pulumi.Input[Optional['DatascanExecutionSpecArgs']]:
         """
         DataScan execution settings.
         Structure is documented below.
@@ -506,12 +558,12 @@ class _DatascanState:
         return pulumi.get(self, "execution_spec")
 
     @execution_spec.setter
-    def execution_spec(self, value: Optional[pulumi.Input['DatascanExecutionSpecArgs']]):
+    def execution_spec(self, value: pulumi.Input[Optional['DatascanExecutionSpecArgs']]):
         pulumi.set(self, "execution_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="executionStatuses")
-    def execution_statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]]:
+    def execution_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]]:
         """
         Status of the data scan execution.
         Structure is documented below.
@@ -519,12 +571,12 @@ class _DatascanState:
         return pulumi.get(self, "execution_statuses")
 
     @execution_statuses.setter
-    def execution_statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]]):
+    def execution_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DatascanExecutionStatusArgs']]]]):
         pulumi.set(self, "execution_statuses", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels for the scan. A list of key->value pairs.
 
@@ -534,36 +586,36 @@ class _DatascanState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where the data scan should reside.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the scan, of the form: projects/{project}/locations/{locationId}/dataScans/{datascan_id}, where project refers to a project_id or project_number and locationId refers to a GCP region.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -571,12 +623,12 @@ class _DatascanState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -584,55 +636,55 @@ class _DatascanState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Current state of the DataScan.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of DataScan.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         System generated globally unique ID for the scan. This ID will be different if the scan is deleted and re-created with the same name.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the scan was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -642,19 +694,20 @@ class Datascan(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
-                 data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
-                 data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
-                 data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
-                 data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
-                 data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_identity: Optional[pulumi.Input[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
-                 execution_spec: Optional[pulumi.Input[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 data: pulumi.Input[Optional[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
+                 data_discovery_spec: pulumi.Input[Optional[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+                 data_documentation_spec: pulumi.Input[Optional[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
+                 data_profile_spec: pulumi.Input[Optional[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
+                 data_quality_spec: pulumi.Input[Optional[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
+                 data_scan_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_identity: pulumi.Input[Optional[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
+                 execution_spec: pulumi.Input[Optional[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a user-visible job which provides the insights for the related data source.
@@ -718,7 +771,7 @@ class Datascan(pulumi.CustomResource):
                 },
             },
             data_profile_spec={
-                "sampling_percent": 80,
+                "sampling_percent": float(80),
                 "row_filter": "word_count > 10",
                 "include_fields": {
                     "field_names": ["word_count"],
@@ -813,7 +866,7 @@ class Datascan(pulumi.CustomResource):
                 "field": "modified_date",
             },
             data_quality_spec={
-                "sampling_percent": 5,
+                "sampling_percent": float(5),
                 "row_filter": "station_id > 1000",
                 "catalog_publishing_enabled": True,
                 "filter": "attributes.priority = 'high'",
@@ -823,7 +876,7 @@ class Datascan(pulumi.CustomResource):
                             "emails": ["jane.doe@example.com"],
                         },
                         "score_threshold_trigger": {
-                            "score_threshold": 86,
+                            "score_threshold": float(86),
                         },
                     },
                 },
@@ -945,7 +998,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_37559",
+            name="tf-test-bucket-name-_13293",
             location="us-west1",
             uniform_bucket_level_access=True)
         basic_discovery = gcp.dataplex.Datascan("basic_discovery",
@@ -973,13 +1026,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_91980",
+            name="tf-test-bucket-name-_40289",
             location="us-west1",
             uniform_bucket_level_access=True)
         tf_test_connection = gcp.bigquery.Connection("tf_test_connection",
-            connection_id="tf-test-connection-_37118",
+            connection_id="tf-test-connection-_33395",
             location="us-central1",
-            friendly_name="tf-test-connection-_80332",
+            friendly_name="tf-test-connection-_76044",
             description="a bigquery connection for tf test",
             cloud_resource={})
         full_discovery = gcp.dataplex.Datascan("full_discovery",
@@ -1047,7 +1100,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_13293",
+            name="tf-test-bucket-name-_69391",
             location="us-west1",
             uniform_bucket_level_access=True)
         onetime_discovery = gcp.dataplex.Datascan("onetime_discovery",
@@ -1077,11 +1130,11 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
-            dataset_id="tf_dataplex_test_dataset_id__40289",
+            dataset_id="tf_dataplex_test_dataset_id__8270",
             default_table_expiration_ms=3600000)
         tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
             dataset_id=tf_dataplex_test_dataset.dataset_id,
-            table_id="tf_dataplex_test_table_id__33395",
+            table_id="tf_dataplex_test_table_id__41150",
             deletion_protection=False,
             schema=\"\"\"    [
             {
@@ -1158,11 +1211,11 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
-            dataset_id="tf_dataplex_test_dataset_id__76044",
+            dataset_id="tf_dataplex_test_dataset_id__89313",
             default_table_expiration_ms=3600000)
         tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
             dataset_id=tf_dataplex_test_dataset.dataset_id,
-            table_id="tf_dataplex_test_table_id__69391",
+            table_id="tf_dataplex_test_table_id__60646",
             deletion_protection=False,
             schema=\"\"\"    [
             {
@@ -1241,13 +1294,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_ds__8270",
+            dataset_id="tf_test_ds__9394",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name")
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_tbl__41150",
+            table_id="tf_test_tbl__11380",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -1294,7 +1347,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_89313",
+            account_id="tf-test-sa-_35305",
             display_name="DataScan Service Account",
             project="my-project-name")
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -1312,7 +1365,7 @@ class Datascan(pulumi.CustomResource):
             role="roles/bigquery.jobUser",
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_ds__60646",
+            dataset_id="tf_test_ds__62793",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name",
@@ -1323,7 +1376,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_tbl__9394",
+            table_id="tf_test_tbl__55438",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -1376,7 +1429,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_11380",
+            account_id="tf-test-sa-_32706",
             display_name="DataScan Service Account",
             project="my-project-name")
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -1392,7 +1445,7 @@ class Datascan(pulumi.CustomResource):
             role="roles/bigquery.jobUser",
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_dataset_id__35305",
+            dataset_id="tf_test_dataset_id__49082",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name",
@@ -1404,7 +1457,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_table_id__62793",
+            table_id="tf_test_table_id__60365",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -1417,12 +1470,12 @@ class Datascan(pulumi.CustomResource):
         \"\"\")
         test_group = gcp.dataplex.EntryGroup("test_group",
             location="us-central1",
-            entry_group_id="test-group-_55438",
+            entry_group_id="test-group-_80215",
             project="my-project-name")
         test_entry = gcp.dataplex.Entry("test_entry",
             location="us-central1",
             entry_group_id=test_group.entry_group_id,
-            entry_id="test-entry-_32706",
+            entry_id="test-entry-_59033",
             entry_type="projects/655216118709/locations/global/entryTypes/data-quality-rule-template",
             project=project.number,
             aspects=[{
@@ -1562,7 +1615,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_49082",
+            account_id="tf-test-sa-_32081",
             display_name="DataScan Service Account",
             project=project.project_id)
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -1581,12 +1634,12 @@ class Datascan(pulumi.CustomResource):
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         test_group = gcp.dataplex.EntryGroup("test_group",
             location="us-central1",
-            entry_group_id="test-group-_60365",
+            entry_group_id="test-group-_10393",
             project=project.project_id)
         test_entry = gcp.dataplex.Entry("test_entry",
             location="us-central1",
             entry_group_id=test_group.entry_group_id,
-            entry_id="test-entry-_80215",
+            entry_id="test-entry-_33052",
             entry_type="projects/655216118709/locations/global/entryTypes/data-quality-rule-template",
             project=project.number,
             aspects=[{
@@ -1601,7 +1654,7 @@ class Datascan(pulumi.CustomResource):
                 },
             }])
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_dataset_id__59033",
+            dataset_id="tf_test_dataset_id__3684",
             default_table_expiration_ms=3600000,
             location="us-central1",
             project=project.project_id,
@@ -1612,7 +1665,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_table_id__32081",
+            table_id="tf_test_table_id__10719",
             deletion_protection=False,
             project=project.project_id,
             schema=\"\"\"    [
@@ -1695,6 +1748,12 @@ class Datascan(pulumi.CustomResource):
         :param pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']] data_quality_spec: DataQualityScan related setting.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the scan.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']] execution_identity: The identity to run the datascan. If not specified, defaults to the Dataplex Service Agent.
@@ -1777,7 +1836,7 @@ class Datascan(pulumi.CustomResource):
                 },
             },
             data_profile_spec={
-                "sampling_percent": 80,
+                "sampling_percent": float(80),
                 "row_filter": "word_count > 10",
                 "include_fields": {
                     "field_names": ["word_count"],
@@ -1872,7 +1931,7 @@ class Datascan(pulumi.CustomResource):
                 "field": "modified_date",
             },
             data_quality_spec={
-                "sampling_percent": 5,
+                "sampling_percent": float(5),
                 "row_filter": "station_id > 1000",
                 "catalog_publishing_enabled": True,
                 "filter": "attributes.priority = 'high'",
@@ -1882,7 +1941,7 @@ class Datascan(pulumi.CustomResource):
                             "emails": ["jane.doe@example.com"],
                         },
                         "score_threshold_trigger": {
-                            "score_threshold": 86,
+                            "score_threshold": float(86),
                         },
                     },
                 },
@@ -2004,7 +2063,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_37559",
+            name="tf-test-bucket-name-_13293",
             location="us-west1",
             uniform_bucket_level_access=True)
         basic_discovery = gcp.dataplex.Datascan("basic_discovery",
@@ -2032,13 +2091,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_91980",
+            name="tf-test-bucket-name-_40289",
             location="us-west1",
             uniform_bucket_level_access=True)
         tf_test_connection = gcp.bigquery.Connection("tf_test_connection",
-            connection_id="tf-test-connection-_37118",
+            connection_id="tf-test-connection-_33395",
             location="us-central1",
-            friendly_name="tf-test-connection-_80332",
+            friendly_name="tf-test-connection-_76044",
             description="a bigquery connection for tf test",
             cloud_resource={})
         full_discovery = gcp.dataplex.Datascan("full_discovery",
@@ -2106,7 +2165,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_13293",
+            name="tf-test-bucket-name-_69391",
             location="us-west1",
             uniform_bucket_level_access=True)
         onetime_discovery = gcp.dataplex.Datascan("onetime_discovery",
@@ -2136,11 +2195,11 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
-            dataset_id="tf_dataplex_test_dataset_id__40289",
+            dataset_id="tf_dataplex_test_dataset_id__8270",
             default_table_expiration_ms=3600000)
         tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
             dataset_id=tf_dataplex_test_dataset.dataset_id,
-            table_id="tf_dataplex_test_table_id__33395",
+            table_id="tf_dataplex_test_table_id__41150",
             deletion_protection=False,
             schema=\"\"\"    [
             {
@@ -2217,11 +2276,11 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
-            dataset_id="tf_dataplex_test_dataset_id__76044",
+            dataset_id="tf_dataplex_test_dataset_id__89313",
             default_table_expiration_ms=3600000)
         tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
             dataset_id=tf_dataplex_test_dataset.dataset_id,
-            table_id="tf_dataplex_test_table_id__69391",
+            table_id="tf_dataplex_test_table_id__60646",
             deletion_protection=False,
             schema=\"\"\"    [
             {
@@ -2300,13 +2359,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_ds__8270",
+            dataset_id="tf_test_ds__9394",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name")
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_tbl__41150",
+            table_id="tf_test_tbl__11380",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -2353,7 +2412,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_89313",
+            account_id="tf-test-sa-_35305",
             display_name="DataScan Service Account",
             project="my-project-name")
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -2371,7 +2430,7 @@ class Datascan(pulumi.CustomResource):
             role="roles/bigquery.jobUser",
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_ds__60646",
+            dataset_id="tf_test_ds__62793",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name",
@@ -2382,7 +2441,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_tbl__9394",
+            table_id="tf_test_tbl__55438",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -2435,7 +2494,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_11380",
+            account_id="tf-test-sa-_32706",
             display_name="DataScan Service Account",
             project="my-project-name")
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -2451,7 +2510,7 @@ class Datascan(pulumi.CustomResource):
             role="roles/bigquery.jobUser",
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_dataset_id__35305",
+            dataset_id="tf_test_dataset_id__49082",
             default_table_expiration_ms=3600000,
             delete_contents_on_destroy=True,
             project="my-project-name",
@@ -2463,7 +2522,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_table_id__62793",
+            table_id="tf_test_table_id__60365",
             deletion_protection=False,
             project="my-project-name",
             schema=\"\"\"    [
@@ -2476,12 +2535,12 @@ class Datascan(pulumi.CustomResource):
         \"\"\")
         test_group = gcp.dataplex.EntryGroup("test_group",
             location="us-central1",
-            entry_group_id="test-group-_55438",
+            entry_group_id="test-group-_80215",
             project="my-project-name")
         test_entry = gcp.dataplex.Entry("test_entry",
             location="us-central1",
             entry_group_id=test_group.entry_group_id,
-            entry_id="test-entry-_32706",
+            entry_id="test-entry-_59033",
             entry_type="projects/655216118709/locations/global/entryTypes/data-quality-rule-template",
             project=project.number,
             aspects=[{
@@ -2621,7 +2680,7 @@ class Datascan(pulumi.CustomResource):
 
         project = gcp.organizations.get_project(project_id="my-project-name")
         sa = gcp.serviceaccount.Account("sa",
-            account_id="tf-test-sa-_49082",
+            account_id="tf-test-sa-_32081",
             display_name="DataScan Service Account",
             project=project.project_id)
         dataplex_sa_impersonate = gcp.serviceaccount.IAMMember("dataplex_sa_impersonate",
@@ -2640,12 +2699,12 @@ class Datascan(pulumi.CustomResource):
             member=sa.email.apply(lambda email: f"serviceAccount:{email}"))
         test_group = gcp.dataplex.EntryGroup("test_group",
             location="us-central1",
-            entry_group_id="test-group-_60365",
+            entry_group_id="test-group-_10393",
             project=project.project_id)
         test_entry = gcp.dataplex.Entry("test_entry",
             location="us-central1",
             entry_group_id=test_group.entry_group_id,
-            entry_id="test-entry-_80215",
+            entry_id="test-entry-_33052",
             entry_type="projects/655216118709/locations/global/entryTypes/data-quality-rule-template",
             project=project.number,
             aspects=[{
@@ -2660,7 +2719,7 @@ class Datascan(pulumi.CustomResource):
                 },
             }])
         tf_test_dataset = gcp.bigquery.Dataset("tf_test_dataset",
-            dataset_id="tf_test_dataset_id__59033",
+            dataset_id="tf_test_dataset_id__3684",
             default_table_expiration_ms=3600000,
             location="us-central1",
             project=project.project_id,
@@ -2671,7 +2730,7 @@ class Datascan(pulumi.CustomResource):
                 ]))
         tf_test_table = gcp.bigquery.Table("tf_test_table",
             dataset_id=tf_test_dataset.dataset_id,
-            table_id="tf_test_table_id__32081",
+            table_id="tf_test_table_id__10719",
             deletion_protection=False,
             project=project.project_id,
             schema=\"\"\"    [
@@ -2757,19 +2816,20 @@ class Datascan(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
-                 data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
-                 data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
-                 data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
-                 data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
-                 data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 execution_identity: Optional[pulumi.Input[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
-                 execution_spec: Optional[pulumi.Input[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 data: pulumi.Input[Optional[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
+                 data_discovery_spec: pulumi.Input[Optional[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+                 data_documentation_spec: pulumi.Input[Optional[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
+                 data_profile_spec: pulumi.Input[Optional[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
+                 data_quality_spec: pulumi.Input[Optional[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
+                 data_scan_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 execution_identity: pulumi.Input[Optional[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
+                 execution_spec: pulumi.Input[Optional[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -2789,6 +2849,7 @@ class Datascan(pulumi.CustomResource):
             if data_scan_id is None and not opts.urn:
                 raise TypeError("Missing required property 'data_scan_id'")
             __props__.__dict__["data_scan_id"] = data_scan_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["execution_identity"] = execution_identity
@@ -2821,28 +2882,29 @@ class Datascan(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
-            data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
-            data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
-            data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
-            data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
-            data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            execution_identity: Optional[pulumi.Input[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
-            execution_spec: Optional[pulumi.Input[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
-            execution_statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DatascanExecutionStatusArgs', 'DatascanExecutionStatusArgsDict']]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Datascan':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data: pulumi.Input[Optional[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
+            data_discovery_spec: pulumi.Input[Optional[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+            data_documentation_spec: pulumi.Input[Optional[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
+            data_profile_spec: pulumi.Input[Optional[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
+            data_quality_spec: pulumi.Input[Optional[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
+            data_scan_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            execution_identity: pulumi.Input[Optional[Union['DatascanExecutionIdentityArgs', 'DatascanExecutionIdentityArgsDict']]] = None,
+            execution_spec: pulumi.Input[Optional[Union['DatascanExecutionSpecArgs', 'DatascanExecutionSpecArgsDict']]] = None,
+            execution_statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DatascanExecutionStatusArgs', 'DatascanExecutionStatusArgsDict']]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Datascan':
         """
         Get an existing Datascan resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -2861,6 +2923,12 @@ class Datascan(pulumi.CustomResource):
         :param pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']] data_quality_spec: DataQualityScan related setting.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the scan.
         :param pulumi.Input[_builtins.str] display_name: User friendly display name.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -2896,6 +2964,7 @@ class Datascan(pulumi.CustomResource):
         __props__.__dict__["data_profile_spec"] = data_profile_spec
         __props__.__dict__["data_quality_spec"] = data_quality_spec
         __props__.__dict__["data_scan_id"] = data_scan_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_labels"] = effective_labels
@@ -2972,6 +3041,19 @@ class Datascan(pulumi.CustomResource):
         DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
         """
         return pulumi.get(self, "data_scan_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

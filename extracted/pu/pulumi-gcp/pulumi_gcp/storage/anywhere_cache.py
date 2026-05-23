@@ -21,8 +21,10 @@ class AnywhereCacheArgs:
     def __init__(__self__, *,
                  bucket: pulumi.Input[_builtins.str],
                  zone: pulumi.Input[_builtins.str],
-                 admission_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None):
+                 admission_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingest_on_write: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AnywhereCache resource.
 
@@ -31,12 +33,23 @@ class AnywhereCacheArgs:
         :param pulumi.Input[_builtins.str] admission_policy: The cache admission policy dictates whether a block should be inserted upon a cache miss.
                Default value is `admit-on-first-miss`.
                Possible values are: `admit-on-first-miss`, `admit-on-second-miss`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+        :param pulumi.Input[_builtins.bool] ingest_on_write: Whether or not the cache ingests data as the data is written to the bucket.
         :param pulumi.Input[_builtins.str] ttl: The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
         """
         pulumi.set(__self__, "bucket", bucket)
         pulumi.set(__self__, "zone", zone)
         if admission_policy is not None:
             pulumi.set(__self__, "admission_policy", admission_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
+        if ingest_on_write is not None:
+            pulumi.set(__self__, "ingest_on_write", ingest_on_write)
         if ttl is not None:
             pulumi.set(__self__, "ttl", ttl)
 
@@ -66,7 +79,7 @@ class AnywhereCacheArgs:
 
     @_builtins.property
     @pulumi.getter(name="admissionPolicy")
-    def admission_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def admission_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The cache admission policy dictates whether a block should be inserted upon a cache miss.
         Default value is `admit-on-first-miss`.
@@ -75,34 +88,65 @@ class AnywhereCacheArgs:
         return pulumi.get(self, "admission_policy")
 
     @admission_policy.setter
-    def admission_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def admission_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "admission_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestOnWrite")
+    def ingest_on_write(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether or not the cache ingests data as the data is written to the bucket.
+        """
+        return pulumi.get(self, "ingest_on_write")
+
+    @ingest_on_write.setter
+    def ingest_on_write(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "ingest_on_write", value)
+
+    @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
         """
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
 
 @pulumi.input_type
 class _AnywhereCacheState:
     def __init__(__self__, *,
-                 admission_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 anywhere_cache_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 pending_update: Optional[pulumi.Input[_builtins.bool]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 admission_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 anywhere_cache_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingest_on_write: pulumi.Input[Optional[_builtins.bool]] = None,
+                 pending_update: pulumi.Input[Optional[_builtins.bool]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AnywhereCache resources.
 
@@ -112,6 +156,13 @@ class _AnywhereCacheState:
         :param pulumi.Input[_builtins.str] anywhere_cache_id: The ID of the Anywhere cache instance.
         :param pulumi.Input[_builtins.str] bucket: A reference to Bucket resource
         :param pulumi.Input[_builtins.str] create_time: The creation time of the cache instance in RFC 3339 format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+        :param pulumi.Input[_builtins.bool] ingest_on_write: Whether or not the cache ingests data as the data is written to the bucket.
         :param pulumi.Input[_builtins.bool] pending_update: True if the cache instance has an active Update long-running operation.
         :param pulumi.Input[_builtins.str] state: The current state of the cache instance.
         :param pulumi.Input[_builtins.str] ttl: The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
@@ -126,6 +177,10 @@ class _AnywhereCacheState:
             pulumi.set(__self__, "bucket", bucket)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
+        if ingest_on_write is not None:
+            pulumi.set(__self__, "ingest_on_write", ingest_on_write)
         if pending_update is not None:
             pulumi.set(__self__, "pending_update", pending_update)
         if state is not None:
@@ -139,7 +194,7 @@ class _AnywhereCacheState:
 
     @_builtins.property
     @pulumi.getter(name="admissionPolicy")
-    def admission_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def admission_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The cache admission policy dictates whether a block should be inserted upon a cache miss.
         Default value is `admit-on-first-miss`.
@@ -148,103 +203,132 @@ class _AnywhereCacheState:
         return pulumi.get(self, "admission_policy")
 
     @admission_policy.setter
-    def admission_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def admission_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "admission_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="anywhereCacheId")
-    def anywhere_cache_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def anywhere_cache_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Anywhere cache instance.
         """
         return pulumi.get(self, "anywhere_cache_id")
 
     @anywhere_cache_id.setter
-    def anywhere_cache_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def anywhere_cache_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "anywhere_cache_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def bucket(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bucket(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to Bucket resource
         """
         return pulumi.get(self, "bucket")
 
     @bucket.setter
-    def bucket(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bucket(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bucket", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The creation time of the cache instance in RFC 3339 format.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestOnWrite")
+    def ingest_on_write(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether or not the cache ingests data as the data is written to the bucket.
+        """
+        return pulumi.get(self, "ingest_on_write")
+
+    @ingest_on_write.setter
+    def ingest_on_write(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "ingest_on_write", value)
+
+    @_builtins.property
     @pulumi.getter(name="pendingUpdate")
-    def pending_update(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def pending_update(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if the cache instance has an active Update long-running operation.
         """
         return pulumi.get(self, "pending_update")
 
     @pending_update.setter
-    def pending_update(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def pending_update(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "pending_update", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the cache instance.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
         """
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The modification time of the cache instance metadata in RFC 3339 format.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The zone in which the cache instance needs to be created. For example, `us-central1-a.`
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
@@ -254,10 +338,12 @@ class AnywhereCache(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admission_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 admission_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingest_on_write: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The Google Cloud Storage (GCS) Anywhere Cache feature allows users to
@@ -307,6 +393,13 @@ class AnywhereCache(pulumi.CustomResource):
                Default value is `admit-on-first-miss`.
                Possible values are: `admit-on-first-miss`, `admit-on-second-miss`.
         :param pulumi.Input[_builtins.str] bucket: A reference to Bucket resource
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+        :param pulumi.Input[_builtins.bool] ingest_on_write: Whether or not the cache ingests data as the data is written to the bucket.
         :param pulumi.Input[_builtins.str] ttl: The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
         :param pulumi.Input[_builtins.str] zone: The zone in which the cache instance needs to be created. For example, `us-central1-a.`
         """
@@ -373,10 +466,12 @@ class AnywhereCache(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admission_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 admission_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingest_on_write: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -390,6 +485,8 @@ class AnywhereCache(pulumi.CustomResource):
             if bucket is None and not opts.urn:
                 raise TypeError("Missing required property 'bucket'")
             __props__.__dict__["bucket"] = bucket
+            __props__.__dict__["deletion_policy"] = deletion_policy
+            __props__.__dict__["ingest_on_write"] = ingest_on_write
             __props__.__dict__["ttl"] = ttl
             if zone is None and not opts.urn:
                 raise TypeError("Missing required property 'zone'")
@@ -409,15 +506,17 @@ class AnywhereCache(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            admission_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            anywhere_cache_id: Optional[pulumi.Input[_builtins.str]] = None,
-            bucket: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            pending_update: Optional[pulumi.Input[_builtins.bool]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            ttl: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'AnywhereCache':
+            admission_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            anywhere_cache_id: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            ingest_on_write: pulumi.Input[Optional[_builtins.bool]] = None,
+            pending_update: pulumi.Input[Optional[_builtins.bool]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            ttl: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'AnywhereCache':
         """
         Get an existing AnywhereCache resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -431,6 +530,13 @@ class AnywhereCache(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] anywhere_cache_id: The ID of the Anywhere cache instance.
         :param pulumi.Input[_builtins.str] bucket: A reference to Bucket resource
         :param pulumi.Input[_builtins.str] create_time: The creation time of the cache instance in RFC 3339 format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+        :param pulumi.Input[_builtins.bool] ingest_on_write: Whether or not the cache ingests data as the data is written to the bucket.
         :param pulumi.Input[_builtins.bool] pending_update: True if the cache instance has an active Update long-running operation.
         :param pulumi.Input[_builtins.str] state: The current state of the cache instance.
         :param pulumi.Input[_builtins.str] ttl: The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
@@ -445,6 +551,8 @@ class AnywhereCache(pulumi.CustomResource):
         __props__.__dict__["anywhere_cache_id"] = anywhere_cache_id
         __props__.__dict__["bucket"] = bucket
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
+        __props__.__dict__["ingest_on_write"] = ingest_on_write
         __props__.__dict__["pending_update"] = pending_update
         __props__.__dict__["state"] = state
         __props__.__dict__["ttl"] = ttl
@@ -485,6 +593,27 @@ class AnywhereCache(pulumi.CustomResource):
         The creation time of the cache instance in RFC 3339 format.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="ingestOnWrite")
+    def ingest_on_write(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        Whether or not the cache ingests data as the data is written to the bucket.
+        """
+        return pulumi.get(self, "ingest_on_write")
 
     @_builtins.property
     @pulumi.getter(name="pendingUpdate")

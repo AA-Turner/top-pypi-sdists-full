@@ -4,8 +4,8 @@ use crate::pysolarsystem;
 use crate::pyutils::*;
 use satkit::jplephem;
 use satkit::mathtypes::*;
-use satkit::SolarSystem;
 use satkit::Instant;
+use satkit::SolarSystem;
 
 use anyhow::Result;
 
@@ -23,9 +23,8 @@ pub fn geocentric_state(
     tm: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
     let rbody: SolarSystem = body.into();
-    let f = |tm: &Instant| -> Result<(Vector3, Vector3)> {
-        jplephem::geocentric_state(rbody, tm)
-    };
+    let f =
+        |tm: &Instant| -> Result<(Vector3, Vector3)> { Ok(jplephem::geocentric_state(rbody, tm)?) };
     tuple_func_of_time_arr(f, tm)
 }
 
@@ -53,7 +52,7 @@ pub fn barycentric_state(
 ) -> PyResult<Py<PyAny>> {
     let rbody: SolarSystem = body.into();
     let f = |tm: &Instant| -> Result<(Vector3, Vector3)> {
-        jplephem::barycentric_state(rbody, tm)
+        Ok(jplephem::barycentric_state(rbody, tm)?)
     };
     tuple_func_of_time_arr(f, tm)
 }
@@ -72,7 +71,7 @@ pub fn geocentric_pos(
     tm: &Bound<'_, PyAny>,
 ) -> Result<Py<PyAny>> {
     let rbody: SolarSystem = body.into();
-    let f = |tm: &Instant| -> Result<Vector3> { jplephem::geocentric_pos(rbody, tm) };
+    let f = |tm: &Instant| -> Result<Vector3> { Ok(jplephem::geocentric_pos(rbody, tm)?) };
     py_vec3_of_time_result_arr(&f, tm)
 }
 
@@ -97,6 +96,6 @@ pub fn barycentric_pos(
     tm: &Bound<'_, PyAny>,
 ) -> Result<Py<PyAny>> {
     let rbody: SolarSystem = body.into();
-    let f = |tm: &Instant| -> Result<Vector3> { jplephem::barycentric_pos(rbody, tm) };
+    let f = |tm: &Instant| -> Result<Vector3> { Ok(jplephem::barycentric_pos(rbody, tm)?) };
     py_vec3_of_time_result_arr(&f, tm)
 }

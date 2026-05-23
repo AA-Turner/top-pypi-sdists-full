@@ -208,8 +208,23 @@ def _resume_previous_session(
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    # Startup timing — instrumented 2026-05-22 because test_harness
+    # cases show ~29s between drydock spawn and first user-message
+    # processing for msgs=1 cases. No prior visibility into where
+    # the time goes. Each phase logs its elapsed time so the next
+    # operator looking at this can see the bottleneck without
+    # adding more prints.
+    import time as _t
+    _t0 = _t.perf_counter()
+    def _phase(name: str, start: float) -> float:
+        now = _t.perf_counter()
+        logger.warning("[TIMING:startup] %s=%.2fs", name, now - start)
+        return now
+
     load_dotenv_values()
+    _t1 = _phase("load_dotenv_values", _t0)
     bootstrap_config_files()
+    _t2 = _phase("bootstrap_config_files", _t1)
 
     if args.setup:
         run_onboarding()
@@ -217,7 +232,9 @@ def run_cli(args: argparse.Namespace) -> None:
 
     try:
         initial_agent_name = get_initial_agent_name(args)
+        _t3 = _phase("get_initial_agent_name", _t2)
         config = load_config_or_exit()
+        _t4 = _phase("load_config_or_exit", _t3)
 
         if args.enabled_tools:
             config.enabled_tools = args.enabled_tools
@@ -259,10 +276,15 @@ def run_cli(args: argparse.Namespace) -> None:
                 client_version=__version__,
             ),
         )
+        _t5 = _phase("AgentLoop_init", _t4)
 
         if loaded_session:
             _resume_previous_session(agent_loop, *loaded_session)
+            _t6 = _phase("resume_previous_session", _t5)
+        else:
+            _t6 = _t5
 
+        _phase("STARTUP_TOTAL_to_TUI_launch", _t0)
         run_textual_ui(
             agent_loop=agent_loop,
             initial_prompt=args.initial_prompt or stdin_prompt,

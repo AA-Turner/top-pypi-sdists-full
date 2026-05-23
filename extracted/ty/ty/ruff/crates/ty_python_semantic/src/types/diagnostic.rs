@@ -41,7 +41,7 @@ use ruff_db::{
 use ruff_diagnostics::{Edit, Fix, IsolationLevel};
 use ruff_python_ast::name::Name;
 use ruff_python_ast::token::parentheses_iterator;
-use ruff_python_ast::{self as ast, AnyNodeRef, HasNodeIndex, PythonVersion, StringFlags};
+use ruff_python_ast::{self as ast, AnyNodeRef, HasNodeIndex, StringFlags};
 use ruff_source_file::LineRanges;
 use ruff_text_size::{Ranged, TextRange};
 use rustc_hash::FxHashSet;
@@ -49,7 +49,7 @@ use std::fmt::{self, Formatter};
 use ty_module_resolver::{KnownModule, Module, ModuleName, file_to_module};
 use ty_python_core::definition::{Definition, DefinitionKind};
 use ty_python_core::place::{PlaceTable, ScopedPlaceId};
-use ty_python_core::{SemanticIndex, global_scope, place_table, use_def_map};
+use ty_python_core::{global_scope, place_table, use_def_map};
 
 const RUNTIME_CHECKABLE_DOCS_URL: &str =
     "https://docs.python.org/3/library/typing.html#typing.runtime_checkable";
@@ -163,6 +163,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&INVALID_METHOD_OVERRIDE);
     registry.register_lint(&INVALID_EXPLICIT_OVERRIDE);
     registry.register_lint(&SUPER_CALL_IN_NAMED_TUPLE_METHOD);
+    registry.register_lint(&SUBCLASS_OF_DATACLASS_WITH_ORDER);
     registry.register_lint(&INVALID_FROZEN_DATACLASS_SUBCLASS);
     registry.register_lint(&INVALID_TOTAL_ORDERING);
     registry.register_lint(&INVALID_LEGACY_POSITIONAL_PARAMETER);
@@ -2308,6 +2309,46 @@ declare_lint! {
 
 declare_lint! {
     /// ## What it does
+    /// Checks for classes that inherit from a dataclass with `order=True`.
+    ///
+    /// ## Why is this bad?
+    /// When a dataclass has `order=True`, comparison methods (`__lt__`, `__le__`, `__gt__`, `__ge__`)
+    /// are generated that compare instances as tuples of their fields. These methods raise a
+    /// `TypeError` at runtime when comparing instances of different classes in the inheritance
+    /// hierarchy, even if one is a subclass of the other.
+    ///
+    /// This violates the [Liskov Substitution Principle] because child class instances cannot be
+    /// used in all contexts where parent class instances are expected.
+    ///
+    /// ## Example
+    ///
+    /// ```python
+    /// from dataclasses import dataclass
+    ///
+    /// @dataclass(order=True)
+    /// class Parent:
+    ///     value: int
+    ///
+    /// class Child(Parent):  # Ty emits a warning here
+    ///     pass
+    ///
+    /// # At runtime, this raises TypeError:
+    /// # Child(1) < Parent(2)
+    /// ```
+    ///
+    /// Consider using [`functools.total_ordering`][total_ordering] instead, which does not have this limitation.
+    ///
+    /// [Liskov Substitution Principle]: https://en.wikipedia.org/wiki/Liskov_substitution_principle
+    /// [total_ordering]: https://docs.python.org/3/library/functools.html#functools.total_ordering
+    pub(crate) static SUBCLASS_OF_DATACLASS_WITH_ORDER = {
+        summary: "detects subclasses of dataclasses with `order=True`",
+        status: LintStatus::stable("0.0.39"),
+        default_level: Level::Warn,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
     /// Checks for methods on subclasses that override superclass methods decorated with `@final`.
     ///
     /// ## Why is this bad?
@@ -3656,7 +3697,7 @@ pub(super) fn note_numbers_module_not_supported<'db>(
 }
 
 fn covariant_supertype_hint<'db>(
-    class: ClassType<'db>,
+    class: StaticClassLiteral<'db>,
     db: &'db dyn Db,
     mismatched_invariant_parameters: &[usize],
 ) -> Option<&'static str> {
@@ -3690,20 +3731,16 @@ pub(super) fn add_invariant_generic_hints<'db>(
     expected_ty: Type<'db>,
     provided_ty: Type<'db>,
 ) {
-    let Some(expected_class) = expected_ty.nominal_class(db) else {
+    let Some((expected_class, expected_specialization)) = expected_ty.class_specialization(db)
+    else {
         return;
     };
-    let Some(provided_class) = provided_ty.nominal_class(db) else {
-        return;
-    };
-    let Some(expected_specialization) = expected_ty.class_specialization(db) else {
-        return;
-    };
-    let Some(provided_specialization) = provided_ty.class_specialization(db) else {
+    let Some((provided_class, provided_specialization)) = provided_ty.class_specialization(db)
+    else {
         return;
     };
 
-    if expected_class.class_literal(db) != provided_class.class_literal(db) {
+    if expected_class != provided_class {
         return;
     }
 
@@ -6239,13 +6276,12 @@ pub(super) fn report_unsupported_augmented_assignment<'db>(
 
 pub(super) fn report_unsupported_binary_operation<'db>(
     context: &InferContext<'db, '_>,
-    index: &SemanticIndex<'db>,
     binary_expression: &ast::ExprBinOp,
     left_ty: Type<'db>,
     right_ty: Type<'db>,
     operator: ast::Operator,
 ) {
-    let Some(mut diagnostic) = report_unsupported_binary_operation_impl(
+    report_unsupported_binary_operation_impl(
         context,
         binary_expression.range(),
         &binary_expression.left,
@@ -6256,30 +6292,7 @@ pub(super) fn report_unsupported_binary_operation<'db>(
             operator,
             is_augmented_assignment: false,
         },
-    ) else {
-        return;
-    };
-    let db = context.db();
-    if operator == ast::Operator::BitOr
-        && (left_ty.is_subtype_of(db, KnownClass::Type.to_instance(db))
-            || right_ty.is_subtype_of(db, KnownClass::Type.to_instance(db)))
-        && Program::get(db).python_version(db) < PythonVersion::PY310
-    {
-        note_py_version_too_old_for_pep_604(db, index, &mut diagnostic);
-    }
-}
-
-pub(super) fn note_py_version_too_old_for_pep_604<'db>(
-    db: &'db dyn Db,
-    index: &SemanticIndex<'db>,
-    diagnostic: &mut Diagnostic,
-) {
-    diagnostic.info("PEP 604 `|` unions are only available on Python 3.10+ unless they are quoted");
-    if index.has_future_annotations() {
-        diagnostic
-            .info("`from __future__ import annotations` has no effect outside type annotations");
-    }
-    add_inferred_python_version_hint_to_diagnostic(db, diagnostic, "resolving types");
+    );
 }
 
 #[derive(Debug, Copy, Clone)]

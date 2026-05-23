@@ -23,20 +23,21 @@ class ConversationProfileArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 automated_agent_config: Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']] = None,
-                 human_agent_assistant_config: Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']] = None,
-                 human_agent_handoff_config: Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']] = None,
-                 new_message_event_notification_config: Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']] = None,
-                 new_recognition_result_notification_config: Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']] = None,
-                 notification_config: Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 stt_config: Optional[pulumi.Input['ConversationProfileSttConfigArgs']] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 tts_config: Optional[pulumi.Input['ConversationProfileTtsConfigArgs']] = None,
-                 use_bidi_streaming: Optional[pulumi.Input[_builtins.bool]] = None):
+                 automated_agent_config: pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 human_agent_assistant_config: pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']] = None,
+                 human_agent_handoff_config: pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']] = None,
+                 new_message_event_notification_config: pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']] = None,
+                 new_recognition_result_notification_config: pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']] = None,
+                 notification_config: pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 stt_config: pulumi.Input[Optional['ConversationProfileSttConfigArgs']] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 tts_config: pulumi.Input[Optional['ConversationProfileTtsConfigArgs']] = None,
+                 use_bidi_streaming: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ConversationProfile resource.
 
@@ -44,6 +45,12 @@ class ConversationProfileArgs:
         :param pulumi.Input[_builtins.str] location: desc
         :param pulumi.Input['ConversationProfileAutomatedAgentConfigArgs'] automated_agent_config: Configuration for an automated agent to use with this profile
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs'] human_agent_assistant_config: Configuration for connecting to a live agent
                Structure is documented below.
         :param pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs'] human_agent_handoff_config: Defines the hand off to a live agent, typically on which external agent service provider to connect to a conversation.
@@ -74,6 +81,8 @@ class ConversationProfileArgs:
         pulumi.set(__self__, "location", location)
         if automated_agent_config is not None:
             pulumi.set(__self__, "automated_agent_config", automated_agent_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if human_agent_assistant_config is not None:
             pulumi.set(__self__, "human_agent_assistant_config", human_agent_assistant_config)
         if human_agent_handoff_config is not None:
@@ -127,7 +136,7 @@ class ConversationProfileArgs:
 
     @_builtins.property
     @pulumi.getter(name="automatedAgentConfig")
-    def automated_agent_config(self) -> Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']]:
+    def automated_agent_config(self) -> pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']]:
         """
         Configuration for an automated agent to use with this profile
         Structure is documented below.
@@ -135,12 +144,29 @@ class ConversationProfileArgs:
         return pulumi.get(self, "automated_agent_config")
 
     @automated_agent_config.setter
-    def automated_agent_config(self, value: Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']]):
+    def automated_agent_config(self, value: pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']]):
         pulumi.set(self, "automated_agent_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="humanAgentAssistantConfig")
-    def human_agent_assistant_config(self) -> Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']]:
+    def human_agent_assistant_config(self) -> pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']]:
         """
         Configuration for connecting to a live agent
         Structure is documented below.
@@ -148,12 +174,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "human_agent_assistant_config")
 
     @human_agent_assistant_config.setter
-    def human_agent_assistant_config(self, value: Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']]):
+    def human_agent_assistant_config(self, value: pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']]):
         pulumi.set(self, "human_agent_assistant_config", value)
 
     @_builtins.property
     @pulumi.getter(name="humanAgentHandoffConfig")
-    def human_agent_handoff_config(self) -> Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']]:
+    def human_agent_handoff_config(self) -> pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']]:
         """
         Defines the hand off to a live agent, typically on which external agent service provider to connect to a conversation.
         Structure is documented below.
@@ -161,24 +187,24 @@ class ConversationProfileArgs:
         return pulumi.get(self, "human_agent_handoff_config")
 
     @human_agent_handoff_config.setter
-    def human_agent_handoff_config(self, value: Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']]):
+    def human_agent_handoff_config(self, value: pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']]):
         pulumi.set(self, "human_agent_handoff_config", value)
 
     @_builtins.property
     @pulumi.getter(name="languageCode")
-    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def language_code(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Language code for the conversation profile. This should be a BCP-47 language tag.
         """
         return pulumi.get(self, "language_code")
 
     @language_code.setter
-    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def language_code(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "language_code", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingConfig")
-    def logging_config(self) -> Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']]:
+    def logging_config(self) -> pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']]:
         """
         Defines logging behavior for conversation lifecycle events.
         Structure is documented below.
@@ -186,12 +212,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "logging_config")
 
     @logging_config.setter
-    def logging_config(self, value: Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']]):
+    def logging_config(self, value: pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']]):
         pulumi.set(self, "logging_config", value)
 
     @_builtins.property
     @pulumi.getter(name="newMessageEventNotificationConfig")
-    def new_message_event_notification_config(self) -> Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']]:
+    def new_message_event_notification_config(self) -> pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']]:
         """
         Pub/Sub topic on which to publish new agent assistant events.
         Expects the format "projects/<Project ID>/locations/<Location ID>/topics/<Topic ID>"
@@ -200,12 +226,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "new_message_event_notification_config")
 
     @new_message_event_notification_config.setter
-    def new_message_event_notification_config(self, value: Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']]):
+    def new_message_event_notification_config(self, value: pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']]):
         pulumi.set(self, "new_message_event_notification_config", value)
 
     @_builtins.property
     @pulumi.getter(name="newRecognitionResultNotificationConfig")
-    def new_recognition_result_notification_config(self) -> Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']]:
+    def new_recognition_result_notification_config(self) -> pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']]:
         """
         Optional. Configuration for publishing transcription intermediate results. Event will be sent in format of ConversationEvent. If configured, the following information will be populated as ConversationEvent Pub/Sub message attributes: - "participant_id" - "participantRole" - "message_id"
         Structure is documented below.
@@ -213,12 +239,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "new_recognition_result_notification_config")
 
     @new_recognition_result_notification_config.setter
-    def new_recognition_result_notification_config(self, value: Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']]):
+    def new_recognition_result_notification_config(self, value: pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']]):
         pulumi.set(self, "new_recognition_result_notification_config", value)
 
     @_builtins.property
     @pulumi.getter(name="notificationConfig")
-    def notification_config(self) -> Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']]:
+    def notification_config(self) -> pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']]:
         """
         Pub/Sub topic on which to publish new agent assistant events.
         Expects the format "projects/<Project ID>/locations/<Location ID>/topics/<Topic ID>"
@@ -227,12 +253,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "notification_config")
 
     @notification_config.setter
-    def notification_config(self, value: Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']]):
+    def notification_config(self, value: pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']]):
         pulumi.set(self, "notification_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -240,24 +266,24 @@ class ConversationProfileArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="securitySettings")
-    def security_settings(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_settings(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the CX SecuritySettings reference for the agent.
         """
         return pulumi.get(self, "security_settings")
 
     @security_settings.setter
-    def security_settings(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_settings(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="sttConfig")
-    def stt_config(self) -> Optional[pulumi.Input['ConversationProfileSttConfigArgs']]:
+    def stt_config(self) -> pulumi.Input[Optional['ConversationProfileSttConfigArgs']]:
         """
         Settings for speech transcription.
         Structure is documented below.
@@ -265,24 +291,24 @@ class ConversationProfileArgs:
         return pulumi.get(self, "stt_config")
 
     @stt_config.setter
-    def stt_config(self, value: Optional[pulumi.Input['ConversationProfileSttConfigArgs']]):
+    def stt_config(self, value: pulumi.Input[Optional['ConversationProfileSttConfigArgs']]):
         pulumi.set(self, "stt_config", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZone")
-    def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time zone of this conversational profile.
         """
         return pulumi.get(self, "time_zone")
 
     @time_zone.setter
-    def time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "time_zone", value)
 
     @_builtins.property
     @pulumi.getter(name="ttsConfig")
-    def tts_config(self) -> Optional[pulumi.Input['ConversationProfileTtsConfigArgs']]:
+    def tts_config(self) -> pulumi.Input[Optional['ConversationProfileTtsConfigArgs']]:
         """
         Configuration for Text-to-Speech synthesization. If agent defines synthesization options as well, agent settings overrides the option here.
         Structure is documented below.
@@ -290,12 +316,12 @@ class ConversationProfileArgs:
         return pulumi.get(self, "tts_config")
 
     @tts_config.setter
-    def tts_config(self, value: Optional[pulumi.Input['ConversationProfileTtsConfigArgs']]):
+    def tts_config(self, value: pulumi.Input[Optional['ConversationProfileTtsConfigArgs']]):
         pulumi.set(self, "tts_config", value)
 
     @_builtins.property
     @pulumi.getter(name="useBidiStreaming")
-    def use_bidi_streaming(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def use_bidi_streaming(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         (Optional, Beta)
         Optional. Whether to use the bidi streaming API in telephony integration for the conversation profile.
@@ -303,35 +329,42 @@ class ConversationProfileArgs:
         return pulumi.get(self, "use_bidi_streaming")
 
     @use_bidi_streaming.setter
-    def use_bidi_streaming(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def use_bidi_streaming(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "use_bidi_streaming", value)
 
 
 @pulumi.input_type
 class _ConversationProfileState:
     def __init__(__self__, *,
-                 automated_agent_config: Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 human_agent_assistant_config: Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']] = None,
-                 human_agent_handoff_config: Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 new_message_event_notification_config: Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']] = None,
-                 new_recognition_result_notification_config: Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']] = None,
-                 notification_config: Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 stt_config: Optional[pulumi.Input['ConversationProfileSttConfigArgs']] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 tts_config: Optional[pulumi.Input['ConversationProfileTtsConfigArgs']] = None,
-                 use_bidi_streaming: Optional[pulumi.Input[_builtins.bool]] = None):
+                 automated_agent_config: pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 human_agent_assistant_config: pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']] = None,
+                 human_agent_handoff_config: pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 new_message_event_notification_config: pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']] = None,
+                 new_recognition_result_notification_config: pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']] = None,
+                 notification_config: pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 stt_config: pulumi.Input[Optional['ConversationProfileSttConfigArgs']] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 tts_config: pulumi.Input[Optional['ConversationProfileTtsConfigArgs']] = None,
+                 use_bidi_streaming: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering ConversationProfile resources.
 
         :param pulumi.Input['ConversationProfileAutomatedAgentConfigArgs'] automated_agent_config: Configuration for an automated agent to use with this profile
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. Human readable name for this profile. Max length 1024 bytes.
         :param pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs'] human_agent_assistant_config: Configuration for connecting to a live agent
                Structure is documented below.
@@ -363,6 +396,8 @@ class _ConversationProfileState:
         """
         if automated_agent_config is not None:
             pulumi.set(__self__, "automated_agent_config", automated_agent_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if human_agent_assistant_config is not None:
@@ -398,7 +433,7 @@ class _ConversationProfileState:
 
     @_builtins.property
     @pulumi.getter(name="automatedAgentConfig")
-    def automated_agent_config(self) -> Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']]:
+    def automated_agent_config(self) -> pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']]:
         """
         Configuration for an automated agent to use with this profile
         Structure is documented below.
@@ -406,24 +441,41 @@ class _ConversationProfileState:
         return pulumi.get(self, "automated_agent_config")
 
     @automated_agent_config.setter
-    def automated_agent_config(self, value: Optional[pulumi.Input['ConversationProfileAutomatedAgentConfigArgs']]):
+    def automated_agent_config(self, value: pulumi.Input[Optional['ConversationProfileAutomatedAgentConfigArgs']]):
         pulumi.set(self, "automated_agent_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Human readable name for this profile. Max length 1024 bytes.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="humanAgentAssistantConfig")
-    def human_agent_assistant_config(self) -> Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']]:
+    def human_agent_assistant_config(self) -> pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']]:
         """
         Configuration for connecting to a live agent
         Structure is documented below.
@@ -431,12 +483,12 @@ class _ConversationProfileState:
         return pulumi.get(self, "human_agent_assistant_config")
 
     @human_agent_assistant_config.setter
-    def human_agent_assistant_config(self, value: Optional[pulumi.Input['ConversationProfileHumanAgentAssistantConfigArgs']]):
+    def human_agent_assistant_config(self, value: pulumi.Input[Optional['ConversationProfileHumanAgentAssistantConfigArgs']]):
         pulumi.set(self, "human_agent_assistant_config", value)
 
     @_builtins.property
     @pulumi.getter(name="humanAgentHandoffConfig")
-    def human_agent_handoff_config(self) -> Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']]:
+    def human_agent_handoff_config(self) -> pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']]:
         """
         Defines the hand off to a live agent, typically on which external agent service provider to connect to a conversation.
         Structure is documented below.
@@ -444,36 +496,36 @@ class _ConversationProfileState:
         return pulumi.get(self, "human_agent_handoff_config")
 
     @human_agent_handoff_config.setter
-    def human_agent_handoff_config(self, value: Optional[pulumi.Input['ConversationProfileHumanAgentHandoffConfigArgs']]):
+    def human_agent_handoff_config(self, value: pulumi.Input[Optional['ConversationProfileHumanAgentHandoffConfigArgs']]):
         pulumi.set(self, "human_agent_handoff_config", value)
 
     @_builtins.property
     @pulumi.getter(name="languageCode")
-    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def language_code(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Language code for the conversation profile. This should be a BCP-47 language tag.
         """
         return pulumi.get(self, "language_code")
 
     @language_code.setter
-    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def language_code(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "language_code", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         desc
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingConfig")
-    def logging_config(self) -> Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']]:
+    def logging_config(self) -> pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']]:
         """
         Defines logging behavior for conversation lifecycle events.
         Structure is documented below.
@@ -481,24 +533,24 @@ class _ConversationProfileState:
         return pulumi.get(self, "logging_config")
 
     @logging_config.setter
-    def logging_config(self, value: Optional[pulumi.Input['ConversationProfileLoggingConfigArgs']]):
+    def logging_config(self, value: pulumi.Input[Optional['ConversationProfileLoggingConfigArgs']]):
         pulumi.set(self, "logging_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         name
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="newMessageEventNotificationConfig")
-    def new_message_event_notification_config(self) -> Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']]:
+    def new_message_event_notification_config(self) -> pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']]:
         """
         Pub/Sub topic on which to publish new agent assistant events.
         Expects the format "projects/<Project ID>/locations/<Location ID>/topics/<Topic ID>"
@@ -507,12 +559,12 @@ class _ConversationProfileState:
         return pulumi.get(self, "new_message_event_notification_config")
 
     @new_message_event_notification_config.setter
-    def new_message_event_notification_config(self, value: Optional[pulumi.Input['ConversationProfileNewMessageEventNotificationConfigArgs']]):
+    def new_message_event_notification_config(self, value: pulumi.Input[Optional['ConversationProfileNewMessageEventNotificationConfigArgs']]):
         pulumi.set(self, "new_message_event_notification_config", value)
 
     @_builtins.property
     @pulumi.getter(name="newRecognitionResultNotificationConfig")
-    def new_recognition_result_notification_config(self) -> Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']]:
+    def new_recognition_result_notification_config(self) -> pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']]:
         """
         Optional. Configuration for publishing transcription intermediate results. Event will be sent in format of ConversationEvent. If configured, the following information will be populated as ConversationEvent Pub/Sub message attributes: - "participant_id" - "participantRole" - "message_id"
         Structure is documented below.
@@ -520,12 +572,12 @@ class _ConversationProfileState:
         return pulumi.get(self, "new_recognition_result_notification_config")
 
     @new_recognition_result_notification_config.setter
-    def new_recognition_result_notification_config(self, value: Optional[pulumi.Input['ConversationProfileNewRecognitionResultNotificationConfigArgs']]):
+    def new_recognition_result_notification_config(self, value: pulumi.Input[Optional['ConversationProfileNewRecognitionResultNotificationConfigArgs']]):
         pulumi.set(self, "new_recognition_result_notification_config", value)
 
     @_builtins.property
     @pulumi.getter(name="notificationConfig")
-    def notification_config(self) -> Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']]:
+    def notification_config(self) -> pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']]:
         """
         Pub/Sub topic on which to publish new agent assistant events.
         Expects the format "projects/<Project ID>/locations/<Location ID>/topics/<Topic ID>"
@@ -534,12 +586,12 @@ class _ConversationProfileState:
         return pulumi.get(self, "notification_config")
 
     @notification_config.setter
-    def notification_config(self, value: Optional[pulumi.Input['ConversationProfileNotificationConfigArgs']]):
+    def notification_config(self, value: pulumi.Input[Optional['ConversationProfileNotificationConfigArgs']]):
         pulumi.set(self, "notification_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -547,24 +599,24 @@ class _ConversationProfileState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="securitySettings")
-    def security_settings(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_settings(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the CX SecuritySettings reference for the agent.
         """
         return pulumi.get(self, "security_settings")
 
     @security_settings.setter
-    def security_settings(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_settings(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="sttConfig")
-    def stt_config(self) -> Optional[pulumi.Input['ConversationProfileSttConfigArgs']]:
+    def stt_config(self) -> pulumi.Input[Optional['ConversationProfileSttConfigArgs']]:
         """
         Settings for speech transcription.
         Structure is documented below.
@@ -572,24 +624,24 @@ class _ConversationProfileState:
         return pulumi.get(self, "stt_config")
 
     @stt_config.setter
-    def stt_config(self, value: Optional[pulumi.Input['ConversationProfileSttConfigArgs']]):
+    def stt_config(self, value: pulumi.Input[Optional['ConversationProfileSttConfigArgs']]):
         pulumi.set(self, "stt_config", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZone")
-    def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time zone of this conversational profile.
         """
         return pulumi.get(self, "time_zone")
 
     @time_zone.setter
-    def time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "time_zone", value)
 
     @_builtins.property
     @pulumi.getter(name="ttsConfig")
-    def tts_config(self) -> Optional[pulumi.Input['ConversationProfileTtsConfigArgs']]:
+    def tts_config(self) -> pulumi.Input[Optional['ConversationProfileTtsConfigArgs']]:
         """
         Configuration for Text-to-Speech synthesization. If agent defines synthesization options as well, agent settings overrides the option here.
         Structure is documented below.
@@ -597,12 +649,12 @@ class _ConversationProfileState:
         return pulumi.get(self, "tts_config")
 
     @tts_config.setter
-    def tts_config(self, value: Optional[pulumi.Input['ConversationProfileTtsConfigArgs']]):
+    def tts_config(self, value: pulumi.Input[Optional['ConversationProfileTtsConfigArgs']]):
         pulumi.set(self, "tts_config", value)
 
     @_builtins.property
     @pulumi.getter(name="useBidiStreaming")
-    def use_bidi_streaming(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def use_bidi_streaming(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         (Optional, Beta)
         Optional. Whether to use the bidi streaming API in telephony integration for the conversation profile.
@@ -610,7 +662,7 @@ class _ConversationProfileState:
         return pulumi.get(self, "use_bidi_streaming")
 
     @use_bidi_streaming.setter
-    def use_bidi_streaming(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def use_bidi_streaming(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "use_bidi_streaming", value)
 
 
@@ -620,22 +672,23 @@ class ConversationProfile(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 automated_agent_config: Optional[pulumi.Input[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 human_agent_assistant_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
-                 human_agent_handoff_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
-                 new_message_event_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
-                 new_recognition_result_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
-                 notification_config: Optional[pulumi.Input[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 stt_config: Optional[pulumi.Input[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 tts_config: Optional[pulumi.Input[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
-                 use_bidi_streaming: Optional[pulumi.Input[_builtins.bool]] = None,
+                 automated_agent_config: pulumi.Input[Optional[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 human_agent_assistant_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
+                 human_agent_handoff_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
+                 new_message_event_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
+                 new_recognition_result_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
+                 notification_config: pulumi.Input[Optional[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 stt_config: pulumi.Input[Optional[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 tts_config: pulumi.Input[Optional[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
+                 use_bidi_streaming: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         A conversation profile configures a set of parameters that control the suggestions made to an agent. These parameters control the suggestions that are surfaced during runtime. Each profile configures either a Dialogflow virtual agent or a human agent for a conversation.
@@ -726,6 +779,12 @@ class ConversationProfile(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']] automated_agent_config: Configuration for an automated agent to use with this profile
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. Human readable name for this profile. Max length 1024 bytes.
         :param pulumi.Input[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']] human_agent_assistant_config: Configuration for connecting to a live agent
                Structure is documented below.
@@ -860,22 +919,23 @@ class ConversationProfile(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 automated_agent_config: Optional[pulumi.Input[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 human_agent_assistant_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
-                 human_agent_handoff_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
-                 new_message_event_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
-                 new_recognition_result_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
-                 notification_config: Optional[pulumi.Input[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 stt_config: Optional[pulumi.Input[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 tts_config: Optional[pulumi.Input[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
-                 use_bidi_streaming: Optional[pulumi.Input[_builtins.bool]] = None,
+                 automated_agent_config: pulumi.Input[Optional[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 human_agent_assistant_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
+                 human_agent_handoff_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
+                 new_message_event_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
+                 new_recognition_result_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
+                 notification_config: pulumi.Input[Optional[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 stt_config: pulumi.Input[Optional[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 tts_config: pulumi.Input[Optional[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
+                 use_bidi_streaming: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -886,6 +946,7 @@ class ConversationProfile(pulumi.CustomResource):
             __props__ = ConversationProfileArgs.__new__(ConversationProfileArgs)
 
             __props__.__dict__["automated_agent_config"] = automated_agent_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -916,23 +977,24 @@ class ConversationProfile(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            automated_agent_config: Optional[pulumi.Input[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            human_agent_assistant_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
-            human_agent_handoff_config: Optional[pulumi.Input[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
-            language_code: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            logging_config: Optional[pulumi.Input[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            new_message_event_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
-            new_recognition_result_notification_config: Optional[pulumi.Input[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
-            notification_config: Optional[pulumi.Input[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-            stt_config: Optional[pulumi.Input[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
-            time_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            tts_config: Optional[pulumi.Input[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
-            use_bidi_streaming: Optional[pulumi.Input[_builtins.bool]] = None) -> 'ConversationProfile':
+            automated_agent_config: pulumi.Input[Optional[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            human_agent_assistant_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']]] = None,
+            human_agent_handoff_config: pulumi.Input[Optional[Union['ConversationProfileHumanAgentHandoffConfigArgs', 'ConversationProfileHumanAgentHandoffConfigArgsDict']]] = None,
+            language_code: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            logging_config: pulumi.Input[Optional[Union['ConversationProfileLoggingConfigArgs', 'ConversationProfileLoggingConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            new_message_event_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewMessageEventNotificationConfigArgs', 'ConversationProfileNewMessageEventNotificationConfigArgsDict']]] = None,
+            new_recognition_result_notification_config: pulumi.Input[Optional[Union['ConversationProfileNewRecognitionResultNotificationConfigArgs', 'ConversationProfileNewRecognitionResultNotificationConfigArgsDict']]] = None,
+            notification_config: pulumi.Input[Optional[Union['ConversationProfileNotificationConfigArgs', 'ConversationProfileNotificationConfigArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+            stt_config: pulumi.Input[Optional[Union['ConversationProfileSttConfigArgs', 'ConversationProfileSttConfigArgsDict']]] = None,
+            time_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            tts_config: pulumi.Input[Optional[Union['ConversationProfileTtsConfigArgs', 'ConversationProfileTtsConfigArgsDict']]] = None,
+            use_bidi_streaming: pulumi.Input[Optional[_builtins.bool]] = None) -> 'ConversationProfile':
         """
         Get an existing ConversationProfile resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -942,6 +1004,12 @@ class ConversationProfile(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['ConversationProfileAutomatedAgentConfigArgs', 'ConversationProfileAutomatedAgentConfigArgsDict']] automated_agent_config: Configuration for an automated agent to use with this profile
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. Human readable name for this profile. Max length 1024 bytes.
         :param pulumi.Input[Union['ConversationProfileHumanAgentAssistantConfigArgs', 'ConversationProfileHumanAgentAssistantConfigArgsDict']] human_agent_assistant_config: Configuration for connecting to a live agent
                Structure is documented below.
@@ -976,6 +1044,7 @@ class ConversationProfile(pulumi.CustomResource):
         __props__ = _ConversationProfileState.__new__(_ConversationProfileState)
 
         __props__.__dict__["automated_agent_config"] = automated_agent_config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["human_agent_assistant_config"] = human_agent_assistant_config
         __props__.__dict__["human_agent_handoff_config"] = human_agent_handoff_config
@@ -1002,6 +1071,19 @@ class ConversationProfile(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "automated_agent_config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

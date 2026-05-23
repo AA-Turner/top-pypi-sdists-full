@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_alicloud
-Version: 3.102.0
+Version: 3.103.0
 Summary: A Pulumi package for creating and managing AliCloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

@@ -23,12 +23,13 @@ class PipelineJobArgs:
     def __init__(__self__, *,
                  dataset: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 backfill_pipeline_job: Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']] = None,
-                 disable_lineage: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 mapping_pipeline_job: Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciliation_pipeline_job: Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']] = None):
+                 backfill_pipeline_job: pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_lineage: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mapping_pipeline_job: pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciliation_pipeline_job: pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']] = None):
         """
         The set of arguments for constructing a PipelineJob resource.
 
@@ -36,6 +37,12 @@ class PipelineJobArgs:
         :param pulumi.Input[_builtins.str] location: Location where the Pipeline Job is to run
         :param pulumi.Input['PipelineJobBackfillPipelineJobArgs'] backfill_pipeline_job: Specifies the backfill configuration.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_lineage: If true, disables writing lineage for the pipeline.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-supplied key-value pairs used to organize Pipeline Jobs.
                Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of
@@ -60,6 +67,8 @@ class PipelineJobArgs:
         pulumi.set(__self__, "location", location)
         if backfill_pipeline_job is not None:
             pulumi.set(__self__, "backfill_pipeline_job", backfill_pipeline_job)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_lineage is not None:
             pulumi.set(__self__, "disable_lineage", disable_lineage)
         if labels is not None:
@@ -97,7 +106,7 @@ class PipelineJobArgs:
 
     @_builtins.property
     @pulumi.getter(name="backfillPipelineJob")
-    def backfill_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']]:
+    def backfill_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']]:
         """
         Specifies the backfill configuration.
         Structure is documented below.
@@ -105,24 +114,41 @@ class PipelineJobArgs:
         return pulumi.get(self, "backfill_pipeline_job")
 
     @backfill_pipeline_job.setter
-    def backfill_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']]):
+    def backfill_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']]):
         pulumi.set(self, "backfill_pipeline_job", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="disableLineage")
-    def disable_lineage(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_lineage(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, disables writing lineage for the pipeline.
         """
         return pulumi.get(self, "disable_lineage")
 
     @disable_lineage.setter
-    def disable_lineage(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_lineage(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_lineage", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-supplied key-value pairs used to organize Pipeline Jobs.
         Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of
@@ -141,12 +167,12 @@ class PipelineJobArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="mappingPipelineJob")
-    def mapping_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']]:
+    def mapping_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']]:
         """
         Specifies mapping configuration.
         Structure is documented below.
@@ -154,24 +180,24 @@ class PipelineJobArgs:
         return pulumi.get(self, "mapping_pipeline_job")
 
     @mapping_pipeline_job.setter
-    def mapping_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']]):
+    def mapping_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']]):
         pulumi.set(self, "mapping_pipeline_job", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the name of the pipeline job. This field is user-assigned.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="reconciliationPipelineJob")
-    def reconciliation_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']]:
+    def reconciliation_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']]:
         """
         Specifies reconciliation configuration.
         Structure is documented below.
@@ -179,30 +205,37 @@ class PipelineJobArgs:
         return pulumi.get(self, "reconciliation_pipeline_job")
 
     @reconciliation_pipeline_job.setter
-    def reconciliation_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']]):
+    def reconciliation_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']]):
         pulumi.set(self, "reconciliation_pipeline_job", value)
 
 
 @pulumi.input_type
 class _PipelineJobState:
     def __init__(__self__, *,
-                 backfill_pipeline_job: Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 disable_lineage: Optional[pulumi.Input[_builtins.bool]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mapping_pipeline_job: Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 reconciliation_pipeline_job: Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None):
+                 backfill_pipeline_job: pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_lineage: pulumi.Input[Optional[_builtins.bool]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mapping_pipeline_job: pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 reconciliation_pipeline_job: pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PipelineJob resources.
 
         :param pulumi.Input['PipelineJobBackfillPipelineJobArgs'] backfill_pipeline_job: Specifies the backfill configuration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] dataset: Healthcare Dataset under which the Pipeline Job is to run
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_lineage: If true, disables writing lineage for the pipeline.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-supplied key-value pairs used to organize Pipeline Jobs.
@@ -232,6 +265,8 @@ class _PipelineJobState:
             pulumi.set(__self__, "backfill_pipeline_job", backfill_pipeline_job)
         if dataset is not None:
             pulumi.set(__self__, "dataset", dataset)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_lineage is not None:
             pulumi.set(__self__, "disable_lineage", disable_lineage)
         if effective_labels is not None:
@@ -253,7 +288,7 @@ class _PipelineJobState:
 
     @_builtins.property
     @pulumi.getter(name="backfillPipelineJob")
-    def backfill_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']]:
+    def backfill_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']]:
         """
         Specifies the backfill configuration.
         Structure is documented below.
@@ -261,48 +296,65 @@ class _PipelineJobState:
         return pulumi.get(self, "backfill_pipeline_job")
 
     @backfill_pipeline_job.setter
-    def backfill_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobBackfillPipelineJobArgs']]):
+    def backfill_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobBackfillPipelineJobArgs']]):
         pulumi.set(self, "backfill_pipeline_job", value)
 
     @_builtins.property
     @pulumi.getter
-    def dataset(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dataset(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Healthcare Dataset under which the Pipeline Job is to run
         """
         return pulumi.get(self, "dataset")
 
     @dataset.setter
-    def dataset(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dataset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dataset", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="disableLineage")
-    def disable_lineage(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_lineage(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, disables writing lineage for the pipeline.
         """
         return pulumi.get(self, "disable_lineage")
 
     @disable_lineage.setter
-    def disable_lineage(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_lineage(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_lineage", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-supplied key-value pairs used to organize Pipeline Jobs.
         Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of
@@ -321,24 +373,24 @@ class _PipelineJobState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location where the Pipeline Job is to run
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="mappingPipelineJob")
-    def mapping_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']]:
+    def mapping_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']]:
         """
         Specifies mapping configuration.
         Structure is documented below.
@@ -346,24 +398,24 @@ class _PipelineJobState:
         return pulumi.get(self, "mapping_pipeline_job")
 
     @mapping_pipeline_job.setter
-    def mapping_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobMappingPipelineJobArgs']]):
+    def mapping_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobMappingPipelineJobArgs']]):
         pulumi.set(self, "mapping_pipeline_job", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the name of the pipeline job. This field is user-assigned.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -371,12 +423,12 @@ class _PipelineJobState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="reconciliationPipelineJob")
-    def reconciliation_pipeline_job(self) -> Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']]:
+    def reconciliation_pipeline_job(self) -> pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']]:
         """
         Specifies reconciliation configuration.
         Structure is documented below.
@@ -384,19 +436,19 @@ class _PipelineJobState:
         return pulumi.get(self, "reconciliation_pipeline_job")
 
     @reconciliation_pipeline_job.setter
-    def reconciliation_pipeline_job(self, value: Optional[pulumi.Input['PipelineJobReconciliationPipelineJobArgs']]):
+    def reconciliation_pipeline_job(self, value: pulumi.Input[Optional['PipelineJobReconciliationPipelineJobArgs']]):
         pulumi.set(self, "reconciliation_pipeline_job", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The fully qualified name of this dataset
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
 
@@ -406,14 +458,15 @@ class PipelineJob(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backfill_pipeline_job: Optional[pulumi.Input[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 disable_lineage: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mapping_pipeline_job: Optional[pulumi.Input[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciliation_pipeline_job: Optional[pulumi.Input[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
+                 backfill_pipeline_job: pulumi.Input[Optional[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_lineage: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mapping_pipeline_job: pulumi.Input[Optional[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciliation_pipeline_job: pulumi.Input[Optional[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
                  __props__=None):
         """
         PipelineJobs are Long Running Operations on Healthcare API to Map or Reconcile
@@ -683,6 +736,12 @@ class PipelineJob(pulumi.CustomResource):
         :param pulumi.Input[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']] backfill_pipeline_job: Specifies the backfill configuration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] dataset: Healthcare Dataset under which the Pipeline Job is to run
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_lineage: If true, disables writing lineage for the pipeline.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-supplied key-value pairs used to organize Pipeline Jobs.
                Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of
@@ -988,14 +1047,15 @@ class PipelineJob(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backfill_pipeline_job: Optional[pulumi.Input[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 disable_lineage: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 mapping_pipeline_job: Optional[pulumi.Input[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciliation_pipeline_job: Optional[pulumi.Input[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
+                 backfill_pipeline_job: pulumi.Input[Optional[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_lineage: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 mapping_pipeline_job: pulumi.Input[Optional[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciliation_pipeline_job: pulumi.Input[Optional[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1009,6 +1069,7 @@ class PipelineJob(pulumi.CustomResource):
             if dataset is None and not opts.urn:
                 raise TypeError("Missing required property 'dataset'")
             __props__.__dict__["dataset"] = dataset
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disable_lineage"] = disable_lineage
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
@@ -1032,17 +1093,18 @@ class PipelineJob(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backfill_pipeline_job: Optional[pulumi.Input[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
-            dataset: Optional[pulumi.Input[_builtins.str]] = None,
-            disable_lineage: Optional[pulumi.Input[_builtins.bool]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            mapping_pipeline_job: Optional[pulumi.Input[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            reconciliation_pipeline_job: Optional[pulumi.Input[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None) -> 'PipelineJob':
+            backfill_pipeline_job: pulumi.Input[Optional[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']]] = None,
+            dataset: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disable_lineage: pulumi.Input[Optional[_builtins.bool]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            mapping_pipeline_job: pulumi.Input[Optional[Union['PipelineJobMappingPipelineJobArgs', 'PipelineJobMappingPipelineJobArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            reconciliation_pipeline_job: pulumi.Input[Optional[Union['PipelineJobReconciliationPipelineJobArgs', 'PipelineJobReconciliationPipelineJobArgsDict']]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None) -> 'PipelineJob':
         """
         Get an existing PipelineJob resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1053,6 +1115,12 @@ class PipelineJob(pulumi.CustomResource):
         :param pulumi.Input[Union['PipelineJobBackfillPipelineJobArgs', 'PipelineJobBackfillPipelineJobArgsDict']] backfill_pipeline_job: Specifies the backfill configuration.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] dataset: Healthcare Dataset under which the Pipeline Job is to run
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_lineage: If true, disables writing lineage for the pipeline.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-supplied key-value pairs used to organize Pipeline Jobs.
@@ -1084,6 +1152,7 @@ class PipelineJob(pulumi.CustomResource):
 
         __props__.__dict__["backfill_pipeline_job"] = backfill_pipeline_job
         __props__.__dict__["dataset"] = dataset
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disable_lineage"] = disable_lineage
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -1111,6 +1180,19 @@ class PipelineJob(pulumi.CustomResource):
         Healthcare Dataset under which the Pipeline Job is to run
         """
         return pulumi.get(self, "dataset")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="disableLineage")

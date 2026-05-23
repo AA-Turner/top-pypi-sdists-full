@@ -34,7 +34,7 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
         workflow_position = data.get("position", (0, 0))
         id = data.get("id", None)
-        job = controller.create_job(title, file, workflow_position, id)
+        job = controller.create_stage("job", title, file, workflow_position, id)
         return job.editor_dto
 
     @bp.put("/<path:id>")

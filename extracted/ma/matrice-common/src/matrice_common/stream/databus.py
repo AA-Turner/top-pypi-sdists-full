@@ -24,6 +24,8 @@ Usage:
     producer.close()
 """
 
+from __future__ import annotations
+
 import enum
 import logging
 import os
@@ -31,9 +33,22 @@ import struct
 import time
 from typing import Any, Dict, Optional, Tuple, Union
 
-import numpy as np
+try:
+    import numpy as np
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+
+def _require_numpy() -> None:
+    """Raise ImportError if numpy isn't installed (for runtime-only helpers)."""
+    if not NUMPY_AVAILABLE:
+        raise ImportError("numpy is required for this operation but is not installed. Install with: pip install numpy")
+
 
 # /dev/shm is the canonical POSIX shared memory path; override via env var if needed.
 SHM_BASE_PATH = os.getenv("MATRICE_SHM_PATH", "/dev/shm")  # nosec B108
@@ -107,6 +122,7 @@ def _shm_bytes_to_gpu(
       "bgr"  → np.frombuffer + reshape using metadata width/height
       (missing) → treat as raw numpy uint8
     """
+    _require_numpy()
     import cv2
 
     producer_format = metadata.get("format", "")
@@ -479,7 +495,7 @@ class DataBusProducer:
         elif self._format == DataFormat.BYTES:
             msg_bytes = data if isinstance(data, (bytes, bytearray)) else bytes(data)
         elif self._format == DataFormat.NUMPY:
-            if isinstance(data, np.ndarray):
+            if NUMPY_AVAILABLE and np is not None and isinstance(data, np.ndarray):
                 msg_bytes = data.tobytes()
             else:
                 msg_bytes = bytes(data)
@@ -845,6 +861,7 @@ class DataBusConsumer:
         elif self._format == DataFormat.BYTES:
             data = bytes(msg_bytes)
         elif self._format == DataFormat.NUMPY:
+            _require_numpy()
             data = np.frombuffer(msg_bytes, dtype=np.uint8)
         else:
             data = _json_loads(msg_bytes)
@@ -895,6 +912,7 @@ class DataBusConsumer:
         elif self._format == DataFormat.BYTES:
             data = bytes(msg_bytes)
         elif self._format == DataFormat.NUMPY:
+            _require_numpy()
             data = np.frombuffer(msg_bytes, dtype=np.uint8)
         else:
             data = _json_loads(msg_bytes)

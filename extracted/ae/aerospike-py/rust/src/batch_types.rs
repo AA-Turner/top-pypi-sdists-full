@@ -75,9 +75,23 @@ pub struct PyBatchRecord {
 impl PyBatchRecord {
     /// Lazily convert the record to Python `(key, meta, bins)` tuple.
     /// Returns `None` if the record was not found.
+    ///
+    /// A poisoned `record_cell` mutex means a previous lazy conversion
+    /// panicked mid-flight (e.g. a legacy language-specific blob particle
+    /// type that `aerospike-core` cannot decode — see issue #280). Rather
+    /// than silently recovering and re-running the same conversion that
+    /// already crashed, surface a clear [`RustPanicError`] so callers know
+    /// this batch record's data is unrecoverable.
     #[getter]
     fn record(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.record_cell.lock().unwrap().to_python(py)
+        let mut guard = self.record_cell.lock().map_err(|_| {
+            crate::errors::RustPanicError::new_err(
+                "BatchRecord.record conversion previously panicked; this batch \
+                 record's data is unrecoverable (likely a legacy blob particle \
+                 type aerospike-core cannot decode — see issue #280)",
+            )
+        })?;
+        guard.to_python(py)
     }
 }
 
@@ -288,22 +302,11 @@ impl PyBatchReadHandle {
     }
 
     /// Extract just the user keys without converting record data.
+    ///
+    /// Conversion errors are propagated (not silently dropped) so the returned
+    /// list length always matches the records that carry a `user_key`.
     fn keys<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        use crate::types::value::value_to_py;
-        let keys: Vec<Bound<'py, PyAny>> = self
-            .inner
-            .iter()
-            .filter_map(|br| {
-                br.key.user_key.as_ref().map(|uk| match uk {
-                    aerospike_core::Value::String(s) => {
-                        s.into_pyobject(py).map(|o| o.into_any()).ok()
-                    }
-                    aerospike_core::Value::Int(i) => i.into_pyobject(py).map(|o| o.into_any()).ok(),
-                    v => value_to_py(py, v).ok().map(|o| o.into_bound(py)),
-                })
-            })
-            .flatten()
-            .collect();
+        let keys = collect_user_keys(py, &self.inner)?;
         PyList::new(py, &keys)
     }
 }
@@ -397,6 +400,29 @@ pub fn batch_to_dict_py<'py>(
     Ok(dict)
 }
 
+/// Convert each `BatchRecord`'s `user_key` to a Python object.
+///
+/// Records without a `user_key` (digest-only) are skipped. Conversion errors
+/// are `?`-propagated rather than silently dropped, so the returned `Vec`
+/// length always matches the number of records that carry a `user_key`.
+pub fn collect_user_keys<'py>(
+    py: Python<'py>,
+    results: &[BatchRecord],
+) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    use crate::types::value::value_to_py;
+    results
+        .iter()
+        .filter_map(|br| br.key.user_key.as_ref())
+        .map(|uk| -> PyResult<Bound<'py, PyAny>> {
+            match uk {
+                aerospike_core::Value::String(s) => Ok(s.into_pyobject(py)?.into_any()),
+                aerospike_core::Value::Int(i) => Ok(i.into_pyobject(py)?.into_any()),
+                v => Ok(value_to_py(py, v)?.into_bound(py)),
+            }
+        })
+        .collect()
+}
+
 /// Convert `BatchRecord`s into a Python [`PyBatchRecords`] with **lazy bin conversion**.
 ///
 /// Only key and result_code are converted eagerly (lightweight).
@@ -440,4 +466,99 @@ pub fn batch_to_batch_records_py(
     }
 
     Ok(PyBatchRecords { batch_records })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aerospike_core::Value;
+
+    /// Build a minimal `BatchRecord` with the given `user_key`.
+    ///
+    /// `BatchRecord::new` is `pub(crate)` in `aerospike_core`, so we construct
+    /// a layout-compatible mirror and transmute — the same pattern used by the
+    /// `client_ops` unit tests. Size + alignment are guarded at compile time.
+    fn make_batch_record(user_key: Value) -> BatchRecord {
+        #[repr(C)]
+        struct BatchRecordMirror {
+            key: aerospike_core::Key,
+            record: Option<Record>,
+            result_code: Option<ResultCode>,
+            in_doubt: bool,
+            has_write: bool,
+        }
+
+        static_assertions::assert_eq_size!(BatchRecordMirror, BatchRecord);
+        static_assertions::assert_eq_align!(BatchRecordMirror, BatchRecord);
+
+        let mirror = BatchRecordMirror {
+            key: aerospike_core::Key::new("test", "demo", user_key).unwrap(),
+            record: None,
+            result_code: Some(ResultCode::Ok),
+            in_doubt: false,
+            has_write: false,
+        };
+        // SAFETY: `BatchRecordMirror` mirrors `BatchRecord`'s field types and
+        // order exactly; size + alignment are asserted above. Test-only.
+        unsafe { std::mem::transmute(mirror) }
+    }
+
+    /// A poisoned `record_cell` mutex (left behind by a panic during a
+    /// previous lazy conversion) must surface as a `RustPanicError` rather
+    /// than being silently recovered. Without the fix the getter calls
+    /// `unwrap_or_else(|e| e.into_inner())` and returns `Ok(...)`.
+    #[test]
+    fn record_getter_rejects_poisoned_cell() {
+        Python::initialize();
+        Python::attach(|py| {
+            let br = Py::new(
+                py,
+                PyBatchRecord {
+                    key: py.None(),
+                    result: 0,
+                    record_cell: Mutex::new(LazyRecordCell::None),
+                    in_doubt: false,
+                },
+            )
+            .expect("construct PyBatchRecord");
+
+            // Poison the mutex by panicking while holding the lock.
+            let poisoned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let cell = br.borrow(py);
+                let _g = cell.record_cell.lock().unwrap();
+                panic!("synthetic conversion panic");
+            }))
+            .is_err();
+            assert!(poisoned, "panic must unwind to poison the mutex");
+
+            let cell = br.borrow(py);
+            let err = cell
+                .record(py)
+                .expect_err("poisoned cell must surface an error");
+            assert!(
+                err.is_instance_of::<crate::errors::RustPanicError>(py),
+                "poisoned record_cell must raise RustPanicError"
+            );
+        });
+    }
+
+    /// `collect_user_keys` returns every key for a normal batch, preserving
+    /// order and length (round-trip) — no keys are silently dropped.
+    #[test]
+    fn collect_user_keys_returns_all_keys() {
+        Python::initialize();
+        Python::attach(|py| {
+            let records = vec![
+                make_batch_record(Value::from("k0".to_string())),
+                make_batch_record(Value::from("k1".to_string())),
+                make_batch_record(Value::Int(42)),
+            ];
+            let keys = collect_user_keys(py, &records).expect("conversion should succeed");
+            assert_eq!(keys.len(), records.len(), "no key may be dropped");
+
+            assert_eq!(keys[0].extract::<String>().unwrap(), "k0");
+            assert_eq!(keys[1].extract::<String>().unwrap(), "k1");
+            assert_eq!(keys[2].extract::<i64>().unwrap(), 42);
+        });
+    }
 }

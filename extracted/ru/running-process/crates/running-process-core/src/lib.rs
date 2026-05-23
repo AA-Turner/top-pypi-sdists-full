@@ -40,6 +40,25 @@ macro_rules! rp_rust_debug_scope {
 
 const CHILD_PID_LOG_PATH_ENV: &str = "RUNNING_PROCESS_CHILD_PID_LOG_PATH";
 
+/// Hard cap on how long `kill_impl()` will block on
+/// `wait_for_capture_completion` after the direct child has been
+/// reaped. Override via the `RUNNING_PROCESS_KILL_DRAIN_TIMEOUT_MS`
+/// env var (milliseconds). The default of 2 s gives normal children
+/// time to flush their pipe buffers while preventing indefinite hangs
+/// when a grandchild inherits the pipe and outlives the parent (FastLED
+/// Bug B).
+const DEFAULT_KILL_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
+const KILL_DRAIN_TIMEOUT_ENV: &str = "RUNNING_PROCESS_KILL_DRAIN_TIMEOUT_MS";
+
+fn kill_drain_deadline() -> Instant {
+    let timeout = std::env::var(KILL_DRAIN_TIMEOUT_ENV)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .map(Duration::from_millis)
+        .unwrap_or(DEFAULT_KILL_DRAIN_TIMEOUT);
+    Instant::now() + timeout
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StreamKind {
     Stdout,
@@ -168,6 +187,21 @@ struct ChildState {
     _job: WindowsJobHandle,
 }
 
+/// Parent-side handles for the captured stdout/stderr pipes, kept so
+/// that `kill_impl` can call `CancelIoEx` to interrupt a reader thread
+/// blocked in `read()`. Stored as `usize` because `RawHandle` (a raw
+/// pointer) is not `Send` and we share this via `Arc<Mutex<...>>`.
+///
+/// The reader thread clears its slot (under the mutex) immediately
+/// before dropping its `ChildStd*`, so `kill_impl` never calls
+/// `CancelIoEx` on a closed (and potentially reused) handle.
+#[cfg(windows)]
+#[derive(Default)]
+struct CapturePipeHandles {
+    stdout: Option<usize>,
+    stderr: Option<usize>,
+}
+
 impl SharedState {
     fn new(capture: bool) -> Self {
         let queues = QueueState {
@@ -187,6 +221,8 @@ pub struct NativeProcess {
     config: ProcessConfig,
     child: Arc<Mutex<Option<ChildState>>>,
     shared: Arc<SharedState>,
+    #[cfg(windows)]
+    capture_pipe_handles: Arc<Mutex<CapturePipeHandles>>,
 }
 
 impl NativeProcess {
@@ -195,6 +231,8 @@ impl NativeProcess {
             shared: Arc::new(SharedState::new(config.capture)),
             child: Arc::new(Mutex::new(None)),
             config,
+            #[cfg(windows)]
+            capture_pipe_handles: Arc::new(Mutex::new(CapturePipeHandles::default())),
         }
     }
 
@@ -234,7 +272,22 @@ impl NativeProcess {
         if self.config.capture {
             let stdout = child.stdout.take().expect("stdout pipe missing");
             let stderr = child.stderr.take().expect("stderr pipe missing");
-            self.spawn_reader(stdout, StreamKind::Stdout, StreamKind::Stdout);
+            #[cfg(windows)]
+            {
+                use std::os::windows::io::AsRawHandle;
+                let mut handles = self
+                    .capture_pipe_handles
+                    .lock()
+                    .expect("capture pipe handles mutex poisoned");
+                handles.stdout = Some(stdout.as_raw_handle() as usize);
+                handles.stderr = Some(stderr.as_raw_handle() as usize);
+            }
+            self.spawn_reader(
+                stdout,
+                StreamKind::Stdout,
+                StreamKind::Stdout,
+                self.pipe_done_callback(StreamKind::Stdout),
+            );
             self.spawn_reader(
                 stderr,
                 StreamKind::Stderr,
@@ -242,6 +295,7 @@ impl NativeProcess {
                     StderrMode::Stdout => StreamKind::Stdout,
                     StderrMode::Pipe => StreamKind::Stderr,
                 },
+                self.pipe_done_callback(StreamKind::Stderr),
             );
         }
         *guard = Some(ChildState {
@@ -405,6 +459,15 @@ impl NativeProcess {
             let status = child.wait().map_err(ProcessError::Io)?;
             self.set_returncode(exit_code(status));
         }
+        // On Windows, interrupt any pending blocking `read()` in the
+        // per-stream reader threads so they fall out of their loops
+        // immediately. This is what makes the grandchild-pipe-orphan
+        // case (FastLED Bug B: uv.exe spawns a python.exe grandchild
+        // that inherits the pipe and outlives uv) wake up in
+        // microseconds instead of waiting for the bounded-drain
+        // safety-net deadline below.
+        #[cfg(windows)]
+        self.cancel_capture_io();
         // Synchronize with the per-stream reader threads so that by the
         // time kill() returns, the capture queues have flipped from
         // "blocked on read" to "closed" and downstream pollers (e.g.
@@ -412,7 +475,15 @@ impl NativeProcess {
         // this, callers that hit a wait()-timeout path see Python code
         // raise TimeoutError, kill the child, then race the reader
         // threads — a 10ms poll loop can miss the EOS flip entirely.
-        public_symbols::rp_native_process_wait_for_capture_completion_public(self);
+        //
+        // The deadline is the safety-net: on Windows `CancelIoEx`
+        // above almost always wakes the readers first; on POSIX, and
+        // in any pathological Windows case where `CancelIoEx` doesn't
+        // fire, the deadline guarantees `kill()` still returns.
+        public_symbols::rp_native_process_wait_for_capture_completion_with_deadline_public(
+            self,
+            kill_drain_deadline(),
+        );
         Ok(())
     }
 
@@ -785,8 +856,9 @@ impl NativeProcess {
             } else {
                 0
             };
-            let flags =
-                self.config.creationflags.unwrap_or(0) | extra | windows_priority_flags(self.config.nice);
+            let flags = self.config.creationflags.unwrap_or(0)
+                | extra
+                | windows_priority_flags(self.config.nice);
             if flags != 0 {
                 command.creation_flags(flags);
             }
@@ -818,8 +890,13 @@ impl NativeProcess {
         command
     }
 
-    fn spawn_reader<R>(&self, pipe: R, source_stream: StreamKind, visible_stream: StreamKind)
-    where
+    fn spawn_reader<R>(
+        &self,
+        pipe: R,
+        source_stream: StreamKind,
+        visible_stream: StreamKind,
+        on_pipe_done: Box<dyn FnOnce() + Send>,
+    ) where
         R: Read + Send + 'static,
     {
         let shared = Arc::clone(&self.shared);
@@ -843,6 +920,13 @@ impl NativeProcess {
                 emit_lines(&shared, visible_stream, vec![std::mem::take(&mut pending)]);
             }
 
+            // Clear the parent-side pipe-handle slot under its mutex
+            // before dropping the reader. After this returns,
+            // `kill_impl` can no longer try to `CancelIoEx` on us, so
+            // it's safe for `reader`'s drop to close the HANDLE.
+            on_pipe_done();
+            drop(reader);
+
             let mut guard = shared.queues.lock().expect("queue mutex poisoned");
             match source_stream {
                 StreamKind::Stdout => guard.stdout_closed = true,
@@ -850,6 +934,57 @@ impl NativeProcess {
             }
             shared.condvar.notify_all();
         });
+    }
+
+    #[cfg(windows)]
+    fn pipe_done_callback(&self, stream: StreamKind) -> Box<dyn FnOnce() + Send> {
+        let handles = Arc::clone(&self.capture_pipe_handles);
+        Box::new(move || {
+            let mut guard = handles
+                .lock()
+                .expect("capture pipe handles mutex poisoned");
+            match stream {
+                StreamKind::Stdout => guard.stdout = None,
+                StreamKind::Stderr => guard.stderr = None,
+            }
+        })
+    }
+
+    #[cfg(not(windows))]
+    fn pipe_done_callback(&self, _stream: StreamKind) -> Box<dyn FnOnce() + Send> {
+        Box::new(|| {})
+    }
+
+    /// Cancel any pending blocking `read()` on the parent-side capture
+    /// pipes so the reader threads' `read()` calls return
+    /// `ERROR_OPERATION_ABORTED` immediately. Used by `kill_impl` to
+    /// break the grandchild-orphan deadlock without waiting on
+    /// `wait_for_capture_completion_with_deadline`'s safety-net.
+    #[cfg(windows)]
+    fn cancel_capture_io(&self) {
+        crate::rp_rust_debug_scope!("running_process_core::NativeProcess::cancel_capture_io");
+        use winapi::shared::ntdef::HANDLE;
+        use winapi::um::ioapiset::CancelIoEx;
+        let guard = self
+            .capture_pipe_handles
+            .lock()
+            .expect("capture pipe handles mutex poisoned");
+        if let Some(h) = guard.stdout {
+            // SAFETY: the slot is `Some` only while the owning reader
+            // thread still holds the `ChildStdout`, so the HANDLE is
+            // valid for the duration of this call. The reader is
+            // blocked in `lock()` on the same mutex if it's racing us
+            // toward exit, so it cannot drop the pipe and close the
+            // HANDLE until we return.
+            unsafe {
+                CancelIoEx(h as HANDLE, std::ptr::null_mut());
+            }
+        }
+        if let Some(h) = guard.stderr {
+            unsafe {
+                CancelIoEx(h as HANDLE, std::ptr::null_mut());
+            }
+        }
     }
 
     fn set_returncode(&self, code: i32) {
@@ -873,6 +1008,46 @@ impl NativeProcess {
                 .wait(guard)
                 .expect("queue mutex poisoned");
         }
+    }
+
+    /// Like `wait_for_capture_completion_impl` but bounded by `deadline`.
+    /// Returns `true` if the reader threads flipped both closed flags on
+    /// their own, `false` if the deadline elapsed first. On timeout the
+    /// closed flags are force-set (and waiters notified) so downstream
+    /// pollers stop seeing `Timeout` and start seeing `Eof`. A reader
+    /// thread that eventually unblocks after the OS releases the pipe
+    /// will assign `closed = true` again, which is a harmless no-op.
+    fn wait_for_capture_completion_with_deadline_impl(&self, deadline: Instant) -> bool {
+        crate::rp_rust_debug_scope!(
+            "running_process_core::NativeProcess::wait_for_capture_completion_with_deadline"
+        );
+        if !self.config.capture {
+            return true;
+        }
+
+        let mut guard = self.shared.queues.lock().expect("queue mutex poisoned");
+        while !(guard.stdout_closed && guard.stderr_closed) {
+            let now = Instant::now();
+            if now >= deadline {
+                guard.stdout_closed = true;
+                guard.stderr_closed = true;
+                self.shared.condvar.notify_all();
+                return false;
+            }
+            let (next_guard, result) = self
+                .shared
+                .condvar
+                .wait_timeout(guard, deadline - now)
+                .expect("queue mutex poisoned");
+            guard = next_guard;
+            if result.timed_out() && !(guard.stdout_closed && guard.stderr_closed) {
+                guard.stdout_closed = true;
+                guard.stderr_closed = true;
+                self.shared.condvar.notify_all();
+                return false;
+            }
+        }
+        true
     }
 }
 

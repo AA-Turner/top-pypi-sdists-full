@@ -50,7 +50,8 @@ fn update_datafiles(kwds: Option<&Bound<'_, PyDict>>) -> Result<()> {
         },
     };
 
-    satkit::utils::update_datafiles(datadir, overwrite_files)
+    satkit::utils::update_datafiles(datadir, overwrite_files)?;
+    Ok(())
 }
 
 /// Get directory where astronomy data is stored
@@ -92,7 +93,7 @@ fn datadir() -> PyResult<Py<PyAny>> {
 #[pyfunction]
 fn set_datadir(datadir: String) -> Result<()> {
     let d = PathBuf::from(datadir);
-    satkit::utils::set_datadir(&d)
+    Ok(satkit::utils::set_datadir(&d)?)
 }
 
 /// Check if data files are found

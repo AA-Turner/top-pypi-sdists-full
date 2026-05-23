@@ -23,11 +23,12 @@ class SecurityGatewayApplicationArgs:
     def __init__(__self__, *,
                  application_id: pulumi.Input[_builtins.str],
                  security_gateway_id: pulumi.Input[_builtins.str],
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matchers: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 upstreams: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matchers: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 upstreams: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]] = None):
         """
         The set of arguments for constructing a SecurityGatewayApplication resource.
 
@@ -36,6 +37,12 @@ class SecurityGatewayApplicationArgs:
                * Must contain between 4-63 characters from `/a-z-/`.
                * Must end with a number or letter.
         :param pulumi.Input[_builtins.str] security_gateway_id: ID of the Security Gateway resource this belongs to.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. An arbitrary user-provided name for the Application resource.
                Cannot exceed 64 characters.
         :param pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]] endpoint_matchers: Required. Endpoint matchers associated with an application.
@@ -59,6 +66,8 @@ class SecurityGatewayApplicationArgs:
         """
         pulumi.set(__self__, "application_id", application_id)
         pulumi.set(__self__, "security_gateway_id", security_gateway_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if endpoint_matchers is not None:
@@ -98,8 +107,25 @@ class SecurityGatewayApplicationArgs:
         pulumi.set(self, "security_gateway_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. An arbitrary user-provided name for the Application resource.
         Cannot exceed 64 characters.
@@ -107,12 +133,12 @@ class SecurityGatewayApplicationArgs:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="endpointMatchers")
-    def endpoint_matchers(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]:
+    def endpoint_matchers(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]:
         """
         Required. Endpoint matchers associated with an application.
         A combination of hostname and ports as endpoint matcher is used to match
@@ -130,12 +156,12 @@ class SecurityGatewayApplicationArgs:
         return pulumi.get(self, "endpoint_matchers")
 
     @endpoint_matchers.setter
-    def endpoint_matchers(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]):
+    def endpoint_matchers(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]):
         pulumi.set(self, "endpoint_matchers", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -143,12 +169,12 @@ class SecurityGatewayApplicationArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the external application.
         Possible values are: `PROXY_GATEWAY`, `API_GATEWAY`.
@@ -156,12 +182,12 @@ class SecurityGatewayApplicationArgs:
         return pulumi.get(self, "schema")
 
     @schema.setter
-    def schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "schema", value)
 
     @_builtins.property
     @pulumi.getter
-    def upstreams(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]:
+    def upstreams(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]:
         """
         Optional. List of which upstream resource(s) to forward traffic to.
         Structure is documented below.
@@ -169,23 +195,24 @@ class SecurityGatewayApplicationArgs:
         return pulumi.get(self, "upstreams")
 
     @upstreams.setter
-    def upstreams(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]):
+    def upstreams(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]):
         pulumi.set(self, "upstreams", value)
 
 
 @pulumi.input_type
 class _SecurityGatewayApplicationState:
     def __init__(__self__, *,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matchers: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 upstreams: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]] = None):
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matchers: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 upstreams: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]] = None):
         """
         Input properties used for looking up and filtering SecurityGatewayApplication resources.
 
@@ -194,6 +221,12 @@ class _SecurityGatewayApplicationState:
                * Must contain between 4-63 characters from `/a-z-/`.
                * Must end with a number or letter.
         :param pulumi.Input[_builtins.str] create_time: Output only. Timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. An arbitrary user-provided name for the Application resource.
                Cannot exceed 64 characters.
         :param pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]] endpoint_matchers: Required. Endpoint matchers associated with an application.
@@ -222,6 +255,8 @@ class _SecurityGatewayApplicationState:
             pulumi.set(__self__, "application_id", application_id)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if endpoint_matchers is not None:
@@ -241,7 +276,7 @@ class _SecurityGatewayApplicationState:
 
     @_builtins.property
     @pulumi.getter(name="applicationId")
-    def application_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def application_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-settable Application resource ID.
         * Must start with a letter.
@@ -251,24 +286,41 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "application_id")
 
     @application_id.setter
-    def application_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def application_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "application_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. An arbitrary user-provided name for the Application resource.
         Cannot exceed 64 characters.
@@ -276,12 +328,12 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="endpointMatchers")
-    def endpoint_matchers(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]:
+    def endpoint_matchers(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]:
         """
         Required. Endpoint matchers associated with an application.
         A combination of hostname and ports as endpoint matcher is used to match
@@ -299,24 +351,24 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "endpoint_matchers")
 
     @endpoint_matchers.setter
-    def endpoint_matchers(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]):
+    def endpoint_matchers(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationEndpointMatcherArgs']]]]):
         pulumi.set(self, "endpoint_matchers", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. Name of the resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -324,12 +376,12 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the external application.
         Possible values are: `PROXY_GATEWAY`, `API_GATEWAY`.
@@ -337,36 +389,36 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "schema")
 
     @schema.setter
-    def schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "schema", value)
 
     @_builtins.property
     @pulumi.getter(name="securityGatewayId")
-    def security_gateway_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_gateway_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the Security Gateway resource this belongs to.
         """
         return pulumi.get(self, "security_gateway_id")
 
     @security_gateway_id.setter
-    def security_gateway_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_gateway_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_gateway_id", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Timestamp when the resource was last modified.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def upstreams(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]:
+    def upstreams(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]:
         """
         Optional. List of which upstream resource(s) to forward traffic to.
         Structure is documented below.
@@ -374,7 +426,7 @@ class _SecurityGatewayApplicationState:
         return pulumi.get(self, "upstreams")
 
     @upstreams.setter
-    def upstreams(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]):
+    def upstreams(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['SecurityGatewayApplicationUpstreamArgs']]]]):
         pulumi.set(self, "upstreams", value)
 
 
@@ -384,13 +436,14 @@ class SecurityGatewayApplication(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matchers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 upstreams: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None,
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matchers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 upstreams: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None,
                  __props__=None):
         """
         Specifies application endpoint(s) to protect behind a Security Gateway.
@@ -551,6 +604,12 @@ class SecurityGatewayApplication(pulumi.CustomResource):
                * Must start with a letter.
                * Must contain between 4-63 characters from `/a-z-/`.
                * Must end with a number or letter.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. An arbitrary user-provided name for the Application resource.
                Cannot exceed 64 characters.
         :param pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]] endpoint_matchers: Required. Endpoint matchers associated with an application.
@@ -747,13 +806,14 @@ class SecurityGatewayApplication(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 endpoint_matchers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 upstreams: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None,
+                 application_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 endpoint_matchers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 upstreams: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -766,6 +826,7 @@ class SecurityGatewayApplication(pulumi.CustomResource):
             if application_id is None and not opts.urn:
                 raise TypeError("Missing required property 'application_id'")
             __props__.__dict__["application_id"] = application_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["endpoint_matchers"] = endpoint_matchers
             __props__.__dict__["project"] = project
@@ -787,16 +848,17 @@ class SecurityGatewayApplication(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            application_id: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            endpoint_matchers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            schema: Optional[pulumi.Input[_builtins.str]] = None,
-            security_gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            upstreams: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None) -> 'SecurityGatewayApplication':
+            application_id: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            endpoint_matchers: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            schema: pulumi.Input[Optional[_builtins.str]] = None,
+            security_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            upstreams: pulumi.Input[Optional[Sequence[pulumi.Input[Union['SecurityGatewayApplicationUpstreamArgs', 'SecurityGatewayApplicationUpstreamArgsDict']]]]] = None) -> 'SecurityGatewayApplication':
         """
         Get an existing SecurityGatewayApplication resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -809,6 +871,12 @@ class SecurityGatewayApplication(pulumi.CustomResource):
                * Must contain between 4-63 characters from `/a-z-/`.
                * Must end with a number or letter.
         :param pulumi.Input[_builtins.str] create_time: Output only. Timestamp when the resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. An arbitrary user-provided name for the Application resource.
                Cannot exceed 64 characters.
         :param pulumi.Input[Sequence[pulumi.Input[Union['SecurityGatewayApplicationEndpointMatcherArgs', 'SecurityGatewayApplicationEndpointMatcherArgsDict']]]] endpoint_matchers: Required. Endpoint matchers associated with an application.
@@ -839,6 +907,7 @@ class SecurityGatewayApplication(pulumi.CustomResource):
 
         __props__.__dict__["application_id"] = application_id
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["endpoint_matchers"] = endpoint_matchers
         __props__.__dict__["name"] = name
@@ -867,6 +936,19 @@ class SecurityGatewayApplication(pulumi.CustomResource):
         Output only. Timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

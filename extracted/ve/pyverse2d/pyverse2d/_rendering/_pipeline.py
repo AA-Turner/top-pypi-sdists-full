@@ -38,8 +38,9 @@ class SceneData:
 class LayerData:
     """Données d'un layer
 
-    batch: ``Batch`` du layer
-    z_groups: ensemble des ``Group`` de z-order du layer
+    Args:
+        batch: ``Batch`` du layer
+        z_groups: ensemble des ``Group`` de z-order du layer
     """
     batch: Batch
     z_groups: dict[int, Group]
@@ -49,7 +50,7 @@ class Pipeline:
     """Pipeline de rendu OpenGl
 
     Args:
-        window(Window): fenêtre associée
+        window: fenêtre associée
     """
     __slots__ = (
         "_window", "_quad", "_temp_fbo",
@@ -183,6 +184,13 @@ class Pipeline:
     def view_matrix(self) -> Mat4:
         """Matrice de vue"""
         return self._context.view_matrix
+    
+    @property
+    def full_matrix(self) -> Mat4:
+        """Matrice Vp @ P @ V"""
+        if self._context.full_matrix is None:
+            self._context.full_matrix = self.static_matrix @ self.view_matrix
+        return self._context.full_matrix
     
     # ======================================== INTERFACE ========================================
     def get_group(self, z: int = 0) -> Group:
@@ -502,13 +510,11 @@ class _PipelineContext:
     projection_matrix: Mat4 = None
     view_matrix: Mat4 = None
     static_matrix: Mat4 = None
+    full_matrix: Mat4 = None
 
     main_projection: Mat4 = None
     main_view: Mat4 = None
     main_static_matrix: Mat4 = None
-
-    pipeline_matrix: Mat4 = None
-    inv_pipeline_matrix: Mat4 = None
 
     def clear(self) -> None:
         """Nettoie le contexte"""

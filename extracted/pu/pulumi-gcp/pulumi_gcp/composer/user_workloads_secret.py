@@ -20,10 +20,11 @@ __all__ = ['UserWorkloadsSecretArgs', 'UserWorkloadsSecret']
 class UserWorkloadsSecretArgs:
     def __init__(__self__, *,
                  environment: pulumi.Input[_builtins.str],
-                 data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 data: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a UserWorkloadsSecret resource.
 
@@ -36,6 +37,12 @@ class UserWorkloadsSecretArgs:
                https://developer.hashicorp.com/terraform/language/state/sensitive-data.
                The values for all keys have to be base64-encoded strings.
                For details see: https://kubernetes.io/docs/concepts/configuration/secret/
+        :param pulumi.Input[_builtins.str] deletion_policy: (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the Kubernetes Secret.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -44,6 +51,8 @@ class UserWorkloadsSecretArgs:
         pulumi.set(__self__, "environment", environment)
         if data is not None:
             pulumi.set(__self__, "data", data)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -65,7 +74,7 @@ class UserWorkloadsSecretArgs:
 
     @_builtins.property
     @pulumi.getter
-    def data(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def data(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The "data" field of Kubernetes Secret, organized in key-value pairs,
         which can contain sensitive values such as a password, a token, or a key.
@@ -79,24 +88,41 @@ class UserWorkloadsSecretArgs:
         return pulumi.get(self, "data")
 
     @data.setter
-    def data(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def data(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "data", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Kubernetes Secret.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -104,30 +130,31 @@ class UserWorkloadsSecretArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location or Compute Engine region for the environment.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
 @pulumi.input_type
 class _UserWorkloadsSecretState:
     def __init__(__self__, *,
-                 data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None):
+                 data: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering UserWorkloadsSecret resources.
 
@@ -139,6 +166,12 @@ class _UserWorkloadsSecretState:
                https://developer.hashicorp.com/terraform/language/state/sensitive-data.
                The values for all keys have to be base64-encoded strings.
                For details see: https://kubernetes.io/docs/concepts/configuration/secret/
+        :param pulumi.Input[_builtins.str] deletion_policy: (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] environment: Environment where the Kubernetes Secret will be stored and used.
         :param pulumi.Input[_builtins.str] name: Name of the Kubernetes Secret.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -147,6 +180,8 @@ class _UserWorkloadsSecretState:
         """
         if data is not None:
             pulumi.set(__self__, "data", data)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if environment is not None:
             pulumi.set(__self__, "environment", environment)
         if name is not None:
@@ -158,7 +193,7 @@ class _UserWorkloadsSecretState:
 
     @_builtins.property
     @pulumi.getter
-    def data(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def data(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The "data" field of Kubernetes Secret, organized in key-value pairs,
         which can contain sensitive values such as a password, a token, or a key.
@@ -172,36 +207,53 @@ class _UserWorkloadsSecretState:
         return pulumi.get(self, "data")
 
     @data.setter
-    def data(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def data(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "data", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def environment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def environment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Environment where the Kubernetes Secret will be stored and used.
         """
         return pulumi.get(self, "environment")
 
     @environment.setter
-    def environment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def environment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "environment", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Kubernetes Secret.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -209,19 +261,19 @@ class _UserWorkloadsSecretState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location or Compute Engine region for the environment.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
 
@@ -231,15 +283,16 @@ class UserWorkloadsSecret(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 data: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
-        User workloads Secret used by Airflow tasks that run with Kubernetes Executor or KubernetesPodOperator.
-        Intended for Composer 3 Environments.
+        User workloads Secret used by Airflow tasks that run with Kubernetes Executor
+        or KubernetesPodOperator. Intended for Managed Airflow (Gen 3) Environments.
 
         ## Example Usage
 
@@ -295,6 +348,12 @@ class UserWorkloadsSecret(pulumi.CustomResource):
                https://developer.hashicorp.com/terraform/language/state/sensitive-data.
                The values for all keys have to be base64-encoded strings.
                For details see: https://kubernetes.io/docs/concepts/configuration/secret/
+        :param pulumi.Input[_builtins.str] deletion_policy: (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] environment: Environment where the Kubernetes Secret will be stored and used.
         :param pulumi.Input[_builtins.str] name: Name of the Kubernetes Secret.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -308,8 +367,8 @@ class UserWorkloadsSecret(pulumi.CustomResource):
                  args: UserWorkloadsSecretArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        User workloads Secret used by Airflow tasks that run with Kubernetes Executor or KubernetesPodOperator.
-        Intended for Composer 3 Environments.
+        User workloads Secret used by Airflow tasks that run with Kubernetes Executor
+        or KubernetesPodOperator. Intended for Managed Airflow (Gen 3) Environments.
 
         ## Example Usage
 
@@ -370,11 +429,12 @@ class UserWorkloadsSecret(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 data: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -385,6 +445,7 @@ class UserWorkloadsSecret(pulumi.CustomResource):
             __props__ = UserWorkloadsSecretArgs.__new__(UserWorkloadsSecretArgs)
 
             __props__.__dict__["data"] = None if data is None else pulumi.Output.secret(data)
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if environment is None and not opts.urn:
                 raise TypeError("Missing required property 'environment'")
             __props__.__dict__["environment"] = environment
@@ -403,11 +464,12 @@ class UserWorkloadsSecret(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            environment: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None) -> 'UserWorkloadsSecret':
+            data: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            environment: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None) -> 'UserWorkloadsSecret':
         """
         Get an existing UserWorkloadsSecret resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -423,6 +485,12 @@ class UserWorkloadsSecret(pulumi.CustomResource):
                https://developer.hashicorp.com/terraform/language/state/sensitive-data.
                The values for all keys have to be base64-encoded strings.
                For details see: https://kubernetes.io/docs/concepts/configuration/secret/
+        :param pulumi.Input[_builtins.str] deletion_policy: (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] environment: Environment where the Kubernetes Secret will be stored and used.
         :param pulumi.Input[_builtins.str] name: Name of the Kubernetes Secret.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -434,6 +502,7 @@ class UserWorkloadsSecret(pulumi.CustomResource):
         __props__ = _UserWorkloadsSecretState.__new__(_UserWorkloadsSecretState)
 
         __props__.__dict__["data"] = data
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["environment"] = environment
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
@@ -454,6 +523,19 @@ class UserWorkloadsSecret(pulumi.CustomResource):
         For details see: https://kubernetes.io/docs/concepts/configuration/secret/
         """
         return pulumi.get(self, "data")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        (Optional) Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

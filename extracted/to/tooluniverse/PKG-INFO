@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.1.11
+Version: 1.2.1
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse
@@ -19,7 +19,6 @@ Requires-Dist: networkx>=3.4.0
 Requires-Dist: openai>=1.107.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: google-genai>=1.36.0
-Requires-Dist: google-generativeai>=0.7.2
 Requires-Dist: mcp[cli]>=1.9.3
 Requires-Dist: fastmcp<4.0.0,>=2.12.3
 Requires-Dist: xmltodict>=1.0.0
@@ -29,7 +28,7 @@ Requires-Dist: jsonpath-ng>=1.6.0
 Requires-Dist: rcsb-api>=1.4.0
 Requires-Dist: fitz>=0.0.1.dev2
 Requires-Dist: pandas>=2.2.3
-Requires-Dist: setuptools<81.0.0,>=70.0.0
+Requires-Dist: setuptools>=70.0.0
 Requires-Dist: pdfplumber>=0.11.0
 Requires-Dist: playwright>=1.55.0
 Requires-Dist: faiss-cpu==1.12.0

@@ -23,19 +23,19 @@ class DatabaseArgs:
     def __init__(__self__, *,
                  location_id: pulumi.Input[_builtins.str],
                  type: pulumi.Input[_builtins.str],
-                 app_engine_integration_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 cmek_config: Optional[pulumi.Input['DatabaseCmekConfigArgs']] = None,
-                 concurrency_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_protection_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 firestore_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 mongodb_compatible_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 point_in_time_recovery_enablement: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 realtime_updates_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 app_engine_integration_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 cmek_config: pulumi.Input[Optional['DatabaseCmekConfigArgs']] = None,
+                 concurrency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_protection_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firestore_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 mongodb_compatible_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 point_in_time_recovery_enablement: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 realtime_updates_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Database resource.
 
@@ -61,11 +61,12 @@ class DatabaseArgs:
                The default value is `DELETE_PROTECTION_STATE_UNSPECIFIED`, which is currently equivalent to `DELETE_PROTECTION_DISABLED`.
                **Note:** Additionally, to delete this database using `terraform destroy`, `deletion_policy` must be set to `DELETE`.
                Possible values are: `DELETE_PROTECTION_STATE_UNSPECIFIED`, `DELETE_PROTECTION_ENABLED`, `DELETE_PROTECTION_DISABLED`.
-        :param pulumi.Input[_builtins.str] deletion_policy: Deletion behavior for this database.
-               If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-               If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-               The default value is `ABANDON`.
-               See also `delete_protection`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] firestore_data_access_mode: The Firestore API data access mode to use for this database. Can only be
                specified for 'ENTERPRISE' edition databases.
                Possible values are: `DATA_ACCESS_MODE_ENABLED`, `DATA_ACCESS_MODE_DISABLED`.
@@ -156,7 +157,7 @@ class DatabaseArgs:
 
     @_builtins.property
     @pulumi.getter(name="appEngineIntegrationMode")
-    def app_engine_integration_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_engine_integration_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The App Engine integration mode to use for this database.
         Possible values are: `ENABLED`, `DISABLED`.
@@ -164,12 +165,12 @@ class DatabaseArgs:
         return pulumi.get(self, "app_engine_integration_mode")
 
     @app_engine_integration_mode.setter
-    def app_engine_integration_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_engine_integration_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_engine_integration_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="cmekConfig")
-    def cmek_config(self) -> Optional[pulumi.Input['DatabaseCmekConfigArgs']]:
+    def cmek_config(self) -> pulumi.Input[Optional['DatabaseCmekConfigArgs']]:
         """
         The CMEK (Customer Managed Encryption Key) configuration for a Firestore
         database. If not present, the database is secured by the default Google
@@ -179,12 +180,12 @@ class DatabaseArgs:
         return pulumi.get(self, "cmek_config")
 
     @cmek_config.setter
-    def cmek_config(self, value: Optional[pulumi.Input['DatabaseCmekConfigArgs']]):
+    def cmek_config(self, value: pulumi.Input[Optional['DatabaseCmekConfigArgs']]):
         pulumi.set(self, "cmek_config", value)
 
     @_builtins.property
     @pulumi.getter(name="concurrencyMode")
-    def concurrency_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def concurrency_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The concurrency control mode to use for this database.
         Possible values are: `OPTIMISTIC`, `PESSIMISTIC`, `OPTIMISTIC_WITH_ENTITY_GROUPS`.
@@ -192,12 +193,12 @@ class DatabaseArgs:
         return pulumi.get(self, "concurrency_mode")
 
     @concurrency_mode.setter
-    def concurrency_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def concurrency_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "concurrency_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseEdition")
-    def database_edition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database_edition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The database edition. When set to 'ENTERPRISE', then type must be set to
         'FIRESTORE_NATIVE'.
@@ -206,12 +207,12 @@ class DatabaseArgs:
         return pulumi.get(self, "database_edition")
 
     @database_edition.setter
-    def database_edition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database_edition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database_edition", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteProtectionState")
-    def delete_protection_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def delete_protection_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         State of delete protection for the database.
         When delete protection is enabled, this database cannot be deleted.
@@ -222,28 +223,29 @@ class DatabaseArgs:
         return pulumi.get(self, "delete_protection_state")
 
     @delete_protection_state.setter
-    def delete_protection_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def delete_protection_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "delete_protection_state", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Deletion behavior for this database.
-        If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-        If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-        The default value is `ABANDON`.
-        See also `delete_protection`.
+        Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="firestoreDataAccessMode")
-    def firestore_data_access_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def firestore_data_access_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore API data access mode to use for this database. Can only be
         specified for 'ENTERPRISE' edition databases.
@@ -252,12 +254,12 @@ class DatabaseArgs:
         return pulumi.get(self, "firestore_data_access_mode")
 
     @firestore_data_access_mode.setter
-    def firestore_data_access_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def firestore_data_access_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "firestore_data_access_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="mongodbCompatibleDataAccessMode")
-    def mongodb_compatible_data_access_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def mongodb_compatible_data_access_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The MongoDB compatible API data access mode to use for this database. Can
         only be specified for 'ENTERPRISE' edition databases.
@@ -266,12 +268,12 @@ class DatabaseArgs:
         return pulumi.get(self, "mongodb_compatible_data_access_mode")
 
     @mongodb_compatible_data_access_mode.setter
-    def mongodb_compatible_data_access_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def mongodb_compatible_data_access_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "mongodb_compatible_data_access_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the database, which will become the final
         component of the database's resource name. This value should be 4-63
@@ -283,12 +285,12 @@ class DatabaseArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pointInTimeRecoveryEnablement")
-    def point_in_time_recovery_enablement(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def point_in_time_recovery_enablement(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether to enable the PITR feature on this database.
         If `POINT_IN_TIME_RECOVERY_ENABLED` is selected, reads are supported on selected versions of the data from within the past 7 days.
@@ -301,12 +303,12 @@ class DatabaseArgs:
         return pulumi.get(self, "point_in_time_recovery_enablement")
 
     @point_in_time_recovery_enablement.setter
-    def point_in_time_recovery_enablement(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def point_in_time_recovery_enablement(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "point_in_time_recovery_enablement", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -314,12 +316,12 @@ class DatabaseArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="realtimeUpdatesMode")
-    def realtime_updates_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def realtime_updates_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Realtime Updates mode to use for this database. Can only be specified
         for 'ENTERPRISE' edition databases.
@@ -328,12 +330,12 @@ class DatabaseArgs:
         return pulumi.get(self, "realtime_updates_mode")
 
     @realtime_updates_mode.setter
-    def realtime_updates_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def realtime_updates_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "realtime_updates_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Input only. A map of resource manager tags. Resource manager tag keys
         and values have the same definition as resource manager tags.
@@ -345,35 +347,35 @@ class DatabaseArgs:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
 
 @pulumi.input_type
 class _DatabaseState:
     def __init__(__self__, *,
-                 app_engine_integration_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 cmek_config: Optional[pulumi.Input['DatabaseCmekConfigArgs']] = None,
-                 concurrency_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_protection_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 earliest_version_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 firestore_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-                 location_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 mongodb_compatible_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 point_in_time_recovery_enablement: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 realtime_updates_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_retention_period: Optional[pulumi.Input[_builtins.str]] = None):
+                 app_engine_integration_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 cmek_config: pulumi.Input[Optional['DatabaseCmekConfigArgs']] = None,
+                 concurrency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_protection_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 earliest_version_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 firestore_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+                 location_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 mongodb_compatible_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 point_in_time_recovery_enablement: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 realtime_updates_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_retention_period: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Database resources.
 
@@ -394,11 +396,12 @@ class _DatabaseState:
                The default value is `DELETE_PROTECTION_STATE_UNSPECIFIED`, which is currently equivalent to `DELETE_PROTECTION_DISABLED`.
                **Note:** Additionally, to delete this database using `terraform destroy`, `deletion_policy` must be set to `DELETE`.
                Possible values are: `DELETE_PROTECTION_STATE_UNSPECIFIED`, `DELETE_PROTECTION_ENABLED`, `DELETE_PROTECTION_DISABLED`.
-        :param pulumi.Input[_builtins.str] deletion_policy: Deletion behavior for this database.
-               If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-               If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-               The default value is `ABANDON`.
-               See also `delete_protection`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] earliest_version_time: Output only. The earliest timestamp at which older versions of the data can be read from the database. See versionRetentionPeriod above; this field is populated with now - versionRetentionPeriod.
                This value is continuously updated, and becomes stale the moment it is queried. If you are using this value to recover data, make sure to account for the time from the moment when the value is queried to the moment when you initiate the recovery.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
@@ -499,7 +502,7 @@ class _DatabaseState:
 
     @_builtins.property
     @pulumi.getter(name="appEngineIntegrationMode")
-    def app_engine_integration_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_engine_integration_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The App Engine integration mode to use for this database.
         Possible values are: `ENABLED`, `DISABLED`.
@@ -507,12 +510,12 @@ class _DatabaseState:
         return pulumi.get(self, "app_engine_integration_mode")
 
     @app_engine_integration_mode.setter
-    def app_engine_integration_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_engine_integration_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_engine_integration_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="cmekConfig")
-    def cmek_config(self) -> Optional[pulumi.Input['DatabaseCmekConfigArgs']]:
+    def cmek_config(self) -> pulumi.Input[Optional['DatabaseCmekConfigArgs']]:
         """
         The CMEK (Customer Managed Encryption Key) configuration for a Firestore
         database. If not present, the database is secured by the default Google
@@ -522,12 +525,12 @@ class _DatabaseState:
         return pulumi.get(self, "cmek_config")
 
     @cmek_config.setter
-    def cmek_config(self, value: Optional[pulumi.Input['DatabaseCmekConfigArgs']]):
+    def cmek_config(self, value: pulumi.Input[Optional['DatabaseCmekConfigArgs']]):
         pulumi.set(self, "cmek_config", value)
 
     @_builtins.property
     @pulumi.getter(name="concurrencyMode")
-    def concurrency_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def concurrency_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The concurrency control mode to use for this database.
         Possible values are: `OPTIMISTIC`, `PESSIMISTIC`, `OPTIMISTIC_WITH_ENTITY_GROUPS`.
@@ -535,24 +538,24 @@ class _DatabaseState:
         return pulumi.get(self, "concurrency_mode")
 
     @concurrency_mode.setter
-    def concurrency_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def concurrency_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "concurrency_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The timestamp at which this database was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseEdition")
-    def database_edition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database_edition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The database edition. When set to 'ENTERPRISE', then type must be set to
         'FIRESTORE_NATIVE'.
@@ -561,12 +564,12 @@ class _DatabaseState:
         return pulumi.get(self, "database_edition")
 
     @database_edition.setter
-    def database_edition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database_edition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database_edition", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteProtectionState")
-    def delete_protection_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def delete_protection_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         State of delete protection for the database.
         When delete protection is enabled, this database cannot be deleted.
@@ -577,28 +580,29 @@ class _DatabaseState:
         return pulumi.get(self, "delete_protection_state")
 
     @delete_protection_state.setter
-    def delete_protection_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def delete_protection_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "delete_protection_state", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Deletion behavior for this database.
-        If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-        If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-        The default value is `ABANDON`.
-        See also `delete_protection`.
+        Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="earliestVersionTime")
-    def earliest_version_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def earliest_version_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The earliest timestamp at which older versions of the data can be read from the database. See versionRetentionPeriod above; this field is populated with now - versionRetentionPeriod.
         This value is continuously updated, and becomes stale the moment it is queried. If you are using this value to recover data, make sure to account for the time from the moment when the value is queried to the moment when you initiate the recovery.
@@ -607,12 +611,12 @@ class _DatabaseState:
         return pulumi.get(self, "earliest_version_time")
 
     @earliest_version_time.setter
-    def earliest_version_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def earliest_version_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "earliest_version_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. This checksum is computed by the server based on the value of other fields,
         and may be sent on update and delete requests to ensure the client has an
@@ -621,12 +625,12 @@ class _DatabaseState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="firestoreDataAccessMode")
-    def firestore_data_access_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def firestore_data_access_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore API data access mode to use for this database. Can only be
         specified for 'ENTERPRISE' edition databases.
@@ -635,12 +639,12 @@ class _DatabaseState:
         return pulumi.get(self, "firestore_data_access_mode")
 
     @firestore_data_access_mode.setter
-    def firestore_data_access_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def firestore_data_access_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "firestore_data_access_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="keyPrefix")
-    def key_prefix(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_prefix(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The keyPrefix for this database.
         This keyPrefix is used, in combination with the project id ("~") to construct the application id
@@ -650,12 +654,12 @@ class _DatabaseState:
         return pulumi.get(self, "key_prefix")
 
     @key_prefix.setter
-    def key_prefix(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_prefix(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_prefix", value)
 
     @_builtins.property
     @pulumi.getter(name="locationId")
-    def location_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the database. Available locations are listed at
         https://cloud.google.com/firestore/docs/locations.
@@ -663,12 +667,12 @@ class _DatabaseState:
         return pulumi.get(self, "location_id")
 
     @location_id.setter
-    def location_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location_id", value)
 
     @_builtins.property
     @pulumi.getter(name="mongodbCompatibleDataAccessMode")
-    def mongodb_compatible_data_access_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def mongodb_compatible_data_access_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The MongoDB compatible API data access mode to use for this database. Can
         only be specified for 'ENTERPRISE' edition databases.
@@ -677,12 +681,12 @@ class _DatabaseState:
         return pulumi.get(self, "mongodb_compatible_data_access_mode")
 
     @mongodb_compatible_data_access_mode.setter
-    def mongodb_compatible_data_access_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def mongodb_compatible_data_access_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "mongodb_compatible_data_access_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the database, which will become the final
         component of the database's resource name. This value should be 4-63
@@ -694,12 +698,12 @@ class _DatabaseState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pointInTimeRecoveryEnablement")
-    def point_in_time_recovery_enablement(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def point_in_time_recovery_enablement(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether to enable the PITR feature on this database.
         If `POINT_IN_TIME_RECOVERY_ENABLED` is selected, reads are supported on selected versions of the data from within the past 7 days.
@@ -712,12 +716,12 @@ class _DatabaseState:
         return pulumi.get(self, "point_in_time_recovery_enablement")
 
     @point_in_time_recovery_enablement.setter
-    def point_in_time_recovery_enablement(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def point_in_time_recovery_enablement(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "point_in_time_recovery_enablement", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -725,12 +729,12 @@ class _DatabaseState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="realtimeUpdatesMode")
-    def realtime_updates_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def realtime_updates_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Realtime Updates mode to use for this database. Can only be specified
         for 'ENTERPRISE' edition databases.
@@ -739,12 +743,12 @@ class _DatabaseState:
         return pulumi.get(self, "realtime_updates_mode")
 
     @realtime_updates_mode.setter
-    def realtime_updates_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def realtime_updates_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "realtime_updates_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Input only. A map of resource manager tags. Resource manager tag keys
         and values have the same definition as resource manager tags.
@@ -756,12 +760,12 @@ class _DatabaseState:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the database.
         See https://cloud.google.com/datastore/docs/firestore-or-datastore
@@ -771,36 +775,36 @@ class _DatabaseState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The system-generated UUID4 for this Database.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The timestamp at which this database was most recently updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="versionRetentionPeriod")
-    def version_retention_period(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version_retention_period(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The period during which past versions of data are retained in the database.
         Any read or query can specify a readTime within this window, and will read the state of the database at that time.
@@ -810,7 +814,7 @@ class _DatabaseState:
         return pulumi.get(self, "version_retention_period")
 
     @version_retention_period.setter
-    def version_retention_period(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version_retention_period(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version_retention_period", value)
 
 
@@ -820,21 +824,21 @@ class Database(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app_engine_integration_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 cmek_config: Optional[pulumi.Input[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
-                 concurrency_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_protection_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 firestore_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 location_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 mongodb_compatible_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 point_in_time_recovery_enablement: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 realtime_updates_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 app_engine_integration_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 cmek_config: pulumi.Input[Optional[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
+                 concurrency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_protection_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firestore_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 location_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 mongodb_compatible_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 point_in_time_recovery_enablement: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 realtime_updates_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Cloud Firestore Database.
@@ -1060,11 +1064,12 @@ class Database(pulumi.CustomResource):
                The default value is `DELETE_PROTECTION_STATE_UNSPECIFIED`, which is currently equivalent to `DELETE_PROTECTION_DISABLED`.
                **Note:** Additionally, to delete this database using `terraform destroy`, `deletion_policy` must be set to `DELETE`.
                Possible values are: `DELETE_PROTECTION_STATE_UNSPECIFIED`, `DELETE_PROTECTION_ENABLED`, `DELETE_PROTECTION_DISABLED`.
-        :param pulumi.Input[_builtins.str] deletion_policy: Deletion behavior for this database.
-               If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-               If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-               The default value is `ABANDON`.
-               See also `delete_protection`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] firestore_data_access_mode: The Firestore API data access mode to use for this database. Can only be
                specified for 'ENTERPRISE' edition databases.
                Possible values are: `DATA_ACCESS_MODE_ENABLED`, `DATA_ACCESS_MODE_DISABLED`.
@@ -1329,21 +1334,21 @@ class Database(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app_engine_integration_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 cmek_config: Optional[pulumi.Input[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
-                 concurrency_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_protection_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 firestore_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 location_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 mongodb_compatible_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 point_in_time_recovery_enablement: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 realtime_updates_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 app_engine_integration_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 cmek_config: pulumi.Input[Optional[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
+                 concurrency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_protection_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 firestore_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 location_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 mongodb_compatible_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 point_in_time_recovery_enablement: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 realtime_updates_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1389,28 +1394,28 @@ class Database(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            app_engine_integration_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            cmek_config: Optional[pulumi.Input[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
-            concurrency_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            database_edition: Optional[pulumi.Input[_builtins.str]] = None,
-            delete_protection_state: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            earliest_version_time: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            firestore_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            key_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-            location_id: Optional[pulumi.Input[_builtins.str]] = None,
-            mongodb_compatible_data_access_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            point_in_time_recovery_enablement: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            realtime_updates_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            version_retention_period: Optional[pulumi.Input[_builtins.str]] = None) -> 'Database':
+            app_engine_integration_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            cmek_config: pulumi.Input[Optional[Union['DatabaseCmekConfigArgs', 'DatabaseCmekConfigArgsDict']]] = None,
+            concurrency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            database_edition: pulumi.Input[Optional[_builtins.str]] = None,
+            delete_protection_state: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            earliest_version_time: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            firestore_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+            location_id: pulumi.Input[Optional[_builtins.str]] = None,
+            mongodb_compatible_data_access_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            point_in_time_recovery_enablement: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            realtime_updates_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            version_retention_period: pulumi.Input[Optional[_builtins.str]] = None) -> 'Database':
         """
         Get an existing Database resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1435,11 +1440,12 @@ class Database(pulumi.CustomResource):
                The default value is `DELETE_PROTECTION_STATE_UNSPECIFIED`, which is currently equivalent to `DELETE_PROTECTION_DISABLED`.
                **Note:** Additionally, to delete this database using `terraform destroy`, `deletion_policy` must be set to `DELETE`.
                Possible values are: `DELETE_PROTECTION_STATE_UNSPECIFIED`, `DELETE_PROTECTION_ENABLED`, `DELETE_PROTECTION_DISABLED`.
-        :param pulumi.Input[_builtins.str] deletion_policy: Deletion behavior for this database.
-               If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-               If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-               The default value is `ABANDON`.
-               See also `delete_protection`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] earliest_version_time: Output only. The earliest timestamp at which older versions of the data can be read from the database. See versionRetentionPeriod above; this field is populated with now - versionRetentionPeriod.
                This value is continuously updated, and becomes stale the moment it is queried. If you are using this value to recover data, make sure to account for the time from the moment when the value is queried to the moment when you initiate the recovery.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
@@ -1582,13 +1588,14 @@ class Database(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
         """
-        Deletion behavior for this database.
-        If the deletion policy is `ABANDON`, the database will be removed from Terraform state but not deleted from Google Cloud upon destruction.
-        If the deletion policy is `DELETE`, the database will both be removed from Terraform state and deleted from Google Cloud upon destruction.
-        The default value is `ABANDON`.
-        See also `delete_protection`.
+        Whether Terraform will be prevented from destroying the resource. Defaults to ABANDON.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
         """
         return pulumi.get(self, "deletion_policy")
 

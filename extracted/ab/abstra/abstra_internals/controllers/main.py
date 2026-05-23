@@ -1555,70 +1555,6 @@ class MainController:
             raise Exception(f"Stage {id} not found")
         return project.is_initial(stage)
 
-    def create_tasklet(
-        self,
-        title: str,
-        file: str,
-        workflow_position: tuple[int, int] = (0, 0),
-        id: str | None = None,
-    ) -> ScriptStage:
-        """
-        Create a new tasklet stage in the project workflow.
-
-        Tasklets are programmatic workflow stages that execute Python code
-        without user interaction. They are used for data processing, business
-        logic, integrations, and automation tasks within workflows.
-
-        Args:
-            title (str): Display name for the tasklet stage.
-            file (str): Relative path where the tasklet's Python code will be stored.
-                Must end with .py extension.
-            workflow_position (list[int], optional): [x, y] coordinates for the
-                tasklet's position in the visual workflow editor. Defaults to [0, 0].
-            id (Optional[str], optional): Custom identifier for the tasklet. If None,
-                a unique ID will be automatically generated.
-
-        Returns:
-            ScriptStage: The newly created tasklet stage object containing all tasklet metadata.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Create a data processing tasklet
-            processor = controller.create_tasklet(
-                title="Data Processor",
-                file="tasklet_process_data.py"
-            )
-            print(f"Created tasklet: {processor.id}")
-
-            # Create tasklet with custom positioning
-            validator = controller.create_tasklet(
-                title="Input Validator",
-                file="tasklet_validate_input.py",
-                workflow_position=[200, 300],
-                id="input-validator"
-            )
-            ```
-
-        Note:
-            - The tasklet file will be initialized with default tasklet template code
-            - Tasklets can receive data from previous workflow stages
-            - Tasklets can send tasks to trigger subsequent workflow stages
-            - Tasklets run without user interaction and are ideal for automation
-
-        Copywritings:
-            Create a new tasklet stage
-            Creating a new tasklet stage...
-        """
-        script = ScriptStage.create(
-            title, file, workflow_position=workflow_position, id=id
-        )
-        self.init_code_file(script.file, new_script_code)
-        with self.repositories.project.atomic() as project:
-            project.add_stage(script)
-        return script
-
     def get_scripts(self) -> list[ScriptStage]:
         project = self.repositories.project.load()
         scripts = project.get_scripts()
@@ -1629,66 +1565,6 @@ class MainController:
     def get_script(self, id: str) -> ScriptStage | None:
         project = self.repositories.project.load()
         return project.get_script(id)
-
-    def create_form(
-        self,
-        title: str,
-        file: str,
-        workflow_position: tuple[int, int] = (0, 0),
-        id: str | None = None,
-    ) -> FormStage:
-        """
-        Create a new form stage in the project workflow.
-
-        Forms are interactive UI components that collect user input and can be used
-        as entry points in workflows or intermediate steps for data collection.
-
-        Args:
-            title (str): Display name for the form stage.
-            file (str): Relative path where the form's Python code will be stored.
-                Must end with .py extension.
-            workflow_position (list[int], optional): [x, y] coordinates for the
-                form's position in the visual workflow editor. Defaults to [0, 0].
-            id (Optional[str], optional): Custom identifier for the form. If None,
-                a unique ID will be automatically generated.
-
-        Returns:
-            FormStage: The newly created form stage object containing all form metadata.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Create a simple form
-            form = controller.create_form(
-                title="User Registration",
-                file="form_registration.py"
-            )
-            print(f"Created form with ID: {form.id}")
-
-            # Create form with custom position and ID
-            custom_form = controller.create_form(
-                title="Data Input Form",
-                file="form_data_input.py",
-                workflow_position=[100, 200],
-                id="custom-form-id"
-            )
-            ```
-
-        Note:
-            - The form file will be initialized with default form template code
-            - The file path is relative to the project root directory
-            - Form stages can be connected to other workflow stages via transitions
-
-        Copywritings:
-            Create a new form stage
-            Creating a new form stage...
-        """
-        form = FormStage.create(title, file, workflow_position=workflow_position, id=id)
-        self.init_code_file(form.file, new_form_code)
-        with self.repositories.project.atomic() as project:
-            project.add_stage(form)
-        return form
 
     def get_forms(self) -> list[FormStage]:
         project = self.repositories.project.load()
@@ -1752,68 +1628,6 @@ class MainController:
         with self.repositories.project.atomic() as project:
             project.delete_stage(stage_id, remove_file)
 
-    def create_hook(
-        self,
-        title: str,
-        file: str,
-        workflow_position: tuple[int, int] = (0, 0),
-        id: str | None = None,
-    ) -> HookStage:
-        """
-        Create a new hook stage in the project workflow.
-
-        Hooks are HTTP endpoints that can be triggered externally via REST API calls,
-        webhooks, or other external systems. They serve as entry points for
-        programmatic workflow execution.
-
-        Args:
-            title (str): Display name for the hook stage.
-            file (str): Relative path where the hook's Python code will be stored.
-                Must end with .py extension.
-            workflow_position (list[int], optional): [x, y] coordinates for the
-                hook's position in the visual workflow editor. Defaults to [0, 0].
-            id (Optional[str], optional): Custom identifier for the hook. If None,
-                a unique ID will be automatically generated.
-
-        Returns:
-            HookStage: The newly created hook stage object containing all hook metadata.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Create a webhook for external API integration
-            webhook = controller.create_hook(
-                title="Payment Webhook",
-                file="hook_payment_webhook.py"
-            )
-            print(f"Webhook URL: /hooks/{webhook.id}")
-
-            # Create hook with custom positioning
-            api_hook = controller.create_hook(
-                title="User API Endpoint",
-                file="hook_user_api.py",
-                workflow_position=[300, 150],
-                id="user-api-hook"
-            )
-            ```
-
-        Note:
-            - The hook file will be initialized with default hook template code
-            - Hooks can receive HTTP requests and process the request data
-            - Hook endpoints are automatically available at /hooks/{hook_id}
-            - Hooks can trigger other stages in the workflow
-
-        Copywritings:
-            Create a new hook stage
-            Creating a new hook stage...
-        """
-        hook = HookStage.create(title, file, workflow_position=workflow_position, id=id)
-        self.init_code_file(hook.file, new_hook_code)
-        with self.repositories.project.atomic() as project:
-            project.add_stage(hook)
-        return hook
-
     def get_hook(self, id: str) -> HookStage | None:
         project = self.repositories.project.load()
         return project.get_hook(id)
@@ -1830,68 +1644,6 @@ class MainController:
         return project.get_hook_by_path(path)
 
     # Page stage methods
-
-    def create_page_stage(
-        self,
-        title: str,
-        file: str,
-        workflow_position: tuple[int, int] = (0, 0),
-        id: str | None = None,
-    ) -> PageStage:
-        """
-        Create a new page stage in the project workflow.
-
-        Pages are custom HTML interfaces with server-side Python functions.
-        They provide full HTML/CSS/JS control and are the preferred way to build
-        dashboards, interactive tools, data visualizations, and any user-facing interface.
-
-        Args:
-            title (str): Display name for the page stage.
-            file (str): Relative path where the page's Python code will be stored.
-                Must end with .py extension.
-            workflow_position (list[int], optional): [x, y] coordinates for the
-                page's position in the visual workflow editor. Defaults to [0, 0].
-            id (Optional[str], optional): Custom identifier for the page. If None,
-                a unique ID will be automatically generated.
-
-        Returns:
-            PageStage: The newly created page stage object containing all page metadata.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Create a simple page
-            page = controller.create_page_stage(
-                title="Sales Dashboard",
-                file="page_dashboard.py"
-            )
-            print(f"Created page with ID: {page.id}")
-
-            # Create page with custom position and ID
-            custom_page = controller.create_page_stage(
-                title="Admin Panel",
-                file="page_admin.py",
-                workflow_position=[100, 200],
-                id="custom-page-id"
-            )
-            ```
-
-        Note:
-            - The page file will be initialized with default page template code
-            - The file path is relative to the project root directory
-            - Page stages can be connected to other workflow stages via transitions
-            - Pages use @register_function to expose Python functions callable from the browser
-
-        Copywritings:
-            Create a new page stage
-            Creating a new page stage...
-        """
-        page = PageStage.create(title, file, workflow_position=workflow_position, id=id)
-        self.init_code_file(page.file, new_page_code)
-        with self.repositories.project.atomic() as project:
-            project.add_stage(page)
-        return page
 
     def get_page_stage(self, id: str) -> PageStage | None:
         project = self.repositories.project.load()
@@ -1990,67 +1742,72 @@ class MainController:
 
         return "disabled"
 
-    def create_job(
+    def create_stage(
         self,
+        type: Literal["form", "page", "hook", "job", "tasklet"],
         title: str,
         file: str,
         workflow_position: tuple[int, int] = (0, 0),
         id: str | None = None,
-    ) -> JobStage:
+    ) -> StageWithFile:
         """
-        Create a new job stage in the project workflow.
-
-        Jobs are scheduled background tasks that run automatically based on
-        cron expressions or time intervals. They are ideal for periodic data
-        processing, cleanup tasks, or automated workflows.
+        Create a new stage in the project workflow.
 
         Args:
-            title (str): Display name for the job stage.
-            file (str): Relative path where the job's Python code will be stored.
+            type: Kind of stage to create:
+                - 'form': interactive form stage (collects user input)
+                - 'page': interactive page stage (custom HTML/CSS/JS dashboards and tools)
+                - 'hook': webhook stage (HTTP endpoint triggered externally)
+                - 'job': scheduled job stage (runs periodically on a schedule)
+                - 'tasklet': background script stage (processes tasks without UI)
+            title (str): Display name for the new stage.
+            file (str): Relative path where the stage's Python code will be stored.
                 Must end with .py extension.
             workflow_position (list[int], optional): [x, y] coordinates for the
-                job's position in the visual workflow editor. Defaults to [0, 0].
-            id (Optional[str], optional): Custom identifier for the job. If None,
+                stage's position in the visual workflow editor. Defaults to [0, 0].
+            id (Optional[str], optional): Custom identifier for the stage. If None,
                 a unique ID will be automatically generated.
 
         Returns:
-            JobStage: The newly created job stage object containing all job metadata.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Create a daily data processing job
-            daily_job = controller.create_job(
-                title="Daily Data Sync",
-                file="job_daily_sync.py"
-            )
-            print(f"Created job: {daily_job.title}")
-
-            # Create job with custom position and ID
-            cleanup_job = controller.create_job(
-                title="Weekly Cleanup",
-                file="job_cleanup.py",
-                workflow_position=[500, 100],
-                id="weekly-cleanup"
-            )
-            ```
-
-        Note:
-            - The job file will be initialized with default job template code
-            - Jobs run in the background and don't have user interfaces
-            - Job scheduling is configured separately after creation
-            - Jobs cannot be transition targets (other stages cannot connect to them)
+            StageWithFile: The newly created stage object (FormStage, PageStage,
+                HookStage, JobStage, or ScriptStage depending on `type`).
 
         Copywritings:
-            Create a new job stage
-            Creating a new job stage...
+            Create a new stage
+            Creating a new stage...
         """
-        job = JobStage.create(title, file, workflow_position=workflow_position, id=id)
-        self.init_code_file(job.file, new_job_code)
+        if type == "form":
+            stage: StageWithFile = FormStage.create(
+                title, file, workflow_position=workflow_position, id=id
+            )
+            template = new_form_code
+        elif type == "page":
+            stage = PageStage.create(
+                title, file, workflow_position=workflow_position, id=id
+            )
+            template = new_page_code
+        elif type == "hook":
+            stage = HookStage.create(
+                title, file, workflow_position=workflow_position, id=id
+            )
+            template = new_hook_code
+        elif type == "job":
+            stage = JobStage.create(
+                title, file, workflow_position=workflow_position, id=id
+            )
+            template = new_job_code
+        elif type == "tasklet":
+            stage = ScriptStage.create(
+                title, file, workflow_position=workflow_position, id=id
+            )
+            template = new_script_code
+        else:
+            raise ValueError(f"Unknown stage type: {type!r}")
+
+        self.init_code_file(stage.file, template)
         with self.repositories.project.atomic() as project:
-            project.add_stage(job)
-        return job
+            project.add_stage(stage)
+        return stage
 
     def update_stage(self, id: str, changes: dict[str, Any]) -> Stage:
         """
@@ -2639,14 +2396,17 @@ class MainController:
 
     def run_hook(self, id: str, request: Request, user_jwt: Optional[str] = None):
         """
-        Run a hook stage immediately by its ID.
+        Run a hook stage immediately by its ID for debugging.
 
-        This method triggers the execution of a hook stage, allowing it to run
-        immediately in response to an HTTP request. It is useful for testing or
-        manually triggering hooks.
+        This simulates an HTTP request hitting the hook so you can exercise it
+        without making a real network call. Construct the request you want to
+        test against — only `method` is required; `query_params`, `headers`,
+        and `body` default to empty when omitted.
+
         Args:
             id (str): Unique identifier of the hook stage to run.
-            request (Request): The HTTP request object containing data to process.
+            request (Request): A simulated HTTP request to feed the hook.
+                Fields use snake_case (query_params, headers, method, body).
             user_jwt (Optional[str]): JWT token for web-editor user identification.
         Returns:
             dict: Response containing the body, status, and headers from the hook execution.

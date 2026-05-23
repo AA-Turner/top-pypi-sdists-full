@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-rerunfailures
-Version: 16.2
+Version: 16.3
 Summary: pytest plugin to re-run tests to eliminate flaky failures
 Author-email: Leah Klearman <lklrmn@gmail.com>
 License: MPL-2.0
@@ -242,6 +242,34 @@ of re-runs specified in test markers, pass ``--force-reruns``:
 
    $ pytest --force-reruns 5
 
+Rerun mode
+----------
+
+By default the marker count takes strict priority over the global ``--reruns``
+setting. To make them additive instead, pass ``--reruns-mode=append``. With
+``append``, a test decorated with ``@pytest.mark.flaky(reruns=2)`` run with
+``--reruns 4`` will be re-run up to ``2 + 4 = 6`` times:
+
+.. code-block:: bash
+
+   $ pytest --reruns 4 --reruns-mode append
+
+Show tracebacks for retried failures
+------------------------------------
+
+By default only the *final* attempt of a flaky test produces a traceback,
+so failures from earlier attempts (including those of tests that ultimately
+pass after a rerun) are silently discarded. To inspect them, pass
+``--rerun-show-tracebacks``:
+
+.. code-block:: bash
+
+   $ pytest --reruns 2 --rerun-show-tracebacks
+
+Each retried attempt's traceback is appended to the ``rerun test summary
+info`` section. The section is emitted automatically when the flag is set,
+so ``-rR`` is not required.
+
 Output
 ------
 
@@ -294,7 +322,8 @@ which one takes priority?
 * Last priority is the ``pyproject.toml`` (or ``pytest.ini``) file setting, like ``reruns = 3``
 
 Additionally, all three can be overridden by passing ``--force-reruns`` argument
-on the command line.
+on the command line. Passing ``--reruns-mode=append`` makes the marker count and
+the global ``--reruns`` / ``reruns`` ini setting additive instead of strict.
 
 .. END-PRIORITY
 
@@ -323,6 +352,25 @@ Development
 
 Changelog
 =========
+
+16.3 (2026-05-22)
+-----------------
+
+Features
+++++++++
+
+- Add ``--reruns-mode`` option (``strict`` or ``append``). With ``append``,
+  marker reruns and the global ``--reruns`` / ``reruns`` ini setting are summed
+  instead of the marker taking strict priority. Default is ``strict`` so
+  existing behaviour is unchanged.
+  Fixes `#321 <https://github.com/pytest-dev/pytest-rerunfailures/issues/321>`_.
+
+- Add ``--rerun-show-tracebacks`` option to display tracebacks from failed
+  attempts that were retried, including tests that eventually passed. The
+  rerun summary section is emitted automatically when the flag is set, so
+  ``-rR`` is no longer required to see the tracebacks.
+  Fixes `#156 <https://github.com/pytest-dev/pytest-rerunfailures/issues/156>`_.
+
 
 16.2 (2026-05-13)
 -----------------

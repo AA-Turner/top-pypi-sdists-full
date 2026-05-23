@@ -849,7 +849,7 @@ class _RetryProgressTracker:
         if files_written is not None:
             if not files_written:
                 self.empty_write_streak += 1
-                if self.empty_write_streak >= 2:
+                if self.empty_write_streak >= 5:
                     return "Consecutive fix attempts produced no file changes."
             else:
                 self.empty_write_streak = 0
@@ -858,13 +858,13 @@ class _RetryProgressTracker:
             if (
                 self.file_signatures
                 and self.file_signatures[-1] == file_signature
-                and self._same_recent_failure(2)
+                and self._same_recent_failure(6)
             ):
                 return "The same files were rewritten but the same test failure persisted."
             self.file_signatures.append(file_signature)
 
-        if self._same_recent_failure(3):
-            return "The same test failure repeated 3 times — no meaningful progress."
+        if self._same_recent_failure(7):
+            return "The same test failure repeated 7 times — no meaningful progress."
 
         return None
 

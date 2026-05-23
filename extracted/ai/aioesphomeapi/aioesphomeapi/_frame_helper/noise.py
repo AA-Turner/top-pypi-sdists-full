@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import binascii
 import logging
 from typing import TYPE_CHECKING
@@ -25,6 +24,8 @@ from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCiphe
 from .packets import make_noise_packets
 
 if TYPE_CHECKING:
+    import asyncio
+
     from ..connection import APIConnection
 
 
@@ -251,16 +252,22 @@ class APINoiseFrameHelper(APIFrameHelper):
         try:
             psk_bytes = binascii.a2b_base64(psk)
         except ValueError as err:
-            raise InvalidEncryptionKeyAPIError(
+            msg = (
                 f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value",
+                "expected base64-encoded 32-byte value"
+            )
+            raise InvalidEncryptionKeyAPIError(
+                msg,
                 server_name,
                 server_mac,
             ) from err
         if len(psk_bytes) != 32:
-            raise InvalidEncryptionKeyAPIError(
+            msg = (
                 f"{self._log_name}: Malformed PSK (length={len(psk)}), "
-                "expected base64-encoded 32-byte value",
+                "expected base64-encoded 32-byte value"
+            )
+            raise InvalidEncryptionKeyAPIError(
+                msg,
                 server_name,
                 server_mac,
             )
@@ -323,7 +330,7 @@ class APINoiseFrameHelper(APIFrameHelper):
             key_err.__cause__ = exc
             self._handle_error_and_close(key_err)
             return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             handshake_err = HandshakeAPIError(
                 f"{self._log_name}: Handshake failed: {exc}"
             )
@@ -390,6 +397,6 @@ class APINoiseFrameHelper(APIFrameHelper):
         payload = msg_cstr[4:msg_length]
         self._connection.process_packet(msg_type, payload)
 
-    def _handle_closed(self, frame: bytes) -> None:  # pylint: disable=unused-argument
+    def _handle_closed(self, frame: bytes) -> None:  # noqa: ARG002 # pylint: disable=unused-argument
         """Handle a closed frame."""
         self._handle_error(ProtocolAPIError(f"{self._log_name}: Connection closed"))

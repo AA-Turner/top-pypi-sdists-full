@@ -81,6 +81,7 @@ class GlueConnectionWrapper(ABC):
         from .local.mongodb_wrapper import MongoDBConnectionWrapper
         from .local.native_wrapper import NativeConnectionWrapper
         from .local.snowflake_wrapper import SnowflakeConnectionWrapper
+        from .local.workday_irc_wrapper import WorkdayIcebergRestCatalogConnectionWrapper
 
         connection_type = wrapper_input.connection.get(ConnectionObjectKey.CONNECTION_TYPE, "")
         connection_type_lower = connection_type.lower()
@@ -98,6 +99,8 @@ class GlueConnectionWrapper(ABC):
             return MongoDBConnectionWrapper(wrapper_input)
         elif connection_type_lower == "snowflake":
             return SnowflakeConnectionWrapper(wrapper_input)
+        elif connection_type_lower == "workdayicebergrestcatalog":
+            return WorkdayIcebergRestCatalogConnectionWrapper(wrapper_input)
         else:
             return NativeConnectionWrapper(wrapper_input)
 

@@ -21,8 +21,9 @@ class AppCheckResourcePolicyArgs:
     def __init__(__self__, *,
                  service_id: pulumi.Input[_builtins.str],
                  target_resource: pulumi.Input[_builtins.str],
-                 enforcement_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enforcement_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AppCheckResourcePolicy resource.
 
@@ -32,6 +33,12 @@ class AppCheckResourcePolicyArgs:
         :param pulumi.Input[_builtins.str] target_resource: Service specific name of the resource object to which this policy applies, in the format:
                * iOS OAuth clients (Google Identity for iOS):
                `//oauth2.googleapis.com/projects/{project_number}/oauthClients/{oauthClientId}`
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] enforcement_mode: The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
                Valid values are:
                (Unset)
@@ -64,6 +71,8 @@ class AppCheckResourcePolicyArgs:
         """
         pulumi.set(__self__, "service_id", service_id)
         pulumi.set(__self__, "target_resource", target_resource)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enforcement_mode is not None:
             pulumi.set(__self__, "enforcement_mode", enforcement_mode)
         if project is not None:
@@ -98,8 +107,25 @@ class AppCheckResourcePolicyArgs:
         pulumi.set(self, "target_resource", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="enforcementMode")
-    def enforcement_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def enforcement_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
         Valid values are:
@@ -132,12 +158,12 @@ class AppCheckResourcePolicyArgs:
         return pulumi.get(self, "enforcement_mode")
 
     @enforcement_mode.setter
-    def enforcement_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def enforcement_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "enforcement_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -145,23 +171,30 @@ class AppCheckResourcePolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AppCheckResourcePolicyState:
     def __init__(__self__, *,
-                 enforcement_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enforcement_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AppCheckResourcePolicy resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] enforcement_mode: The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
                Valid values are:
                (Unset)
@@ -201,6 +234,8 @@ class _AppCheckResourcePolicyState:
                `//oauth2.googleapis.com/projects/{project_number}/oauthClients/{oauthClientId}`
         :param pulumi.Input[_builtins.str] update_time: Output only. Timestamp when this resource policy configuration object was most recently updated.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enforcement_mode is not None:
             pulumi.set(__self__, "enforcement_mode", enforcement_mode)
         if etag is not None:
@@ -217,8 +252,25 @@ class _AppCheckResourcePolicyState:
             pulumi.set(__self__, "update_time", update_time)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="enforcementMode")
-    def enforcement_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def enforcement_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
         Valid values are:
@@ -251,24 +303,24 @@ class _AppCheckResourcePolicyState:
         return pulumi.get(self, "enforcement_mode")
 
     @enforcement_mode.setter
-    def enforcement_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def enforcement_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "enforcement_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This checksum is computed by the server based on the value of other fields, and may be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -276,24 +328,24 @@ class _AppCheckResourcePolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resourcePolicyId")
-    def resource_policy_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_policy_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The server-generated UID for the Resource Policy.
         """
         return pulumi.get(self, "resource_policy_id")
 
     @resource_policy_id.setter
-    def resource_policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_policy_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_policy_id", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceId")
-    def service_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The identifier of the service to configure a Resource Policy for.
         Currently, the following service IDs are supported:
@@ -302,12 +354,12 @@ class _AppCheckResourcePolicyState:
         return pulumi.get(self, "service_id")
 
     @service_id.setter
-    def service_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_id", value)
 
     @_builtins.property
     @pulumi.getter(name="targetResource")
-    def target_resource(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def target_resource(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Service specific name of the resource object to which this policy applies, in the format:
         * iOS OAuth clients (Google Identity for iOS):
@@ -316,19 +368,19 @@ class _AppCheckResourcePolicyState:
         return pulumi.get(self, "target_resource")
 
     @target_resource.setter
-    def target_resource(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def target_resource(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "target_resource", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Timestamp when this resource policy configuration object was most recently updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -338,10 +390,11 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 enforcement_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enforcement_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         App Check enforcement policy for a specific resource of a Google service supported by App Check. Note that this policy will override the service-level configuration.
@@ -390,6 +443,12 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] enforcement_mode: The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
                Valid values are:
                (Unset)
@@ -492,10 +551,11 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 enforcement_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enforcement_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -505,6 +565,7 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = AppCheckResourcePolicyArgs.__new__(AppCheckResourcePolicyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["enforcement_mode"] = enforcement_mode
             __props__.__dict__["project"] = project
             if service_id is None and not opts.urn:
@@ -526,13 +587,14 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            enforcement_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-            service_id: Optional[pulumi.Input[_builtins.str]] = None,
-            target_resource: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'AppCheckResourcePolicy':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            enforcement_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+            service_id: pulumi.Input[Optional[_builtins.str]] = None,
+            target_resource: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'AppCheckResourcePolicy':
         """
         Get an existing AppCheckResourcePolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -540,6 +602,12 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] enforcement_mode: The App Check enforcement mode for a service supported by App Check. This will override the EnforcementMode setting on the service.
                Valid values are:
                (Unset)
@@ -583,6 +651,7 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
 
         __props__ = _AppCheckResourcePolicyState.__new__(_AppCheckResourcePolicyState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["enforcement_mode"] = enforcement_mode
         __props__.__dict__["etag"] = etag
         __props__.__dict__["project"] = project
@@ -591,6 +660,19 @@ class AppCheckResourcePolicy(pulumi.CustomResource):
         __props__.__dict__["target_resource"] = target_resource
         __props__.__dict__["update_time"] = update_time
         return AppCheckResourcePolicy(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="enforcementMode")

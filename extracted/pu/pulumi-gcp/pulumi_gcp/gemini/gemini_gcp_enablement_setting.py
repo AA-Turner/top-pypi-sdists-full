@@ -21,16 +21,23 @@ class GeminiGcpEnablementSettingArgs:
     def __init__(__self__, *,
                  gemini_gcp_enablement_setting_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 disable_web_grounding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_customer_data_sharing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_web_grounding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_customer_data_sharing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a GeminiGcpEnablementSetting resource.
 
         :param pulumi.Input[_builtins.str] gemini_gcp_enablement_setting_id: Id of the Gemini Gcp Enablement setting.
         :param pulumi.Input[_builtins.str] location: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_web_grounding: (Optional, Deprecated)
                Whether web grounding should be disabled.
                
@@ -48,6 +55,8 @@ class GeminiGcpEnablementSettingArgs:
         """
         pulumi.set(__self__, "gemini_gcp_enablement_setting_id", gemini_gcp_enablement_setting_id)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_web_grounding is not None:
             warnings.warn("""`disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""", DeprecationWarning)
             pulumi.log.warn("""disable_web_grounding is deprecated: `disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""")
@@ -87,9 +96,26 @@ class GeminiGcpEnablementSettingArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="disableWebGrounding")
     @_utilities.deprecated("""`disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""")
-    def disable_web_grounding(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_web_grounding(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         (Optional, Deprecated)
         Whether web grounding should be disabled.
@@ -99,24 +125,24 @@ class GeminiGcpEnablementSettingArgs:
         return pulumi.get(self, "disable_web_grounding")
 
     @disable_web_grounding.setter
-    def disable_web_grounding(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_web_grounding(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_web_grounding", value)
 
     @_builtins.property
     @pulumi.getter(name="enableCustomerDataSharing")
-    def enable_customer_data_sharing(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_customer_data_sharing(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether customer data sharing should be enabled.
         """
         return pulumi.get(self, "enable_customer_data_sharing")
 
     @enable_customer_data_sharing.setter
-    def enable_customer_data_sharing(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_customer_data_sharing(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_customer_data_sharing", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key value pairs.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -125,12 +151,12 @@ class GeminiGcpEnablementSettingArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -138,12 +164,12 @@ class GeminiGcpEnablementSettingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="webGroundingType")
-    def web_grounding_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def web_grounding_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Web grounding type.
         Possible values:
@@ -153,29 +179,36 @@ class GeminiGcpEnablementSettingArgs:
         return pulumi.get(self, "web_grounding_type")
 
     @web_grounding_type.setter
-    def web_grounding_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def web_grounding_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "web_grounding_type", value)
 
 
 @pulumi.input_type
 class _GeminiGcpEnablementSettingState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 disable_web_grounding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 enable_customer_data_sharing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gemini_gcp_enablement_setting_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_web_grounding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 enable_customer_data_sharing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gemini_gcp_enablement_setting_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering GeminiGcpEnablementSetting resources.
 
         :param pulumi.Input[_builtins.str] create_time: Create time stamp.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_web_grounding: (Optional, Deprecated)
                Whether web grounding should be disabled.
                
@@ -201,6 +234,8 @@ class _GeminiGcpEnablementSettingState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable_web_grounding is not None:
             warnings.warn("""`disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""", DeprecationWarning)
             pulumi.log.warn("""disable_web_grounding is deprecated: `disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""")
@@ -229,20 +264,37 @@ class _GeminiGcpEnablementSettingState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Create time stamp.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="disableWebGrounding")
     @_utilities.deprecated("""`disable_web_grounding` is deprecated. Use `web_grounding_type` instead.""")
-    def disable_web_grounding(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable_web_grounding(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         (Optional, Deprecated)
         Whether web grounding should be disabled.
@@ -252,48 +304,48 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "disable_web_grounding")
 
     @disable_web_grounding.setter
-    def disable_web_grounding(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable_web_grounding(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable_web_grounding", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="enableCustomerDataSharing")
-    def enable_customer_data_sharing(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_customer_data_sharing(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether customer data sharing should be enabled.
         """
         return pulumi.get(self, "enable_customer_data_sharing")
 
     @enable_customer_data_sharing.setter
-    def enable_customer_data_sharing(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_customer_data_sharing(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_customer_data_sharing", value)
 
     @_builtins.property
     @pulumi.getter(name="geminiGcpEnablementSettingId")
-    def gemini_gcp_enablement_setting_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gemini_gcp_enablement_setting_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Id of the Gemini Gcp Enablement setting.
         """
         return pulumi.get(self, "gemini_gcp_enablement_setting_id")
 
     @gemini_gcp_enablement_setting_id.setter
-    def gemini_gcp_enablement_setting_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gemini_gcp_enablement_setting_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gemini_gcp_enablement_setting_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key value pairs.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -302,24 +354,24 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. Name of the resource.
         Format:projects/{project}/locations/{location}/geminiGcpEnablementSettings/{geminiGcpEnablementSetting}
@@ -327,12 +379,12 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -340,12 +392,12 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -353,24 +405,24 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Update time stamp.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="webGroundingType")
-    def web_grounding_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def web_grounding_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Web grounding type.
         Possible values:
@@ -380,7 +432,7 @@ class _GeminiGcpEnablementSettingState:
         return pulumi.get(self, "web_grounding_type")
 
     @web_grounding_type.setter
-    def web_grounding_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def web_grounding_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "web_grounding_type", value)
 
 
@@ -390,13 +442,14 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disable_web_grounding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_customer_data_sharing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gemini_gcp_enablement_setting_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_web_grounding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_customer_data_sharing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gemini_gcp_enablement_setting_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The resource for managing GeminiGcpEnablement settings for Admin Control.
@@ -438,6 +491,12 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_web_grounding: (Optional, Deprecated)
                Whether web grounding should be disabled.
                
@@ -514,13 +573,14 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disable_web_grounding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_customer_data_sharing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gemini_gcp_enablement_setting_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable_web_grounding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_customer_data_sharing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gemini_gcp_enablement_setting_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -530,6 +590,7 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = GeminiGcpEnablementSettingArgs.__new__(GeminiGcpEnablementSettingArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disable_web_grounding"] = disable_web_grounding
             __props__.__dict__["enable_customer_data_sharing"] = enable_customer_data_sharing
             if gemini_gcp_enablement_setting_id is None and not opts.urn:
@@ -558,18 +619,19 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            disable_web_grounding: Optional[pulumi.Input[_builtins.bool]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            enable_customer_data_sharing: Optional[pulumi.Input[_builtins.bool]] = None,
-            gemini_gcp_enablement_setting_id: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            web_grounding_type: Optional[pulumi.Input[_builtins.str]] = None) -> 'GeminiGcpEnablementSetting':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disable_web_grounding: pulumi.Input[Optional[_builtins.bool]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            enable_customer_data_sharing: pulumi.Input[Optional[_builtins.bool]] = None,
+            gemini_gcp_enablement_setting_id: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            web_grounding_type: pulumi.Input[Optional[_builtins.str]] = None) -> 'GeminiGcpEnablementSetting':
         """
         Get an existing GeminiGcpEnablementSetting resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -578,6 +640,12 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Create time stamp.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable_web_grounding: (Optional, Deprecated)
                Whether web grounding should be disabled.
                
@@ -606,6 +674,7 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
         __props__ = _GeminiGcpEnablementSettingState.__new__(_GeminiGcpEnablementSettingState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disable_web_grounding"] = disable_web_grounding
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["enable_customer_data_sharing"] = enable_customer_data_sharing
@@ -626,6 +695,19 @@ class GeminiGcpEnablementSetting(pulumi.CustomResource):
         Create time stamp.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="disableWebGrounding")

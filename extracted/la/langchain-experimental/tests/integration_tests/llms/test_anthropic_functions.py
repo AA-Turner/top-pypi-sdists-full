@@ -2,10 +2,23 @@
 
 import unittest
 
-from langchain_community.chat_models.anthropic import ChatAnthropic
-from langchain_community.chat_models.bedrock import BedrockChat
+import pytest
 
-from langchain_experimental.llms.anthropic_functions import AnthropicFunctions
+try:
+    from langchain_community.chat_models.anthropic import ChatAnthropic
+    from langchain_community.chat_models.bedrock import BedrockChat
+except ImportError:
+    pytest.skip(
+        "`langchain_community.chat_models.anthropic` and "
+        "`langchain_community.chat_models.bedrock` were removed in "
+        "`langchain-community>=0.4.2`; use `langchain_anthropic.ChatAnthropic` "
+        "and `langchain_aws.ChatBedrock` instead.",
+        allow_module_level=True,
+    )
+
+from langchain_experimental.llms.anthropic_functions import (  # noqa: E402
+    AnthropicFunctions,
+)
 
 
 class TestAnthropicFunctions(unittest.TestCase):

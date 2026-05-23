@@ -2,15 +2,16 @@ import os.path
 import tarfile
 import tempfile
 
-from biolib._shared.types.typing import TYPE_CHECKING, Iterable, Optional
+from biolib._shared.types.typing import Iterable, Optional, Protocol, Tuple
 
-if TYPE_CHECKING:
-    from docker.models.containers import Container  # type: ignore
+
+class _ContainerLike(Protocol):
+    def get_archive(self, path: str) -> Tuple[Iterable[bytes], dict]: ...
 
 
 class FileInContainer:
-    def __init__(self, container: 'Container', path_in_container: str, overlay_upper_dir_path: Optional[str]):
-        self._container: 'Container' = container
+    def __init__(self, container: _ContainerLike, path_in_container: str, overlay_upper_dir_path: Optional[str]):
+        self._container: _ContainerLike = container
         self._path_on_disk: Optional[str] = (
             overlay_upper_dir_path + path_in_container if overlay_upper_dir_path else None
         )

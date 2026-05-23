@@ -21,14 +21,21 @@ class LogicalViewArgs:
     def __init__(__self__, *,
                  logical_view_id: pulumi.Input[_builtins.str],
                  query: pulumi.Input[_builtins.str],
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a LogicalView resource.
 
         :param pulumi.Input[_builtins.str] logical_view_id: The unique name of the logical view in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
         :param pulumi.Input[_builtins.str] query: The logical view's select query.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Set to true to make the logical view protected against deletion.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the logical view within.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -36,6 +43,8 @@ class LogicalViewArgs:
         """
         pulumi.set(__self__, "logical_view_id", logical_view_id)
         pulumi.set(__self__, "query", query)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if instance is not None:
@@ -68,32 +77,49 @@ class LogicalViewArgs:
         pulumi.set(self, "query", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Set to true to make the logical view protected against deletion.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance to create the logical view within.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -101,22 +127,29 @@ class LogicalViewArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _LogicalViewState:
     def __init__(__self__, *,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 logical_view_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 query: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 logical_view_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 query: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering LogicalView resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Set to true to make the logical view protected against deletion.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the logical view within.
         :param pulumi.Input[_builtins.str] logical_view_id: The unique name of the logical view in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
@@ -125,6 +158,8 @@ class _LogicalViewState:
                If it is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] query: The logical view's select query.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if instance is not None:
@@ -139,56 +174,73 @@ class _LogicalViewState:
             pulumi.set(__self__, "query", query)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Set to true to make the logical view protected against deletion.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance to create the logical view within.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter(name="logicalViewId")
-    def logical_view_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def logical_view_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique name of the logical view in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
         """
         return pulumi.get(self, "logical_view_id")
 
     @logical_view_id.setter
-    def logical_view_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def logical_view_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "logical_view_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique name of the requested logical view. Values are of the form `projects/<project>/instances/<instance>/logicalViews/<logicalViewId>`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -196,19 +248,19 @@ class _LogicalViewState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def query(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def query(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The logical view's select query.
         """
         return pulumi.get(self, "query")
 
     @query.setter
-    def query(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def query(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "query", value)
 
 
@@ -218,11 +270,12 @@ class LogicalView(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 logical_view_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 query: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 logical_view_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 query: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A logical view object that can be referenced in SQL queries.
@@ -283,6 +336,12 @@ class LogicalView(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Set to true to make the logical view protected against deletion.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the logical view within.
         :param pulumi.Input[_builtins.str] logical_view_id: The unique name of the logical view in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
@@ -368,11 +427,12 @@ class LogicalView(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 logical_view_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 query: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 logical_view_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 query: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -382,6 +442,7 @@ class LogicalView(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = LogicalViewArgs.__new__(LogicalViewArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             __props__.__dict__["instance"] = instance
             if logical_view_id is None and not opts.urn:
@@ -402,12 +463,13 @@ class LogicalView(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            logical_view_id: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            query: Optional[pulumi.Input[_builtins.str]] = None) -> 'LogicalView':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            logical_view_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            query: pulumi.Input[Optional[_builtins.str]] = None) -> 'LogicalView':
         """
         Get an existing LogicalView resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -415,6 +477,12 @@ class LogicalView(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Set to true to make the logical view protected against deletion.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the logical view within.
         :param pulumi.Input[_builtins.str] logical_view_id: The unique name of the logical view in the form `[_a-zA-Z0-9][-_.a-zA-Z0-9]*`.
@@ -427,6 +495,7 @@ class LogicalView(pulumi.CustomResource):
 
         __props__ = _LogicalViewState.__new__(_LogicalViewState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["instance"] = instance
         __props__.__dict__["logical_view_id"] = logical_view_id
@@ -434,6 +503,19 @@ class LogicalView(pulumi.CustomResource):
         __props__.__dict__["project"] = project
         __props__.__dict__["query"] = query
         return LogicalView(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

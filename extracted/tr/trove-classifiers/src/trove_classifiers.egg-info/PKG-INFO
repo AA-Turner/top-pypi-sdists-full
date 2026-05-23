@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trove-classifiers
-Version: 2026.5.20.19
+Version: 2026.5.22.10
 Summary: Canonical source for classifiers on PyPI (pypi.org).
 Home-page: https://github.com/pypa/trove-classifiers
 Author: The PyPI Admins

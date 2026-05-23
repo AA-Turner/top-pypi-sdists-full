@@ -23,7 +23,8 @@ class FolderSccBigQueryExportArgs:
                  dataset: pulumi.Input[_builtins.str],
                  description: pulumi.Input[_builtins.str],
                  filter: pulumi.Input[_builtins.str],
-                 folder: pulumi.Input[_builtins.str]):
+                 folder: pulumi.Input[_builtins.str],
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a FolderSccBigQueryExport resource.
 
@@ -53,12 +54,20 @@ class FolderSccBigQueryExportArgs:
                for information on how to write a filter.
         :param pulumi.Input[_builtins.str] folder: The folder where Cloud Security Command Center Big Query Export
                Config lives in.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         """
         pulumi.set(__self__, "big_query_export_id", big_query_export_id)
         pulumi.set(__self__, "dataset", dataset)
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "filter", filter)
         pulumi.set(__self__, "folder", folder)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
 
     @_builtins.property
     @pulumi.getter(name="bigQueryExportId")
@@ -141,20 +150,38 @@ class FolderSccBigQueryExportArgs:
     def folder(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "folder", value)
 
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
 
 @pulumi.input_type
 class _FolderSccBigQueryExportState:
     def __init__(__self__, *,
-                 big_query_export_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 folder: Optional[pulumi.Input[_builtins.str]] = None,
-                 most_recent_editor: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 principal: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 big_query_export_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 folder: pulumi.Input[Optional[_builtins.str]] = None,
+                 most_recent_editor: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering FolderSccBigQueryExport resources.
 
@@ -165,6 +192,12 @@ class _FolderSccBigQueryExportState:
         :param pulumi.Input[_builtins.str] dataset: The dataset to write findings' updates to.
                Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]".
                BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_).
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the export (max of 1024 characters).
         :param pulumi.Input[_builtins.str] filter: Expression that defines the filter to apply across create/update
                events of findings. The
@@ -202,6 +235,8 @@ class _FolderSccBigQueryExportState:
             pulumi.set(__self__, "create_time", create_time)
         if dataset is not None:
             pulumi.set(__self__, "dataset", dataset)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if filter is not None:
@@ -219,19 +254,19 @@ class _FolderSccBigQueryExportState:
 
     @_builtins.property
     @pulumi.getter(name="bigQueryExportId")
-    def big_query_export_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def big_query_export_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This must be unique within the organization.
         """
         return pulumi.get(self, "big_query_export_id")
 
     @big_query_export_id.setter
-    def big_query_export_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def big_query_export_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "big_query_export_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time at which the BigQuery export was created.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -240,12 +275,12 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def dataset(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dataset(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The dataset to write findings' updates to.
         Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]".
@@ -254,24 +289,41 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "dataset")
 
     @dataset.setter
-    def dataset(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dataset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dataset", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the export (max of 1024 characters).
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Expression that defines the filter to apply across create/update
         events of findings. The
@@ -296,12 +348,12 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter
-    def folder(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def folder(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The folder where Cloud Security Command Center Big Query Export
         Config lives in.
@@ -309,24 +361,24 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "folder")
 
     @folder.setter
-    def folder(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def folder(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "folder", value)
 
     @_builtins.property
     @pulumi.getter(name="mostRecentEditor")
-    def most_recent_editor(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def most_recent_editor(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Email address of the user who last edited the BigQuery export.
         """
         return pulumi.get(self, "most_recent_editor")
 
     @most_recent_editor.setter
-    def most_recent_editor(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def most_recent_editor(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "most_recent_editor", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of this export, in the format
         `projects/{{project}}/bigQueryExports/{{big_query_export_id}}`.
@@ -335,24 +387,24 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def principal(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def principal(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The service account that needs permission to create table and upload data to the BigQuery dataset.
         """
         return pulumi.get(self, "principal")
 
     @principal.setter
-    def principal(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def principal(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "principal", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The most recent time at which the BigQuery export was updated.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -361,7 +413,7 @@ class _FolderSccBigQueryExportState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -371,11 +423,12 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 big_query_export_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 folder: Optional[pulumi.Input[_builtins.str]] = None,
+                 big_query_export_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 folder: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Cloud Security Command Center (Cloud SCC) Big Query Export Config.
@@ -443,6 +496,12 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] dataset: The dataset to write findings' updates to.
                Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]".
                BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_).
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the export (max of 1024 characters).
         :param pulumi.Input[_builtins.str] filter: Expression that defines the filter to apply across create/update
                events of findings. The
@@ -547,11 +606,12 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 big_query_export_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 dataset: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 folder: Optional[pulumi.Input[_builtins.str]] = None,
+                 big_query_export_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 dataset: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 folder: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -567,6 +627,7 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
             if dataset is None and not opts.urn:
                 raise TypeError("Missing required property 'dataset'")
             __props__.__dict__["dataset"] = dataset
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if description is None and not opts.urn:
                 raise TypeError("Missing required property 'description'")
             __props__.__dict__["description"] = description
@@ -591,16 +652,17 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            big_query_export_id: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            dataset: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            filter: Optional[pulumi.Input[_builtins.str]] = None,
-            folder: Optional[pulumi.Input[_builtins.str]] = None,
-            most_recent_editor: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            principal: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'FolderSccBigQueryExport':
+            big_query_export_id: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            dataset: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            filter: pulumi.Input[Optional[_builtins.str]] = None,
+            folder: pulumi.Input[Optional[_builtins.str]] = None,
+            most_recent_editor: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            principal: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'FolderSccBigQueryExport':
         """
         Get an existing FolderSccBigQueryExport resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -615,6 +677,12 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] dataset: The dataset to write findings' updates to.
                Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]".
                BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_).
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the export (max of 1024 characters).
         :param pulumi.Input[_builtins.str] filter: Expression that defines the filter to apply across create/update
                events of findings. The
@@ -653,6 +721,7 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
         __props__.__dict__["big_query_export_id"] = big_query_export_id
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["dataset"] = dataset
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["filter"] = filter
         __props__.__dict__["folder"] = folder
@@ -689,6 +758,19 @@ class FolderSccBigQueryExport(pulumi.CustomResource):
         BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_).
         """
         return pulumi.get(self, "dataset")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

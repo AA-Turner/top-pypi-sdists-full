@@ -5,7 +5,7 @@ cmake_policy(SET CMP0091 NEW)
 endif()
 
 set(SOFTWARE_NAME "awslc")
-set(SOFTWARE_VERSION "1.71.0")
+set(SOFTWARE_VERSION "1.73.0")
 set(ABI_VERSION 0)
 set(CRYPTO_LIB_NAME "crypto")
 set(SSL_LIB_NAME "ssl")
@@ -115,10 +115,16 @@ enable_language(C)
 
 if (NOT WIN32 AND NOT APPLE)
   include(GNUInstallDirs)
-elseif(NOT DEFINED CMAKE_INSTALL_LIBDIR)
-  set(CMAKE_INSTALL_LIBDIR "lib")
-  set(CMAKE_INSTALL_INCLUDEDIR "include")
-  set(CMAKE_INSTALL_BINDIR "bin")
+else()
+  if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR "lib")
+  endif()
+  if(NOT DEFINED CMAKE_INSTALL_INCLUDEDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR "include")
+  endif()
+  if(NOT DEFINED CMAKE_INSTALL_BINDIR)
+    set(CMAKE_INSTALL_BINDIR "bin")
+  endif()
 endif()
 
 # Set the install include directory based on whether a prefix subdirectory is desired
@@ -843,9 +849,12 @@ if(WIN32)
   # Allow use of fopen.
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
   # VS 2017 and higher supports STL-only warning suppressions.
-  # A bug in CMake < 3.13.0 may cause the space in this value to
-  # cause issues when building with NASM. In that case, update CMake.
-  add_definitions("-D_STL_EXTRA_DISABLED_WARNINGS=4774 4987")
+  # _STL_EXTRA_DISABLED_WARNINGS is only consumed by MSVC STL headers,
+  # so scope the definition to C++. Using add_compile_options with a
+  # CMake-escaped space keeps the value as a single argument under
+  # Ninja + clang-cl, where add_definitions with a space-containing
+  # value is not quoted robustly (see aws/aws-lc-rs#981).
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-D_STL_EXTRA_DISABLED_WARNINGS=4774\ 4987>)
 endif()
 
 add_flag_if_supported(C_CXX_FLAGS "-Wshadow")
@@ -877,6 +886,10 @@ if(FUZZ)
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,fuzzer-no-link -fsanitize-coverage=edge,indirect-calls")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,fuzzer-no-link -fsanitize-coverage=edge,indirect-calls")
+endif()
+
+if(SSL_RUNNER_SHIM_CONFIG)
+  set(RUNNER_ARGS ${RUNNER_ARGS} "-shim-config" "${AWSLC_SOURCE_DIR}/${SSL_RUNNER_SHIM_CONFIG}")
 endif()
 
 if(BUILD_SHARED_LIBS)
@@ -1174,8 +1187,9 @@ if(USE_CUSTOM_LIBCXX)
   set_target_properties(
     libcxx libcxxabi PROPERTIES
     COMPILE_FLAGS "-Wno-missing-prototypes -Wno-implicit-fallthrough"
-    # libc++ and libc++abi must be built in C++20 mode.
-    CXX_STANDARD 20
+    # libc++ and libc++abi must be built in C++23 mode.
+    # LLVM 19+ added expected.cpp which requires C++23.
+    CXX_STANDARD 23
     CXX_STANDARD_REQUIRED TRUE
   )
   # libc++abi depends on libc++ internal headers.
@@ -1330,6 +1344,20 @@ if(DEFINED ENV{AWS_LC_GO_TEST_TIMEOUT})
   set(GO_TEST_TIMEOUT "$ENV{AWS_LC_GO_TEST_TIMEOUT}")
 else()
   set(GO_TEST_TIMEOUT "10m")
+endif()
+
+# Allow overriding the SSL test runner's idle timeout (default in runner.go is 30s).
+# Useful for resource-constrained environments (e.g. FreeBSD VMs) where the shim
+# may be slow to respond.
+if(DEFINED ENV{AWS_LC_SSL_RUNNER_IDLE_TIMEOUT})
+  set(RUNNER_ARGS ${RUNNER_ARGS} "-idle-timeout" "$ENV{AWS_LC_SSL_RUNNER_IDLE_TIMEOUT}")
+endif()
+
+# Allow enabling retry on runner-side TCP timeouts.
+# Useful for resource-constrained environments (e.g. emulated FreeBSD VMs) where
+# transient timeouts do not indicate real bugs.
+if(DEFINED ENV{AWS_LC_SSL_RUNNER_RETRY_ON_TIMEOUT})
+  set(RUNNER_ARGS ${RUNNER_ARGS} "-retry-on-timeout")
 endif()
 
 if (NOT ${CMAKE_VERSION} VERSION_LESS "3.2")

@@ -26,7 +26,8 @@ class DeploymentArgs:
                  channel_profile: pulumi.Input['DeploymentChannelProfileArgs'],
                  display_name: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Deployment resource.
 
@@ -39,6 +40,12 @@ class DeploymentArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] display_name: Display name of the deployment.
         :param pulumi.Input[_builtins.str] location: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
@@ -47,6 +54,8 @@ class DeploymentArgs:
         pulumi.set(__self__, "channel_profile", channel_profile)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
 
@@ -115,8 +124,25 @@ class DeploymentArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -124,23 +150,24 @@ class DeploymentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DeploymentState:
     def __init__(__self__, *,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 app_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_profile: Optional[pulumi.Input['DeploymentChannelProfileArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 app_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_profile: pulumi.Input[Optional['DeploymentChannelProfileArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Deployment resources.
 
@@ -152,6 +179,12 @@ class _DeploymentState:
                channel, such as web UI or telephony.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp when this deployment was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display name of the deployment.
         :param pulumi.Input[_builtins.str] etag: Etag used to ensure the object hasn't changed during a read-modify-write
                operation. If the etag is empty, the update will overwrite any concurrent
@@ -172,6 +205,8 @@ class _DeploymentState:
             pulumi.set(__self__, "channel_profile", channel_profile)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if etag is not None:
@@ -187,19 +222,19 @@ class _DeploymentState:
 
     @_builtins.property
     @pulumi.getter
-    def app(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "app")
 
     @app.setter
-    def app(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app", value)
 
     @_builtins.property
     @pulumi.getter(name="appVersion")
-    def app_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the app version to deploy.
         Format:
@@ -208,12 +243,12 @@ class _DeploymentState:
         return pulumi.get(self, "app_version")
 
     @app_version.setter
-    def app_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_version", value)
 
     @_builtins.property
     @pulumi.getter(name="channelProfile")
-    def channel_profile(self) -> Optional[pulumi.Input['DeploymentChannelProfileArgs']]:
+    def channel_profile(self) -> pulumi.Input[Optional['DeploymentChannelProfileArgs']]:
         """
         A ChannelProfile configures the agent's behavior for a specific communication
         channel, such as web UI or telephony.
@@ -222,36 +257,53 @@ class _DeploymentState:
         return pulumi.get(self, "channel_profile")
 
     @channel_profile.setter
-    def channel_profile(self, value: Optional[pulumi.Input['DeploymentChannelProfileArgs']]):
+    def channel_profile(self, value: pulumi.Input[Optional['DeploymentChannelProfileArgs']]):
         pulumi.set(self, "channel_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when this deployment was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display name of the deployment.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Etag used to ensure the object hasn't changed during a read-modify-write
         operation. If the etag is empty, the update will overwrite any concurrent
@@ -260,24 +312,24 @@ class _DeploymentState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the deployment.
         Format:
@@ -286,12 +338,12 @@ class _DeploymentState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -299,19 +351,19 @@ class _DeploymentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when this deployment was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -321,12 +373,13 @@ class Deployment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 app_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_profile: Optional[pulumi.Input[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 app_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_profile: pulumi.Input[Optional[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Description
@@ -366,6 +419,48 @@ class Deployment(pulumi.CustomResource):
                 },
             })
         ```
+        ### Ces Deployment Full
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        my_app = gcp.ces.App("my-app",
+            location="us",
+            display_name="my-app",
+            app_id="app-id",
+            time_zone_settings={
+                "time_zone": "America/Los_Angeles",
+            })
+        my_deployment = gcp.ces.Deployment("my-deployment",
+            location="us",
+            display_name="my-deployment",
+            app=my_app.name,
+            app_version="projects/example-project/locations/us/apps/example-app/versions/example-version",
+            channel_profile={
+                "channel_type": "API",
+                "disable_barge_in_control": True,
+                "disable_dtmf": True,
+                "persona_property": {
+                    "persona": "CHATTY",
+                },
+                "profile_id": "temp_profile_id",
+                "web_widget_config": {
+                    "modality": "CHAT_AND_VOICE",
+                    "theme": "DARK",
+                    "web_widget_title": "temp_webwidget_title",
+                    "security_settings": {
+                        "enable_public_access": True,
+                        "enable_origin_check": True,
+                        "allowed_origins": [
+                            "https://example.com",
+                            "https://test.com",
+                        ],
+                        "enable_recaptcha": True,
+                    },
+                },
+            })
+        ```
 
         ## Import
 
@@ -393,6 +488,12 @@ class Deployment(pulumi.CustomResource):
         :param pulumi.Input[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']] channel_profile: A ChannelProfile configures the agent's behavior for a specific communication
                channel, such as web UI or telephony.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display name of the deployment.
         :param pulumi.Input[_builtins.str] location: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -442,6 +543,48 @@ class Deployment(pulumi.CustomResource):
                 },
             })
         ```
+        ### Ces Deployment Full
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        my_app = gcp.ces.App("my-app",
+            location="us",
+            display_name="my-app",
+            app_id="app-id",
+            time_zone_settings={
+                "time_zone": "America/Los_Angeles",
+            })
+        my_deployment = gcp.ces.Deployment("my-deployment",
+            location="us",
+            display_name="my-deployment",
+            app=my_app.name,
+            app_version="projects/example-project/locations/us/apps/example-app/versions/example-version",
+            channel_profile={
+                "channel_type": "API",
+                "disable_barge_in_control": True,
+                "disable_dtmf": True,
+                "persona_property": {
+                    "persona": "CHATTY",
+                },
+                "profile_id": "temp_profile_id",
+                "web_widget_config": {
+                    "modality": "CHAT_AND_VOICE",
+                    "theme": "DARK",
+                    "web_widget_title": "temp_webwidget_title",
+                    "security_settings": {
+                        "enable_public_access": True,
+                        "enable_origin_check": True,
+                        "allowed_origins": [
+                            "https://example.com",
+                            "https://test.com",
+                        ],
+                        "enable_recaptcha": True,
+                    },
+                },
+            })
+        ```
 
         ## Import
 
@@ -475,12 +618,13 @@ class Deployment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app: Optional[pulumi.Input[_builtins.str]] = None,
-                 app_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 channel_profile: Optional[pulumi.Input[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 app: pulumi.Input[Optional[_builtins.str]] = None,
+                 app_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 channel_profile: pulumi.Input[Optional[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -499,6 +643,7 @@ class Deployment(pulumi.CustomResource):
             if channel_profile is None and not opts.urn:
                 raise TypeError("Missing required property 'channel_profile'")
             __props__.__dict__["channel_profile"] = channel_profile
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -520,16 +665,17 @@ class Deployment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            app: Optional[pulumi.Input[_builtins.str]] = None,
-            app_version: Optional[pulumi.Input[_builtins.str]] = None,
-            channel_profile: Optional[pulumi.Input[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Deployment':
+            app: pulumi.Input[Optional[_builtins.str]] = None,
+            app_version: pulumi.Input[Optional[_builtins.str]] = None,
+            channel_profile: pulumi.Input[Optional[Union['DeploymentChannelProfileArgs', 'DeploymentChannelProfileArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Deployment':
         """
         Get an existing Deployment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -545,6 +691,12 @@ class Deployment(pulumi.CustomResource):
                channel, such as web UI or telephony.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp when this deployment was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display name of the deployment.
         :param pulumi.Input[_builtins.str] etag: Etag used to ensure the object hasn't changed during a read-modify-write
                operation. If the etag is empty, the update will overwrite any concurrent
@@ -565,6 +717,7 @@ class Deployment(pulumi.CustomResource):
         __props__.__dict__["app_version"] = app_version
         __props__.__dict__["channel_profile"] = channel_profile
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["etag"] = etag
         __props__.__dict__["location"] = location
@@ -608,6 +761,19 @@ class Deployment(pulumi.CustomResource):
         Timestamp when this deployment was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

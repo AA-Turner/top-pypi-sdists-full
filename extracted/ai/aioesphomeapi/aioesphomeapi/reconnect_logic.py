@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from enum import Enum
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import zeroconf
 from zeroconf.const import (
@@ -13,7 +13,6 @@ from zeroconf.const import (
     _TYPE_PTR as TYPE_PTR,
 )
 
-from .client import APIClient
 from .core import (
     APIConnectionCancelledError,
     APIConnectionError,
@@ -24,7 +23,12 @@ from .core import (
     UnhandledAPIConnectionError,
 )
 from .util import address_is_local, create_eager_task, host_is_name_part, is_ip_address
-from .zeroconf import ZeroconfInstanceType
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from .client import APIClient
+    from .zeroconf import ZeroconfInstanceType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,7 +171,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self, state: ReconnectLogicState
     ) -> None:
         """Set the connection state while holding the lock."""
-        assert self._connected_lock.locked(), "connected_lock must be locked"
+        assert self._connected_lock.locked(), "connected_lock must be locked"  # noqa: S101  # precondition
         self._async_set_connection_state_without_lock(state)
 
     def _async_set_connection_state_without_lock(
@@ -218,7 +222,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             await self._cli.start_resolve_host(
                 on_stop=self._on_disconnect, log_errors=False
             )
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._async_set_connection_state_while_locked(ReconnectLogicState.CONNECTING)
@@ -232,7 +236,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         )
         try:
             await self._cli.start_connection()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         finish_connect_time = time.perf_counter()
@@ -244,7 +248,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         self._async_set_connection_state_while_locked(ReconnectLogicState.HANDSHAKING)
         try:
             await self._cli.finish_connection(login=True)
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
             await self._handle_connection_failure(err)
             return False
         self._tries = 0
@@ -391,6 +395,7 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def _remove_stop_task(self, _fut: asyncio.Future[None]) -> None:
         """Remove the stop task from the connect loop.
+
         We need to do this because the asyncio does not hold
         a strong reference to the task, so it can be garbage
         collected unexpectedly.
@@ -449,12 +454,16 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
         """
         if not self._zc_listening and self.name and not self._is_ip_address:
             _LOGGER.debug("Starting zeroconf listener for %s", self.name)
-            self._ptr_alias = f"{self.name}._esphomelib._tcp.local."
-            self._a_name = f"{self.name}.local."
+            # RFC 6762 §16 / RFC 4343: mDNS labels are case-insensitive.
+            # Lowercase the match keys here and the incoming records below
+            # so a device advertising mixed-case labels still triggers the
+            # fast reconnect instead of falling back to exponential backoff.
+            self._ptr_alias = f"{self.name}._esphomelib._tcp.local.".lower()
+            self._a_name = f"{self.name}.local.".lower()
             try:
                 async_zc = self._zeroconf_manager.get_async_zeroconf()
                 async_zc.zeroconf.async_add_listener(self, None)
-            except Exception as err:  # pylint: disable=broad-except
+            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-except
                 _LOGGER.log(
                     self._first_try_log_level(),
                     "Could not start zeroconf listener for %s: %s (%s); "
@@ -482,8 +491,8 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
 
     def async_update_records(
         self,
-        zc: zeroconf.Zeroconf,  # pylint: disable=unused-argument
-        now: float,  # pylint: disable=unused-argument
+        zc: zeroconf.Zeroconf,  # noqa: ARG002 # pylint: disable=unused-argument
+        now: float,  # noqa: ARG002 # pylint: disable=unused-argument
         records: list[zeroconf.RecordUpdate],
     ) -> None:
         """Listen to zeroconf updated mDNS records. This must be called from the eventloop.
@@ -504,10 +513,13 @@ class ReconnectLogic(zeroconf.RecordUpdateListener):
             # We only consider A, AAAA, and PTR records and match using the alias name
             new_record = record_update.new
             if not (
-                (new_record.type == TYPE_PTR and new_record.alias == self._ptr_alias)  # type: ignore[attr-defined]
+                (
+                    new_record.type == TYPE_PTR
+                    and new_record.alias.lower() == self._ptr_alias  # type: ignore[attr-defined]
+                )
                 or (
                     new_record.type in ADDRESS_RECORD_TYPES
-                    and new_record.name == self._a_name
+                    and new_record.name.lower() == self._a_name
                 )
             ):
                 continue

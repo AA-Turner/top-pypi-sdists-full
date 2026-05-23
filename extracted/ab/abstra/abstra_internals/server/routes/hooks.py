@@ -41,7 +41,7 @@ def get_editor_bp(controller: MainController):
         if req.position and len(req.position) >= 2:
             position = (int(req.position[0]), int(req.position[1]))
 
-        hook = controller.create_hook(req.title, req.file, position, req.id)
+        hook = controller.create_stage("hook", req.title, req.file, position, req.id)
         return hook.editor_dto
 
     @bp.put("/<path:id>")

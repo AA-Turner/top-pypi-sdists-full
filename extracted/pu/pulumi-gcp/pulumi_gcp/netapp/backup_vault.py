@@ -22,14 +22,15 @@ __all__ = ['BackupVaultArgs', 'BackupVault']
 class BackupVaultArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
-                 backup_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_retention_policy: Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']] = None,
-                 backup_vault_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_config: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 backup_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_retention_policy: pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']] = None,
+                 backup_vault_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_config: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a BackupVault resource.
 
@@ -39,6 +40,12 @@ class BackupVaultArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] backup_vault_type: Type of the backup vault to be created. Default is IN_REGION.
                Possible values are: `BACKUP_VAULT_TYPE_UNSPECIFIED`, `IN_REGION`, `CROSS_REGION`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] kms_config: Specifies the Key Management System (KMS) configuration to be used for
                backup encryption. Format:
@@ -58,6 +65,8 @@ class BackupVaultArgs:
             pulumi.set(__self__, "backup_retention_policy", backup_retention_policy)
         if backup_vault_type is not None:
             pulumi.set(__self__, "backup_vault_type", backup_vault_type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if kms_config is not None:
@@ -83,19 +92,19 @@ class BackupVaultArgs:
 
     @_builtins.property
     @pulumi.getter(name="backupRegion")
-    def backup_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Region in which backup is stored.
         """
         return pulumi.get(self, "backup_region")
 
     @backup_region.setter
-    def backup_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_region", value)
 
     @_builtins.property
     @pulumi.getter(name="backupRetentionPolicy")
-    def backup_retention_policy(self) -> Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']]:
+    def backup_retention_policy(self) -> pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']]:
         """
         Backup retention policy defining the retention of the backups.
         Structure is documented below.
@@ -103,12 +112,12 @@ class BackupVaultArgs:
         return pulumi.get(self, "backup_retention_policy")
 
     @backup_retention_policy.setter
-    def backup_retention_policy(self, value: Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']]):
+    def backup_retention_policy(self, value: pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']]):
         pulumi.set(self, "backup_retention_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="backupVaultType")
-    def backup_vault_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_vault_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the backup vault to be created. Default is IN_REGION.
         Possible values are: `BACKUP_VAULT_TYPE_UNSPECIFIED`, `IN_REGION`, `CROSS_REGION`.
@@ -116,24 +125,41 @@ class BackupVaultArgs:
         return pulumi.get(self, "backup_vault_type")
 
     @backup_vault_type.setter
-    def backup_vault_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_vault_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_vault_type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsConfig")
-    def kms_config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the Key Management System (KMS) configuration to be used for
         backup encryption. Format:
@@ -142,12 +168,12 @@ class BackupVaultArgs:
         return pulumi.get(self, "kms_config")
 
     @kms_config.setter
-    def kms_config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key value pairs. Example: `{ "owner": "Bob", "department": "finance", "purpose": "testing" }`.
 
@@ -157,24 +183,24 @@ class BackupVaultArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the backup vault. Needs to be unique per location.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -182,31 +208,32 @@ class BackupVaultArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _BackupVaultState:
     def __init__(__self__, *,
-                 backup_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_retention_policy: Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']] = None,
-                 backup_vault_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 backups_crypto_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_backup_vault: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 encryption_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_config: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 source_backup_vault: Optional[pulumi.Input[_builtins.str]] = None,
-                 source_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 backup_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_retention_policy: pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']] = None,
+                 backup_vault_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 backups_crypto_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_backup_vault: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 encryption_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_config: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 source_backup_vault: pulumi.Input[Optional[_builtins.str]] = None,
+                 source_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BackupVault resources.
 
@@ -219,6 +246,12 @@ class _BackupVaultState:
                Format:
                `projects/{{project}}/locations/{{location}}/keyRings/{{key_ring}}/cryptoKeys/{{crypto_key}}/cryptoKeyVersions/{{crypto_key_version}}`
         :param pulumi.Input[_builtins.str] create_time: Create time of the backup vault. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] destination_backup_vault: Name of the Backup vault created in backup region.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -250,6 +283,8 @@ class _BackupVaultState:
             pulumi.set(__self__, "backups_crypto_key_version", backups_crypto_key_version)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if destination_backup_vault is not None:
@@ -279,19 +314,19 @@ class _BackupVaultState:
 
     @_builtins.property
     @pulumi.getter(name="backupRegion")
-    def backup_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Region in which backup is stored.
         """
         return pulumi.get(self, "backup_region")
 
     @backup_region.setter
-    def backup_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_region", value)
 
     @_builtins.property
     @pulumi.getter(name="backupRetentionPolicy")
-    def backup_retention_policy(self) -> Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']]:
+    def backup_retention_policy(self) -> pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']]:
         """
         Backup retention policy defining the retention of the backups.
         Structure is documented below.
@@ -299,12 +334,12 @@ class _BackupVaultState:
         return pulumi.get(self, "backup_retention_policy")
 
     @backup_retention_policy.setter
-    def backup_retention_policy(self, value: Optional[pulumi.Input['BackupVaultBackupRetentionPolicyArgs']]):
+    def backup_retention_policy(self, value: pulumi.Input[Optional['BackupVaultBackupRetentionPolicyArgs']]):
         pulumi.set(self, "backup_retention_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="backupVaultType")
-    def backup_vault_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_vault_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the backup vault to be created. Default is IN_REGION.
         Possible values are: `BACKUP_VAULT_TYPE_UNSPECIFIED`, `IN_REGION`, `CROSS_REGION`.
@@ -312,12 +347,12 @@ class _BackupVaultState:
         return pulumi.get(self, "backup_vault_type")
 
     @backup_vault_type.setter
-    def backup_vault_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_vault_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_vault_type", value)
 
     @_builtins.property
     @pulumi.getter(name="backupsCryptoKeyVersion")
-    def backups_crypto_key_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backups_crypto_key_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The crypto key version used to encrypt the backup vault.
         Format:
@@ -326,72 +361,89 @@ class _BackupVaultState:
         return pulumi.get(self, "backups_crypto_key_version")
 
     @backups_crypto_key_version.setter
-    def backups_crypto_key_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backups_crypto_key_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backups_crypto_key_version", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Create time of the backup vault. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="destinationBackupVault")
-    def destination_backup_vault(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination_backup_vault(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Backup vault created in backup region.
         """
         return pulumi.get(self, "destination_backup_vault")
 
     @destination_backup_vault.setter
-    def destination_backup_vault(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination_backup_vault(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination_backup_vault", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="encryptionState")
-    def encryption_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def encryption_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Encryption state of customer-managed encryption keys (CMEK) backups.
         """
         return pulumi.get(self, "encryption_state")
 
     @encryption_state.setter
-    def encryption_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def encryption_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "encryption_state", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsConfig")
-    def kms_config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the Key Management System (KMS) configuration to be used for
         backup encryption. Format:
@@ -400,12 +452,12 @@ class _BackupVaultState:
         return pulumi.get(self, "kms_config")
 
     @kms_config.setter
-    def kms_config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key value pairs. Example: `{ "owner": "Bob", "department": "finance", "purpose": "testing" }`.
 
@@ -415,36 +467,36 @@ class _BackupVaultState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location (region) of the backup vault.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the backup vault. Needs to be unique per location.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -452,12 +504,12 @@ class _BackupVaultState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -465,43 +517,43 @@ class _BackupVaultState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="sourceBackupVault")
-    def source_backup_vault(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def source_backup_vault(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Backup vault created in source region.
         """
         return pulumi.get(self, "source_backup_vault")
 
     @source_backup_vault.setter
-    def source_backup_vault(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def source_backup_vault(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "source_backup_vault", value)
 
     @_builtins.property
     @pulumi.getter(name="sourceRegion")
-    def source_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def source_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Region in which the backup vault is created.
         """
         return pulumi.get(self, "source_region")
 
     @source_region.setter
-    def source_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def source_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "source_region", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The state of the Backup Vault.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -511,15 +563,16 @@ class BackupVault(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_retention_policy: Optional[pulumi.Input[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
-                 backup_vault_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_config: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 backup_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_retention_policy: pulumi.Input[Optional[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
+                 backup_vault_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_config: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A backup vault is the location where backups are stored. You can only create one backup vault per region.
@@ -572,6 +625,12 @@ class BackupVault(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] backup_vault_type: Type of the backup vault to be created. Default is IN_REGION.
                Possible values are: `BACKUP_VAULT_TYPE_UNSPECIFIED`, `IN_REGION`, `CROSS_REGION`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] kms_config: Specifies the Key Management System (KMS) configuration to be used for
                backup encryption. Format:
@@ -650,15 +709,16 @@ class BackupVault(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 backup_retention_policy: Optional[pulumi.Input[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
-                 backup_vault_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_config: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 backup_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 backup_retention_policy: pulumi.Input[Optional[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
+                 backup_vault_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_config: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -671,6 +731,7 @@ class BackupVault(pulumi.CustomResource):
             __props__.__dict__["backup_region"] = backup_region
             __props__.__dict__["backup_retention_policy"] = backup_retention_policy
             __props__.__dict__["backup_vault_type"] = backup_vault_type
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["kms_config"] = kms_config
             __props__.__dict__["labels"] = labels
@@ -700,24 +761,25 @@ class BackupVault(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backup_region: Optional[pulumi.Input[_builtins.str]] = None,
-            backup_retention_policy: Optional[pulumi.Input[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
-            backup_vault_type: Optional[pulumi.Input[_builtins.str]] = None,
-            backups_crypto_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            destination_backup_vault: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            encryption_state: Optional[pulumi.Input[_builtins.str]] = None,
-            kms_config: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            source_backup_vault: Optional[pulumi.Input[_builtins.str]] = None,
-            source_region: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'BackupVault':
+            backup_region: pulumi.Input[Optional[_builtins.str]] = None,
+            backup_retention_policy: pulumi.Input[Optional[Union['BackupVaultBackupRetentionPolicyArgs', 'BackupVaultBackupRetentionPolicyArgsDict']]] = None,
+            backup_vault_type: pulumi.Input[Optional[_builtins.str]] = None,
+            backups_crypto_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            destination_backup_vault: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            encryption_state: pulumi.Input[Optional[_builtins.str]] = None,
+            kms_config: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            source_backup_vault: pulumi.Input[Optional[_builtins.str]] = None,
+            source_region: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'BackupVault':
         """
         Get an existing BackupVault resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -734,6 +796,12 @@ class BackupVault(pulumi.CustomResource):
                Format:
                `projects/{{project}}/locations/{{location}}/keyRings/{{key_ring}}/cryptoKeys/{{crypto_key}}/cryptoKeyVersions/{{crypto_key_version}}`
         :param pulumi.Input[_builtins.str] create_time: Create time of the backup vault. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] destination_backup_vault: Name of the Backup vault created in backup region.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -764,6 +832,7 @@ class BackupVault(pulumi.CustomResource):
         __props__.__dict__["backup_vault_type"] = backup_vault_type
         __props__.__dict__["backups_crypto_key_version"] = backups_crypto_key_version
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["destination_backup_vault"] = destination_backup_vault
         __props__.__dict__["effective_labels"] = effective_labels
@@ -822,6 +891,19 @@ class BackupVault(pulumi.CustomResource):
         Create time of the backup vault. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

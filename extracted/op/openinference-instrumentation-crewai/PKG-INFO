@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-crewai
-Version: 1.1.7
+Version: 1.1.8
 Summary: OpenInference Crewai Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-crewai
 Author-email: OpenInference Authors <oss@arize.com>

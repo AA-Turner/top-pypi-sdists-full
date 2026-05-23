@@ -58,6 +58,7 @@ from ansys.aedt.core.modules.boundary.circuit_boundary import VoltageDCSource
 from ansys.aedt.core.modules.boundary.circuit_boundary import VoltageFrequencyDependentSource
 from ansys.aedt.core.modules.boundary.circuit_boundary import VoltageSinSource
 from ansys.aedt.core.modules.circuit_templates import SourceKeys
+from ansys.aedt.core.modules.substrate_circuit import SubstrateManager
 
 
 class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
@@ -183,6 +184,7 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
             remove_lock=remove_lock,
         )
         ScatteringMethods.__init__(self, self)
+        self._substrate_manager: SubstrateManager | None = None
 
     def _init_from_design(self, *args, **kwargs) -> None:
         self.__init__(*args, **kwargs)
@@ -195,6 +197,45 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
             return value
         except Exception:
             return from_rkm_to_aedt(value)
+
+    @property
+    def substrate_names(self) -> list[str]:
+        """Return the names of all substrate data blocks in the active Circuit design.
+
+        Returns
+        -------
+        list of str
+            Names of every substrate data block currently defined in the design.
+
+        Examples
+        --------
+        >>> from ansys.aedt.core import Circuit
+        >>> cir = Circuit()
+        >>> cir.substrate_names
+        """
+        return self.substrate.names
+
+    @property
+    def substrate(self) -> SubstrateManager:
+        """Substrate data blocks for this Circuit design.
+
+        Use this object to add, query, and delete substrate data blocks.
+
+        Returns
+        -------
+        :class:`ansys.aedt.core.modules.substrate_circuit.SubstrateManager`
+
+        Examples
+        --------
+        >>> from ansys.aedt.core import Circuit
+        >>> cir = Circuit()
+        >>> sub = cir.substrate.add_microstrip("10mil", 4.4, 0.02, "25mm", name="MySub")
+        >>> cir.substrate.names
+        ['MySub']
+        """
+        if self._substrate_manager is None:
+            self._substrate_manager = SubstrateManager(self)
+        return self._substrate_manager
 
     @pyaedt_function_handler()
     def create_schematic_from_netlist(self, input_file: str) -> bool:
@@ -1691,10 +1732,6 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
         return hfss_3d_layout_model
 
     @pyaedt_function_handler()
-    @deprecate_argument(
-        arg_name="analyze",
-        message="The ``analyze`` argument will be removed in future versions. Analyze before exporting results.",
-    )
     def create_tdr_schematic_from_snp(
         self,
         input_file: str | Hfss3dLayout | Path,
@@ -1704,10 +1741,11 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
         differential: bool | None = True,
         rise_time: float | int = 30,
         use_convolution: bool | None = True,
-        analyze: bool | None = False,
         design_name: str | None = "LNA",
         impedance: float | None = 50,
-    ) -> None:
+        time_step: str | None = None,
+        time_stop: str | None = None,
+    ) -> list[str]:
         """Create a schematic from a Touchstone file and automatically setup a TDR transient analysis.
 
         Parameters
@@ -1729,16 +1767,23 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
         use_convolution : bool, optional
             Whether to use convolution for the Touchstone file. The default is ``True``.
             If ``False``, state-space is used.
-        analyze : bool
-             Whether to automatically assign differential pairs. The default is ``False``.
         design_name : str, optional
             New schematic name. The default is ``"LNA"``.
         impedance : float, optional
             TDR single ended impedance. The default is ``50``. For differential tdr, it will be computed by PyAEDT.
+        time_step : str, optional
+            Transient analysis step size, including units (for example ``"10ps"``). The default
+            is ``None``, which derives ``rise_time / 4`` in nanoseconds. The recommended range
+            for the step size is 2-15 ps depending on the frequency content of the model.
+        time_stop : str, optional
+            Transient analysis stop time, including units (for example ``"35ns"``). The default
+            is ``None``, which derives ``rise_time * 1000`` in nanoseconds. The stop time should
+            be chosen based on the flight time of the signal under test.
 
         Returns
         -------
-
+        list
+            List of TDR probe traces when successful.
         """
         if design_name in self.design_list:
             self.logger.warning("Design already exists. renaming.")
@@ -1778,8 +1823,7 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
                     if differential:
                         n_pin = [k for k in sub.pins if k.name == tx_schematic_differential_pins[i]][0]
             except IndexError:
-                self.logger.error("Failed to retrieve the pins.")
-                return False
+                raise IndexError("Failed to retrieve the pins.")
 
             _, first, second = new_tdr_comp.pins[0].connect_to_component(p_pin)
             self.modeler.move(first, [0, 100], "mil")
@@ -1811,7 +1855,9 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
                 p1.pins[0].connect_to_component(pin, use_wire=True)
                 p1.impedance = [f"{impedance}ohm", "0ohm"]
         setup = self.create_setup(name="Transient_TDR", setup_type=Setups.NexximTransient)
-        setup.props["TransientData"] = [f"{rise_time / 4}ns", f"{rise_time * 1000}ns"]
+        step_value = time_step if time_step is not None else f"{rise_time / 4}ns"
+        stop_value = time_stop if time_stop is not None else f"{rise_time * 1000}ns"
+        setup.props["TransientData"] = [step_value, stop_value]
         if use_convolution:
             self.oanalysis.AddAnalysisOptions(
                 [
@@ -1828,11 +1874,7 @@ class Circuit(FieldAnalysisCircuit, ScatteringMethods, PyAedtBase):
                 ]
             )
             setup.props["OptionName"] = "Nexxim Options"
-        if analyze:
-            self.analyze()
-            for trace in tdr_probe_names:
-                self.post.create_report(trace)
-        return True, tdr_probe_names
+        return tdr_probe_names
 
     @pyaedt_function_handler()
     @deprecate_argument(

@@ -16,6 +16,7 @@ from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
 from .invalid_package_in_requirements import InvalidPackageInRequirements
 from .js_syntax import JsSyntax
 from .local_package_in_requirements import LocalPackageInRequirements
+from .main_block_in_stage import MainBlockInStage
 from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
@@ -26,7 +27,6 @@ from .send_task_without_transition import SendTaskWithoutTransition
 from .syntax_errors import SyntaxErrors
 from .type_checking import TypeCheckingRule
 from .venv_in_bundle import VenvInBundle
-from .vulnerable_dependencies import VulnerableRequirements
 
 # --- Rule instances (shared across groups) ---
 
@@ -34,6 +34,7 @@ _syntax_errors = SyntaxErrors()
 _deprecated_functions = DeprecatedFunctionUsage()
 _missing_env = MissingEnv()
 _missing_render_in_page = MissingRenderInPage()
+_main_block_in_stage = MainBlockInStage()
 _send_task_without_transition = SendTaskWithoutTransition()
 _big_py_files = BigPyFiles()
 _conflicting_name = ConflictingName()
@@ -49,7 +50,6 @@ _missing_entrypoint = MissingEntrypoint()
 _env_in_bundle = EnvInBundle()
 _venv_in_bundle = VenvInBundle()
 _imports_analyzer = ImportsRequirementsAnalyzer()
-_vulnerable_requirements = VulnerableRequirements()
 _html_and_jinja2_syntax = HtmlAndJinja2Syntax()
 _css_syntax = CssSyntax()
 _js_syntax = JsSyntax()
@@ -67,6 +67,7 @@ run_after_py_change: List[LinterRule] = [
     _deprecated_functions,
     _missing_env,
     _missing_render_in_page,
+    _main_block_in_stage,
     _send_task_without_transition,
     _big_py_files,
     _conflicting_name,
@@ -83,7 +84,6 @@ run_after_requirements_change: List[LinterRule] = [
     _local_package,
     _missing_abstra,
     _psycopg2,
-    _vulnerable_requirements,
 ]
 
 run_after_abstra_json_change: List[LinterRule] = [

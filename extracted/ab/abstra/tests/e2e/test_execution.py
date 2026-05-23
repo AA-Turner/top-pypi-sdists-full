@@ -21,7 +21,7 @@ sys.exit(1)
 class TestExecution(BaseTest):
     def setUp(self) -> None:
         super().setUp()
-        self.hook = self.controller.create_hook("New hook", "hook.py")
+        self.hook = self.controller.create_stage("hook", "New hook", "hook.py")
         self.client = self.get_editor_flask_client()
 
     def test_happy_case(self):

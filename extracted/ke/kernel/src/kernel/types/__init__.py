@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from . import browsers
+from .. import _compat
 from .shared import (
     LogEvent as LogEvent,
     AppAction as AppAction,
@@ -24,7 +26,6 @@ from .app_list_response import AppListResponse as AppListResponse
 from .proxy_check_params import ProxyCheckParams as ProxyCheckParams
 from .browser_curl_params import BrowserCurlParams as BrowserCurlParams
 from .browser_list_params import BrowserListParams as BrowserListParams
-from .browser_persistence import BrowserPersistence as BrowserPersistence
 from .credential_provider import CredentialProvider as CredentialProvider
 from .profile_list_params import ProfileListParams as ProfileListParams
 from .project_list_params import ProjectListParams as ProjectListParams
@@ -33,7 +34,6 @@ from .proxy_list_response import ProxyListResponse as ProxyListResponse
 from .proxy_check_response import ProxyCheckResponse as ProxyCheckResponse
 from .browser_create_params import BrowserCreateParams as BrowserCreateParams
 from .browser_curl_response import BrowserCurlResponse as BrowserCurlResponse
-from .browser_delete_params import BrowserDeleteParams as BrowserDeleteParams
 from .browser_list_response import BrowserListResponse as BrowserListResponse
 from .browser_update_params import BrowserUpdateParams as BrowserUpdateParams
 from .profile_create_params import ProfileCreateParams as ProfileCreateParams
@@ -61,7 +61,6 @@ from .invocation_create_params import InvocationCreateParams as InvocationCreate
 from .invocation_follow_params import InvocationFollowParams as InvocationFollowParams
 from .invocation_list_response import InvocationListResponse as InvocationListResponse
 from .invocation_update_params import InvocationUpdateParams as InvocationUpdateParams
-from .browser_persistence_param import BrowserPersistenceParam as BrowserPersistenceParam
 from .browser_retrieve_response import BrowserRetrieveResponse as BrowserRetrieveResponse
 from .extension_upload_response import ExtensionUploadResponse as ExtensionUploadResponse
 from .browser_pool_create_params import BrowserPoolCreateParams as BrowserPoolCreateParams
@@ -91,3 +90,18 @@ from .credential_provider_list_items_response import (
 from .extension_download_from_chrome_store_params import (
     ExtensionDownloadFromChromeStoreParams as ExtensionDownloadFromChromeStoreParams,
 )
+
+# Rebuild cyclical models only after all modules are imported.
+# This ensures that, when building the deferred (due to cyclical references) model schema,
+# Pydantic can resolve the necessary references.
+# See: https://github.com/pydantic/pydantic/issues/11250 for more context.
+if _compat.PYDANTIC_V1:
+    browsers.browser_call_stack.BrowserCallStack.update_forward_refs()  # type: ignore
+    browsers.browser_console_error_event.BrowserConsoleErrorEvent.update_forward_refs()  # type: ignore
+    browsers.browser_console_log_event.BrowserConsoleLogEvent.update_forward_refs()  # type: ignore
+    browsers.telemetry_stream_response.TelemetryStreamResponse.update_forward_refs()  # type: ignore
+else:
+    browsers.browser_call_stack.BrowserCallStack.model_rebuild(_parent_namespace_depth=0)
+    browsers.browser_console_error_event.BrowserConsoleErrorEvent.model_rebuild(_parent_namespace_depth=0)
+    browsers.browser_console_log_event.BrowserConsoleLogEvent.model_rebuild(_parent_namespace_depth=0)
+    browsers.telemetry_stream_response.TelemetryStreamResponse.model_rebuild(_parent_namespace_depth=0)

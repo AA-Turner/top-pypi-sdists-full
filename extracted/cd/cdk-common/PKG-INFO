@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-common
-Version: 2.1.50
+Version: 2.1.51
 Summary: Common AWS CDK librarys.
 Home-page: https://github.com/neilkuan/cdk-common.git
 Author: Neil Kuan<guan840912@gmail.com>
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.188.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.131.0
+Requires-Dist: jsii<2.0.0,>=1.132.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

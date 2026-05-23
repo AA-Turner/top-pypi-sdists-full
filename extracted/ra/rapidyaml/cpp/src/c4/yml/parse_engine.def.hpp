@@ -74,23 +74,18 @@ void ryml_save_test_json(csubstr filename, csubstr src);
     } while(0)
 
 
-#if defined(_MSC_VER)
-#   pragma warning(push)
-#   pragma warning(disable: 4296/*expression is always 'boolean_value'*/)
-#   pragma warning(disable: 4702/*unreachable code*/)
-#elif defined(__clang__)
-#   pragma clang diagnostic push
-#   pragma clang diagnostic ignored "-Wtype-limits" // to remove a warning on an assertion that a size_t >= 0. Later on, this size_t will turn into a template argument, and then it can become < 0.
-#   pragma clang diagnostic ignored "-Wformat-nonliteral"
-#   pragma clang diagnostic ignored "-Wold-style-cast"
-#elif defined(__GNUC__)
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wtype-limits" // to remove a warning on an assertion that a size_t >= 0. Later on, this size_t will turn into a template argument, and then it can become < 0.
-#   pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#   pragma GCC diagnostic ignored "-Wold-style-cast"
-#   if __GNUC__ >= 7
-#       pragma GCC diagnostic ignored "-Wduplicated-branches"
-#   endif
+C4_SUPPRESS_WARNING_MSVC_PUSH
+C4_SUPPRESS_WARNING_MSVC(4296) // expression is always 'boolean_value'
+C4_SUPPRESS_WARNING_MSVC(4702) // unreachable code
+C4_SUPPRESS_WARNING_GCC_CLANG_PUSH
+C4_SUPPRESS_WARNING_GCC_CLANG("-Wtype-limits") // to remove a warning on an assertion that a size_t >= 0. Later on, this size_t will turn into a template argument, and then it can become < 0.
+C4_SUPPRESS_WARNING_GCC_CLANG("-Wformat-nonliteral")
+C4_SUPPRESS_WARNING_GCC_CLANG("-Wold-style-cast")
+#if defined(__GNUC__) && (__GNUC__ >= 6)
+C4_SUPPRESS_WARNING_GCC("-Wnull-dereference")
+#endif
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+C4_SUPPRESS_WARNING_GCC("-Wduplicated-branches")
 #endif
 
 // NOLINTBEGIN(hicpp-signed-bitwise,cppcoreguidelines-avoid-goto,hicpp-avoid-goto,hicpp-multiway-paths-covered,modernize-avoid-c-style-cast)
@@ -1006,11 +1001,24 @@ bool ParseEngine<EventHandler>::_scan_scalar_plain_handle_newline(csubstr s, siz
             _c4dbgpf("newl[PLAIN]: next_line.len={}", next_line.len);
             if(next_line.len)
             {
-                next_line = next_line.triml(" \t");
-                if(next_line.begins_with_any(",]#:")) // any of the characters we're interested in
+                size_t fno = next_line.first_not_of(" \t");
+                if(fno != csubstr::npos)
                 {
-                    _c4dbgpf("newl[PLAIN]: found terminating character beginning next line: '{}'", next_line.str[0]);
-                    return false;
+                    _c4assert(fno < next_line.len);
+                    switch(next_line.str[fno])
+                    {
+                    case ',': case ']': case '#':
+                        _c4dbgpf("newl[PLAIN]: found terminating character beginning next line: '{}'", next_line.str[fno]);
+                        return false;
+                    case ':': // cannot be succeeded by whitespace
+                        _c4dbgp("newl[PLAIN]: found :");
+                        if(fno + 1 == next_line.len || _is_blck_token(next_line.sub(fno)))
+                        {
+                            _c4dbgpf("newl[PLAIN]: found terminating character beginning next line: '{}'", next_line.str[fno]);
+                            return false;
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -4294,8 +4302,14 @@ void ParseEngine<EventHandler>::_handle_block_check_leading_tabs(size_t start_ma
     {
         csubstr leading = _buf().range(start_mark, end_mark);
         _c4dbgpf("block: leading[{}-{}]={}", start_mark, end_mark, _prs(leading, true));
-        if(leading.find('\t') != npos)
-            _c4err("invalid tab character to the left");
+        size_t pos = leading.find('\t');
+        if(pos != npos)
+        {
+            size_t fno = leading.first_not_of(" \t");
+            if(fno == npos || pos < fno)
+                _c4err("invalid tab character to the left");
+        }
+        (void)leading;
     }
 }
 
@@ -8290,6 +8304,7 @@ uint32_t ParseEngine<EventHandler>::_get_annotations_same_line(csubstr token_sou
                 if(&m_pending_tags.annotations[i] != not_this_one
                    && m_pending_tags.annotations[i].line == m_evt_handler->m_curr->pos.line)
                     return &m_pending_tags.annotations[i];
+            C4_UNREACHABLE();
             return (EntryPtr)nullptr; // LCOV_EXCL_LINE
         };
         _c4assert(total >= 1);
@@ -8916,12 +8931,7 @@ void ParseEngine<EventHandler>::parse_in_place_ev(csubstr filename, substr src)
 #undef _c4assert
 #undef _c4err
 
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#elif defined(__clang__)
-#   pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#   pragma GCC diagnostic pop
-#endif
+C4_SUPPRESS_WARNING_MSVC_POP
+C4_SUPPRESS_WARNING_GCC_CLANG_POP
 
 #endif // _C4_YML_PARSE_ENGINE_DEF_HPP_

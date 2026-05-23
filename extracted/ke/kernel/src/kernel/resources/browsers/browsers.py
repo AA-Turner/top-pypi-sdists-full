@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import typing_extensions
 from typing import Dict, Mapping, Iterable, Iterator, Optional, AsyncIterator, cast
 from contextlib import contextmanager, asynccontextmanager
 from typing_extensions import Literal
@@ -29,7 +28,6 @@ from ...types import (
     browser_curl_params,
     browser_list_params,
     browser_create_params,
-    browser_delete_params,
     browser_update_params,
     browser_retrieve_params,
     browser_load_extensions_params,
@@ -62,6 +60,14 @@ from .computer import (
     AsyncComputerResourceWithStreamingResponse,
 )
 from ..._compat import cached_property
+from .telemetry import (
+    TelemetryResource,
+    AsyncTelemetryResource,
+    TelemetryResourceWithRawResponse,
+    AsyncTelemetryResourceWithRawResponse,
+    TelemetryResourceWithStreamingResponse,
+    AsyncTelemetryResourceWithStreamingResponse,
+)
 from .playwright import (
     PlaywrightResource,
     AsyncPlaywrightResource,
@@ -89,17 +95,22 @@ from ...lib.browser_routing.raw_http import (
 )
 from ...types.browser_create_response import BrowserCreateResponse
 from ...types.browser_update_response import BrowserUpdateResponse
-from ...types.browser_persistence_param import BrowserPersistenceParam
 from ...types.browser_retrieve_response import BrowserRetrieveResponse
 from ...types.shared_params.browser_profile import BrowserProfile
 from ...types.shared_params.browser_viewport import BrowserViewport
 from ...types.shared_params.browser_extension import BrowserExtension
+from ...types.browsers.browser_telemetry_config_param import BrowserTelemetryConfigParam
 
 __all__ = ["BrowsersResource", "AsyncBrowsersResource"]
 
 
 class BrowsersResource(SyncAPIResource):
     """Create and manage browser sessions."""
+
+    @cached_property
+    def telemetry(self) -> TelemetryResource:
+        """Stream live telemetry events from a browser session."""
+        return TelemetryResource(self._client)
 
     @cached_property
     def replays(self) -> ReplaysResource:
@@ -152,16 +163,17 @@ class BrowsersResource(SyncAPIResource):
     def create(
         self,
         *,
+        chrome_policy: Dict[str, object] | Omit = omit,
         extensions: Iterable[BrowserExtension] | Omit = omit,
         gpu: bool | Omit = omit,
         headless: bool | Omit = omit,
         invocation_id: str | Omit = omit,
         kiosk_mode: bool | Omit = omit,
-        persistence: BrowserPersistenceParam | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: str | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
+        telemetry: Optional[BrowserTelemetryConfigParam] | Omit = omit,
         timeout_seconds: int | Omit = omit,
         viewport: BrowserViewport | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -175,6 +187,11 @@ class BrowsersResource(SyncAPIResource):
         Create a new browser session from within an action.
 
         Args:
+          chrome_policy: Custom Chrome enterprise policy overrides applied to this browser session. Keys
+              are Chrome enterprise policy names; values must match their expected types.
+              Blocked: kernel-managed policies (extensions, proxy, CDP/automation). See
+              https://chromeenterprise.google/policies/
+
           extensions: List of browser extensions to load into the session. Provide each by id or name.
 
           gpu: If true, enables GPU acceleration for the browser session. Requires Start-Up or
@@ -187,8 +204,6 @@ class BrowsersResource(SyncAPIResource):
 
           kiosk_mode: If true, launches the browser in kiosk mode to hide address bar and tabs in live
               view.
-
-          persistence: DEPRECATED: Use timeout_seconds (up to 72 hours) and Profiles instead.
 
           profile: Profile selection for the browser session. Provide either id or name. If
               specified, the matching profile will be loaded into the browser session.
@@ -203,6 +218,10 @@ class BrowsersResource(SyncAPIResource):
 
           stealth: If true, launches the browser in stealth mode to reduce detection by anti-bot
               mechanisms.
+
+          telemetry: Telemetry configuration for the browser session. If provided, telemetry capture
+              starts with the specified category filter when the session is created. If
+              omitted, no telemetry capture is started.
 
           timeout_seconds: The number of seconds of inactivity before the browser session is terminated.
               Activity includes CDP connections and live view connections. Defaults to 60
@@ -235,16 +254,17 @@ class BrowsersResource(SyncAPIResource):
             "/browsers",
             body=maybe_transform(
                 {
+                    "chrome_policy": chrome_policy,
                     "extensions": extensions,
                     "gpu": gpu,
                     "headless": headless,
                     "invocation_id": invocation_id,
                     "kiosk_mode": kiosk_mode,
-                    "persistence": persistence,
                     "profile": profile,
                     "proxy_id": proxy_id,
                     "start_url": start_url,
                     "stealth": stealth,
+                    "telemetry": telemetry,
                     "timeout_seconds": timeout_seconds,
                     "viewport": viewport,
                 },
@@ -305,6 +325,7 @@ class BrowsersResource(SyncAPIResource):
         disable_default_proxy: bool | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: Optional[str] | Omit = omit,
+        telemetry: Optional[BrowserTelemetryConfigParam] | Omit = omit,
         viewport: browser_update_params.Viewport | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -326,6 +347,11 @@ class BrowsersResource(SyncAPIResource):
           proxy_id: ID of the proxy to use. Omit to leave unchanged, set to empty string to remove
               proxy.
 
+          telemetry: Telemetry configuration. Omit, set to null, or set to an empty object ({}) to
+              leave the existing configuration unchanged (no-op). To enable capture for all
+              categories using VM defaults, set browser to an empty object ({"browser": {}}).
+              To stop capture, set every category's enabled to false.
+
           viewport: Viewport configuration to apply to the browser session.
 
           extra_headers: Send extra headers
@@ -345,6 +371,7 @@ class BrowsersResource(SyncAPIResource):
                     "disable_default_proxy": disable_default_proxy,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "telemetry": telemetry,
                     "viewport": viewport,
                 },
                 browser_update_params.BrowserUpdateParams,
@@ -416,47 +443,6 @@ class BrowsersResource(SyncAPIResource):
                 ),
             ),
             model=BrowserListResponse,
-        )
-
-    @typing_extensions.deprecated("deprecated")
-    def delete(
-        self,
-        *,
-        persistent_id: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> None:
-        """DEPRECATED: Use DELETE /browsers/{id} instead.
-
-        Delete a persistent browser
-        session by its persistent_id.
-
-        Args:
-          persistent_id: Persistent browser identifier
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
-        return self._delete(
-            "/browsers",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform({"persistent_id": persistent_id}, browser_delete_params.BrowserDeleteParams),
-            ),
-            cast_to=NoneType,
         )
 
     def curl(
@@ -666,6 +652,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
     """Create and manage browser sessions."""
 
     @cached_property
+    def telemetry(self) -> AsyncTelemetryResource:
+        """Stream live telemetry events from a browser session."""
+        return AsyncTelemetryResource(self._client)
+
+    @cached_property
     def replays(self) -> AsyncReplaysResource:
         """Record and manage browser session video replays."""
         return AsyncReplaysResource(self._client)
@@ -716,16 +707,17 @@ class AsyncBrowsersResource(AsyncAPIResource):
     async def create(
         self,
         *,
+        chrome_policy: Dict[str, object] | Omit = omit,
         extensions: Iterable[BrowserExtension] | Omit = omit,
         gpu: bool | Omit = omit,
         headless: bool | Omit = omit,
         invocation_id: str | Omit = omit,
         kiosk_mode: bool | Omit = omit,
-        persistence: BrowserPersistenceParam | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: str | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
+        telemetry: Optional[BrowserTelemetryConfigParam] | Omit = omit,
         timeout_seconds: int | Omit = omit,
         viewport: BrowserViewport | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -739,6 +731,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
         Create a new browser session from within an action.
 
         Args:
+          chrome_policy: Custom Chrome enterprise policy overrides applied to this browser session. Keys
+              are Chrome enterprise policy names; values must match their expected types.
+              Blocked: kernel-managed policies (extensions, proxy, CDP/automation). See
+              https://chromeenterprise.google/policies/
+
           extensions: List of browser extensions to load into the session. Provide each by id or name.
 
           gpu: If true, enables GPU acceleration for the browser session. Requires Start-Up or
@@ -751,8 +748,6 @@ class AsyncBrowsersResource(AsyncAPIResource):
 
           kiosk_mode: If true, launches the browser in kiosk mode to hide address bar and tabs in live
               view.
-
-          persistence: DEPRECATED: Use timeout_seconds (up to 72 hours) and Profiles instead.
 
           profile: Profile selection for the browser session. Provide either id or name. If
               specified, the matching profile will be loaded into the browser session.
@@ -767,6 +762,10 @@ class AsyncBrowsersResource(AsyncAPIResource):
 
           stealth: If true, launches the browser in stealth mode to reduce detection by anti-bot
               mechanisms.
+
+          telemetry: Telemetry configuration for the browser session. If provided, telemetry capture
+              starts with the specified category filter when the session is created. If
+              omitted, no telemetry capture is started.
 
           timeout_seconds: The number of seconds of inactivity before the browser session is terminated.
               Activity includes CDP connections and live view connections. Defaults to 60
@@ -799,16 +798,17 @@ class AsyncBrowsersResource(AsyncAPIResource):
             "/browsers",
             body=await async_maybe_transform(
                 {
+                    "chrome_policy": chrome_policy,
                     "extensions": extensions,
                     "gpu": gpu,
                     "headless": headless,
                     "invocation_id": invocation_id,
                     "kiosk_mode": kiosk_mode,
-                    "persistence": persistence,
                     "profile": profile,
                     "proxy_id": proxy_id,
                     "start_url": start_url,
                     "stealth": stealth,
+                    "telemetry": telemetry,
                     "timeout_seconds": timeout_seconds,
                     "viewport": viewport,
                 },
@@ -869,6 +869,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         disable_default_proxy: bool | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: Optional[str] | Omit = omit,
+        telemetry: Optional[BrowserTelemetryConfigParam] | Omit = omit,
         viewport: browser_update_params.Viewport | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -890,6 +891,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
           proxy_id: ID of the proxy to use. Omit to leave unchanged, set to empty string to remove
               proxy.
 
+          telemetry: Telemetry configuration. Omit, set to null, or set to an empty object ({}) to
+              leave the existing configuration unchanged (no-op). To enable capture for all
+              categories using VM defaults, set browser to an empty object ({"browser": {}}).
+              To stop capture, set every category's enabled to false.
+
           viewport: Viewport configuration to apply to the browser session.
 
           extra_headers: Send extra headers
@@ -909,6 +915,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
                     "disable_default_proxy": disable_default_proxy,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "telemetry": telemetry,
                     "viewport": viewport,
                 },
                 browser_update_params.BrowserUpdateParams,
@@ -980,49 +987,6 @@ class AsyncBrowsersResource(AsyncAPIResource):
                 ),
             ),
             model=BrowserListResponse,
-        )
-
-    @typing_extensions.deprecated("deprecated")
-    async def delete(
-        self,
-        *,
-        persistent_id: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> None:
-        """DEPRECATED: Use DELETE /browsers/{id} instead.
-
-        Delete a persistent browser
-        session by its persistent_id.
-
-        Args:
-          persistent_id: Persistent browser identifier
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
-        return await self._delete(
-            "/browsers",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {"persistent_id": persistent_id}, browser_delete_params.BrowserDeleteParams
-                ),
-            ),
-            cast_to=NoneType,
         )
 
     async def curl(
@@ -1244,11 +1208,6 @@ class BrowsersResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             browsers.list,
         )
-        self.delete = (  # pyright: ignore[reportDeprecated]
-            to_raw_response_wrapper(
-                browsers.delete,  # pyright: ignore[reportDeprecated],
-            )
-        )
         self.curl = to_raw_response_wrapper(
             browsers.curl,
         )
@@ -1258,6 +1217,11 @@ class BrowsersResourceWithRawResponse:
         self.load_extensions = to_raw_response_wrapper(
             browsers.load_extensions,
         )
+
+    @cached_property
+    def telemetry(self) -> TelemetryResourceWithRawResponse:
+        """Stream live telemetry events from a browser session."""
+        return TelemetryResourceWithRawResponse(self._browsers.telemetry)
 
     @cached_property
     def replays(self) -> ReplaysResourceWithRawResponse:
@@ -1305,11 +1269,6 @@ class AsyncBrowsersResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             browsers.list,
         )
-        self.delete = (  # pyright: ignore[reportDeprecated]
-            async_to_raw_response_wrapper(
-                browsers.delete,  # pyright: ignore[reportDeprecated],
-            )
-        )
         self.curl = async_to_raw_response_wrapper(
             browsers.curl,
         )
@@ -1319,6 +1278,11 @@ class AsyncBrowsersResourceWithRawResponse:
         self.load_extensions = async_to_raw_response_wrapper(
             browsers.load_extensions,
         )
+
+    @cached_property
+    def telemetry(self) -> AsyncTelemetryResourceWithRawResponse:
+        """Stream live telemetry events from a browser session."""
+        return AsyncTelemetryResourceWithRawResponse(self._browsers.telemetry)
 
     @cached_property
     def replays(self) -> AsyncReplaysResourceWithRawResponse:
@@ -1366,11 +1330,6 @@ class BrowsersResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             browsers.list,
         )
-        self.delete = (  # pyright: ignore[reportDeprecated]
-            to_streamed_response_wrapper(
-                browsers.delete,  # pyright: ignore[reportDeprecated],
-            )
-        )
         self.curl = to_streamed_response_wrapper(
             browsers.curl,
         )
@@ -1380,6 +1339,11 @@ class BrowsersResourceWithStreamingResponse:
         self.load_extensions = to_streamed_response_wrapper(
             browsers.load_extensions,
         )
+
+    @cached_property
+    def telemetry(self) -> TelemetryResourceWithStreamingResponse:
+        """Stream live telemetry events from a browser session."""
+        return TelemetryResourceWithStreamingResponse(self._browsers.telemetry)
 
     @cached_property
     def replays(self) -> ReplaysResourceWithStreamingResponse:
@@ -1427,11 +1391,6 @@ class AsyncBrowsersResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             browsers.list,
         )
-        self.delete = (  # pyright: ignore[reportDeprecated]
-            async_to_streamed_response_wrapper(
-                browsers.delete,  # pyright: ignore[reportDeprecated],
-            )
-        )
         self.curl = async_to_streamed_response_wrapper(
             browsers.curl,
         )
@@ -1441,6 +1400,11 @@ class AsyncBrowsersResourceWithStreamingResponse:
         self.load_extensions = async_to_streamed_response_wrapper(
             browsers.load_extensions,
         )
+
+    @cached_property
+    def telemetry(self) -> AsyncTelemetryResourceWithStreamingResponse:
+        """Stream live telemetry events from a browser session."""
+        return AsyncTelemetryResourceWithStreamingResponse(self._browsers.telemetry)
 
     @cached_property
     def replays(self) -> AsyncReplaysResourceWithStreamingResponse:

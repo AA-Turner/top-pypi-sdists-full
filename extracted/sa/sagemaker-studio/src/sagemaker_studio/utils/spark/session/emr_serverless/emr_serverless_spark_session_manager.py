@@ -36,7 +36,12 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
     """
 
     def __init__(
-        self, connection_name=None, config: ClientConfig = ClientConfig(), *, connection=None
+        self,
+        connection_name=None,
+        config: ClientConfig = ClientConfig(),
+        *,
+        connection=None,
+        spark_conf: dict = None,
     ):
         """
         Initialize the EMR Serverless Spark session.
@@ -45,10 +50,12 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             connection_name (str): The connection name (backward compat, used if connection not provided).
             config (ClientConfig): Configuration for the client.
             connection: Pre-resolved Connection object (from sparkutils routing). Keyword-only.
+            spark_conf (dict): Optional custom Spark configuration. Values override defaults.
         """
         self._connection = connection
         self.connection_name = connection_name
         self.config = config
+        self.spark_conf = spark_conf
         self.application_id = None
         self.emr_serverless_session_id = None
         self.emr_serverless_runtime_role = None
@@ -423,12 +430,21 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
                 for key in self._get_compatibility_mode_configs():
                     spark_configs.pop(key, None)
                 logger.info("FTA not supported — compatibility mode configs removed")
+
+            # Increase executor idle timeout from default 60s to 120s to reduce cold-start delays
+            # between cell executions in interactive notebook sessions.
+            spark_configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
+
             # Merge connection-level spark configs on top of defaults (connection overrides defaults)
             if self.connection_spark_configs:
                 spark_configs.update(self.connection_spark_configs)
             # S3 Access Grants — consistent with sessions package (emr_on_serverless_session.py).
             # No version check needed: Spark Connect sessions require EMR versions that already support S3AG.
             spark_configs.update(self._get_s3_access_grants_configs())
+
+            # Merge user-provided spark_conf last — user overrides win over all defaults.
+            if self.spark_conf:
+                spark_configs.update(self.spark_conf)
 
             client_token = str(uuid.uuid4())
 

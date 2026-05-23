@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DoubleML
-Version: 0.11.2
+Version: 0.11.3
 Summary: Double Machine Learning in Python
 Author: Bach, P., Chernozhukov, V., Klaassen, S., Kurz, M. S., and Spindler, M.
 Maintainer-email: Sven Klaassen <sven.klaassen@uni-hamburg.de>

@@ -914,7 +914,7 @@ set(_C4_PEDANTIC_FLAGS_GCC ${_C4_PEDANTIC_FLAGS_COMMON}
     -Wuseless-cast # cast to the same type
     )
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "")
+if((NOT CMAKE_CXX_COMPILER_ID) OR (CMAKE_CXX_COMPILER_ID STREQUAL ""))
     message(FATAL_ERROR "project() must be called before including this file")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 6.0)
@@ -1738,7 +1738,7 @@ function(c4_download_remote_proj name candidate_dir)
         endif()
     endif()
     #
-    # try to find an existing version (downloaded by some other project)
+    # try to find an existing version
     set(out "${dir}")
     _c4_find_cached_proj(${name} out)
     if(NOT ("${out}" STREQUAL "${dir}"))
@@ -1951,7 +1951,7 @@ function(c4_add_target target)
         c4_err("must be either LIBRARY or EXECUTABLE")
     endif()
 
-    _c4_handle_arg(SHARED_MACRO ${_c4_uprefix}MACRO)
+    _c4_handle_arg(SHARED_MACRO ${_c4_uprefix}SHARED)
     _c4_handle_arg(SHARED_EXPORTS ${_c4_uprefix}EXPORTS)
     _c4_handle_arg_or_fallback(SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
     function(_c4_transform_to_full_path list all)
@@ -2033,7 +2033,6 @@ function(c4_add_target target)
                 # exports for shared libraries
                 if(WIN32)
                     if("${_blt}" STREQUAL SHARED)
-                        set_target_properties(${target} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
                         target_compile_definitions(${target} PUBLIC ${_SHARED_MACRO})
                         target_compile_definitions(${target} PRIVATE $<BUILD_INTERFACE:${_SHARED_EXPORTS}>)
                         # save the name of the macro for later use when(if) incorporating this library
@@ -2929,10 +2928,17 @@ ${ARGN}
     if(_DOCTEST)
         c4_log("testing requires doctest")
         if(NOT TARGET doctest)
-            c4_import_remote_proj(doctest ${CMAKE_CURRENT_BINARY_DIR}/ext/doctest
+            set(doctestversion 2.5.2)
+            # starting on v2.5.0, doctest dropped support for gcc 4.x,
+            # so fall back to 2.4.12 when using gcc 4
+            # see https://github.com/doctest/doctest/issues/1112
+            if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0))
+                set(doctestversion 2.4.12)
+            endif()
+            c4_import_remote_proj(doctest-${doctestversion} ${CMAKE_CURRENT_BINARY_DIR}/ext/doctest-${doctestversion}
                 REMOTE
                   GIT_REPOSITORY https://github.com/onqtam/doctest.git
-                  GIT_TAG v2.4.11 #GIT_SHALLOW ON
+                  GIT_TAG v${doctestversion} GIT_SHALLOW ON
                 OVERRIDE
                   DOCTEST_WITH_TESTS OFF
                   DOCTEST_WITH_MAIN_IN_STATIC_LIB ON
@@ -2953,6 +2959,7 @@ function(c4_add_test target)
     _c4_handle_args(_ARGS ${ARGN}
       _ARGS0  # zero-value macro arguments
       _ARGS1  # one-value macro arguments
+        SUFFIX
         WORKING_DIRECTORY
       _ARGSN  # multi-value macro arguments
         ARGS
@@ -2966,11 +2973,11 @@ function(c4_add_test target)
         set(cmd_pfx ${CMAKE_CROSSCOMPILING_EMULATOR})
     endif()
     if(${CMAKE_VERSION} VERSION_LESS "3.16.0")
-        add_test(NAME ${target}
+        add_test(NAME ${target}${_SUFFIX}
             COMMAND ${cmd_pfx} "$<TARGET_FILE:${target}>" ${_ARGS}
             ${_WORKING_DIRECTORY})
     else()
-        add_test(NAME ${target}
+        add_test(NAME ${target}${_SUFFIX}
             COMMAND ${cmd_pfx} "$<TARGET_FILE:${target}>" ${_ARGS}
             ${_WORKING_DIRECTORY}
             COMMAND_EXPAND_LISTS)

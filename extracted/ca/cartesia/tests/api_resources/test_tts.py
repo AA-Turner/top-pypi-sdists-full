@@ -30,6 +30,7 @@ class TestTTS:
         tts = client.tts.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -51,9 +52,9 @@ class TestTTS:
         tts = client.tts.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
-                "container": "raw",
             },
             transcript="transcript",
             voice={
@@ -83,6 +84,7 @@ class TestTTS:
         tts = client.tts.with_raw_response.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -105,6 +107,7 @@ class TestTTS:
         with client.tts.with_streaming_response.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -126,7 +129,7 @@ class TestTTS:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_generate_sse(self, client: Cartesia) -> None:
-        tts = client.tts.generate_sse(
+        tts_stream = client.tts.generate_sse(
             model_id="model_id",
             output_format={
                 "container": "raw",
@@ -139,12 +142,12 @@ class TestTTS:
                 "mode": "id",
             },
         )
-        assert tts is None
+        tts_stream.response.close()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_generate_sse_with_all_params(self, client: Cartesia) -> None:
-        tts = client.tts.generate_sse(
+        tts_stream = client.tts.generate_sse(
             model_id="model_id",
             output_format={
                 "container": "raw",
@@ -169,7 +172,7 @@ class TestTTS:
             speed="slow",
             use_normalized_timestamps=True,
         )
-        assert tts is None
+        tts_stream.response.close()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -188,10 +191,9 @@ class TestTTS:
             },
         )
 
-        assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        tts = response.parse()
-        assert tts is None
+        stream = response.parse()
+        stream.close()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -212,8 +214,8 @@ class TestTTS:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            tts = response.parse()
-            assert tts is None
+            stream = response.parse()
+            stream.close()
 
         assert cast(Any, response.is_closed) is True
 
@@ -233,14 +235,14 @@ class TestTTS:
         respx_mock.post("/infill/bytes").mock(return_value=httpx.Response(200, json={"foo": "bar"}))
         tts = client.tts.infill(
             language="language",
-            left_audio=b"raw file contents",
+            left_audio=b"Example data",
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
-                "container": "raw",
             },
-            right_audio=b"raw file contents",
+            right_audio=b"Example data",
             transcript="transcript",
             voice_id="voice_id",
         )
@@ -288,6 +290,7 @@ class TestAsyncTTS:
         tts = await async_client.tts.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -309,9 +312,9 @@ class TestAsyncTTS:
         tts = await async_client.tts.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
-                "container": "raw",
             },
             transcript="transcript",
             voice={
@@ -341,6 +344,7 @@ class TestAsyncTTS:
         tts = await async_client.tts.with_raw_response.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -363,6 +367,7 @@ class TestAsyncTTS:
         async with async_client.tts.with_streaming_response.generate(
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
             },
@@ -384,7 +389,7 @@ class TestAsyncTTS:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_generate_sse(self, async_client: AsyncCartesia) -> None:
-        tts = await async_client.tts.generate_sse(
+        tts_stream = await async_client.tts.generate_sse(
             model_id="model_id",
             output_format={
                 "container": "raw",
@@ -397,12 +402,12 @@ class TestAsyncTTS:
                 "mode": "id",
             },
         )
-        assert tts is None
+        await tts_stream.response.aclose()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_generate_sse_with_all_params(self, async_client: AsyncCartesia) -> None:
-        tts = await async_client.tts.generate_sse(
+        tts_stream = await async_client.tts.generate_sse(
             model_id="model_id",
             output_format={
                 "container": "raw",
@@ -427,7 +432,7 @@ class TestAsyncTTS:
             speed="slow",
             use_normalized_timestamps=True,
         )
-        assert tts is None
+        await tts_stream.response.aclose()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -446,10 +451,9 @@ class TestAsyncTTS:
             },
         )
 
-        assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        tts = await response.parse()
-        assert tts is None
+        stream = await response.parse()
+        await stream.close()
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -470,8 +474,8 @@ class TestAsyncTTS:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            tts = await response.parse()
-            assert tts is None
+            stream = await response.parse()
+            await stream.close()
 
         assert cast(Any, response.is_closed) is True
 
@@ -491,14 +495,14 @@ class TestAsyncTTS:
         respx_mock.post("/infill/bytes").mock(return_value=httpx.Response(200, json={"foo": "bar"}))
         tts = await async_client.tts.infill(
             language="language",
-            left_audio=b"raw file contents",
+            left_audio=b"Example data",
             model_id="model_id",
             output_format={
+                "container": "raw",
                 "encoding": "pcm_f32le",
                 "sample_rate": 8000,
-                "container": "raw",
             },
-            right_audio=b"raw file contents",
+            right_audio=b"Example data",
             transcript="transcript",
             voice_id="voice_id",
         )

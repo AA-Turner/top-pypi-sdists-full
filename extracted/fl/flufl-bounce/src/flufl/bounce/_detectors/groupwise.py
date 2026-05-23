@@ -13,6 +13,7 @@ from typing import cast
 
 from public import public
 
+from flufl.bounce._detectors.simplematch import VALID
 from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
@@ -62,6 +63,6 @@ class GroupWise:
                     # addresses with `\n`/`\r\n` attached.  No test exercises
                     # this path; revisit when a real-world sample surfaces.
                     addresses.add(line)
-                else:
+                elif VALID.match(line[:i]):
                     addresses.add(line[:i])
         return NoTemporaryFailures, frozenset(addresses)

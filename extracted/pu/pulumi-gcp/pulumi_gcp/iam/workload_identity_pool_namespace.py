@@ -23,9 +23,10 @@ class WorkloadIdentityPoolNamespaceArgs:
     def __init__(__self__, *,
                  workload_identity_pool_id: pulumi.Input[_builtins.str],
                  workload_identity_pool_namespace_id: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkloadIdentityPoolNamespace resource.
 
@@ -39,6 +40,12 @@ class WorkloadIdentityPoolNamespaceArgs:
                * end with an alphanumeric character
                
                The prefix `gcp-` will be reserved for future uses.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the namespace. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] disabled: Whether the namespace is disabled. If disabled, credentials may no longer be issued for
                identities within this namespace, however existing credentials will still be accepted until
@@ -48,6 +55,8 @@ class WorkloadIdentityPoolNamespaceArgs:
         """
         pulumi.set(__self__, "workload_identity_pool_id", workload_identity_pool_id)
         pulumi.set(__self__, "workload_identity_pool_namespace_id", workload_identity_pool_namespace_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -88,20 +97,37 @@ class WorkloadIdentityPoolNamespaceArgs:
         pulumi.set(self, "workload_identity_pool_namespace_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the namespace. Cannot exceed 256 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the namespace is disabled. If disabled, credentials may no longer be issued for
         identities within this namespace, however existing credentials will still be accepted until
@@ -110,12 +136,12 @@ class WorkloadIdentityPoolNamespaceArgs:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -123,24 +149,31 @@ class WorkloadIdentityPoolNamespaceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _WorkloadIdentityPoolNamespaceState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 owner_services: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_namespace_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 owner_services: pulumi.Input[Optional[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_namespace_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkloadIdentityPoolNamespace resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the namespace. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] disabled: Whether the namespace is disabled. If disabled, credentials may no longer be issued for
                identities within this namespace, however existing credentials will still be accepted until
@@ -169,6 +202,8 @@ class _WorkloadIdentityPoolNamespaceState:
                
                The prefix `gcp-` will be reserved for future uses.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -187,20 +222,37 @@ class _WorkloadIdentityPoolNamespaceState:
             pulumi.set(__self__, "workload_identity_pool_namespace_id", workload_identity_pool_namespace_id)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the namespace. Cannot exceed 256 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the namespace is disabled. If disabled, credentials may no longer be issued for
         identities within this namespace, however existing credentials will still be accepted until
@@ -209,12 +261,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the namespace as
         `projects/{project_number}/locations/global/workloadIdentityPools/{workload_identity_pool_id}/namespaces/{workload_identity_pool_namespace_id}`.
@@ -222,12 +274,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="ownerServices")
-    def owner_services(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]]:
+    def owner_services(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]]:
         """
         Defines the owner that is allowed to mutate this resource. If present, this resource can only
         be mutated by the owner.
@@ -236,12 +288,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "owner_services")
 
     @owner_services.setter
-    def owner_services(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]]):
+    def owner_services(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WorkloadIdentityPoolNamespaceOwnerServiceArgs']]]]):
         pulumi.set(self, "owner_services", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -249,12 +301,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the namespace.
         * `ACTIVE`: The namespace is active.
@@ -266,12 +318,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="workloadIdentityPoolId")
-    def workload_identity_pool_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def workload_identity_pool_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the pool, which becomes the final component of the resource name. This
         value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix
@@ -280,12 +332,12 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "workload_identity_pool_id")
 
     @workload_identity_pool_id.setter
-    def workload_identity_pool_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def workload_identity_pool_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workload_identity_pool_id", value)
 
     @_builtins.property
     @pulumi.getter(name="workloadIdentityPoolNamespaceId")
-    def workload_identity_pool_namespace_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def workload_identity_pool_namespace_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the namespace. This value must:
         * contain at most 63 characters
@@ -298,7 +350,7 @@ class _WorkloadIdentityPoolNamespaceState:
         return pulumi.get(self, "workload_identity_pool_namespace_id")
 
     @workload_identity_pool_namespace_id.setter
-    def workload_identity_pool_namespace_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def workload_identity_pool_namespace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workload_identity_pool_namespace_id", value)
 
 
@@ -308,11 +360,12 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_namespace_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_namespace_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a namespace for a workload identity pool. Namespaces are used to segment identities
@@ -375,6 +428,12 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the namespace. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] disabled: Whether the namespace is disabled. If disabled, credentials may no longer be issued for
                identities within this namespace, however existing credentials will still be accepted until
@@ -472,11 +531,12 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_pool_namespace_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_pool_namespace_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -486,6 +546,7 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = WorkloadIdentityPoolNamespaceArgs.__new__(WorkloadIdentityPoolNamespaceArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["disabled"] = disabled
             __props__.__dict__["project"] = project
@@ -508,14 +569,15 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            owner_services: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WorkloadIdentityPoolNamespaceOwnerServiceArgs', 'WorkloadIdentityPoolNamespaceOwnerServiceArgsDict']]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            workload_identity_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
-            workload_identity_pool_namespace_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkloadIdentityPoolNamespace':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            owner_services: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WorkloadIdentityPoolNamespaceOwnerServiceArgs', 'WorkloadIdentityPoolNamespaceOwnerServiceArgsDict']]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            workload_identity_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
+            workload_identity_pool_namespace_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'WorkloadIdentityPoolNamespace':
         """
         Get an existing WorkloadIdentityPoolNamespace resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -523,6 +585,12 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the namespace. Cannot exceed 256 characters.
         :param pulumi.Input[_builtins.bool] disabled: Whether the namespace is disabled. If disabled, credentials may no longer be issued for
                identities within this namespace, however existing credentials will still be accepted until
@@ -555,6 +623,7 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
 
         __props__ = _WorkloadIdentityPoolNamespaceState.__new__(_WorkloadIdentityPoolNamespaceState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["name"] = name
@@ -564,6 +633,19 @@ class WorkloadIdentityPoolNamespace(pulumi.CustomResource):
         __props__.__dict__["workload_identity_pool_id"] = workload_identity_pool_id
         __props__.__dict__["workload_identity_pool_namespace_id"] = workload_identity_pool_namespace_id
         return WorkloadIdentityPoolNamespace(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

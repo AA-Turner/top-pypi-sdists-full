@@ -22,18 +22,27 @@ __all__ = ['InstanceSettingsArgs', 'InstanceSettings']
 class InstanceSettingsArgs:
     def __init__(__self__, *,
                  zone: pulumi.Input[_builtins.str],
-                 metadata: Optional[pulumi.Input['InstanceSettingsMetadataArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional['InstanceSettingsMetadataArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a InstanceSettings resource.
 
         :param pulumi.Input[_builtins.str] zone: A reference to the zone where the machine resides.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['InstanceSettingsMetadataArgs'] metadata: The metadata key/value pairs assigned to all the instances in the corresponding scope.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
         pulumi.set(__self__, "zone", zone)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if metadata is not None:
             pulumi.set(__self__, "metadata", metadata)
         if project is not None:
@@ -52,8 +61,25 @@ class InstanceSettingsArgs:
         pulumi.set(self, "zone", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input['InstanceSettingsMetadataArgs']]:
+    def metadata(self) -> pulumi.Input[Optional['InstanceSettingsMetadataArgs']]:
         """
         The metadata key/value pairs assigned to all the instances in the corresponding scope.
         Structure is documented below.
@@ -61,12 +87,12 @@ class InstanceSettingsArgs:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input['InstanceSettingsMetadataArgs']]):
+    def metadata(self, value: pulumi.Input[Optional['InstanceSettingsMetadataArgs']]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -74,20 +100,27 @@ class InstanceSettingsArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _InstanceSettingsState:
     def __init__(__self__, *,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 metadata: Optional[pulumi.Input['InstanceSettingsMetadataArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional['InstanceSettingsMetadataArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering InstanceSettings resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] fingerprint: The fingerprint used for optimistic locking of this resource.  Used
                internally during updates.
         :param pulumi.Input['InstanceSettingsMetadataArgs'] metadata: The metadata key/value pairs assigned to all the instances in the corresponding scope.
@@ -96,6 +129,8 @@ class _InstanceSettingsState:
                If it is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] zone: A reference to the zone where the machine resides.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if fingerprint is not None:
             pulumi.set(__self__, "fingerprint", fingerprint)
         if metadata is not None:
@@ -106,8 +141,25 @@ class _InstanceSettingsState:
             pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The fingerprint used for optimistic locking of this resource.  Used
         internally during updates.
@@ -115,12 +167,12 @@ class _InstanceSettingsState:
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input['InstanceSettingsMetadataArgs']]:
+    def metadata(self) -> pulumi.Input[Optional['InstanceSettingsMetadataArgs']]:
         """
         The metadata key/value pairs assigned to all the instances in the corresponding scope.
         Structure is documented below.
@@ -128,12 +180,12 @@ class _InstanceSettingsState:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input['InstanceSettingsMetadataArgs']]):
+    def metadata(self, value: pulumi.Input[Optional['InstanceSettingsMetadataArgs']]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -141,19 +193,19 @@ class _InstanceSettingsState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the zone where the machine resides.
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
@@ -163,9 +215,10 @@ class InstanceSettings(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 metadata: Optional[pulumi.Input[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents an Instance Settings resource. Instance settings are centralized configuration parameters that allow users to configure the default values for specific VM parameters that are normally set using GCE instance API methods.
@@ -212,6 +265,12 @@ class InstanceSettings(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']] metadata: The metadata key/value pairs assigned to all the instances in the corresponding scope.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -282,9 +341,10 @@ class InstanceSettings(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 metadata: Optional[pulumi.Input[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata: pulumi.Input[Optional[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -294,6 +354,7 @@ class InstanceSettings(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = InstanceSettingsArgs.__new__(InstanceSettingsArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["project"] = project
             if zone is None and not opts.urn:
@@ -310,10 +371,11 @@ class InstanceSettings(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            metadata: Optional[pulumi.Input[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'InstanceSettings':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            metadata: pulumi.Input[Optional[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'InstanceSettings':
         """
         Get an existing InstanceSettings resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -321,6 +383,12 @@ class InstanceSettings(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] fingerprint: The fingerprint used for optimistic locking of this resource.  Used
                internally during updates.
         :param pulumi.Input[Union['InstanceSettingsMetadataArgs', 'InstanceSettingsMetadataArgsDict']] metadata: The metadata key/value pairs assigned to all the instances in the corresponding scope.
@@ -333,11 +401,25 @@ class InstanceSettings(pulumi.CustomResource):
 
         __props__ = _InstanceSettingsState.__new__(_InstanceSettingsState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["fingerprint"] = fingerprint
         __props__.__dict__["metadata"] = metadata
         __props__.__dict__["project"] = project
         __props__.__dict__["zone"] = zone
         return InstanceSettings(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

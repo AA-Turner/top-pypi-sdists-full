@@ -128,6 +128,7 @@ from chalk.client.models import (
     OfflineQueryInputSql,
     OfflineQueryInputUri,
     OfflineQueryParquetUploadURLResponse,
+    OfflineQueryProfileSummary,
     OfflineQueryReport,
     OnlineQuery,
     OnlineQueryContext,
@@ -2926,6 +2927,9 @@ https://docs.chalk.ai/cli/apply
             The OfflineQueryReport object if it exists.
         """
         return self._grpc_client.get_offline_query_report(offline_query_id)
+
+    def get_offline_query_profile_summary(self, offline_query_id: str) -> OfflineQueryProfileSummary:
+        return self._grpc_client.get_offline_query_profile_summary(offline_query_id=offline_query_id)
 
     def redeploy(
         self,

@@ -1,18 +1,38 @@
-from typing import Annotated, Dict, List, Literal, Optional, Union
+import json
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 import flask
-from pydantic import Discriminator, Field, Tag
+from pydantic import Discriminator, Field, Tag, WithJsonSchema, field_validator
 
 from abstra_internals.repositories.tasks import TaskDTO
 from abstra_internals.utils.dict import filter_non_string_values
 from abstra_internals.utils.serializable import Serializable
 
+# Schema widened so MCP clients can pass structured JSON; the before-validator
+# encodes dict/list to str so the field stays typed as str downstream.
+_BODY_JSON_SCHEMA = WithJsonSchema(
+    {
+        "anyOf": [
+            {"type": "string"},
+            {"type": "object", "additionalProperties": True},
+            {"type": "array", "items": {}},
+        ],
+    }
+)
+
 
 class Request(Serializable):
-    query_params: Dict[str, str]
-    headers: Dict[str, str]
     method: str
-    body: str
+    query_params: Dict[str, str] = Field(default_factory=dict)
+    headers: Dict[str, str] = Field(default_factory=dict)
+    body: Annotated[str, _BODY_JSON_SCHEMA] = ""
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def _encode_structured_body(cls, value: Any) -> Any:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value)
+        return value
 
 
 class Response(Serializable):

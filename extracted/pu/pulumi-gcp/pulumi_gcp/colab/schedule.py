@@ -26,12 +26,13 @@ class ScheduleArgs:
                  display_name: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  max_concurrent_run_count: pulumi.Input[_builtins.str],
-                 allow_queueing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 desired_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 end_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 start_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_queueing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 end_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 start_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Schedule resource.
 
@@ -42,6 +43,12 @@ class ScheduleArgs:
         :param pulumi.Input[_builtins.str] location: The location for the resource: https://cloud.google.com/colab/docs/locations
         :param pulumi.Input[_builtins.str] max_concurrent_run_count: Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests.
         :param pulumi.Input[_builtins.bool] allow_queueing: Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] desired_state: Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         :param pulumi.Input[_builtins.str] end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
         :param pulumi.Input[_builtins.str] max_run_count: Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified.
@@ -56,6 +63,8 @@ class ScheduleArgs:
         pulumi.set(__self__, "max_concurrent_run_count", max_concurrent_run_count)
         if allow_queueing is not None:
             pulumi.set(__self__, "allow_queueing", allow_queueing)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if desired_state is not None:
             pulumi.set(__self__, "desired_state", desired_state)
         if end_time is not None:
@@ -130,55 +139,72 @@ class ScheduleArgs:
 
     @_builtins.property
     @pulumi.getter(name="allowQueueing")
-    def allow_queueing(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_queueing(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false.
         """
         return pulumi.get(self, "allow_queueing")
 
     @allow_queueing.setter
-    def allow_queueing(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_queueing(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_queueing", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="desiredState")
-    def desired_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def desired_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         """
         return pulumi.get(self, "desired_state")
 
     @desired_state.setter
-    def desired_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def desired_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "desired_state", value)
 
     @_builtins.property
     @pulumi.getter(name="endTime")
-    def end_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def end_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
         """
         return pulumi.get(self, "end_time")
 
     @end_time.setter
-    def end_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def end_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "end_time", value)
 
     @_builtins.property
     @pulumi.getter(name="maxRunCount")
-    def max_run_count(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def max_run_count(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified.
         """
         return pulumi.get(self, "max_run_count")
 
     @max_run_count.setter
-    def max_run_count(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def max_run_count(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "max_run_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -186,38 +212,39 @@ class ScheduleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="startTime")
-    def start_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def start_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
         """
         return pulumi.get(self, "start_time")
 
     @start_time.setter
-    def start_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def start_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "start_time", value)
 
 
 @pulumi.input_type
 class _ScheduleState:
     def __init__(__self__, *,
-                 allow_queueing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 create_notebook_execution_job_request: Optional[pulumi.Input['ScheduleCreateNotebookExecutionJobRequestArgs']] = None,
-                 cron: Optional[pulumi.Input[_builtins.str]] = None,
-                 desired_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 end_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_concurrent_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 start_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_queueing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 create_notebook_execution_job_request: pulumi.Input[Optional['ScheduleCreateNotebookExecutionJobRequestArgs']] = None,
+                 cron: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 end_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_concurrent_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 start_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Schedule resources.
 
@@ -225,6 +252,12 @@ class _ScheduleState:
         :param pulumi.Input['ScheduleCreateNotebookExecutionJobRequestArgs'] create_notebook_execution_job_request: Request for google_colab_notebook_execution.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] desired_state: Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Schedule.
         :param pulumi.Input[_builtins.str] end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
@@ -243,6 +276,8 @@ class _ScheduleState:
             pulumi.set(__self__, "create_notebook_execution_job_request", create_notebook_execution_job_request)
         if cron is not None:
             pulumi.set(__self__, "cron", cron)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if desired_state is not None:
             pulumi.set(__self__, "desired_state", desired_state)
         if display_name is not None:
@@ -266,19 +301,19 @@ class _ScheduleState:
 
     @_builtins.property
     @pulumi.getter(name="allowQueueing")
-    def allow_queueing(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_queueing(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false.
         """
         return pulumi.get(self, "allow_queueing")
 
     @allow_queueing.setter
-    def allow_queueing(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_queueing(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_queueing", value)
 
     @_builtins.property
     @pulumi.getter(name="createNotebookExecutionJobRequest")
-    def create_notebook_execution_job_request(self) -> Optional[pulumi.Input['ScheduleCreateNotebookExecutionJobRequestArgs']]:
+    def create_notebook_execution_job_request(self) -> pulumi.Input[Optional['ScheduleCreateNotebookExecutionJobRequestArgs']]:
         """
         Request for google_colab_notebook_execution.
         Structure is documented below.
@@ -286,108 +321,125 @@ class _ScheduleState:
         return pulumi.get(self, "create_notebook_execution_job_request")
 
     @create_notebook_execution_job_request.setter
-    def create_notebook_execution_job_request(self, value: Optional[pulumi.Input['ScheduleCreateNotebookExecutionJobRequestArgs']]):
+    def create_notebook_execution_job_request(self, value: pulumi.Input[Optional['ScheduleCreateNotebookExecutionJobRequestArgs']]):
         pulumi.set(self, "create_notebook_execution_job_request", value)
 
     @_builtins.property
     @pulumi.getter
-    def cron(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cron(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
         """
         return pulumi.get(self, "cron")
 
     @cron.setter
-    def cron(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cron(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cron", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="desiredState")
-    def desired_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def desired_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         """
         return pulumi.get(self, "desired_state")
 
     @desired_state.setter
-    def desired_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def desired_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "desired_state", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The display name of the Schedule.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="endTime")
-    def end_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def end_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
         """
         return pulumi.get(self, "end_time")
 
     @end_time.setter
-    def end_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def end_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "end_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource: https://cloud.google.com/colab/docs/locations
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="maxConcurrentRunCount")
-    def max_concurrent_run_count(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def max_concurrent_run_count(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests.
         """
         return pulumi.get(self, "max_concurrent_run_count")
 
     @max_concurrent_run_count.setter
-    def max_concurrent_run_count(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def max_concurrent_run_count(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "max_concurrent_run_count", value)
 
     @_builtins.property
     @pulumi.getter(name="maxRunCount")
-    def max_run_count(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def max_run_count(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified.
         """
         return pulumi.get(self, "max_run_count")
 
     @max_run_count.setter
-    def max_run_count(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def max_run_count(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "max_run_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Schedule
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -395,31 +447,31 @@ class _ScheduleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="startTime")
-    def start_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def start_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
         """
         return pulumi.get(self, "start_time")
 
     @start_time.setter
-    def start_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def start_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "start_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The state of the schedule.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -429,17 +481,18 @@ class Schedule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_queueing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 create_notebook_execution_job_request: Optional[pulumi.Input[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
-                 cron: Optional[pulumi.Input[_builtins.str]] = None,
-                 desired_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 end_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_concurrent_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 start_time: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_queueing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 create_notebook_execution_job_request: pulumi.Input[Optional[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
+                 cron: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 end_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_concurrent_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 start_time: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         'Colab Enterprise Notebook Execution Schedules.'
@@ -525,7 +578,7 @@ class Schedule(pulumi.CustomResource):
                             name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                        "generation": notebook.generation,
+                        "generation": notebook.generation.apply(lambda x: str(x)),
                     },
                     "notebook_runtime_template_resource_name": pulumi.Output.all(
                         project=my_runtime_template.project,
@@ -616,7 +669,7 @@ class Schedule(pulumi.CustomResource):
                             name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                        "generation": notebook.generation,
+                        "generation": notebook.generation.apply(lambda x: str(x)),
                     },
                     "notebook_runtime_template_resource_name": pulumi.Output.all(
                         project=my_runtime_template.project,
@@ -739,6 +792,12 @@ class Schedule(pulumi.CustomResource):
         :param pulumi.Input[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']] create_notebook_execution_job_request: Request for google_colab_notebook_execution.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] desired_state: Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Schedule.
         :param pulumi.Input[_builtins.str] end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
@@ -839,7 +898,7 @@ class Schedule(pulumi.CustomResource):
                             name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                        "generation": notebook.generation,
+                        "generation": notebook.generation.apply(lambda x: str(x)),
                     },
                     "notebook_runtime_template_resource_name": pulumi.Output.all(
                         project=my_runtime_template.project,
@@ -930,7 +989,7 @@ class Schedule(pulumi.CustomResource):
                             name=notebook.name
         ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucket']}/{resolved_outputs['name']}")
         ,
-                        "generation": notebook.generation,
+                        "generation": notebook.generation.apply(lambda x: str(x)),
                     },
                     "notebook_runtime_template_resource_name": pulumi.Output.all(
                         project=my_runtime_template.project,
@@ -1062,17 +1121,18 @@ class Schedule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_queueing: Optional[pulumi.Input[_builtins.bool]] = None,
-                 create_notebook_execution_job_request: Optional[pulumi.Input[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
-                 cron: Optional[pulumi.Input[_builtins.str]] = None,
-                 desired_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 end_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_concurrent_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 start_time: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_queueing: pulumi.Input[Optional[_builtins.bool]] = None,
+                 create_notebook_execution_job_request: pulumi.Input[Optional[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
+                 cron: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 end_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_concurrent_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 start_time: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1089,6 +1149,7 @@ class Schedule(pulumi.CustomResource):
             if cron is None and not opts.urn:
                 raise TypeError("Missing required property 'cron'")
             __props__.__dict__["cron"] = cron
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["desired_state"] = desired_state
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -1115,19 +1176,20 @@ class Schedule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allow_queueing: Optional[pulumi.Input[_builtins.bool]] = None,
-            create_notebook_execution_job_request: Optional[pulumi.Input[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
-            cron: Optional[pulumi.Input[_builtins.str]] = None,
-            desired_state: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            end_time: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            max_concurrent_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-            max_run_count: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            start_time: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'Schedule':
+            allow_queueing: pulumi.Input[Optional[_builtins.bool]] = None,
+            create_notebook_execution_job_request: pulumi.Input[Optional[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']]] = None,
+            cron: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            desired_state: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            end_time: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            max_concurrent_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+            max_run_count: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            start_time: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'Schedule':
         """
         Get an existing Schedule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1139,6 +1201,12 @@ class Schedule(pulumi.CustomResource):
         :param pulumi.Input[Union['ScheduleCreateNotebookExecutionJobRequestArgs', 'ScheduleCreateNotebookExecutionJobRequestArgsDict']] create_notebook_execution_job_request: Request for google_colab_notebook_execution.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] desired_state: Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the Schedule.
         :param pulumi.Input[_builtins.str] end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
@@ -1158,6 +1226,7 @@ class Schedule(pulumi.CustomResource):
         __props__.__dict__["allow_queueing"] = allow_queueing
         __props__.__dict__["create_notebook_execution_job_request"] = create_notebook_execution_job_request
         __props__.__dict__["cron"] = cron
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["desired_state"] = desired_state
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["end_time"] = end_time
@@ -1194,6 +1263,19 @@ class Schedule(pulumi.CustomResource):
         Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
         """
         return pulumi.get(self, "cron")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="desiredState")

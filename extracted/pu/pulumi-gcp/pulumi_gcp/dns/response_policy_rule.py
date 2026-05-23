@@ -24,9 +24,10 @@ class ResponsePolicyRuleArgs:
                  dns_name: pulumi.Input[_builtins.str],
                  response_policy: pulumi.Input[_builtins.str],
                  rule_name: pulumi.Input[_builtins.str],
-                 behavior: Optional[pulumi.Input[_builtins.str]] = None,
-                 local_data: Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 behavior: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 local_data: pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ResponsePolicyRule resource.
 
@@ -35,6 +36,12 @@ class ResponsePolicyRuleArgs:
         :param pulumi.Input[_builtins.str] rule_name: An identifier for this rule. Must be unique with the ResponsePolicy.
         :param pulumi.Input[_builtins.str] behavior: (Optional, Beta)
                Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['ResponsePolicyRuleLocalDataArgs'] local_data: Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
                in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
                Structure is documented below.
@@ -46,6 +53,8 @@ class ResponsePolicyRuleArgs:
         pulumi.set(__self__, "rule_name", rule_name)
         if behavior is not None:
             pulumi.set(__self__, "behavior", behavior)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if local_data is not None:
             pulumi.set(__self__, "local_data", local_data)
         if project is not None:
@@ -89,7 +98,7 @@ class ResponsePolicyRuleArgs:
 
     @_builtins.property
     @pulumi.getter
-    def behavior(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def behavior(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Beta)
         Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
@@ -97,12 +106,29 @@ class ResponsePolicyRuleArgs:
         return pulumi.get(self, "behavior")
 
     @behavior.setter
-    def behavior(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def behavior(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "behavior", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="localData")
-    def local_data(self) -> Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']]:
+    def local_data(self) -> pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']]:
         """
         Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
         in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
@@ -111,12 +137,12 @@ class ResponsePolicyRuleArgs:
         return pulumi.get(self, "local_data")
 
     @local_data.setter
-    def local_data(self, value: Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']]):
+    def local_data(self, value: pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']]):
         pulumi.set(self, "local_data", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -124,24 +150,31 @@ class ResponsePolicyRuleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ResponsePolicyRuleState:
     def __init__(__self__, *,
-                 behavior: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 local_data: Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 response_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 behavior: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 local_data: pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 response_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ResponsePolicyRule resources.
 
         :param pulumi.Input[_builtins.str] behavior: (Optional, Beta)
                Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule.
         :param pulumi.Input['ResponsePolicyRuleLocalDataArgs'] local_data: Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
                in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
@@ -153,6 +186,8 @@ class _ResponsePolicyRuleState:
         """
         if behavior is not None:
             pulumi.set(__self__, "behavior", behavior)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if dns_name is not None:
             pulumi.set(__self__, "dns_name", dns_name)
         if local_data is not None:
@@ -166,7 +201,7 @@ class _ResponsePolicyRuleState:
 
     @_builtins.property
     @pulumi.getter
-    def behavior(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def behavior(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Beta)
         Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
@@ -174,24 +209,41 @@ class _ResponsePolicyRuleState:
         return pulumi.get(self, "behavior")
 
     @behavior.setter
-    def behavior(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def behavior(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "behavior", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="dnsName")
-    def dns_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dns_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule.
         """
         return pulumi.get(self, "dns_name")
 
     @dns_name.setter
-    def dns_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dns_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dns_name", value)
 
     @_builtins.property
     @pulumi.getter(name="localData")
-    def local_data(self) -> Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']]:
+    def local_data(self) -> pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']]:
         """
         Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
         in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
@@ -200,12 +252,12 @@ class _ResponsePolicyRuleState:
         return pulumi.get(self, "local_data")
 
     @local_data.setter
-    def local_data(self, value: Optional[pulumi.Input['ResponsePolicyRuleLocalDataArgs']]):
+    def local_data(self, value: pulumi.Input[Optional['ResponsePolicyRuleLocalDataArgs']]):
         pulumi.set(self, "local_data", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -213,31 +265,31 @@ class _ResponsePolicyRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="responsePolicy")
-    def response_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def response_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifies the response policy addressed by this request.
         """
         return pulumi.get(self, "response_policy")
 
     @response_policy.setter
-    def response_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def response_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "response_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="ruleName")
-    def rule_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def rule_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An identifier for this rule. Must be unique with the ResponsePolicy.
         """
         return pulumi.get(self, "rule_name")
 
     @rule_name.setter
-    def rule_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def rule_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "rule_name", value)
 
 
@@ -247,12 +299,13 @@ class ResponsePolicyRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 behavior: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 local_data: Optional[pulumi.Input[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 response_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 behavior: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 local_data: pulumi.Input[Optional[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 response_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Response Policy Rule is a selector that applies its behavior to queries that match the selector.
@@ -319,6 +372,12 @@ class ResponsePolicyRule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] behavior: (Optional, Beta)
                Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule.
         :param pulumi.Input[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']] local_data: Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
                in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
@@ -410,12 +469,13 @@ class ResponsePolicyRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 behavior: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 local_data: Optional[pulumi.Input[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 response_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 behavior: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 local_data: pulumi.Input[Optional[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 response_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -426,6 +486,7 @@ class ResponsePolicyRule(pulumi.CustomResource):
             __props__ = ResponsePolicyRuleArgs.__new__(ResponsePolicyRuleArgs)
 
             __props__.__dict__["behavior"] = behavior
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if dns_name is None and not opts.urn:
                 raise TypeError("Missing required property 'dns_name'")
             __props__.__dict__["dns_name"] = dns_name
@@ -447,12 +508,13 @@ class ResponsePolicyRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            behavior: Optional[pulumi.Input[_builtins.str]] = None,
-            dns_name: Optional[pulumi.Input[_builtins.str]] = None,
-            local_data: Optional[pulumi.Input[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            response_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            rule_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'ResponsePolicyRule':
+            behavior: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            dns_name: pulumi.Input[Optional[_builtins.str]] = None,
+            local_data: pulumi.Input[Optional[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            response_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            rule_name: pulumi.Input[Optional[_builtins.str]] = None) -> 'ResponsePolicyRule':
         """
         Get an existing ResponsePolicyRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -462,6 +524,12 @@ class ResponsePolicyRule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] behavior: (Optional, Beta)
                Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dns_name: The DNS name (wildcard or exact) to apply this rule to. Must be unique within the Response Policy Rule.
         :param pulumi.Input[Union['ResponsePolicyRuleLocalDataArgs', 'ResponsePolicyRuleLocalDataArgsDict']] local_data: Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
                in particular they override private zones, the public internet, and GCP internal DNS. No SOA nor NS types are allowed.
@@ -476,6 +544,7 @@ class ResponsePolicyRule(pulumi.CustomResource):
         __props__ = _ResponsePolicyRuleState.__new__(_ResponsePolicyRuleState)
 
         __props__.__dict__["behavior"] = behavior
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["dns_name"] = dns_name
         __props__.__dict__["local_data"] = local_data
         __props__.__dict__["project"] = project
@@ -491,6 +560,19 @@ class ResponsePolicyRule(pulumi.CustomResource):
         Answer this query with a behavior rather than DNS data. Acceptable values are 'behaviorUnspecified', and 'bypassResponsePolicy'
         """
         return pulumi.get(self, "behavior")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="dnsName")

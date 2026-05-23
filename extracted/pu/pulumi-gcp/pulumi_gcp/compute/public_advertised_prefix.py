@@ -20,16 +20,23 @@ __all__ = ['PublicAdvertisedPrefixArgs', 'PublicAdvertisedPrefix']
 class PublicAdvertisedPrefixArgs:
     def __init__(__self__, *,
                  ip_cidr_range: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_verification_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pdp_scope: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_verification_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pdp_scope: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PublicAdvertisedPrefix resource.
 
         :param pulumi.Input[_builtins.str] ip_cidr_range: The address range, in CIDR format, represented by this public advertised prefix.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] dns_verification_ip: The IPv4 address to be used for reverse DNS verification.
         :param pulumi.Input[_builtins.str] ipv6_access_type: The internet access type for IPv6 Public Advertised Prefixes. It can be
@@ -57,6 +64,8 @@ class PublicAdvertisedPrefixArgs:
                If it is not provided, the provider project is used.
         """
         pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dns_verification_ip is not None:
@@ -83,32 +92,49 @@ class PublicAdvertisedPrefixArgs:
         pulumi.set(self, "ip_cidr_range", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="dnsVerificationIp")
-    def dns_verification_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dns_verification_ip(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IPv4 address to be used for reverse DNS verification.
         """
         return pulumi.get(self, "dns_verification_ip")
 
     @dns_verification_ip.setter
-    def dns_verification_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dns_verification_ip(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dns_verification_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="ipv6AccessType")
-    def ipv6_access_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ipv6_access_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The internet access type for IPv6 Public Advertised Prefixes. It can be
         set to one of following:
@@ -122,12 +148,12 @@ class PublicAdvertisedPrefixArgs:
         return pulumi.get(self, "ipv6_access_type")
 
     @ipv6_access_type.setter
-    def ipv6_access_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ipv6_access_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ipv6_access_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. The name must be 1-63 characters long, and
         comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -139,12 +165,12 @@ class PublicAdvertisedPrefixArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pdpScope")
-    def pdp_scope(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pdp_scope(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies how child public delegated prefix will be scoped. pdpScope
         must be one of: GLOBAL, REGIONAL
@@ -157,12 +183,12 @@ class PublicAdvertisedPrefixArgs:
         return pulumi.get(self, "pdp_scope")
 
     @pdp_scope.setter
-    def pdp_scope(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pdp_scope(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pdp_scope", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -170,25 +196,32 @@ class PublicAdvertisedPrefixArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _PublicAdvertisedPrefixState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_verification_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pdp_scope: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 shared_secret: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_verification_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pdp_scope: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 shared_secret: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PublicAdvertisedPrefix resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] dns_verification_ip: The IPv4 address to be used for reverse DNS verification.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The address range, in CIDR format, represented by this public advertised prefix.
@@ -218,6 +251,8 @@ class _PublicAdvertisedPrefixState:
         :param pulumi.Input[_builtins.str] self_link: The URI of the created resource.
         :param pulumi.Input[_builtins.str] shared_secret: Output Only. The shared secret to be used for reverse DNS verification.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dns_verification_ip is not None:
@@ -238,44 +273,61 @@ class _PublicAdvertisedPrefixState:
             pulumi.set(__self__, "shared_secret", shared_secret)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="dnsVerificationIp")
-    def dns_verification_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dns_verification_ip(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IPv4 address to be used for reverse DNS verification.
         """
         return pulumi.get(self, "dns_verification_ip")
 
     @dns_verification_ip.setter
-    def dns_verification_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dns_verification_ip(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dns_verification_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="ipCidrRange")
-    def ip_cidr_range(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_cidr_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The address range, in CIDR format, represented by this public advertised prefix.
         """
         return pulumi.get(self, "ip_cidr_range")
 
     @ip_cidr_range.setter
-    def ip_cidr_range(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_cidr_range(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_cidr_range", value)
 
     @_builtins.property
     @pulumi.getter(name="ipv6AccessType")
-    def ipv6_access_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ipv6_access_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The internet access type for IPv6 Public Advertised Prefixes. It can be
         set to one of following:
@@ -289,12 +341,12 @@ class _PublicAdvertisedPrefixState:
         return pulumi.get(self, "ipv6_access_type")
 
     @ipv6_access_type.setter
-    def ipv6_access_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ipv6_access_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ipv6_access_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. The name must be 1-63 characters long, and
         comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -306,12 +358,12 @@ class _PublicAdvertisedPrefixState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pdpScope")
-    def pdp_scope(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pdp_scope(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies how child public delegated prefix will be scoped. pdpScope
         must be one of: GLOBAL, REGIONAL
@@ -324,12 +376,12 @@ class _PublicAdvertisedPrefixState:
         return pulumi.get(self, "pdp_scope")
 
     @pdp_scope.setter
-    def pdp_scope(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pdp_scope(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pdp_scope", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -337,31 +389,31 @@ class _PublicAdvertisedPrefixState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="sharedSecret")
-    def shared_secret(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def shared_secret(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output Only. The shared secret to be used for reverse DNS verification.
         """
         return pulumi.get(self, "shared_secret")
 
     @shared_secret.setter
-    def shared_secret(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def shared_secret(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "shared_secret", value)
 
 
@@ -371,13 +423,14 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_verification_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pdp_scope: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_verification_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pdp_scope: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a PublicAdvertisedPrefix for use with bring your own IP addresses (BYOIP).
@@ -448,6 +501,12 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] dns_verification_ip: The IPv4 address to be used for reverse DNS verification.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The address range, in CIDR format, represented by this public advertised prefix.
@@ -563,13 +622,14 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns_verification_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pdp_scope: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns_verification_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pdp_scope: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -579,6 +639,7 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PublicAdvertisedPrefixArgs.__new__(PublicAdvertisedPrefixArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["dns_verification_ip"] = dns_verification_ip
             if ip_cidr_range is None and not opts.urn:
@@ -600,15 +661,16 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            dns_verification_ip: Optional[pulumi.Input[_builtins.str]] = None,
-            ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-            ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pdp_scope: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            shared_secret: Optional[pulumi.Input[_builtins.str]] = None) -> 'PublicAdvertisedPrefix':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            dns_verification_ip: pulumi.Input[Optional[_builtins.str]] = None,
+            ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+            ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pdp_scope: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            shared_secret: pulumi.Input[Optional[_builtins.str]] = None) -> 'PublicAdvertisedPrefix':
         """
         Get an existing PublicAdvertisedPrefix resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -616,6 +678,12 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] dns_verification_ip: The IPv4 address to be used for reverse DNS verification.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The address range, in CIDR format, represented by this public advertised prefix.
@@ -649,6 +717,7 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
 
         __props__ = _PublicAdvertisedPrefixState.__new__(_PublicAdvertisedPrefixState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["dns_verification_ip"] = dns_verification_ip
         __props__.__dict__["ip_cidr_range"] = ip_cidr_range
@@ -659,6 +728,19 @@ class PublicAdvertisedPrefix(pulumi.CustomResource):
         __props__.__dict__["self_link"] = self_link
         __props__.__dict__["shared_secret"] = shared_secret
         return PublicAdvertisedPrefix(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

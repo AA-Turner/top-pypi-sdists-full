@@ -4,6 +4,7 @@ from typing import Any, Awaitable, Callable, Literal, cast, overload
 from inspect_ai._util._async import tg_collect
 from inspect_ai._util.content import ContentText
 from inspect_ai.model import (
+    CachePolicy,
     ChatMessage,
     ChatMessageUser,
     GenerateConfig,
@@ -23,7 +24,7 @@ from .._scanner.scanner import (
     Scanner,
     scanner,
 )
-from .._transcript.messages import transcript_messages
+from .._transcript.messages import _effective_segment_budget, transcript_messages
 from .._transcript.timeline import TimelineMessages
 from .._transcript.types import Transcript, TranscriptContent
 from ._reducer import aggregate_results
@@ -49,6 +50,7 @@ def llm_scanner(
     preprocessor: MessagesPreprocessor[Transcript] | None = None,
     model: str | Model | None = None,
     model_role: str | None = None,
+    cache: bool | CachePolicy | None = None,
     retry_refusals: bool | int = 3,
     name: str | None = None,
     content: TranscriptContent | None = None,
@@ -72,6 +74,7 @@ def llm_scanner(
     preprocessor: MessagesPreprocessor[Transcript] | None = None,
     model: str | Model | None = None,
     model_role: str | None = None,
+    cache: bool | CachePolicy | None = None,
     retry_refusals: bool | int = 3,
     name: str | None = None,
     content: TranscriptContent | None = None,
@@ -95,6 +98,7 @@ def llm_scanner(
     preprocessor: MessagesPreprocessor[Transcript] | None = None,
     model: str | Model | None = None,
     model_role: str | None = None,
+    cache: bool | CachePolicy | None = None,
     retry_refusals: bool | int = 3,
     name: str | None = None,
     content: TranscriptContent | None = None,
@@ -154,6 +158,10 @@ def llm_scanner(
             When set, the model is resolved via ``get_model(model, role=model_role)``
             at scan time, allowing deferred role resolution when roles are not yet
             available at scanner construction time.
+        cache: Response caching policy for the judge model call. Pass
+            ``True`` for default caching, a :class:`CachePolicy` for explicit
+            expiry/scope, or ``None`` (default) for no caching. Threaded
+            through to ``model.generate()`` via ``GenerateConfig.cache``.
         retry_refusals: Retry model refusals. Pass an ``int`` for number of retries (defaults to 3). Pass ``False`` to not retry refusals. If the limit of refusals is exceeded then a ``RuntimeError`` is raised.
         name: Scanner name.
             Use this to assign a name when passing ``llm_scanner()`` directly to ``scan()`` rather than delegating to it from another scanner.
@@ -242,7 +250,7 @@ def llm_scanner(
                         ]
                     )
                 ]
-                call_config = GenerateConfig(cache_prompt=True)
+                call_config = GenerateConfig(cache_prompt=True, cache=cache)
             else:
                 prompt = await render_scanner_prompt(
                     template=resolved_template,
@@ -252,7 +260,7 @@ def llm_scanner(
                     question=question,
                     answer=resolved_answer,
                 )
-                call_config = None
+                call_config = GenerateConfig(cache=cache) if cache is not None else None
             return await generate_answer(
                 prompt,
                 answer,
@@ -261,6 +269,32 @@ def llm_scanner(
                 retry_refusals=retry_refusals,
                 extract_refs=extract_references,
                 value_to_float=value_to_float,
+            )
+
+        # Measure template overhead by rendering with messages="" so the
+        # segmenter can subtract it from the per-segment budget. Without
+        # this, a long template can push the rendered prompt past the
+        # model's context window even when the messages alone fit.
+        template_tokens = await _template_overhead_tokens(
+            template=resolved_template,
+            template_variables=template_variables,
+            transcript=transcript,
+            question=question,
+            answer=resolved_answer,
+            model=resolved_model,
+        )
+        effective_budget = _effective_segment_budget(
+            model=resolved_model,
+            context_window=context_window,
+            prompt_reserve=template_tokens,
+        )
+        if effective_budget <= 0:
+            raise RuntimeError(
+                "Scanner template overhead exceeds the available context window "
+                f"budget: template overhead={template_tokens} tokens, available "
+                f"budget={effective_budget + template_tokens} tokens (after "
+                "tokenizer safety margin). Increase context_window or shorten "
+                "the scanner template."
             )
 
         segments = [
@@ -272,6 +306,7 @@ def llm_scanner(
                 context_window=context_window,
                 compaction=compaction,
                 depth=depth,
+                prompt_reserve=template_tokens,
             )
         ]
         segment_results: list[Result] = await tg_collect(
@@ -422,3 +457,40 @@ async def _render_split_prompt(
     )
     prefix, suffix = templates
     return _render_template(prefix, kwargs), _render_template(suffix, kwargs)
+
+
+async def _template_overhead_tokens(
+    *,
+    template: str | tuple[str, str],
+    template_variables: dict[str, Any] | Callable[[Transcript], dict[str, Any]] | None,
+    transcript: Transcript,
+    question: str | Callable[[Transcript], Awaitable[str]] | None,
+    answer: Answer,
+    model: Model,
+) -> int:
+    """Count tokens of the rendered prompt template with no messages.
+
+    Used by the segmenter to reserve budget for prompt scaffolding so
+    the rendered prompt (template + messages) fits in the context
+    window.
+    """
+    if isinstance(template, tuple):
+        prefix_str, suffix_str = await _render_split_prompt(
+            templates=template,
+            template_variables=template_variables,
+            transcript=transcript,
+            messages="",
+            question=question,
+            answer=answer,
+        )
+        rendered = prefix_str + suffix_str
+    else:
+        rendered = await render_scanner_prompt(
+            template=template,
+            template_variables=template_variables,
+            transcript=transcript,
+            messages="",
+            question=question,
+            answer=answer,
+        )
+    return await model.count_tokens(rendered)

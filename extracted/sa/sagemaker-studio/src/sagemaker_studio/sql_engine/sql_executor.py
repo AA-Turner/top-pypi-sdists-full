@@ -21,6 +21,7 @@ from .redshift_transformer import RedshiftTransformer
 from .resource_fetching_definition import FetchMode, SQLAlchemyMetadataAction
 from .snowflake_transformer import SnowflakeTransformer
 from .vertica_transformer import VerticaTransformer
+from .workday_transformer import WorkdayTransformer
 
 
 class ErrorStrategy(Enum):
@@ -80,6 +81,7 @@ class SqlExecutor:
             "POSTGRESQL": PostgreSQLTransformer,
             "OPENSEARCH": OpenSearchTransformer,
             "VERTICA": VerticaTransformer,
+            "WORKDAYLDQ": WorkdayTransformer,
         }
 
     @staticmethod
@@ -146,9 +148,15 @@ class SqlExecutor:
             )
 
         connect_args = config.get("connect_args", {})
-        return create_engine(
-            config["connection_string"], connect_args=connect_args
-        ).execution_options(connection_type=connection_type)
+        creator = config.get("creator")
+
+        kwargs = {"connect_args": connect_args}
+        if creator:
+            kwargs["creator"] = creator
+
+        return create_engine(config["connection_string"], **kwargs).execution_options(
+            connection_type=connection_type
+        )
 
     def execute(
         self,

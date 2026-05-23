@@ -24,13 +24,14 @@ class NativeDashboardArgs:
                  display_name: pulumi.Input[_builtins.str],
                  instance: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 access: Optional[pulumi.Input[_builtins.str]] = None,
-                 charts: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filters: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]] = None,
-                 is_pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 access: pulumi.Input[Optional[_builtins.str]] = None,
+                 charts: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filters: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]] = None,
+                 is_pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NativeDashboard resource.
 
@@ -43,6 +44,12 @@ class NativeDashboardArgs:
                DASHBOARD_PUBLIC
         :param pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]] charts: A list of charts included in the dashboard definition.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the dashboard.
         :param pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]] filters: Global filters defined for the dashboard.
                Structure is documented below.
@@ -60,6 +67,8 @@ class NativeDashboardArgs:
             pulumi.set(__self__, "access", access)
         if charts is not None:
             pulumi.set(__self__, "charts", charts)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if filters is not None:
@@ -109,7 +118,7 @@ class NativeDashboardArgs:
 
     @_builtins.property
     @pulumi.getter
-    def access(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def access(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The access level of the dashboard.
         Possible values:
@@ -119,12 +128,12 @@ class NativeDashboardArgs:
         return pulumi.get(self, "access")
 
     @access.setter
-    def access(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def access(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "access", value)
 
     @_builtins.property
     @pulumi.getter
-    def charts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]:
+    def charts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]:
         """
         A list of charts included in the dashboard definition.
         Structure is documented below.
@@ -132,24 +141,41 @@ class NativeDashboardArgs:
         return pulumi.get(self, "charts")
 
     @charts.setter
-    def charts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]):
+    def charts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]):
         pulumi.set(self, "charts", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the dashboard.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def filters(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]:
+    def filters(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]:
         """
         Global filters defined for the dashboard.
         Structure is documented below.
@@ -157,24 +183,24 @@ class NativeDashboardArgs:
         return pulumi.get(self, "filters")
 
     @filters.setter
-    def filters(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]):
+    def filters(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]):
         pulumi.set(self, "filters", value)
 
     @_builtins.property
     @pulumi.getter(name="isPinned")
-    def is_pinned(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_pinned(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the dashboard is pinned by the user.
         """
         return pulumi.get(self, "is_pinned")
 
     @is_pinned.setter
-    def is_pinned(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_pinned(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_pinned", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -182,12 +208,12 @@ class NativeDashboardArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of dashboard.
         Possible values:
@@ -196,32 +222,33 @@ class NativeDashboardArgs:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
 @pulumi.input_type
 class _NativeDashboardState:
     def __init__(__self__, *,
-                 access: Optional[pulumi.Input[_builtins.str]] = None,
-                 charts: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_user_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 dashboard_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 filters: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]] = None,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 last_viewed_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_user_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 access: pulumi.Input[Optional[_builtins.str]] = None,
+                 charts: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_user_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 dashboard_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 filters: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 last_viewed_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_user_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering NativeDashboard resources.
 
@@ -234,6 +261,12 @@ class _NativeDashboardState:
         :param pulumi.Input[_builtins.str] create_time: The creation time of the dashboard.
         :param pulumi.Input[_builtins.str] create_user_id: The ID of the user who created the dashboard.
         :param pulumi.Input[_builtins.str] dashboard_id: The unique ID of the Dashboard.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the dashboard.
         :param pulumi.Input[_builtins.str] display_name: The display name/title of the dashboard visible to users.
         :param pulumi.Input[_builtins.str] etag: Server-computed checksum for optimistic concurrency control,
@@ -266,6 +299,8 @@ class _NativeDashboardState:
             pulumi.set(__self__, "create_user_id", create_user_id)
         if dashboard_id is not None:
             pulumi.set(__self__, "dashboard_id", dashboard_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -297,7 +332,7 @@ class _NativeDashboardState:
 
     @_builtins.property
     @pulumi.getter
-    def access(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def access(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The access level of the dashboard.
         Possible values:
@@ -307,12 +342,12 @@ class _NativeDashboardState:
         return pulumi.get(self, "access")
 
     @access.setter
-    def access(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def access(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "access", value)
 
     @_builtins.property
     @pulumi.getter
-    def charts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]:
+    def charts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]:
         """
         A list of charts included in the dashboard definition.
         Structure is documented below.
@@ -320,72 +355,89 @@ class _NativeDashboardState:
         return pulumi.get(self, "charts")
 
     @charts.setter
-    def charts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]):
+    def charts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardChartArgs']]]]):
         pulumi.set(self, "charts", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The creation time of the dashboard.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="createUserId")
-    def create_user_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_user_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the user who created the dashboard.
         """
         return pulumi.get(self, "create_user_id")
 
     @create_user_id.setter
-    def create_user_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_user_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_user_id", value)
 
     @_builtins.property
     @pulumi.getter(name="dashboardId")
-    def dashboard_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dashboard_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique ID of the Dashboard.
         """
         return pulumi.get(self, "dashboard_id")
 
     @dashboard_id.setter
-    def dashboard_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dashboard_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dashboard_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the dashboard.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name/title of the dashboard visible to users.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-computed checksum for optimistic concurrency control,
         sent on update and delete requests.
@@ -393,12 +445,12 @@ class _NativeDashboardState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def filters(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]:
+    def filters(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]:
         """
         Global filters defined for the dashboard.
         Structure is documented below.
@@ -406,12 +458,12 @@ class _NativeDashboardState:
         return pulumi.get(self, "filters")
 
     @filters.setter
-    def filters(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]):
+    def filters(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NativeDashboardFilterArgs']]]]):
         pulumi.set(self, "filters", value)
 
     @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         The server-generated fingerprint of the dashboard definition.
@@ -419,36 +471,36 @@ class _NativeDashboardState:
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Chronicle instance.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter(name="isPinned")
-    def is_pinned(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_pinned(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the dashboard is pinned by the user.
         """
         return pulumi.get(self, "is_pinned")
 
     @is_pinned.setter
-    def is_pinned(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_pinned(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_pinned", value)
 
     @_builtins.property
     @pulumi.getter(name="lastViewedTime")
-    def last_viewed_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_viewed_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         The time when this dashboard was last viewed.
@@ -456,36 +508,36 @@ class _NativeDashboardState:
         return pulumi.get(self, "last_viewed_time")
 
     @last_viewed_time.setter
-    def last_viewed_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_viewed_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_viewed_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the Chronicle instance.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The full resource name of the dashboard.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -493,12 +545,12 @@ class _NativeDashboardState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of dashboard.
         Possible values:
@@ -507,31 +559,31 @@ class _NativeDashboardState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the dashboard was last edited.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="updateUserId")
-    def update_user_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_user_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the user who last edited the dashboard.
         """
         return pulumi.get(self, "update_user_id")
 
     @update_user_id.setter
-    def update_user_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_user_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_user_id", value)
 
 
@@ -541,26 +593,24 @@ class NativeDashboard(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access: Optional[pulumi.Input[_builtins.str]] = None,
-                 charts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 filters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 access: pulumi.Input[Optional[_builtins.str]] = None,
+                 charts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 filters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A configuration for a native dashboard within a Google SecOps (Chronicle) instance.
 
-        > **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-        See Provider Versions for more details on beta resources.
-
         To get more information about NativeDashboard, see:
 
-        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1beta/projects.locations.instances.nativeDashboards)
+        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1/projects.locations.instances.nativeDashboards)
         * How-to Guides
             * [Google SecOps Guides](https://cloud.google.com/chronicle/docs/secops/secops-overview)
 
@@ -620,6 +670,12 @@ class NativeDashboard(pulumi.CustomResource):
                DASHBOARD_PUBLIC
         :param pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]] charts: A list of charts included in the dashboard definition.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the dashboard.
         :param pulumi.Input[_builtins.str] display_name: The display name/title of the dashboard visible to users.
         :param pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]] filters: Global filters defined for the dashboard.
@@ -642,12 +698,9 @@ class NativeDashboard(pulumi.CustomResource):
         """
         A configuration for a native dashboard within a Google SecOps (Chronicle) instance.
 
-        > **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-        See Provider Versions for more details on beta resources.
-
         To get more information about NativeDashboard, see:
 
-        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1beta/projects.locations.instances.nativeDashboards)
+        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1/projects.locations.instances.nativeDashboards)
         * How-to Guides
             * [Google SecOps Guides](https://cloud.google.com/chronicle/docs/secops/secops-overview)
 
@@ -714,16 +767,17 @@ class NativeDashboard(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access: Optional[pulumi.Input[_builtins.str]] = None,
-                 charts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 filters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 access: pulumi.Input[Optional[_builtins.str]] = None,
+                 charts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 filters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -735,6 +789,7 @@ class NativeDashboard(pulumi.CustomResource):
 
             __props__.__dict__["access"] = access
             __props__.__dict__["charts"] = charts
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -768,25 +823,26 @@ class NativeDashboard(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            access: Optional[pulumi.Input[_builtins.str]] = None,
-            charts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            create_user_id: Optional[pulumi.Input[_builtins.str]] = None,
-            dashboard_id: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            filters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            is_pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-            last_viewed_time: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            update_user_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'NativeDashboard':
+            access: pulumi.Input[Optional[_builtins.str]] = None,
+            charts: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardChartArgs', 'NativeDashboardChartArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            create_user_id: pulumi.Input[Optional[_builtins.str]] = None,
+            dashboard_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            filters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NativeDashboardFilterArgs', 'NativeDashboardFilterArgsDict']]]]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            is_pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+            last_viewed_time: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            update_user_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'NativeDashboard':
         """
         Get an existing NativeDashboard resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -803,6 +859,12 @@ class NativeDashboard(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: The creation time of the dashboard.
         :param pulumi.Input[_builtins.str] create_user_id: The ID of the user who created the dashboard.
         :param pulumi.Input[_builtins.str] dashboard_id: The unique ID of the Dashboard.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the dashboard.
         :param pulumi.Input[_builtins.str] display_name: The display name/title of the dashboard visible to users.
         :param pulumi.Input[_builtins.str] etag: Server-computed checksum for optimistic concurrency control,
@@ -834,6 +896,7 @@ class NativeDashboard(pulumi.CustomResource):
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["create_user_id"] = create_user_id
         __props__.__dict__["dashboard_id"] = dashboard_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["etag"] = etag
@@ -893,6 +956,19 @@ class NativeDashboard(pulumi.CustomResource):
         The unique ID of the Dashboard.
         """
         return pulumi.get(self, "dashboard_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

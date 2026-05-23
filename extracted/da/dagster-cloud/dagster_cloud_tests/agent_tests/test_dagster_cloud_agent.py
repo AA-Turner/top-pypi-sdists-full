@@ -576,8 +576,8 @@ def metrics_instance(agent_token, ursula_graphql_client, request):
     }
 
     if request.param is not None:
-        config["user_code_launcher"]["config"]["agent_metrics"] = {"enabled": request.param}
-        config["user_code_launcher"]["config"]["code_server_metrics"] = {"enabled": request.param}
+        config["user_code_launcher"]["config"]["agent_metrics"] = {"enabled": request.param}  # ty: ignore[invalid-assignment]
+        config["user_code_launcher"]["config"]["code_server_metrics"] = {"enabled": request.param}  # ty: ignore[invalid-assignment]
 
     with instance_for_test(config) as instance:
         yield instance
@@ -3552,19 +3552,19 @@ def test_agent_liveness_sentinel_skipped_when_no_sentinel_dir(
 def test_sentinel_dir_defaults():
     """Base class defaults to None, ECS to /opt, K8s to /tmp."""
     assert (
-        DagsterCloudUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
+        DagsterCloudUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
             mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         )
         is None
     )
     assert (
-        EcsUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
+        EcsUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
             mock.MagicMock(spec=EcsUserCodeLauncher)
         )
         == "/opt"
     )
     assert (
-        K8sUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
+        K8sUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
             mock.MagicMock(spec=K8sUserCodeLauncher)
         )
         == "/tmp"
@@ -3580,11 +3580,11 @@ def test_sentinel_dir_uses_default_when_env_var_unset():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert result == "/opt"
 
         launcher._default_sentinel_dir = None  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert result is None
 
 
@@ -3595,7 +3595,7 @@ def test_sentinel_dir_env_var_override():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert result == "/custom"
 
 
@@ -3606,7 +3606,7 @@ def test_sentinel_dir_empty_string_disables():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert result is None
 
 
@@ -3652,8 +3652,8 @@ def test_ecs_sentinel_path_is_opt(tmp_path):
 
         launcher = mock.MagicMock(spec=EcsUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
-        launcher._default_sentinel_dir = EcsUserCodeLauncher._default_sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
-        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        launcher._default_sentinel_dir = EcsUserCodeLauncher._default_sentinel_dir.fget(launcher)  # noqa: SLF001
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert sentinel_dir == "/opt"
         assert (
             os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")
@@ -3678,10 +3678,10 @@ def test_serverless_sentinel_path_is_opt():
 
         launcher = mock.MagicMock(spec=ServerlessUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
-        launcher._default_sentinel_dir = ServerlessUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
+        launcher._default_sentinel_dir = ServerlessUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
             launcher
         )
-        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)
         assert sentinel_dir == "/opt"
         assert (
             os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")

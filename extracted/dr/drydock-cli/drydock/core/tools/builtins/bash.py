@@ -264,8 +264,25 @@ class BashToolConfig(BaseToolConfig):
     max_output_bytes: int = Field(
         default=16_000, description="Maximum bytes to capture from stdout and stderr."
     )
+    # 2026-05-22: bumped 300→1800 per operator request. The old 5-minute
+    # default killed legitimate long workflows (full test suites, builds,
+    # data pipelines) before they could finish; the model received a
+    # "timed out" advisory and either gave up or restarted from scratch.
+    # 30 minutes covers the vast majority of real commands.
     default_timeout: int = Field(
-        default=300, description="Default timeout for commands in seconds."
+        default=1800,
+        description=(
+            "Default timeout for commands in seconds (30 minutes). "
+            "Set higher per-call for long builds/installs/training runs."
+        ),
+    )
+    long_running_timeout: int = Field(
+        default=7200,
+        description=(
+            "Timeout in seconds applied when the command matches a "
+            "well-known long-running prefix (pytest with --runslow, "
+            "cargo build, npm install, etc.) — 2 hours by default."
+        ),
     )
     allowlist: list[str] = Field(
         default_factory=_get_default_allowlist,
@@ -481,10 +498,47 @@ class Bash(
             command=command, stdout=stdout, stderr=stderr, returncode=returncode
         )
 
+    @staticmethod
+    def _looks_long_running(command: str) -> bool:
+        """Heuristic: does the command look like one of the well-known
+        long-running operations (full test suite, build, install, data
+        pipeline) where the default 30-min timeout could still be too
+        short? Used to auto-extend timeout to long_running_timeout.
+        """
+        if not command:
+            return False
+        c = command.strip().lower()
+        # Strip leading env-var assignments like `PYTHONPATH=. PYTEST_ADDOPTS=-q ...`
+        while c and c[0].isalpha() and "=" in c.split(maxsplit=1)[0] and " " in c:
+            _, c = c.split(maxsplit=1)
+            c = c.lstrip()
+        prefixes = (
+            "cargo build", "cargo test", "cargo run --release",
+            "go build", "go test ./...",
+            "make ", "make -j",
+            "npm install", "npm ci", "npm run build", "npm test",
+            "yarn install", "yarn build",
+            "pnpm install", "pnpm build",
+            "pip install -r", "pip install .",
+            "poetry install",
+            "uv sync", "uv pip install",
+            "docker build", "docker compose build", "docker-compose build",
+            "bazel build", "bazel test",
+            "tox ",
+            "pytest --runslow", "pytest -m slow",
+            "python -m pytest --runslow",
+        )
+        return any(c.startswith(p) for p in prefixes)
+
     async def run(
         self, args: BashArgs, ctx: InvokeContext | None = None
     ) -> AsyncGenerator[ToolStreamEvent | BashResult, None]:
-        timeout = args.timeout or self.config.default_timeout
+        if args.timeout:
+            timeout = args.timeout
+        elif self._looks_long_running(args.command):
+            timeout = self.config.long_running_timeout
+        else:
+            timeout = self.config.default_timeout
         max_bytes = self.config.max_output_bytes
 
         proc = None
@@ -668,6 +722,51 @@ class Bash(
                         returncode=returncode,
                     )
                     return
+
+            # Address-in-use detection. Models writing test servers
+            # often hardcode a port (8000, 8080, 5000) and concurrent
+            # test runs leave the previous instance still bound.
+            # Observed 2026-05-22 in mdparse gauntlet: model spawned
+            # `python3 -m mdparse.server &` which hit OSError 98 and
+            # crashed instantly; the subsequent `curl` got nothing
+            # and the verify call reported failure pointing at the
+            # server traceback. Surface the port-conflict explanation
+            # explicitly so the model fixes the root cause (bind to
+            # port=0 and read the actual port) instead of retrying
+            # the same hardcoded port.
+            if (returncode != 0
+                    and ("Address already in use" in stderr_raw
+                         or "address already in use" in stderr_raw
+                         or "[Errno 98]" in stderr_raw)):
+                # Pull the bound port number out of the stderr if present
+                import re as _re
+                _port_match = _re.search(
+                    r"port[s]?\s+(\d+)|:(\d{2,5})\s*$|"
+                    r"\bbind\b.*?(\d{2,5})|"
+                    r"\((?:'localhost'|'127\.0\.0\.1'),\s*(\d+)\)",
+                    stderr_raw,
+                )
+                _port = ""
+                if _port_match:
+                    _port = next((g for g in _port_match.groups() if g), "")
+                _hint = (
+                    f"\n[PORT CONFLICT: the server failed to bind"
+                    + (f" port {_port}" if _port else "")
+                    + ". Another process (likely a prior run of the "
+                    "same server still in background) is already on "
+                    "this port. Fix it by binding to port=0 and "
+                    "reading server.server_address[1] for the actual "
+                    "port — or kill the stale process via "
+                    "`lsof -ti :<port> | xargs -r kill`. Do NOT retry "
+                    "the same hardcoded port.]"
+                )
+                yield self._build_result(
+                    command=args.command,
+                    stdout=stdout,
+                    stderr=stderr + _hint,
+                    returncode=returncode,
+                )
+                return
 
             # Exact-command repetition loop-breaker: fires when the same
             # command text is run 5+ times regardless of output or exit code.

@@ -17,11 +17,9 @@ import typer
 
 from .. import PdfWrapper
 from ..lib.constants import PdfVersion
-from ..shared.utils import get_widget
 from .common import (FIELD_NAME, INPUT_PDF, OPTIONAL_OUTPUT_PDF,
-                     cli_bad_parameter, cli_widget_key_error,
-                     handle_font_registration, json_file_option,
-                     load_json_file)
+                     cli_bad_parameter, get_widget, handle_font_registration,
+                     json_file_option, load_json_file)
 from .schemas.update import FIELD_SCHEMA, RENAME_SCHEMA
 
 update_cli = typer.Typer(
@@ -109,7 +107,7 @@ def bounds(
 ) -> None:
     """Update a form field's position and size."""
     obj = PdfWrapper(str(pdf), **ctx.obj)
-    f = get_widget(obj, widget, cli_widget_key_error("--field"))
+    f = get_widget(obj, widget, "--field")
 
     f.x = x if x is not None else f.x
     f.y = y if y is not None else f.y
@@ -139,7 +137,7 @@ def rename(
     obj = PdfWrapper(str(pdf), **ctx.obj)
     for item in input_data:
         for k, v in item.items():
-            widget = get_widget(obj, k, cli_widget_key_error("--file"))
+            widget = get_widget(obj, k, "--file")
             obj.update_widget_key(widget.name, v["new_key"], index=v.get("index", 0))
 
     obj.commit_widget_key_updates().write(output or pdf)
@@ -160,7 +158,7 @@ def field(
     obj = PdfWrapper(str(pdf), **ctx.obj)
     registered_font = {}
     for k, each in input_data.items():
-        widget = get_widget(obj, k, cli_widget_key_error("--file"))
+        widget = get_widget(obj, k, "--file")
         handle_font_registration(obj, each, registered_font)
         for param, v in each.items():
             setattr(widget, param, v)

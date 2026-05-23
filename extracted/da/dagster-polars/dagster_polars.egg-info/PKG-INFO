@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-polars
-Version: 0.27.9
+Version: 0.27.12
 Summary: Dagster integration library for Polars
 Author-email: Daniel Gafni <danielgafni16@gmail.com>
 Project-URL: Repository, https://github.com/dagster-io/community-integrations/tree/main/libraries/dagster-polars
@@ -12,7 +12,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: dagster
-Requires-Dist: polars>=0.20.0
+Requires-Dist: polars>=1.0.0
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: typing-extensions>=4.7.0
 Requires-Dist: universal-pathlib>=0.1.4

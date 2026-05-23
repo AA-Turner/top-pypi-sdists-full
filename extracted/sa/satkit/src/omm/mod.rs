@@ -12,7 +12,9 @@
 
 use serde::{Deserialize, Deserializer};
 
-use anyhow::Result;
+mod error;
+
+pub use error::{Error, Result};
 
 #[cfg(feature = "omm-xml")]
 mod xml;
@@ -20,7 +22,7 @@ mod xml;
 use crate::sgp4::{SGP4InitArgs, SGP4Source, SatRec};
 use crate::{Instant, TimeScale};
 
-fn de_f64_from_number_or_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
+fn de_f64_from_number_or_string<'de, D>(deserializer: D) -> std::result::Result<f64, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -37,7 +39,9 @@ where
     }
 }
 
-fn de_opt_f64_from_number_or_string<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+fn de_opt_f64_from_number_or_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<f64>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -65,7 +69,9 @@ where
     }
 }
 
-fn de_opt_u32_from_number_or_string<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+fn de_opt_u32_from_number_or_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<u32>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -100,7 +106,9 @@ where
     }
 }
 
-fn de_opt_u8_from_number_or_string<'de, D>(deserializer: D) -> Result<Option<u8>, D::Error>
+fn de_opt_u8_from_number_or_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<u8>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -293,8 +301,8 @@ impl OMM {
     /// # Errors
     ///
     /// Returns an error if `epoch` is not a valid RFC 3339 timestamp.
-    pub fn epoch_instant(&self) -> anyhow::Result<Instant> {
-        Instant::from_rfc3339(&self.epoch).map_err(|e| anyhow::anyhow!(e))
+    pub fn epoch_instant(&self) -> Result<Instant> {
+        Instant::from_rfc3339(&self.epoch).map_err(Error::from)
     }
 
     /// Deserializes one or more OMM records from a JSON string.
@@ -327,14 +335,14 @@ impl OMM {
     /// let omms = OMM::from_json_string(json)?;
     /// assert_eq!(omms.len(), 1);
     /// assert_eq!(omms[0].object_id, "1998-067A");
-    /// # Ok::<(), anyhow::Error>(())
+    /// # Ok::<(), satkit::omm::Error>(())
     /// ```
     ///
     /// # Errors
     ///
     /// Returns an error if the JSON is malformed or required OMM fields are missing/invalid.
     pub fn from_json_string(s: &str) -> Result<Vec<Self>> {
-        serde_json::from_str(s).map_err(|e| anyhow::anyhow!(e))
+        serde_json::from_str(s).map_err(Error::from)
     }
 
     /// Deserializes one or more OMM records from a JSON file.
@@ -349,16 +357,16 @@ impl OMM {
     ///
     /// let omms = OMM::from_json_file("/path/to/omm.json")?;
     /// println!("Loaded {} OMM records", omms.len());
-    /// # Ok::<(), anyhow::Error>(())
+    /// # Ok::<(), satkit::omm::Error>(())
     /// ```
     ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be read or the JSON payload is invalid.
     pub fn from_json_file<P: AsRef<std::path::Path>>(path: P) -> Result<Vec<Self>> {
-        let file = std::fs::File::open(path).map_err(|e| anyhow::anyhow!(e))?;
+        let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
-        serde_json::from_reader(reader).map_err(|e| anyhow::anyhow!(e))
+        serde_json::from_reader(reader).map_err(Error::from)
     }
 
     /// Load OMM(s) from a URL
@@ -369,13 +377,17 @@ impl OMM {
     ///
     /// Works with CelesTrak and Space-Track API endpoints.
     ///
+    /// Requires the `download` Cargo feature.
+    ///
     /// # Example
     ///
     /// ```no_run
     /// use satkit::omm::OMM;
     ///
+    /// # #[cfg(feature = "download")]
     /// let omms = OMM::from_url("https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=json").unwrap();
     /// ```
+    #[cfg(feature = "download")]
     pub fn from_url(url: &str) -> Result<Vec<Self>> {
         let agent = ureq::Agent::new_with_defaults();
         let mut resp = agent.get(url).call()?;
@@ -395,7 +407,7 @@ impl OMM {
             }
             #[cfg(not(feature = "omm-xml"))]
             {
-                anyhow::bail!("Response appears to be XML but the `omm-xml` feature is not enabled")
+                Err(Error::XmlFeatureDisabled)
             }
         }
     }
@@ -411,24 +423,28 @@ impl SGP4Source for OMM {
         &mut self.satrec
     }
 
-    fn sgp4_init_args(&self) -> anyhow::Result<SGP4InitArgs> {
+    fn sgp4_init_args(&self) -> crate::sgp4::Result<SGP4InitArgs> {
         use std::f64::consts::PI;
 
         const TWOPI: f64 = PI * 2.0;
 
         if let Some(theory) = &self.mean_element_theory {
             if !theory.trim().eq_ignore_ascii_case("SGP4") {
-                anyhow::bail!("Unsupported MEAN_ELEMENT_THEORY: {theory}");
+                return Err(crate::sgp4::Error::source(
+                    Error::UnsupportedMeanElementTheory(theory.clone()),
+                ));
             }
         }
 
         if let Some(ts) = &self.time_system {
             if !ts.trim().eq_ignore_ascii_case("UTC") {
-                anyhow::bail!("Unsupported TIME_SYSTEM for SGP4: {ts}");
+                return Err(crate::sgp4::Error::source(Error::UnsupportedTimeSystem(
+                    ts.clone(),
+                )));
             }
         }
 
-        let epoch = self.epoch_instant()?;
+        let epoch = self.epoch_instant().map_err(crate::sgp4::Error::source)?;
 
         Ok(SGP4InitArgs {
             jdsatepoch: epoch.as_jd_with_scale(TimeScale::UTC),

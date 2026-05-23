@@ -242,10 +242,45 @@ def _check_green(spec: str, cwd: Path) -> CheckResult:
 
 
 def _check_cmd_stdout(spec: str, cwd: Path) -> CheckResult | None:
-    """Recognize: '<cmd> -> 'X'' / '<cmd> -> \"X\"'.
+    """Recognize: '<cmd> -> 'X'' / '<cmd> -> \"X\"' / '<cmd> prints 'X''.
 
     Quoted RHS only; unquoted forms (e.g. "-> 5 data rows") go to
-    _check_cmd_assertion below."""
+    _check_cmd_assertion below.
+
+    Also handles the "prints" verb (e.g. "count prints 'open: 3  done: 2'")
+    by treating 'prints' as equivalent to '->'.
+    """
+    # First try the "prints" form
+    m = re.match(r"^(.+?)\s+prints\s+['\"](.+?)['\"]\s*$", spec)
+    if m:
+        # Synthesize a command from the prefix. e.g. for taskvault:
+        #   "count prints 'open: 3 done: 2 total: 5'"
+        # the prefix "count" isn't a real command — it's the subcommand.
+        # Look for a package dir under cwd and run `python -m <pkg> <prefix>`.
+        cmd_prefix, expected = m.group(1).strip(), m.group(2)
+        if cmd_prefix and not any(cmd_prefix.startswith(p) for p in
+                                  ("python", "python3", "pytest", "curl",
+                                   "grep", "ls", "cat", "bash")):
+            # Try to find the project package
+            pkg_dirs = [p for p in cwd.iterdir() if p.is_dir()
+                        and (p / "__main__.py").is_file()
+                        and not p.name.startswith(".")] if cwd.is_dir() else []
+            if pkg_dirs:
+                cmd_prefix = f"python3 -m {pkg_dirs[0].name} {cmd_prefix}"
+        try:
+            r = subprocess.run(
+                ["/bin/bash", "-c", cmd_prefix], cwd=cwd,
+                capture_output=True, timeout=30, text=True,
+            )
+        except Exception as e:
+            return CheckResult(spec, False, f"run error: {e!r}")
+        haystack = (r.stdout or "") + "\n" + (r.stderr or "")
+        if expected in haystack:
+            return CheckResult(spec, True, f"output contains {expected!r}")
+        return CheckResult(
+            spec, False,
+            f"output did NOT contain {expected!r}; got: {haystack[:140]!r}",
+        )
     m = re.match(r"^(.+?)\s*->\s*['\"](.+?)['\"]\s*$", spec)
     if not m:
         return None
@@ -338,12 +373,19 @@ def _check_cmd_assertion(spec: str, cwd: Path) -> CheckResult | None:
 
 def _check_stderr_regex(spec: str, cwd: Path) -> CheckResult | None:
     """Recognize: '<cmd> -> stderr matches /R/' or '<cmd> stderr matches /R/'."""
-    m = re.match(r"^(.+?)\s+stderr matches\s+/(.+)/\s*$", spec)
+    m = re.match(r"^(.+?)\s+(?:->\s+)?stderr matches\s+/(.+)/\s*$", spec)
     if not m:
         return None
     cmd, pat = m.group(1), m.group(2)
-    # Trim a leading "-> " that some entries include
+    # Trim a trailing "-> " if the arrow was included in the cmd group
     cmd = re.sub(r"\s*->\s*$", "", cmd).strip()
+    # If cmd is bare flags (no program name), prepend the project package
+    if cmd.startswith("-") and cwd.is_dir():
+        pkg_dirs = [p for p in cwd.iterdir() if p.is_dir()
+                    and (p / "__main__.py").is_file()
+                    and not p.name.startswith(".")]
+        if pkg_dirs:
+            cmd = f"python3 -m {pkg_dirs[0].name} {cmd}"
     try:
         r = subprocess.run(
             ["/bin/bash", "-c", cmd], cwd=cwd,
@@ -438,17 +480,25 @@ def _check_file_has_strings(spec: str, cwd: Path) -> CheckResult | None:
 def _check_fix_is_in(spec: str, cwd: Path) -> CheckResult | None:
     """Recognize: 'fix is in <path>' / 'change is in <path>'.
 
-    Pass when that file exists. Cheap signal that the model touched
-    the right area; doesn't verify the fix is correct (the green(N)
-    check covers that). Common shape across debug cases.
+    Cases sometimes name just the leaf (`parser.py`) when the file
+    is actually nested under the project package (`mdparse/parser.py`).
+    Look at top-level first, then under each one-level subdir.
+    Same nested-search pattern as _check_package_dir.
     """
     m = re.match(r"^(?:fix|change|edit) is in\s+(\S+)", spec)
     if not m:
         return None
-    p = cwd / m.group(1).strip().rstrip(".,")
-    if p.is_file() or p.is_dir():
-        return CheckResult(spec, True, f"{p.name} present in workspace")
-    return CheckResult(spec, False, f"{m.group(1)} missing")
+    name = m.group(1).strip().rstrip(".,")
+    candidates = [cwd / name]
+    if cwd.is_dir():
+        for sub in cwd.iterdir():
+            if sub.is_dir() and not sub.name.startswith(".") and sub.name not in (
+                    "tests", "__pycache__", ".drydock"):
+                candidates.append(sub / name)
+    for p in candidates:
+        if p.is_file() or p.is_dir():
+            return CheckResult(spec, True, f"{p.relative_to(cwd)} present")
+    return CheckResult(spec, False, f"{name} missing under cwd or any subdir")
 
 
 def _check_file_absent(spec: str, cwd: Path) -> CheckResult | None:
@@ -489,29 +539,63 @@ def _check_all_py_parse(spec: str, cwd: Path) -> CheckResult | None:
 
 
 def _check_package_dir(spec: str, cwd: Path) -> CheckResult | None:
-    """Recognize: 'X/ is a package with __init__.py'."""
+    """Recognize: 'X/ is a package with __init__.py'.
+
+    Some cases use a path relative to the project root (e.g.
+    `aggregate/` actually means `loglens/aggregate/` in the P3
+    seed). Search at cwd first, then any depth-1 subdir, then full
+    rglob — accept the first match.
+    """
     m = re.match(r"^(\S+/)\s+is a package\b", spec)
     if not m:
         return None
-    pkg_dir = cwd / m.group(1).rstrip("/")
-    init = pkg_dir / "__init__.py"
-    if not pkg_dir.is_dir():
-        return CheckResult(spec, False, f"{m.group(1)} directory missing")
-    if not init.is_file():
-        return CheckResult(spec, False, f"{m.group(1)}__init__.py missing")
-    return CheckResult(spec, True, f"{m.group(1)} is a package")
+    name = m.group(1).rstrip("/")
+    # Try top-level first
+    candidates = [cwd / name]
+    # Then nested under a one-level subdir (the project package).
+    for sub in cwd.iterdir() if cwd.is_dir() else []:
+        if sub.is_dir() and not sub.name.startswith(".") and sub.name not in (
+                "tests", "__pycache__", ".drydock"):
+            candidates.append(sub / name)
+    for pkg_dir in candidates:
+        if pkg_dir.is_dir() and (pkg_dir / "__init__.py").is_file():
+            return CheckResult(
+                spec, True,
+                f"{pkg_dir.relative_to(cwd)} is a package",
+            )
+    return CheckResult(
+        spec, False,
+        f"no '{name}/__init__.py' under cwd or its subdirs",
+    )
 
 
 def _check_multi_path_exists(spec: str, cwd: Path) -> CheckResult | None:
-    """Recognize: 'X & Y exist' / 'X & Y exist with ...'."""
+    """Recognize: 'X & Y exist' / 'X & Y exist with ...'.
+
+    When the second path is just a leaf filename (e.g.
+    'taskvault/timeparse/relative.py & iso.py'), inherit the
+    first path's parent directory so `iso.py` is checked at
+    `cwd/taskvault/timeparse/iso.py` instead of `cwd/iso.py`.
+    """
     m = re.match(r"^(\S+)\s+&\s+(\S+)\s+exist", spec)
     if not m:
         return None
-    paths = [m.group(1).strip(), m.group(2).strip()]
-    missing = [p for p in paths if not (cwd / p).exists()]
+    p1_str = m.group(1).strip()
+    p2_str = m.group(2).strip()
+    p1 = cwd / p1_str
+    # If p2 is a bare leaf (no slash), try in p1's parent dir too.
+    p2_candidates = [cwd / p2_str]
+    if "/" not in p2_str and "/" in p1_str:
+        parent = (cwd / p1_str).parent
+        p2_candidates.append(parent / p2_str)
+    missing = []
+    if not p1.exists():
+        missing.append(p1_str)
+    if not any(p.exists() for p in p2_candidates):
+        missing.append(p2_str)
     if missing:
         return CheckResult(spec, False, f"missing: {missing}")
-    return CheckResult(spec, True, f"both paths exist")
+    return CheckResult(spec, True, "both paths exist")
 
 
 def _check_named_test(spec: str, cwd: Path) -> CheckResult | None:
@@ -535,6 +619,53 @@ def _check_named_test(spec: str, cwd: Path) -> CheckResult | None:
         return CheckResult(spec, False, f"test run error: {e!r}")
 
 
+def _check_file_defines(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: '<file>.py defines <ClassName>' / '<file> defines <name>'."""
+    m = re.match(r"^(\S+\.\w+)\s+defines?\s+([\w.]+)", spec)
+    if not m:
+        return None
+    fp, name = m.group(1), m.group(2).rstrip(",.")
+    p = cwd / fp
+    if not p.is_file():
+        return CheckResult(spec, False, f"{fp} missing")
+    txt = p.read_text(errors="replace")
+    if re.search(rf"\b(?:class|def)\s+{re.escape(name)}\b", txt):
+        return CheckResult(spec, True, f"{fp} defines {name}")
+    return CheckResult(spec, False, f"{fp} does NOT define {name}")
+
+
+def _check_file_has_no(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: '<file>.py has no 'X'' / '<file> has no X'."""
+    m = re.match(r"^(\S+\.\w+)\s+has\s+no\s+['\"]?([^'\"]+?)['\"]?\s*$", spec)
+    if not m:
+        return None
+    fp, needle = m.group(1), m.group(2).strip()
+    p = cwd / fp
+    if not p.is_file():
+        return CheckResult(spec, False, f"{fp} missing")
+    if needle in p.read_text(errors="replace"):
+        return CheckResult(spec, False, f"{fp} still contains {needle!r}")
+    return CheckResult(spec, True, f"{fp} no longer contains {needle!r}")
+
+
+def _check_new_test_references(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'new test references <X>' — grep tests/ for X."""
+    m = re.match(r"^new test references?\s+(.+)$", spec, re.I)
+    if not m:
+        return None
+    needle = m.group(1).strip().rstrip(".,")
+    test_dir = cwd / "tests"
+    if not test_dir.is_dir():
+        return CheckResult(spec, False, "no tests/ dir")
+    for tp in test_dir.rglob("test_*.py"):
+        try:
+            if needle in tp.read_text(errors="replace"):
+                return CheckResult(spec, True, f"{tp.relative_to(cwd)} references {needle!r}")
+        except OSError:
+            continue
+    return CheckResult(spec, False, f"no test file references {needle!r}")
+
+
 def evaluate_check(
     spec: str, cwd: Path, baselines: dict[str, Any],
 ) -> CheckResult:
@@ -546,6 +677,7 @@ def evaluate_check(
         _check_cmd_assertion, _check_file_has_strings,
         _check_fix_is_in, _check_file_absent, _check_all_py_parse,
         _check_package_dir, _check_multi_path_exists, _check_named_test,
+        _check_file_defines, _check_file_has_no, _check_new_test_references,
     ):
         r = fn(spec, cwd)
         if r is not None:
@@ -764,8 +896,57 @@ def run_cases(only_ids: list[str] | None = None,
             )
             if is_continuation and chain_id and chain_id in chain_workspaces:
                 cwd = chain_workspaces[chain_id]
-                # continue with existing drydock
+                # The current `child` might be from a non-chain case
+                # that ran BETWEEN chain steps (e.g. P6-B1 between
+                # P1-B1 and P1-C1). Its cwd is miniapi, not mdparse.
+                # We can't `cd` drydock at runtime, so kill+respawn
+                # in the chain workspace. State retention semantics
+                # weaken slightly (no in-process memory between chain
+                # steps), but the WORKSPACE state DOES survive on
+                # disk — that's what the chain checks actually verify.
+                # Observed 2026-05-22: P1-C1 ran in miniapi workspace
+                # 5+ iters in a row because of this.
                 print(f"[{time.strftime('%H:%M:%S')}] {cid}: continuing chain {chain_id} in {cwd}")
+                if child and child.isalive():
+                    try:
+                        child.sendcontrol("c")
+                        time.sleep(0.5)
+                        child.terminate(force=True)
+                    except Exception:
+                        pass
+                child = None
+                print(f"  [{time.strftime('%H:%M:%S')}] {cid}: respawning drydock in chain cwd")
+                child = pexpect.spawn(
+                    DRYDOCK_BIN, cwd=str(cwd), encoding="utf-8",
+                    timeout=5, dimensions=(40, 140), env=env,
+                )
+                child.logfile_read = pty_log  # type: ignore[assignment]
+                spawned = time.time()
+                watcher = SessionWatcher(cwd, since=spawned)
+                time.sleep(6)
+                drain_pty(child, seconds=2.0)
+                _fs_t0 = time.time()
+                _marker = cwd / ".drydock" / "current_session.txt"
+                for _ in range(30):
+                    try:
+                        if _marker.is_file():
+                            _target = Path(_marker.read_text().strip())
+                            if _target.is_dir():
+                                watcher.session_dir = _target
+                                break
+                    except Exception:
+                        pass
+                    try:
+                        if watcher.find_session():
+                            break
+                    except Exception:
+                        pass
+                    time.sleep(1)
+                _fs_elapsed = time.time() - _fs_t0
+                print(f"  find_session(chain): {'OK' if watcher.session_dir else 'TIMEOUT'} "
+                      f"in {_fs_elapsed:.1f}s")
+                last_message_index = 0
+                live_index = 0
             elif seed_spec in SEED_ADAPTERS:
                 # Fresh workspace + drydock
                 cwd = _prep_scratch()

@@ -24,14 +24,15 @@ class SecurityPolicyRuleInitArgs:
                  action: pulumi.Input[_builtins.str],
                  priority: pulumi.Input[_builtins.int],
                  security_policy: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 header_action: Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']] = None,
-                 match: Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']] = None,
-                 preconfigured_waf_config: Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']] = None,
-                 preview: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rate_limit_options: Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']] = None,
-                 redirect_options: Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 header_action: pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']] = None,
+                 match: pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']] = None,
+                 preconfigured_waf_config: pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']] = None,
+                 preview: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rate_limit_options: pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']] = None,
+                 redirect_options: pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']] = None):
         """
         The set of arguments for constructing a SecurityPolicyRule resource.
 
@@ -45,6 +46,12 @@ class SecurityPolicyRuleInitArgs:
                The priority must be a positive value between 0 and 2147483647.
                Rules are evaluated from highest to lowest priority where 0 is the highest priority and 2147483647 is the lowest priority.
         :param pulumi.Input[_builtins.str] security_policy: The name of the security policy this rule belongs to.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input['SecurityPolicyRuleHeaderActionArgs'] header_action: Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
                Structure is documented below.
@@ -65,6 +72,8 @@ class SecurityPolicyRuleInitArgs:
         pulumi.set(__self__, "action", action)
         pulumi.set(__self__, "priority", priority)
         pulumi.set(__self__, "security_policy", security_policy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if header_action is not None:
@@ -126,20 +135,37 @@ class SecurityPolicyRuleInitArgs:
         pulumi.set(self, "security_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="headerAction")
-    def header_action(self) -> Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']]:
+    def header_action(self) -> pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']]:
         """
         Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
         Structure is documented below.
@@ -147,12 +173,12 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "header_action")
 
     @header_action.setter
-    def header_action(self, value: Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']]):
+    def header_action(self, value: pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']]):
         pulumi.set(self, "header_action", value)
 
     @_builtins.property
     @pulumi.getter
-    def match(self) -> Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']]:
+    def match(self) -> pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']]:
         """
         A match condition that incoming traffic is evaluated against.
         If it evaluates to true, the corresponding 'action' is enforced.
@@ -161,12 +187,12 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "match")
 
     @match.setter
-    def match(self, value: Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']]):
+    def match(self, value: pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']]):
         pulumi.set(self, "match", value)
 
     @_builtins.property
     @pulumi.getter(name="preconfiguredWafConfig")
-    def preconfigured_waf_config(self) -> Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']]:
+    def preconfigured_waf_config(self) -> pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']]:
         """
         Preconfigured WAF configuration to be applied for the rule.
         If the rule does not evaluate preconfigured WAF rules, i.e., if evaluatePreconfiguredWaf() is not used, this field will have no effect.
@@ -175,24 +201,24 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "preconfigured_waf_config")
 
     @preconfigured_waf_config.setter
-    def preconfigured_waf_config(self, value: Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']]):
+    def preconfigured_waf_config(self, value: pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']]):
         pulumi.set(self, "preconfigured_waf_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def preview(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def preview(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, the specified action is not enforced.
         """
         return pulumi.get(self, "preview")
 
     @preview.setter
-    def preview(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def preview(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "preview", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -200,12 +226,12 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rateLimitOptions")
-    def rate_limit_options(self) -> Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']]:
+    def rate_limit_options(self) -> pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']]:
         """
         Must be specified if the action is "rate_based_ban" or "throttle". Cannot be specified for any other actions.
         Structure is documented below.
@@ -213,12 +239,12 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "rate_limit_options")
 
     @rate_limit_options.setter
-    def rate_limit_options(self, value: Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']]):
+    def rate_limit_options(self, value: pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']]):
         pulumi.set(self, "rate_limit_options", value)
 
     @_builtins.property
     @pulumi.getter(name="redirectOptions")
-    def redirect_options(self) -> Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']]:
+    def redirect_options(self) -> pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']]:
         """
         Parameters defining the redirect action. Cannot be specified for any other actions. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
         Structure is documented below.
@@ -226,24 +252,25 @@ class SecurityPolicyRuleInitArgs:
         return pulumi.get(self, "redirect_options")
 
     @redirect_options.setter
-    def redirect_options(self, value: Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']]):
+    def redirect_options(self, value: pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']]):
         pulumi.set(self, "redirect_options", value)
 
 
 @pulumi.input_type
 class _SecurityPolicyRuleState:
     def __init__(__self__, *,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 header_action: Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']] = None,
-                 match: Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']] = None,
-                 preconfigured_waf_config: Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']] = None,
-                 preview: Optional[pulumi.Input[_builtins.bool]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rate_limit_options: Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']] = None,
-                 redirect_options: Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']] = None,
-                 security_policy: Optional[pulumi.Input[_builtins.str]] = None):
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 header_action: pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']] = None,
+                 match: pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']] = None,
+                 preconfigured_waf_config: pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']] = None,
+                 preview: pulumi.Input[Optional[_builtins.bool]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rate_limit_options: pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']] = None,
+                 redirect_options: pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']] = None,
+                 security_policy: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SecurityPolicyRule resources.
 
@@ -253,6 +280,12 @@ class _SecurityPolicyRuleState:
                * rate_based_ban: limit client traffic to the configured threshold and ban the client if the traffic exceeds the threshold. Configure parameters for this action in RateLimitOptions. Requires rateLimitOptions to be set.
                * redirect: redirect to a different target. This can either be an internal reCAPTCHA redirect, or an external URL-based redirect via a 302 response. Parameters for this action can be configured via redirectOptions. This action is only supported in Global Security Policies of type CLOUD_ARMOR.
                * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input['SecurityPolicyRuleHeaderActionArgs'] header_action: Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
                Structure is documented below.
@@ -276,6 +309,8 @@ class _SecurityPolicyRuleState:
         """
         if action is not None:
             pulumi.set(__self__, "action", action)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if header_action is not None:
@@ -299,7 +334,7 @@ class _SecurityPolicyRuleState:
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def action(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Action to perform when the rule is matched. The following are the valid actions:
         * allow: allow access to target.
@@ -311,24 +346,41 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "action")
 
     @action.setter
-    def action(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def action(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "action", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when you create the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="headerAction")
-    def header_action(self) -> Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']]:
+    def header_action(self) -> pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']]:
         """
         Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
         Structure is documented below.
@@ -336,12 +388,12 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "header_action")
 
     @header_action.setter
-    def header_action(self, value: Optional[pulumi.Input['SecurityPolicyRuleHeaderActionArgs']]):
+    def header_action(self, value: pulumi.Input[Optional['SecurityPolicyRuleHeaderActionArgs']]):
         pulumi.set(self, "header_action", value)
 
     @_builtins.property
     @pulumi.getter
-    def match(self) -> Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']]:
+    def match(self) -> pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']]:
         """
         A match condition that incoming traffic is evaluated against.
         If it evaluates to true, the corresponding 'action' is enforced.
@@ -350,12 +402,12 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "match")
 
     @match.setter
-    def match(self, value: Optional[pulumi.Input['SecurityPolicyRuleMatchArgs']]):
+    def match(self, value: pulumi.Input[Optional['SecurityPolicyRuleMatchArgs']]):
         pulumi.set(self, "match", value)
 
     @_builtins.property
     @pulumi.getter(name="preconfiguredWafConfig")
-    def preconfigured_waf_config(self) -> Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']]:
+    def preconfigured_waf_config(self) -> pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']]:
         """
         Preconfigured WAF configuration to be applied for the rule.
         If the rule does not evaluate preconfigured WAF rules, i.e., if evaluatePreconfiguredWaf() is not used, this field will have no effect.
@@ -364,24 +416,24 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "preconfigured_waf_config")
 
     @preconfigured_waf_config.setter
-    def preconfigured_waf_config(self, value: Optional[pulumi.Input['SecurityPolicyRulePreconfiguredWafConfigArgs']]):
+    def preconfigured_waf_config(self, value: pulumi.Input[Optional['SecurityPolicyRulePreconfiguredWafConfigArgs']]):
         pulumi.set(self, "preconfigured_waf_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def preview(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def preview(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, the specified action is not enforced.
         """
         return pulumi.get(self, "preview")
 
     @preview.setter
-    def preview(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def preview(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "preview", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         An integer indicating the priority of a rule in the list.
         The priority must be a positive value between 0 and 2147483647.
@@ -390,12 +442,12 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -403,12 +455,12 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rateLimitOptions")
-    def rate_limit_options(self) -> Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']]:
+    def rate_limit_options(self) -> pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']]:
         """
         Must be specified if the action is "rate_based_ban" or "throttle". Cannot be specified for any other actions.
         Structure is documented below.
@@ -416,12 +468,12 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "rate_limit_options")
 
     @rate_limit_options.setter
-    def rate_limit_options(self, value: Optional[pulumi.Input['SecurityPolicyRuleRateLimitOptionsArgs']]):
+    def rate_limit_options(self, value: pulumi.Input[Optional['SecurityPolicyRuleRateLimitOptionsArgs']]):
         pulumi.set(self, "rate_limit_options", value)
 
     @_builtins.property
     @pulumi.getter(name="redirectOptions")
-    def redirect_options(self) -> Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']]:
+    def redirect_options(self) -> pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']]:
         """
         Parameters defining the redirect action. Cannot be specified for any other actions. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
         Structure is documented below.
@@ -429,19 +481,19 @@ class _SecurityPolicyRuleState:
         return pulumi.get(self, "redirect_options")
 
     @redirect_options.setter
-    def redirect_options(self, value: Optional[pulumi.Input['SecurityPolicyRuleRedirectOptionsArgs']]):
+    def redirect_options(self, value: pulumi.Input[Optional['SecurityPolicyRuleRedirectOptionsArgs']]):
         pulumi.set(self, "redirect_options", value)
 
     @_builtins.property
     @pulumi.getter(name="securityPolicy")
-    def security_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the security policy this rule belongs to.
         """
         return pulumi.get(self, "security_policy")
 
     @security_policy.setter
-    def security_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_policy", value)
 
 
@@ -451,17 +503,18 @@ class SecurityPolicyRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 header_action: Optional[pulumi.Input[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
-                 match: Optional[pulumi.Input[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
-                 preconfigured_waf_config: Optional[pulumi.Input[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
-                 preview: Optional[pulumi.Input[_builtins.bool]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rate_limit_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
-                 redirect_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
-                 security_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 header_action: pulumi.Input[Optional[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
+                 match: pulumi.Input[Optional[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
+                 preconfigured_waf_config: pulumi.Input[Optional[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
+                 preview: pulumi.Input[Optional[_builtins.bool]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rate_limit_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
+                 redirect_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
+                 security_policy: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A rule for the SecurityPolicy.
@@ -569,6 +622,121 @@ class SecurityPolicyRule(pulumi.CustomResource):
             action="allow",
             preview=True)
         ```
+        ### Security Policy Rule Advanced Features
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        policy = gcp.compute.SecurityPolicy("policy",
+            name="policyruletest",
+            description="Security policy with WAF exclusions, Headers, and Redirect")
+        policy_security_policy_rule = gcp.compute.SecurityPolicyRule("policy",
+            security_policy=policy.name,
+            description="Complex rule using advanced features: WAF config, header actions, and redirect options",
+            priority=100,
+            action="allow",
+            match={
+                "expr": {
+                    "expression": "request.path.matches('/api/v1/.*')",
+                },
+            },
+            preconfigured_waf_config={
+                "exclusions": [{
+                    "target_rule_set": "sqli-v33-stable",
+                    "target_rule_ids": ["owasp-crs-v030301-id942100-sqli"],
+                    "request_headers": [{
+                        "operator": "EQUALS",
+                        "value": "internal-scan",
+                    }],
+                }],
+            },
+            header_action={
+                "request_headers_to_adds": [{
+                    "header_name": "X-Added-By-Armor",
+                    "header_value": "Verified-Traffic",
+                }],
+            })
+        ```
+        ### Security Policy Rule With Body Exclude
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.compute.Network("default",
+            name="test-network",
+            auto_create_subnetworks=False)
+        default_subnetwork = gcp.compute.Subnetwork("default",
+            name="test-subnet",
+            region="us-west2",
+            network=default.id,
+            ip_cidr_range="10.10.0.0/24")
+        default_health_check = gcp.compute.HealthCheck("default",
+            name="test-health-check",
+            http_health_check={
+                "port": 80,
+            })
+        default_security_policy = gcp.compute.SecurityPolicy("default",
+            name="policyruletest",
+            description="global security policy with body inspection",
+            type="CLOUD_ARMOR",
+            advanced_options_config={
+                "json_parsing": "STANDARD",
+                "log_level": "VERBOSE",
+            })
+        default_instance_template = gcp.compute.InstanceTemplate("default",
+            network_interfaces=[{
+                "access_configs": [{}],
+                "subnetwork": default_subnetwork.id,
+            }],
+            name="backendpolicy",
+            machine_type="e2-micro",
+            disks=[{
+                "source_image": "projects/debian-cloud/global/images/family/debian-11",
+                "auto_delete": True,
+                "boot": True,
+            }])
+        default_instance_group_manager = gcp.compute.InstanceGroupManager("default",
+            name="backendpolicy",
+            base_instance_name="backend",
+            zone="us-west2-a",
+            versions=[{
+                "instance_template": default_instance_template.id,
+            }],
+            target_size=1)
+        default_backend_service = gcp.compute.BackendService("default",
+            name="backendpolicy",
+            protocol="HTTP",
+            load_balancing_scheme="EXTERNAL_MANAGED",
+            timeout_sec=30,
+            health_checks=default_health_check.id,
+            backends=[{
+                "group": default_instance_group_manager.instance_group,
+            }],
+            security_policy=default_security_policy.id)
+        policy_rule_one = gcp.compute.SecurityPolicyRule("policy_rule_one",
+            security_policy=default_security_policy.name,
+            description="waf body rule",
+            action="deny(403)",
+            priority=100,
+            preview=True,
+            match={
+                "expr": {
+                    "expression": "evaluatePreconfiguredWaf('sqli-v33-stable')",
+                },
+            },
+            preconfigured_waf_config={
+                "exclusions": [{
+                    "target_rule_set": "sqli-v33-stable",
+                    "request_bodies": [{
+                        "operator": "EQUALS",
+                        "value": "safe-field",
+                    }],
+                }],
+            },
+            opts = pulumi.ResourceOptions(depends_on=[default_backend_service]))
+        ```
 
         ## Import
 
@@ -595,6 +763,12 @@ class SecurityPolicyRule(pulumi.CustomResource):
                * rate_based_ban: limit client traffic to the configured threshold and ban the client if the traffic exceeds the threshold. Configure parameters for this action in RateLimitOptions. Requires rateLimitOptions to be set.
                * redirect: redirect to a different target. This can either be an internal reCAPTCHA redirect, or an external URL-based redirect via a 302 response. Parameters for this action can be configured via redirectOptions. This action is only supported in Global Security Policies of type CLOUD_ARMOR.
                * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']] header_action: Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
                Structure is documented below.
@@ -728,6 +902,121 @@ class SecurityPolicyRule(pulumi.CustomResource):
             action="allow",
             preview=True)
         ```
+        ### Security Policy Rule Advanced Features
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        policy = gcp.compute.SecurityPolicy("policy",
+            name="policyruletest",
+            description="Security policy with WAF exclusions, Headers, and Redirect")
+        policy_security_policy_rule = gcp.compute.SecurityPolicyRule("policy",
+            security_policy=policy.name,
+            description="Complex rule using advanced features: WAF config, header actions, and redirect options",
+            priority=100,
+            action="allow",
+            match={
+                "expr": {
+                    "expression": "request.path.matches('/api/v1/.*')",
+                },
+            },
+            preconfigured_waf_config={
+                "exclusions": [{
+                    "target_rule_set": "sqli-v33-stable",
+                    "target_rule_ids": ["owasp-crs-v030301-id942100-sqli"],
+                    "request_headers": [{
+                        "operator": "EQUALS",
+                        "value": "internal-scan",
+                    }],
+                }],
+            },
+            header_action={
+                "request_headers_to_adds": [{
+                    "header_name": "X-Added-By-Armor",
+                    "header_value": "Verified-Traffic",
+                }],
+            })
+        ```
+        ### Security Policy Rule With Body Exclude
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.compute.Network("default",
+            name="test-network",
+            auto_create_subnetworks=False)
+        default_subnetwork = gcp.compute.Subnetwork("default",
+            name="test-subnet",
+            region="us-west2",
+            network=default.id,
+            ip_cidr_range="10.10.0.0/24")
+        default_health_check = gcp.compute.HealthCheck("default",
+            name="test-health-check",
+            http_health_check={
+                "port": 80,
+            })
+        default_security_policy = gcp.compute.SecurityPolicy("default",
+            name="policyruletest",
+            description="global security policy with body inspection",
+            type="CLOUD_ARMOR",
+            advanced_options_config={
+                "json_parsing": "STANDARD",
+                "log_level": "VERBOSE",
+            })
+        default_instance_template = gcp.compute.InstanceTemplate("default",
+            network_interfaces=[{
+                "access_configs": [{}],
+                "subnetwork": default_subnetwork.id,
+            }],
+            name="backendpolicy",
+            machine_type="e2-micro",
+            disks=[{
+                "source_image": "projects/debian-cloud/global/images/family/debian-11",
+                "auto_delete": True,
+                "boot": True,
+            }])
+        default_instance_group_manager = gcp.compute.InstanceGroupManager("default",
+            name="backendpolicy",
+            base_instance_name="backend",
+            zone="us-west2-a",
+            versions=[{
+                "instance_template": default_instance_template.id,
+            }],
+            target_size=1)
+        default_backend_service = gcp.compute.BackendService("default",
+            name="backendpolicy",
+            protocol="HTTP",
+            load_balancing_scheme="EXTERNAL_MANAGED",
+            timeout_sec=30,
+            health_checks=default_health_check.id,
+            backends=[{
+                "group": default_instance_group_manager.instance_group,
+            }],
+            security_policy=default_security_policy.id)
+        policy_rule_one = gcp.compute.SecurityPolicyRule("policy_rule_one",
+            security_policy=default_security_policy.name,
+            description="waf body rule",
+            action="deny(403)",
+            priority=100,
+            preview=True,
+            match={
+                "expr": {
+                    "expression": "evaluatePreconfiguredWaf('sqli-v33-stable')",
+                },
+            },
+            preconfigured_waf_config={
+                "exclusions": [{
+                    "target_rule_set": "sqli-v33-stable",
+                    "request_bodies": [{
+                        "operator": "EQUALS",
+                        "value": "safe-field",
+                    }],
+                }],
+            },
+            opts = pulumi.ResourceOptions(depends_on=[default_backend_service]))
+        ```
 
         ## Import
 
@@ -761,17 +1050,18 @@ class SecurityPolicyRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 header_action: Optional[pulumi.Input[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
-                 match: Optional[pulumi.Input[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
-                 preconfigured_waf_config: Optional[pulumi.Input[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
-                 preview: Optional[pulumi.Input[_builtins.bool]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rate_limit_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
-                 redirect_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
-                 security_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 header_action: pulumi.Input[Optional[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
+                 match: pulumi.Input[Optional[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
+                 preconfigured_waf_config: pulumi.Input[Optional[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
+                 preview: pulumi.Input[Optional[_builtins.bool]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rate_limit_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
+                 redirect_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
+                 security_policy: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -784,6 +1074,7 @@ class SecurityPolicyRule(pulumi.CustomResource):
             if action is None and not opts.urn:
                 raise TypeError("Missing required property 'action'")
             __props__.__dict__["action"] = action
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["header_action"] = header_action
             __props__.__dict__["match"] = match
@@ -808,17 +1099,18 @@ class SecurityPolicyRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            action: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            header_action: Optional[pulumi.Input[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
-            match: Optional[pulumi.Input[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
-            preconfigured_waf_config: Optional[pulumi.Input[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
-            preview: Optional[pulumi.Input[_builtins.bool]] = None,
-            priority: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            rate_limit_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
-            redirect_options: Optional[pulumi.Input[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
-            security_policy: Optional[pulumi.Input[_builtins.str]] = None) -> 'SecurityPolicyRule':
+            action: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            header_action: pulumi.Input[Optional[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']]] = None,
+            match: pulumi.Input[Optional[Union['SecurityPolicyRuleMatchArgs', 'SecurityPolicyRuleMatchArgsDict']]] = None,
+            preconfigured_waf_config: pulumi.Input[Optional[Union['SecurityPolicyRulePreconfiguredWafConfigArgs', 'SecurityPolicyRulePreconfiguredWafConfigArgsDict']]] = None,
+            preview: pulumi.Input[Optional[_builtins.bool]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            rate_limit_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRateLimitOptionsArgs', 'SecurityPolicyRuleRateLimitOptionsArgsDict']]] = None,
+            redirect_options: pulumi.Input[Optional[Union['SecurityPolicyRuleRedirectOptionsArgs', 'SecurityPolicyRuleRedirectOptionsArgsDict']]] = None,
+            security_policy: pulumi.Input[Optional[_builtins.str]] = None) -> 'SecurityPolicyRule':
         """
         Get an existing SecurityPolicyRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -832,6 +1124,12 @@ class SecurityPolicyRule(pulumi.CustomResource):
                * rate_based_ban: limit client traffic to the configured threshold and ban the client if the traffic exceeds the threshold. Configure parameters for this action in RateLimitOptions. Requires rateLimitOptions to be set.
                * redirect: redirect to a different target. This can either be an internal reCAPTCHA redirect, or an external URL-based redirect via a 302 response. Parameters for this action can be configured via redirectOptions. This action is only supported in Global Security Policies of type CLOUD_ARMOR.
                * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when you create the resource.
         :param pulumi.Input[Union['SecurityPolicyRuleHeaderActionArgs', 'SecurityPolicyRuleHeaderActionArgsDict']] header_action: Optional, additional actions that are performed on headers. This field is only supported in Global Security Policies of type CLOUD_ARMOR.
                Structure is documented below.
@@ -858,6 +1156,7 @@ class SecurityPolicyRule(pulumi.CustomResource):
         __props__ = _SecurityPolicyRuleState.__new__(_SecurityPolicyRuleState)
 
         __props__.__dict__["action"] = action
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["header_action"] = header_action
         __props__.__dict__["match"] = match
@@ -882,6 +1181,19 @@ class SecurityPolicyRule(pulumi.CustomResource):
         * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
         """
         return pulumi.get(self, "action")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

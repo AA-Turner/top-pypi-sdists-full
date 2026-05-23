@@ -216,14 +216,32 @@ class tools:
         default_logger().debug(f"Fetching cache file: {cache_file}")
         # Use direct requests without cache for no_cache=True
         if no_cache:
-            import requests
-            headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            headers['Pragma']= 'no-cache'
-            resp = requests.get(cache_url, headers=headers, timeout=30)
+            if no_cache:
+                import random
+                # Generate a unique cache buster (milliseconds + random)
+                ms = int(time.time() * 1000)
+                rand = random.randint(0, 999999)
+                cache_buster = f"?t={ms}&r={rand}"
+                
+                # Headers to disable caching as much as possible
+                headers.update({
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Request-ID': f"{ms}-{rand}",          # Additional unique identifier
+                    'If-None-Match': '',                      # Bypass ETag cache
+                    'If-Modified-Since': 'Sat, 1 Jan 2000 00:00:00 GMT'  # Force revalidation
+                })
+                
+                # Build URL with cache buster
+                cache_url = f"https://raw.githubusercontent.com/{repoOwner}/{repoName}/{branchName}/{directory}/{cache_file}{cache_buster}"
+                
+                # Make request (disable connection pooling to avoid cached connections?)
+                resp = requests.get(cache_url, headers=headers, timeout=30)
             default_logger().debug(f"Fetching cache file: {cache_file} with no_cache=True, status code: {resp.status_code}")
         else:
             resp = fetcher.fetchURL(cache_url, headers=headers, stream=True)
-            default_logger().debug(f"Fetching cache file: {cache_file} with no_cache=True, status code: {resp.status_code}")
+            default_logger().debug(f"Fetching using fetchURL for cache file: {cache_file} with no_cache=False, status code: {resp.status_code}")
         filesize = 0
         if resp is not None and resp.status_code == 200:
             contentLength = resp.headers.get("content-length")

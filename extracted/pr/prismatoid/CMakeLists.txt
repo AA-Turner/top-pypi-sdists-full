@@ -13,12 +13,12 @@ include(ExternalProject)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 project(
   prism
-  VERSION 0.16.1
+  VERSION 0.16.3
   DESCRIPTION "The Platform-agnostic Reader Interface for Speech and Messages"
   LANGUAGES C CXX)
 
@@ -365,7 +365,22 @@ if(WIN32)
   message(
     STATUS
       "Configuring NVDA Controller MIDL for architecture: ${MIDL_ENV_TARGET}")
-  find_program(MIDL_COMPILER midl)
+  if(NOT DEFINED CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
+    get_filename_component(
+      WIN_SDK_ROOT
+      "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]"
+      ABSOLUTE
+      CACHE)
+  else()
+    set(WIN_SDK_ROOT "$ENV{ProgramFiles\(x86\)}/Windows Kits/10")
+    set(WIN_SDK_VERSION "${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+  endif()
+  find_program(
+    MIDL_COMPILER
+    NAMES midl.exe
+    PATHS "${WIN_SDK_ROOT}/bin/${WIN_SDK_VERSION}/${_comp_arch_id_lc}"
+          "${WIN_SDK_ROOT}/bin/${_sdk_arch}"
+    DOC "Microsoft IDL Compiler" REQUIRED)
   if(NOT MIDL_COMPILER)
     message(FATAL_ERROR "midl.exe not found. Ensure Windows SDK is installed.")
   endif()
@@ -394,13 +409,6 @@ if(WIN32)
   endif()
   target_link_libraries(${PROJECT_NAME} PRIVATE rpcrt4)
   if(_comp_arch_id_lc STREQUAL "x86" OR _comp_arch_id_lc STREQUAL "i386")
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      add_import_library(SystemAccess ${CMAKE_CURRENT_SOURCE_DIR}/defs/sa32.def
-                         SAAPI32.dll)
-      target_link_libraries(${PROJECT_NAME}
-                            PRIVATE "$<BUILD_INTERFACE:SystemAccess>")
-    endif()
     add_import_library(ZDSR ${CMAKE_CURRENT_SOURCE_DIR}/defs/zdsr32.def
                        ZDSRAPI.dll)
     add_import_library(
@@ -422,13 +430,6 @@ if(WIN32)
               "$<BUILD_INTERFACE:PrismOrcaBridge>"
               "$<BUILD_INTERFACE:PrismSpeechDispatcherBridge>")
   elseif(NOT _comp_arch_id_lc MATCHES "arm64|aarch64|arm64ec")
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      add_import_library(SystemAccess ${CMAKE_CURRENT_SOURCE_DIR}/defs/sa.def
-                         SAAPI64.dll)
-      target_link_libraries(${PROJECT_NAME}
-                            PRIVATE "$<BUILD_INTERFACE:SystemAccess>")
-    endif()
     add_import_library(ZDSR ${CMAKE_CURRENT_SOURCE_DIR}/defs/zdsr.def
                        ZDSRAPI_x64.dll)
     add_import_library(
@@ -597,11 +598,6 @@ if(MSVC)
       /delayload:PCTKUSR.dll
       /delayload:prism_orca_bridge.dll
       /delayload:prism_speech_dispatcher_bridge.dll)
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      target_link_options(${PROJECT_NAME} ${_PRISM_LINK_VIS}
-                          /delayload:SAAPI32.dll)
-    endif()
   elseif(NOT _comp_arch_id_lc MATCHES "arm64|aarch64|arm64ec")
     target_link_options(
       ${PROJECT_NAME}
@@ -611,11 +607,6 @@ if(MSVC)
       /delayload:PCTKUSR.dll
       /delayload:prism_orca_bridge.dll
       /delayload:prism_speech_dispatcher_bridge.dll)
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      target_link_options(${PROJECT_NAME} ${_PRISM_LINK_VIS}
-                          /delayload:SAAPI64.dll)
-    endif()
   else()
     target_link_options(
       ${PROJECT_NAME} ${_PRISM_LINK_VIS} /delayload:PCTKUSR.dll
@@ -624,6 +615,7 @@ if(MSVC)
   endif()
   check_cxx_compiler_flag(/utf-8 MSVC_HAS_UTF8_OPTION)
   check_cxx_compiler_flag(/bigobj MSVC_HAS_BIGOBJ)
+  check_cxx_compiler_flag(/Zc:enumTypes MSVC_HAS_ZC_ENUM_TYPES)
   if(MSVC_HAS_UTF8_OPTION)
     target_compile_options(${PROJECT_NAME} PUBLIC /utf-8)
     target_compile_options(prism_backend_iface INTERFACE /utf-8)
@@ -631,6 +623,10 @@ if(MSVC)
   if(MSVC_HAS_BIGOBJ)
     target_compile_options(${PROJECT_NAME} PUBLIC /bigobj)
     target_compile_options(prism_backend_iface INTERFACE /bigobj)
+  endif()
+  if(MSVC_HAS_ZC_ENUM_TYPES)
+    target_compile_options(${PROJECT_NAME} PUBLIC /Zc:enumTypes)
+    target_compile_options(prism_backend_iface INTERFACE /Zc:enumTypes)
   endif()
 elseif(
   CMAKE_CXX_COMPILER_ID MATCHES "Clang"
@@ -646,11 +642,6 @@ elseif(
       "LINKER:/delayload:PCTKUSR.dll"
       "LINKER:/delayload:prism_orca_bridge.dll"
       "LINKER:/delayload:prism_speech_dispatcher_bridge.dll")
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      target_link_options(${PROJECT_NAME} ${_PRISM_LINK_VIS}
-                          "LINKER:/delayload:SAAPI32.dll")
-    endif()
   elseif(NOT _comp_arch_id_lc MATCHES "arm64|aarch64|arm64ec")
     target_link_options(${PROJECT_NAME} PRIVATE "LINKER:/STACK:8388608")
     target_link_options(
@@ -661,11 +652,6 @@ elseif(
       "LINKER:/delayload:PCTKUSR.dll"
       "LINKER:/delayload:prism_orca_bridge.dll"
       "LINKER:/delayload:prism_speech_dispatcher_bridge.dll")
-    if(PRISM_ENABLE_LEGACY_BACKENDS
-       AND PRISM_ENABLE_LEGACY_SYSTEM_ACCESS_BACKEND)
-      target_link_options(${PROJECT_NAME} ${_PRISM_LINK_VIS}
-                          "LINKER:/delayload:SAAPI64.dll")
-    endif()
   else()
     target_link_options(${PROJECT_NAME} PRIVATE "LINKER:/STACK:8388608")
     target_link_options(
@@ -884,21 +870,6 @@ if(DEFINED SKBUILD)
     RUNTIME DESTINATION "${PRISM_PY_NATIVE_DIR}"
     LIBRARY DESTINATION "${PRISM_PY_NATIVE_DIR}"
     ARCHIVE DESTINATION "${PRISM_PY_NATIVE_DIR}")
-  if(WIN32)
-    if(_comp_arch_id_lc STREQUAL "x86" OR _comp_arch_id_lc STREQUAL "i386")
-      install(
-        FILES "${CMAKE_CURRENT_SOURCE_DIR}/ZDSRAPI.dll"
-              "${CMAKE_CURRENT_SOURCE_DIR}/SAAPI32.dll"
-        DESTINATION "${PRISM_PY_NATIVE_DIR}"
-        OPTIONAL)
-    elseif(NOT _comp_arch_id_lc MATCHES "arm64|aarch64|arm64ec")
-      install(
-        FILES "${CMAKE_CURRENT_SOURCE_DIR}/ZDSRAPI_x64.dll"
-              "${CMAKE_CURRENT_SOURCE_DIR}/SAAPI64.dll"
-        DESTINATION "${PRISM_PY_NATIVE_DIR}"
-        OPTIONAL)
-    endif()
-  endif()
 else()
   install(
     TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_iface

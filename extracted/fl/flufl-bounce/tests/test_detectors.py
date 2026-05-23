@@ -1,8 +1,7 @@
 """Test the bounce detection modules."""
 
-from email import message_from_binary_file, message_from_string
+from email import message_from_string
 from importlib import import_module
-from importlib.resources import files
 
 import pytest
 
@@ -12,13 +11,7 @@ from flufl.bounce._detectors.smtp32 import SMTP32
 from flufl.bounce._scan import _DETECTORS, all_failures, scan_message
 from flufl.bounce.interfaces import BounceDetector
 
-
-DATA = files('tests.data')
-
-
-def _parse(filename):
-    with (DATA / filename).open('rb') as fp:
-        return message_from_binary_file(fp)
+from .utils import _parse
 
 
 def test_smtp32_no_xmailer():

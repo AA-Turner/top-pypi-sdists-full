@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 from abstra_internals.interface.sdk import user_exceptions
 from abstra_internals.repositories.factory import Repositories
@@ -79,66 +79,12 @@ class TasksController:
             }
         return self.get_stage(stage_id)
 
-    def list_all_tasks(
+    def _list_all_tasks(
         self, req: Optional[DataRequest] = None
     ) -> Tuple[List[ListTasksItem], int]:
         """
-        Retrieve a filtered and paginated list of all tasks in the system.
-
-        This method returns tasks with optional filtering by stage, status, and date range,
-        along with pagination support. Each task includes information about both the
-        target stage (where the task will be executed) and source stage (where it originated).
-
-        Args:
-            req (Optional[DataRequest], optional): Filter and pagination parameters.
-                If None, returns all tasks without pagination. Contains:
-                - filter.stage: List of stage IDs to filter by
-                - filter.status: List of task statuses to filter by ('pending', 'locked', 'completed')
-                - filter.start_date: ISO date string for earliest creation date
-                - filter.end_date: ISO date string for latest creation date
-                - limit: Maximum number of tasks to return
-                - offset: Number of tasks to skip for pagination
-
-        Returns:
-            Tuple[List[ListTasksItem], int]: A tuple containing:
-                - List of ListTasksItem objects with task details and stage information
-                - Total count of tasks matching the filter (before pagination)
-
-        Example:
-            ```python
-            controller = TasksController(repositories)
-
-            # Get all tasks
-            all_tasks, total_count = controller.list_tasks()
-            print(f"Found {total_count} total tasks")
-
-            # Get tasks with filtering and pagination
-            filter_req = DataRequest.from_dict({
-                "filter": {
-                    "stage": ["form-123", "script-456"],
-                    "status": ["pending", "locked"],
-                    "startDate": "2024-01-01T00:00:00Z",
-                    "endDate": "2024-12-31T23:59:59Z"
-                },
-                "limit": 10,
-                "offset": 0
-            })
-
-            filtered_tasks, total = controller.list_tasks(filter_req)
-            for task in filtered_tasks:
-                print(f"Task {task.id}: {task.target_stage_title} -> {task.source_stage_title}")
-                print(f"  Status: {task.status}, Type: {task.type}")
-            ```
-
-        Note:
-            - Tasks are returned with enriched information including stage titles and types
-            - Source stage information may be None if the task wasn't created by a stage
-            - Date filtering uses UTC ISO string format
-            - Script stages are displayed as "tasklet" type in the response
-
-        Copywritings:
-            List all tasks
-            Listing all tasks...
+        Private helper for `list_tasks`. Returns enriched tasks plus the
+        unpaginated total, filtered by stage, status, and date range from `req`.
         """
         project = self.repos.project.load(include_disabled_stages=True)
         valid_stage_ids = {stage.id for stage in project.workflow_stages}
@@ -187,58 +133,11 @@ class TasksController:
 
         return items[req.offset : req.offset + req.limit], len(items)
 
-    def list_tasks_sent_to_stage(self, stage_id) -> List[ListTasksItem]:
+    def _list_tasks_sent_to_stage(self, stage_id) -> List[ListTasksItem]:
         """
-        Retrieve all tasks targeted to a specific stage, sorted by creation date.
-
-        This method returns tasks that are assigned to execute on the specified stage,
-        providing comprehensive information about each task including source stage details.
-        Tasks are sorted in descending order by creation time (newest first).
-
-        Args:
-            stage_id (str): Unique identifier of the stage to get tasks for.
-
-        Returns:
-            List[ListTasksItem]: List of tasks targeted to the specified stage,
-                each containing:
-                - Task metadata (id, type, status, payload, etc.)
-                - Target stage information (title, type)
-                - Source stage information (title, type, may be None)
-
-        Raises:
-            Exception: If the stage with the given ID is not found.
-
-        Example:
-            ```python
-            controller = TasksController(repositories)
-
-            # Get all tasks for a specific stage
-            stage_tasks = controller.get_stage_tasks("form-123")
-
-            print(f"Found {len(stage_tasks)} tasks for stage")
-            for task in stage_tasks:
-                print(f"Task {task.id}:")
-                print(f"  Type: {task.type}")
-                print(f"  Status: {task.status}")
-                print(f"  Target: {task.target_stage_title} ({task.target_stage_type})")
-
-                if task.source_stage_title:
-                    print(f"  Source: {task.source_stage_title} ({task.source_stage_type})")
-                else:
-                    print("  Source: External/Manual")
-
-                print(f"  Payload: {task.payload}")
-            ```
-
-        Note:
-            - Tasks are sorted by creation date in descending order (newest first)
-            - Source stage information will be None for tasks created externally
-            - The target stage must exist or an exception will be raised
-            - Includes tasks in all statuses (pending, locked, completed)
-
-        Copywritings:
-            List all tasks sent to a stage
-            Listing all tasks sent to a stage...
+        Private helper for `list_tasks(direction='sent_to')`. Returns tasks
+        targeted to the given stage, sorted newest-first, enriched with
+        source/target stage info. Raises if `stage_id` is unknown.
         """
         target_stage = self.get_stage(stage_id)
         tasks = self.repos.tasks.get_stage_tasks(stage_id)
@@ -266,53 +165,13 @@ class TasksController:
             for task in tasks
         ]
 
-    def list_tasks_sent_by_stage(self, stage_id) -> List[ListTasksItem]:
+    def _list_tasks_sent_by_stage(self, stage_id) -> List[ListTasksItem]:
         """
-        Retrieve all tasks that were created/sent by a specific stage during its executions.
-
-        This method returns tasks that originated from the specified stage, providing
-        insight into what tasks a stage has generated during its execution lifecycle.
-        Tasks are sorted by creation date in descending order (newest first).
-
-        Args:
-            stage_id (str): Unique identifier of the stage that sent/created the tasks.
-
-        Returns:
-            List[ListTasksItem]: List of tasks created by the specified stage,
-                each containing:
-                - Task metadata (id, type, status, payload, etc.)
-                - Target stage information (where the task will be executed)
-                - Source stage information (the originating stage)
-
-        Example:
-            ```python
-            controller = TasksController(repositories)
-
-            # Get all tasks sent by a specific stage
-            sent_tasks = controller.get_sent_tasks("script-456")
-
-            print(f"Stage script-456 has sent {len(sent_tasks)} tasks:")
-            for task in sent_tasks:
-                print(f"Task {task.id}:")
-                print(f"  Type: {task.type}")
-                print(f"  Status: {task.status}")
-                print(f"  Sent to: {task.target_stage_title} ({task.target_stage_type})")
-                print(f"  Created: {task.created.at}")
-                print(f"  Payload: {task.payload}")
-            ```
-
-        Note:
-            - Only tasks created during stage executions are included
-            - Tasks are sorted by creation date in descending order (newest first)
-            - The method traces tasks through execution relationships
-            - Returns empty list if the stage hasn't sent any tasks
-            - Useful for understanding workflow progression and debugging
-
-        Copywritings:
-            List all tasks sent by a stage
-            Listing all tasks sent by a stage...
+        Private helper for `list_tasks(direction='sent_by')`. Returns tasks
+        whose originating execution belongs to the given stage, sorted
+        newest-first, enriched with source/target stage info.
         """
-        all_tasks, _ = self.list_all_tasks()
+        all_tasks, _ = self._list_all_tasks()
         tasks_with_executions = [
             (task, self.repos.execution.get(task.created.by_execution_id))
             for task in all_tasks
@@ -485,3 +344,73 @@ class TasksController:
         """
 
         self.repos.tasks.clear()
+
+    def list_tasks(
+        self,
+        stage_ids: Optional[List[str]] = None,
+        direction: Optional[Literal["sent_to", "sent_by"]] = None,
+        status: Optional[List[str]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> dict:
+        """
+        List tasks in the workflow, with optional filtering.
+
+        By default returns the first `limit` tasks across the whole workflow.
+        Use `stage_ids` together with `direction` to narrow to tasks related to a
+        specific stage:
+          - direction='sent_to': tasks targeted to the stage (waiting for it).
+          - direction='sent_by': tasks created by the stage during its executions.
+        When `direction` is provided, `stage_ids` must contain exactly one stage.
+        Without `direction`, multi-stage filtering and date-range filtering apply.
+
+        Args:
+            stage_ids: Optional list of stage IDs to filter by. When `direction`
+                is set, must contain exactly one stage ID.
+            direction: When combined with a single `stage_ids` entry, picks the
+                relationship — 'sent_to' (incoming) or 'sent_by' (outgoing).
+                Ignored when `stage_ids` is None.
+            status: Optional list of statuses to include
+                (e.g. ['pending', 'locked', 'completed']).
+            start_date: Optional ISO date string for earliest creation date.
+            end_date: Optional ISO date string for latest creation date.
+            limit: Page size when paginated. Defaults to 10.
+            offset: Pagination offset. Defaults to 0.
+
+        Returns:
+            dict: {'tasks': list of ListTasksItem, 'total': int}. For the
+                'sent_to' / 'sent_by' modes `total` equals the length of the
+                returned list (no pagination is applied).
+
+        Copywritings:
+            List tasks
+            Listing tasks...
+        """
+        if direction is not None:
+            if stage_ids is None or len(stage_ids) != 1:
+                raise ValueError("direction requires exactly one stage in `stage_ids`")
+            stage_id = stage_ids[0]
+            if direction == "sent_to":
+                items = self._list_tasks_sent_to_stage(stage_id)
+            elif direction == "sent_by":
+                items = self._list_tasks_sent_by_stage(stage_id)
+            else:
+                raise ValueError(
+                    f"Unknown direction: {direction!r}. Must be 'sent_to' or 'sent_by'."
+                )
+            return {"tasks": items, "total": len(items)}
+
+        req = DataRequest(
+            filter=DataRequestFilter(
+                stage=stage_ids,
+                status=status,
+                start_date=start_date,
+                end_date=end_date,
+            ),
+            limit=limit,
+            offset=offset,
+        )
+        items, total = self._list_all_tasks(req)
+        return {"tasks": items, "total": total}

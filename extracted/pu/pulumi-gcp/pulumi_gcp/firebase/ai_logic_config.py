@@ -21,14 +21,21 @@ __all__ = ['AiLogicConfigArgs', 'AiLogicConfig']
 @pulumi.input_type
 class AiLogicConfigArgs:
     def __init__(__self__, *,
-                 generative_language_config: Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 telemetry_config: Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']] = None,
-                 traffic_filter: Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 generative_language_config: pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 telemetry_config: pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']] = None,
+                 traffic_filter: pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']] = None):
         """
         The set of arguments for constructing a AiLogicConfig resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs'] generative_language_config: Configuration for using the Gemini Developer API via Firebase AI Logic.
                When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
                API key is stored in this configuration *on the server* so that you do
@@ -44,6 +51,8 @@ class AiLogicConfigArgs:
         :param pulumi.Input['AiLogicConfigTrafficFilterArgs'] traffic_filter: Configuration for traffic filtering.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if generative_language_config is not None:
             pulumi.set(__self__, "generative_language_config", generative_language_config)
         if location is not None:
@@ -56,8 +65,25 @@ class AiLogicConfigArgs:
             pulumi.set(__self__, "traffic_filter", traffic_filter)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="generativeLanguageConfig")
-    def generative_language_config(self) -> Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']]:
+    def generative_language_config(self) -> pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']]:
         """
         Configuration for using the Gemini Developer API via Firebase AI Logic.
         When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
@@ -68,24 +94,24 @@ class AiLogicConfigArgs:
         return pulumi.get(self, "generative_language_config")
 
     @generative_language_config.setter
-    def generative_language_config(self, value: Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']]):
+    def generative_language_config(self, value: pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']]):
         pulumi.set(self, "generative_language_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -93,12 +119,12 @@ class AiLogicConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="telemetryConfig")
-    def telemetry_config(self) -> Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']]:
+    def telemetry_config(self) -> pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']]:
         """
         Configuration for telemetry.
         Telemetry is the collection of metrics, logs, and traces recorded by the
@@ -108,12 +134,12 @@ class AiLogicConfigArgs:
         return pulumi.get(self, "telemetry_config")
 
     @telemetry_config.setter
-    def telemetry_config(self, value: Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']]):
+    def telemetry_config(self, value: pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']]):
         pulumi.set(self, "telemetry_config", value)
 
     @_builtins.property
     @pulumi.getter(name="trafficFilter")
-    def traffic_filter(self) -> Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']]:
+    def traffic_filter(self) -> pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']]:
         """
         Configuration for traffic filtering.
         Structure is documented below.
@@ -121,22 +147,29 @@ class AiLogicConfigArgs:
         return pulumi.get(self, "traffic_filter")
 
     @traffic_filter.setter
-    def traffic_filter(self, value: Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']]):
+    def traffic_filter(self, value: pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']]):
         pulumi.set(self, "traffic_filter", value)
 
 
 @pulumi.input_type
 class _AiLogicConfigState:
     def __init__(__self__, *,
-                 generative_language_config: Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 telemetry_config: Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']] = None,
-                 traffic_filter: Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 generative_language_config: pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 telemetry_config: pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']] = None,
+                 traffic_filter: pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']] = None):
         """
         Input properties used for looking up and filtering AiLogicConfig resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs'] generative_language_config: Configuration for using the Gemini Developer API via Firebase AI Logic.
                When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
                API key is stored in this configuration *on the server* so that you do
@@ -154,6 +187,8 @@ class _AiLogicConfigState:
         :param pulumi.Input['AiLogicConfigTrafficFilterArgs'] traffic_filter: Configuration for traffic filtering.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if generative_language_config is not None:
             pulumi.set(__self__, "generative_language_config", generative_language_config)
         if location is not None:
@@ -168,8 +203,25 @@ class _AiLogicConfigState:
             pulumi.set(__self__, "traffic_filter", traffic_filter)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="generativeLanguageConfig")
-    def generative_language_config(self) -> Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']]:
+    def generative_language_config(self) -> pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']]:
         """
         Configuration for using the Gemini Developer API via Firebase AI Logic.
         When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
@@ -180,24 +232,24 @@ class _AiLogicConfigState:
         return pulumi.get(self, "generative_language_config")
 
     @generative_language_config.setter
-    def generative_language_config(self, value: Optional[pulumi.Input['AiLogicConfigGenerativeLanguageConfigArgs']]):
+    def generative_language_config(self, value: pulumi.Input[Optional['AiLogicConfigGenerativeLanguageConfigArgs']]):
         pulumi.set(self, "generative_language_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the config.
         Format: projects/{project}/locations/{location}/config
@@ -205,12 +257,12 @@ class _AiLogicConfigState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -218,12 +270,12 @@ class _AiLogicConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="telemetryConfig")
-    def telemetry_config(self) -> Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']]:
+    def telemetry_config(self) -> pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']]:
         """
         Configuration for telemetry.
         Telemetry is the collection of metrics, logs, and traces recorded by the
@@ -233,12 +285,12 @@ class _AiLogicConfigState:
         return pulumi.get(self, "telemetry_config")
 
     @telemetry_config.setter
-    def telemetry_config(self, value: Optional[pulumi.Input['AiLogicConfigTelemetryConfigArgs']]):
+    def telemetry_config(self, value: pulumi.Input[Optional['AiLogicConfigTelemetryConfigArgs']]):
         pulumi.set(self, "telemetry_config", value)
 
     @_builtins.property
     @pulumi.getter(name="trafficFilter")
-    def traffic_filter(self) -> Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']]:
+    def traffic_filter(self) -> pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']]:
         """
         Configuration for traffic filtering.
         Structure is documented below.
@@ -246,7 +298,7 @@ class _AiLogicConfigState:
         return pulumi.get(self, "traffic_filter")
 
     @traffic_filter.setter
-    def traffic_filter(self, value: Optional[pulumi.Input['AiLogicConfigTrafficFilterArgs']]):
+    def traffic_filter(self, value: pulumi.Input[Optional['AiLogicConfigTrafficFilterArgs']]):
         pulumi.set(self, "traffic_filter", value)
 
 
@@ -256,11 +308,12 @@ class AiLogicConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 generative_language_config: Optional[pulumi.Input[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 telemetry_config: Optional[pulumi.Input[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
-                 traffic_filter: Optional[pulumi.Input[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 generative_language_config: pulumi.Input[Optional[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 telemetry_config: pulumi.Input[Optional[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
+                 traffic_filter: pulumi.Input[Optional[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None,
                  __props__=None):
         """
         Configuration for Firebase AI Logic.
@@ -355,7 +408,7 @@ class AiLogicConfig(pulumi.CustomResource):
             },
             telemetry_config={
                 "mode": "ALL",
-                "sampling_rate": 1,
+                "sampling_rate": float(1),
             },
             traffic_filter={
                 "template_only": True,
@@ -382,6 +435,12 @@ class AiLogicConfig(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']] generative_language_config: Configuration for using the Gemini Developer API via Firebase AI Logic.
                When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
                API key is stored in this configuration *on the server* so that you do
@@ -496,7 +555,7 @@ class AiLogicConfig(pulumi.CustomResource):
             },
             telemetry_config={
                 "mode": "ALL",
-                "sampling_rate": 1,
+                "sampling_rate": float(1),
             },
             traffic_filter={
                 "template_only": True,
@@ -536,11 +595,12 @@ class AiLogicConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 generative_language_config: Optional[pulumi.Input[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 telemetry_config: Optional[pulumi.Input[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
-                 traffic_filter: Optional[pulumi.Input[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 generative_language_config: pulumi.Input[Optional[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 telemetry_config: pulumi.Input[Optional[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
+                 traffic_filter: pulumi.Input[Optional[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -550,6 +610,7 @@ class AiLogicConfig(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = AiLogicConfigArgs.__new__(AiLogicConfigArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["generative_language_config"] = generative_language_config
             __props__.__dict__["location"] = location
             __props__.__dict__["project"] = project
@@ -566,12 +627,13 @@ class AiLogicConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            generative_language_config: Optional[pulumi.Input[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            telemetry_config: Optional[pulumi.Input[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
-            traffic_filter: Optional[pulumi.Input[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None) -> 'AiLogicConfig':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            generative_language_config: pulumi.Input[Optional[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            telemetry_config: pulumi.Input[Optional[Union['AiLogicConfigTelemetryConfigArgs', 'AiLogicConfigTelemetryConfigArgsDict']]] = None,
+            traffic_filter: pulumi.Input[Optional[Union['AiLogicConfigTrafficFilterArgs', 'AiLogicConfigTrafficFilterArgsDict']]] = None) -> 'AiLogicConfig':
         """
         Get an existing AiLogicConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -579,6 +641,12 @@ class AiLogicConfig(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['AiLogicConfigGenerativeLanguageConfigArgs', 'AiLogicConfigGenerativeLanguageConfigArgsDict']] generative_language_config: Configuration for using the Gemini Developer API via Firebase AI Logic.
                When using the Gemini Developer API via Firebase AI Logic, a separate Gemini
                API key is stored in this configuration *on the server* so that you do
@@ -600,6 +668,7 @@ class AiLogicConfig(pulumi.CustomResource):
 
         __props__ = _AiLogicConfigState.__new__(_AiLogicConfigState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["generative_language_config"] = generative_language_config
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -607,6 +676,19 @@ class AiLogicConfig(pulumi.CustomResource):
         __props__.__dict__["telemetry_config"] = telemetry_config
         __props__.__dict__["traffic_filter"] = traffic_filter
         return AiLogicConfig(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="generativeLanguageConfig")

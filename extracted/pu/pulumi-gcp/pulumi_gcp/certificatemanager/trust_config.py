@@ -22,12 +22,13 @@ __all__ = ['TrustConfigArgs', 'TrustConfig']
 class TrustConfigArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
-                 allowlisted_certificates: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_stores: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]] = None):
+                 allowlisted_certificates: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_stores: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]] = None):
         """
         The set of arguments for constructing a TrustConfig resource.
 
@@ -35,6 +36,12 @@ class TrustConfigArgs:
         :param pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]] allowlisted_certificates: Allowlisted PEM-encoded certificates. A certificate matching an allowlisted certificate is always considered valid as long as
                the certificate is parseable, proof of private key possession is established, and constraints on the certificate's SAN field are met.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: One or more paragraphs of text description of a trust config.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the trust config.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -49,6 +56,8 @@ class TrustConfigArgs:
         pulumi.set(__self__, "location", location)
         if allowlisted_certificates is not None:
             pulumi.set(__self__, "allowlisted_certificates", allowlisted_certificates)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -74,7 +83,7 @@ class TrustConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="allowlistedCertificates")
-    def allowlisted_certificates(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]:
+    def allowlisted_certificates(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]:
         """
         Allowlisted PEM-encoded certificates. A certificate matching an allowlisted certificate is always considered valid as long as
         the certificate is parseable, proof of private key possession is established, and constraints on the certificate's SAN field are met.
@@ -83,24 +92,41 @@ class TrustConfigArgs:
         return pulumi.get(self, "allowlisted_certificates")
 
     @allowlisted_certificates.setter
-    def allowlisted_certificates(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]):
+    def allowlisted_certificates(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]):
         pulumi.set(self, "allowlisted_certificates", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         One or more paragraphs of text description of a trust config.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the trust config.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -109,24 +135,24 @@ class TrustConfigArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-defined name of the trust config. Trust config names must be unique globally.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -134,12 +160,12 @@ class TrustConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="trustStores")
-    def trust_stores(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]:
+    def trust_stores(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]:
         """
         Set of trust stores to perform validation against.
         This field is supported when TrustConfig is configured with Load Balancers, currently not supported for SPIFFE certificate validation.
@@ -148,24 +174,25 @@ class TrustConfigArgs:
         return pulumi.get(self, "trust_stores")
 
     @trust_stores.setter
-    def trust_stores(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]):
+    def trust_stores(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]):
         pulumi.set(self, "trust_stores", value)
 
 
 @pulumi.input_type
 class _TrustConfigState:
     def __init__(__self__, *,
-                 allowlisted_certificates: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 trust_stores: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 allowlisted_certificates: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 trust_stores: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TrustConfig resources.
 
@@ -175,6 +202,12 @@ class _TrustConfigState:
         :param pulumi.Input[_builtins.str] create_time: The creation timestamp of a TrustConfig.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
                Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: One or more paragraphs of text description of a trust config.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the trust config.
@@ -197,6 +230,8 @@ class _TrustConfigState:
             pulumi.set(__self__, "allowlisted_certificates", allowlisted_certificates)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -218,7 +253,7 @@ class _TrustConfigState:
 
     @_builtins.property
     @pulumi.getter(name="allowlistedCertificates")
-    def allowlisted_certificates(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]:
+    def allowlisted_certificates(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]:
         """
         Allowlisted PEM-encoded certificates. A certificate matching an allowlisted certificate is always considered valid as long as
         the certificate is parseable, proof of private key possession is established, and constraints on the certificate's SAN field are met.
@@ -227,12 +262,12 @@ class _TrustConfigState:
         return pulumi.get(self, "allowlisted_certificates")
 
     @allowlisted_certificates.setter
-    def allowlisted_certificates(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]):
+    def allowlisted_certificates(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigAllowlistedCertificateArgs']]]]):
         pulumi.set(self, "allowlisted_certificates", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The creation timestamp of a TrustConfig.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -241,36 +276,53 @@ class _TrustConfigState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         One or more paragraphs of text description of a trust config.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the trust config.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -279,36 +331,36 @@ class _TrustConfigState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The trust config location.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-defined name of the trust config. Trust config names must be unique globally.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -316,12 +368,12 @@ class _TrustConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -329,12 +381,12 @@ class _TrustConfigState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="trustStores")
-    def trust_stores(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]:
+    def trust_stores(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]:
         """
         Set of trust stores to perform validation against.
         This field is supported when TrustConfig is configured with Load Balancers, currently not supported for SPIFFE certificate validation.
@@ -343,12 +395,12 @@ class _TrustConfigState:
         return pulumi.get(self, "trust_stores")
 
     @trust_stores.setter
-    def trust_stores(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]):
+    def trust_stores(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TrustConfigTrustStoreArgs']]]]):
         pulumi.set(self, "trust_stores", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The last update timestamp of a TrustConfig.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -357,7 +409,7 @@ class _TrustConfigState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -367,13 +419,14 @@ class TrustConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allowlisted_certificates: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_stores: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
+                 allowlisted_certificates: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_stores: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
                  __props__=None):
         """
         TrustConfig represents a resource that represents your Public Key Infrastructure (PKI) configuration in Certificate Manager for use in mutual TLS authentication scenarios.
@@ -455,6 +508,12 @@ class TrustConfig(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]] allowlisted_certificates: Allowlisted PEM-encoded certificates. A certificate matching an allowlisted certificate is always considered valid as long as
                the certificate is parseable, proof of private key possession is established, and constraints on the certificate's SAN field are met.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: One or more paragraphs of text description of a trust config.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the trust config.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -563,13 +622,14 @@ class TrustConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allowlisted_certificates: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_stores: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
+                 allowlisted_certificates: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_stores: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -580,6 +640,7 @@ class TrustConfig(pulumi.CustomResource):
             __props__ = TrustConfigArgs.__new__(TrustConfigArgs)
 
             __props__.__dict__["allowlisted_certificates"] = allowlisted_certificates
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
@@ -604,17 +665,18 @@ class TrustConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allowlisted_certificates: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            trust_stores: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'TrustConfig':
+            allowlisted_certificates: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigAllowlistedCertificateArgs', 'TrustConfigAllowlistedCertificateArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            trust_stores: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrustConfigTrustStoreArgs', 'TrustConfigTrustStoreArgsDict']]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'TrustConfig':
         """
         Get an existing TrustConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -628,6 +690,12 @@ class TrustConfig(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: The creation timestamp of a TrustConfig.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
                Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: One or more paragraphs of text description of a trust config.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the trust config.
@@ -652,6 +720,7 @@ class TrustConfig(pulumi.CustomResource):
 
         __props__.__dict__["allowlisted_certificates"] = allowlisted_certificates
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -682,6 +751,19 @@ class TrustConfig(pulumi.CustomResource):
         Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

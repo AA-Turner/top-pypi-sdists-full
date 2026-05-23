@@ -22,15 +22,16 @@ __all__ = ['MetricArgs', 'Metric']
 class MetricArgs:
     def __init__(__self__, *,
                  filter: pulumi.Input[_builtins.str],
-                 bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket_options: Optional[pulumi.Input['MetricBucketOptionsArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 label_extractors: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 metric_descriptor: Optional[pulumi.Input['MetricMetricDescriptorArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 value_extractor: Optional[pulumi.Input[_builtins.str]] = None):
+                 bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket_options: pulumi.Input[Optional['MetricBucketOptionsArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 label_extractors: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 metric_descriptor: pulumi.Input[Optional['MetricMetricDescriptorArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 value_extractor: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Metric resource.
 
@@ -41,6 +42,12 @@ class MetricArgs:
         :param pulumi.Input['MetricBucketOptionsArgs'] bucket_options: The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
                describes the bucket boundaries used to create a histogram of the extracted values.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this metric, which is used in documentation. The maximum length of the
                description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this metric is disabled and it does not generate any points.
@@ -73,6 +80,8 @@ class MetricArgs:
             pulumi.set(__self__, "bucket_name", bucket_name)
         if bucket_options is not None:
             pulumi.set(__self__, "bucket_options", bucket_options)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -103,7 +112,7 @@ class MetricArgs:
 
     @_builtins.property
     @pulumi.getter(name="bucketName")
-    def bucket_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bucket_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects
         are supported. The bucket has to be in the same project as the metric.
@@ -111,12 +120,12 @@ class MetricArgs:
         return pulumi.get(self, "bucket_name")
 
     @bucket_name.setter
-    def bucket_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bucket_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bucket_name", value)
 
     @_builtins.property
     @pulumi.getter(name="bucketOptions")
-    def bucket_options(self) -> Optional[pulumi.Input['MetricBucketOptionsArgs']]:
+    def bucket_options(self) -> pulumi.Input[Optional['MetricBucketOptionsArgs']]:
         """
         The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
         describes the bucket boundaries used to create a histogram of the extracted values.
@@ -125,12 +134,29 @@ class MetricArgs:
         return pulumi.get(self, "bucket_options")
 
     @bucket_options.setter
-    def bucket_options(self, value: Optional[pulumi.Input['MetricBucketOptionsArgs']]):
+    def bucket_options(self, value: pulumi.Input[Optional['MetricBucketOptionsArgs']]):
         pulumi.set(self, "bucket_options", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this metric, which is used in documentation. The maximum length of the
         description is 8000 characters.
@@ -138,24 +164,24 @@ class MetricArgs:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this metric is disabled and it does not generate any points.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="labelExtractors")
-    def label_extractors(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def label_extractors(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A map from a label key string to an extractor expression which is used to extract data from a log
         entry field and assign as the label value. Each label key specified in the LabelDescriptor must
@@ -165,12 +191,12 @@ class MetricArgs:
         return pulumi.get(self, "label_extractors")
 
     @label_extractors.setter
-    def label_extractors(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def label_extractors(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "label_extractors", value)
 
     @_builtins.property
     @pulumi.getter(name="metricDescriptor")
-    def metric_descriptor(self) -> Optional[pulumi.Input['MetricMetricDescriptorArgs']]:
+    def metric_descriptor(self) -> pulumi.Input[Optional['MetricMetricDescriptorArgs']]:
         """
         The optional metric descriptor associated with the logs-based metric.
         If unspecified, it uses a default metric descriptor with a DELTA metric kind,
@@ -181,12 +207,12 @@ class MetricArgs:
         return pulumi.get(self, "metric_descriptor")
 
     @metric_descriptor.setter
-    def metric_descriptor(self, value: Optional[pulumi.Input['MetricMetricDescriptorArgs']]):
+    def metric_descriptor(self, value: pulumi.Input[Optional['MetricMetricDescriptorArgs']]):
         pulumi.set(self, "metric_descriptor", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client-assigned metric identifier. Examples - "error_count", "nginx/requests".
         Metric identifiers are limited to 100 characters and can include only the following
@@ -197,12 +223,12 @@ class MetricArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -210,12 +236,12 @@ class MetricArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="valueExtractor")
-    def value_extractor(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def value_extractor(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A valueExtractor is required when using a distribution logs-based metric to extract the values to
         record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or
@@ -228,23 +254,24 @@ class MetricArgs:
         return pulumi.get(self, "value_extractor")
 
     @value_extractor.setter
-    def value_extractor(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def value_extractor(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "value_extractor", value)
 
 
 @pulumi.input_type
 class _MetricState:
     def __init__(__self__, *,
-                 bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket_options: Optional[pulumi.Input['MetricBucketOptionsArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 label_extractors: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 metric_descriptor: Optional[pulumi.Input['MetricMetricDescriptorArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 value_extractor: Optional[pulumi.Input[_builtins.str]] = None):
+                 bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket_options: pulumi.Input[Optional['MetricBucketOptionsArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 label_extractors: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 metric_descriptor: pulumi.Input[Optional['MetricMetricDescriptorArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 value_extractor: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Metric resources.
 
@@ -253,6 +280,12 @@ class _MetricState:
         :param pulumi.Input['MetricBucketOptionsArgs'] bucket_options: The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
                describes the bucket boundaries used to create a histogram of the extracted values.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this metric, which is used in documentation. The maximum length of the
                description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this metric is disabled and it does not generate any points.
@@ -286,6 +319,8 @@ class _MetricState:
             pulumi.set(__self__, "bucket_name", bucket_name)
         if bucket_options is not None:
             pulumi.set(__self__, "bucket_options", bucket_options)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -305,7 +340,7 @@ class _MetricState:
 
     @_builtins.property
     @pulumi.getter(name="bucketName")
-    def bucket_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bucket_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Log Bucket that owns the Log Metric. Only Log Buckets in projects
         are supported. The bucket has to be in the same project as the metric.
@@ -313,12 +348,12 @@ class _MetricState:
         return pulumi.get(self, "bucket_name")
 
     @bucket_name.setter
-    def bucket_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bucket_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bucket_name", value)
 
     @_builtins.property
     @pulumi.getter(name="bucketOptions")
-    def bucket_options(self) -> Optional[pulumi.Input['MetricBucketOptionsArgs']]:
+    def bucket_options(self) -> pulumi.Input[Optional['MetricBucketOptionsArgs']]:
         """
         The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
         describes the bucket boundaries used to create a histogram of the extracted values.
@@ -327,12 +362,29 @@ class _MetricState:
         return pulumi.get(self, "bucket_options")
 
     @bucket_options.setter
-    def bucket_options(self, value: Optional[pulumi.Input['MetricBucketOptionsArgs']]):
+    def bucket_options(self, value: pulumi.Input[Optional['MetricBucketOptionsArgs']]):
         pulumi.set(self, "bucket_options", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this metric, which is used in documentation. The maximum length of the
         description is 8000 characters.
@@ -340,24 +392,24 @@ class _MetricState:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this metric is disabled and it does not generate any points.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which
         is used to match log entries.
@@ -365,12 +417,12 @@ class _MetricState:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter(name="labelExtractors")
-    def label_extractors(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def label_extractors(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A map from a label key string to an extractor expression which is used to extract data from a log
         entry field and assign as the label value. Each label key specified in the LabelDescriptor must
@@ -380,12 +432,12 @@ class _MetricState:
         return pulumi.get(self, "label_extractors")
 
     @label_extractors.setter
-    def label_extractors(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def label_extractors(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "label_extractors", value)
 
     @_builtins.property
     @pulumi.getter(name="metricDescriptor")
-    def metric_descriptor(self) -> Optional[pulumi.Input['MetricMetricDescriptorArgs']]:
+    def metric_descriptor(self) -> pulumi.Input[Optional['MetricMetricDescriptorArgs']]:
         """
         The optional metric descriptor associated with the logs-based metric.
         If unspecified, it uses a default metric descriptor with a DELTA metric kind,
@@ -396,12 +448,12 @@ class _MetricState:
         return pulumi.get(self, "metric_descriptor")
 
     @metric_descriptor.setter
-    def metric_descriptor(self, value: Optional[pulumi.Input['MetricMetricDescriptorArgs']]):
+    def metric_descriptor(self, value: pulumi.Input[Optional['MetricMetricDescriptorArgs']]):
         pulumi.set(self, "metric_descriptor", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client-assigned metric identifier. Examples - "error_count", "nginx/requests".
         Metric identifiers are limited to 100 characters and can include only the following
@@ -412,12 +464,12 @@ class _MetricState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -425,12 +477,12 @@ class _MetricState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="valueExtractor")
-    def value_extractor(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def value_extractor(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A valueExtractor is required when using a distribution logs-based metric to extract the values to
         record from a log entry. Two functions are supported for value extraction - EXTRACT(field) or
@@ -443,7 +495,7 @@ class _MetricState:
         return pulumi.get(self, "value_extractor")
 
     @value_extractor.setter
-    def value_extractor(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def value_extractor(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "value_extractor", value)
 
 
@@ -453,16 +505,17 @@ class Metric(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket_options: Optional[pulumi.Input[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 label_extractors: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 metric_descriptor: Optional[pulumi.Input[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 value_extractor: Optional[pulumi.Input[_builtins.str]] = None,
+                 bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket_options: pulumi.Input[Optional[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 label_extractors: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 metric_descriptor: pulumi.Input[Optional[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 value_extractor: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Logs-based metric can also be used to extract values from logs and create a a distribution
@@ -512,8 +565,8 @@ class Metric(pulumi.CustomResource):
             bucket_options={
                 "linear_buckets": {
                     "num_finite_buckets": 3,
-                    "width": 1,
-                    "offset": 1,
+                    "width": float(1),
+                    "offset": float(1),
                 },
             })
         ```
@@ -606,6 +659,12 @@ class Metric(pulumi.CustomResource):
         :param pulumi.Input[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']] bucket_options: The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
                describes the bucket boundaries used to create a histogram of the extracted values.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this metric, which is used in documentation. The maximum length of the
                description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this metric is disabled and it does not generate any points.
@@ -689,8 +748,8 @@ class Metric(pulumi.CustomResource):
             bucket_options={
                 "linear_buckets": {
                     "num_finite_buckets": 3,
-                    "width": 1,
-                    "offset": 1,
+                    "width": float(1),
+                    "offset": float(1),
                 },
             })
         ```
@@ -791,16 +850,17 @@ class Metric(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 bucket_options: Optional[pulumi.Input[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 label_extractors: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 metric_descriptor: Optional[pulumi.Input[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 value_extractor: Optional[pulumi.Input[_builtins.str]] = None,
+                 bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 bucket_options: pulumi.Input[Optional[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 label_extractors: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 metric_descriptor: pulumi.Input[Optional[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 value_extractor: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -812,6 +872,7 @@ class Metric(pulumi.CustomResource):
 
             __props__.__dict__["bucket_name"] = bucket_name
             __props__.__dict__["bucket_options"] = bucket_options
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["disabled"] = disabled
             if filter is None and not opts.urn:
@@ -832,16 +893,17 @@ class Metric(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
-            bucket_options: Optional[pulumi.Input[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            filter: Optional[pulumi.Input[_builtins.str]] = None,
-            label_extractors: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            metric_descriptor: Optional[pulumi.Input[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            value_extractor: Optional[pulumi.Input[_builtins.str]] = None) -> 'Metric':
+            bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket_options: pulumi.Input[Optional[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            filter: pulumi.Input[Optional[_builtins.str]] = None,
+            label_extractors: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            metric_descriptor: pulumi.Input[Optional[Union['MetricMetricDescriptorArgs', 'MetricMetricDescriptorArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            value_extractor: pulumi.Input[Optional[_builtins.str]] = None) -> 'Metric':
         """
         Get an existing Metric resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -854,6 +916,12 @@ class Metric(pulumi.CustomResource):
         :param pulumi.Input[Union['MetricBucketOptionsArgs', 'MetricBucketOptionsArgsDict']] bucket_options: The bucketOptions are required when the logs-based metric is using a DISTRIBUTION value type and it
                describes the bucket boundaries used to create a histogram of the extracted values.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this metric, which is used in documentation. The maximum length of the
                description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this metric is disabled and it does not generate any points.
@@ -889,6 +957,7 @@ class Metric(pulumi.CustomResource):
 
         __props__.__dict__["bucket_name"] = bucket_name
         __props__.__dict__["bucket_options"] = bucket_options
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["filter"] = filter
@@ -917,6 +986,19 @@ class Metric(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "bucket_options")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

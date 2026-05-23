@@ -10,7 +10,7 @@
             "-funroll-loops"
         ],
         "include_dirs": [
-            "/tmp/build-env-7ov24jjb/lib/python3.11/site-packages/numpy/_core/include"
+            "/tmp/build-env-ms0pamrp/lib/python3.11/site-packages/numpy/_core/include"
         ],
         "language": "c++",
         "name": "qutip.core.cy.math",

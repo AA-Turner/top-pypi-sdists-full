@@ -27,10 +27,13 @@ class GetMembershipResult:
     """
     A collection of values returned by getMembership.
     """
-    def __init__(__self__, authorities=None, effective_labels=None, endpoints=None, id=None, labels=None, location=None, membership_id=None, name=None, project=None, pulumi_labels=None):
+    def __init__(__self__, authorities=None, deletion_policy=None, effective_labels=None, endpoints=None, id=None, labels=None, location=None, membership_id=None, name=None, project=None, pulumi_labels=None):
         if authorities and not isinstance(authorities, list):
             raise TypeError("Expected argument 'authorities' to be a list")
         pulumi.set(__self__, "authorities", authorities)
+        if deletion_policy and not isinstance(deletion_policy, str):
+            raise TypeError("Expected argument 'deletion_policy' to be a str")
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels and not isinstance(effective_labels, dict):
             raise TypeError("Expected argument 'effective_labels' to be a dict")
         pulumi.set(__self__, "effective_labels", effective_labels)
@@ -63,6 +66,11 @@ class GetMembershipResult:
     @pulumi.getter
     def authorities(self) -> Sequence['outputs.GetMembershipAuthorityResult']:
         return pulumi.get(self, "authorities")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
@@ -120,6 +128,7 @@ class AwaitableGetMembershipResult(GetMembershipResult):
             yield self
         return GetMembershipResult(
             authorities=self.authorities,
+            deletion_policy=self.deletion_policy,
             effective_labels=self.effective_labels,
             endpoints=self.endpoints,
             id=self.id,
@@ -165,6 +174,7 @@ def get_membership(location: Optional[_builtins.str] = None,
 
     return AwaitableGetMembershipResult(
         authorities=pulumi.get(__ret__, 'authorities'),
+        deletion_policy=pulumi.get(__ret__, 'deletion_policy'),
         effective_labels=pulumi.get(__ret__, 'effective_labels'),
         endpoints=pulumi.get(__ret__, 'endpoints'),
         id=pulumi.get(__ret__, 'id'),
@@ -174,9 +184,9 @@ def get_membership(location: Optional[_builtins.str] = None,
         name=pulumi.get(__ret__, 'name'),
         project=pulumi.get(__ret__, 'project'),
         pulumi_labels=pulumi.get(__ret__, 'pulumi_labels'))
-def get_membership_output(location: Optional[pulumi.Input[_builtins.str]] = None,
-                          membership_id: Optional[pulumi.Input[_builtins.str]] = None,
-                          project: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_membership_output(location: pulumi.Input[Optional[_builtins.str]] = None,
+                          membership_id: pulumi.Input[Optional[_builtins.str]] = None,
+                          project: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetMembershipResult]:
     """
     Retrieves the details of a specific GKE Hub Membership. Use this data source to retrieve the membership's configuration and state.
@@ -207,6 +217,7 @@ def get_membership_output(location: Optional[pulumi.Input[_builtins.str]] = None
     __ret__ = pulumi.runtime.invoke_output('gcp:gkehub/getMembership:getMembership', __args__, opts=opts, typ=GetMembershipResult)
     return __ret__.apply(lambda __response__: GetMembershipResult(
         authorities=pulumi.get(__response__, 'authorities'),
+        deletion_policy=pulumi.get(__response__, 'deletion_policy'),
         effective_labels=pulumi.get(__response__, 'effective_labels'),
         endpoints=pulumi.get(__response__, 'endpoints'),
         id=pulumi.get(__response__, 'id'),

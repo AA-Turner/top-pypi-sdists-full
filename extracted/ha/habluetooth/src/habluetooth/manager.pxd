@@ -1,6 +1,7 @@
 import cython
 
 from .advertisement_tracker cimport AdvertisementTracker
+from .auto_scheduler cimport ActiveScanRequest, AutoScanScheduler
 from .base_scanner cimport BaseHaScanner
 from .models cimport BluetoothServiceInfoBleak
 
@@ -69,12 +70,25 @@ cdef class BluetoothManager:
     cdef public bint has_advertising_side_channel
     cdef public dict _side_channel_scanners
     cdef public object _mgmt_ctl
+    # _auto_scheduler stays untyped to avoid a typed cdef field that
+    # triggers Cython's type-import path during manager init; the hot
+    # path casts to AutoScanScheduler via cython.locals on
+    # _scanner_adv_received so the call into on_advertisement is still
+    # a direct vtable dispatch.
+    cdef public object _auto_scheduler
 
     @cython.locals(stale_seconds=double)
     cdef bint _prefer_previous_adv_from_different_source(
         self,
         BluetoothServiceInfoBleak old,
         BluetoothServiceInfoBleak new
+    )
+
+    @cython.locals(scanner=BaseHaScanner)
+    cdef bint _should_keep_previous_adv(
+        self,
+        BluetoothServiceInfoBleak old_info,
+        BluetoothServiceInfoBleak new_info
     )
 
     @cython.locals(
@@ -99,12 +113,26 @@ cdef class BluetoothManager:
         old_connectable_service_info=BluetoothServiceInfoBleak,
         source=str,
         connectable=bint,
-        scanner=BaseHaScanner,
-        connectable_scanner=BaseHaScanner,
         apple_cstr="const unsigned char *",
         bleak_callback=BleakCallback,
-        cached_name=str
+        cached_name=str,
+        auto_scheduler=AutoScanScheduler,
     )
     cdef void _scanner_adv_received(self, BluetoothServiceInfoBleak service_info)
 
     cpdef _async_describe_source(self, BluetoothServiceInfoBleak service_info)
+
+    cpdef void _unregister_source_callback(
+        self,
+        dict callbacks_dict,
+        object source,
+        object callback,
+    ) except *
+
+    cdef void _dispatch_source_callbacks(
+        self,
+        dict callbacks_dict,
+        object source,
+        object payload,
+        str label,
+    ) except *

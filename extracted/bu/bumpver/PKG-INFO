@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bumpver
-Version: 2025.1131
+Version: 2026.1132
 Summary: Bump version numbers in project files.
 Home-page: https://github.com/mbarkhau/bumpver
 Author: Manuel Barkhau
@@ -26,6 +26,26 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=2.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pathlib2; python_version < "3.4"
+Requires-Dist: typing; python_version < "3.5"
+Requires-Dist: click<8.0; python_version < "3.6"
+Requires-Dist: click; python_version >= "3.6"
+Requires-Dist: toml
+Requires-Dist: lexid
+Requires-Dist: colorama>=0.4
+Requires-Dist: enum34; python_version < "3.4"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <div align="center">
 <p align="center">
@@ -51,7 +71,7 @@ Project/Repo:
 
 [![MIT License][img_license]][url_license]
 [![Supported Python Versions][img_pyversions]][url_pyversions]
-[![CalVer 2025.1131][img_version]][url_version]
+[![CalVer 2026.1132][img_version]][url_version]
 [![PyPI Releases][img_pypi]][url_pypi]
 [![PyPI Downloads][img_downloads]][url_downloads]
 
@@ -85,7 +105,7 @@ Code Quality/CI:
 [img_downloads]: https://pepy.tech/badge/bumpver/month
 [url_downloads]: https://pepy.tech/project/bumpver
 
-[img_version]: https://img.shields.io/static/v1.svg?label=CalVer&message=2025.1131&color=blue
+[img_version]: https://img.shields.io/static/v1.svg?label=CalVer&message=2026.1132&color=blue
 [url_version]: https://pypi.org/project/bumpver/
 
 [img_pypi]: https://img.shields.io/badge/PyPI-wheels-green.svg
@@ -840,7 +860,7 @@ The create an initial configuration for project with `bumpver init`.
 $ pip install bumpver
 ...
 Installing collected packages: click toml lexid bumpver
-Successfully installed bumpver-2025.1131
+Successfully installed bumpver-2026.1132
 
 $ cd myproject
 ~/myproject/
@@ -1075,19 +1095,21 @@ The individual steps performed by `bumpver update`:
 
 The configuration for these steps can be done with the following parameters:
 
-|      Parameter     |   Type   |                 Description                |
-|--------------------|----------|--------------------------------------------|
-| `tag_scope`        | string   | Scope for the `current_version` in step 2. |
-| `commit_message`   | string¹  | Template for commit message in step 6.     |
-| `tag_message`      | string¹  | Template for tag message in step 9.        |
-| `pre_commit_hook`  | string²  | Path to the pre-commit script.             |
-| `commit`           | boolean  | Create a commit with all updated files.    |
-| `post_commit_hook` | string²  | Path to the post-commit script.            |
-| `tag`              | boolean² | Tag the newly created commit.              |
-| `push`             | boolean² | Push to the default remote.                |
+|     Parameter      |   Type   |                    Description                     |
+|--------------------|----------|----------------------------------------------------|
+| `tag_scope`        | string   | Scope for the `current_version` in step 2.         |
+| `commit_message`   | string¹  | Template for commit message in step 6.             |
+| `tag_message`      | string¹  | Template for tag message in step 9.                |
+| `pre_commit_hook`  | string²  | Path to the pre-commit script.                     |
+| `commit`           | boolean  | Create a commit with all updated files.            |
+| `post_commit_hook` | string²  | Path to the post-commit script.                    |
+| `tag`              | boolean² | Tag the newly created commit.                      |
+| `push`             | boolean² | Push to the default remote.                        |
+| `allowed_branches` | string³  | Limit update to specific branches/branch patterns. |
 
 - ¹ Available template placeholders: `{new_version}`, `{old_version}`, `{new_version_pep440}`, `{old_version_pep440}`
 - ² Requires `commit = True`
+- ³ Comma-separated list of strings/globs
 
 An example configuration might look like this:
 
@@ -1102,6 +1124,7 @@ post_commit_hook = "scripts/update_changelog.sh"
 commit = True
 tag = True
 push = True
+allowed_branches = "master,main,default,release*"
 ```
 
 If everything looks OK, you can do `bumpver update`.
@@ -1230,6 +1253,15 @@ ERROR   - Script exited with an error. Stopping
 
 
 # Changelog for https://github.com/mbarkhau/bumpver
+
+## BumpVer 2026.1132
+
+- Add [#198][gh_i198]: Add `allowed_branches` config option to restrict which branches can be released from. Accepts a comma-separated list of glob patterns (e.g. `master,main,release-*`). Empty (the default) allows any branch.
+
+[gh_i198]: https://github.com/mbarkhau/bumpver/issues/198
+
+Thank you [SAY-5](https://github.com/SAY-5) for your contribution.
+
 
 ## BumpVer 2025.1131
 

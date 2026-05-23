@@ -34,7 +34,7 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
         workflow_position = data.get("position", (0, 0))
         id = data.get("id", None)
-        script = controller.create_tasklet(title, file, workflow_position, id)
+        script = controller.create_stage("tasklet", title, file, workflow_position, id)
         return script.editor_dto
 
     @bp.put("/<path:id>")

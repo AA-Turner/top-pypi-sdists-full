@@ -22,10 +22,11 @@ __all__ = ['PreventionInspectTemplateArgs', 'PreventionInspectTemplate']
 class PreventionInspectTemplateArgs:
     def __init__(__self__, *,
                  parent: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_config: Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']] = None,
-                 template_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_config: pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']] = None,
+                 template_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PreventionInspectTemplate resource.
 
@@ -34,6 +35,12 @@ class PreventionInspectTemplateArgs:
                * `projects/{{project}}/locations/{{location}}`
                * `organizations/{{organization_id}}`
                * `organizations/{{organization_id}}/locations/{{location}}`
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the inspect template.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the inspect template.
         :param pulumi.Input['PreventionInspectTemplateInspectConfigArgs'] inspect_config: The core content of the template.
@@ -43,6 +50,8 @@ class PreventionInspectTemplateArgs:
                100 characters. Can be empty to allow the system to generate one.
         """
         pulumi.set(__self__, "parent", parent)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -69,32 +78,49 @@ class PreventionInspectTemplateArgs:
         pulumi.set(self, "parent", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the inspect template.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the inspect template.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectConfig")
-    def inspect_config(self) -> Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']]:
+    def inspect_config(self) -> pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']]:
         """
         The core content of the template.
         Structure is documented below.
@@ -102,12 +128,12 @@ class PreventionInspectTemplateArgs:
         return pulumi.get(self, "inspect_config")
 
     @inspect_config.setter
-    def inspect_config(self, value: Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']]):
+    def inspect_config(self, value: pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']]):
         pulumi.set(self, "inspect_config", value)
 
     @_builtins.property
     @pulumi.getter(name="templateId")
-    def template_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def template_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The template id can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is
@@ -116,22 +142,29 @@ class PreventionInspectTemplateArgs:
         return pulumi.get(self, "template_id")
 
     @template_id.setter
-    def template_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def template_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "template_id", value)
 
 
 @pulumi.input_type
 class _PreventionInspectTemplateState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_config: Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 template_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_config: pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 template_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PreventionInspectTemplate resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the inspect template.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the inspect template.
         :param pulumi.Input['PreventionInspectTemplateInspectConfigArgs'] inspect_config: The core content of the template.
@@ -146,6 +179,8 @@ class _PreventionInspectTemplateState:
                that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is
                100 characters. Can be empty to allow the system to generate one.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -160,32 +195,49 @@ class _PreventionInspectTemplateState:
             pulumi.set(__self__, "template_id", template_id)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of the inspect template.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User set display name of the inspect template.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectConfig")
-    def inspect_config(self) -> Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']]:
+    def inspect_config(self) -> pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']]:
         """
         The core content of the template.
         Structure is documented below.
@@ -193,24 +245,24 @@ class _PreventionInspectTemplateState:
         return pulumi.get(self, "inspect_config")
 
     @inspect_config.setter
-    def inspect_config(self, value: Optional[pulumi.Input['PreventionInspectTemplateInspectConfigArgs']]):
+    def inspect_config(self, value: pulumi.Input[Optional['PreventionInspectTemplateInspectConfigArgs']]):
         pulumi.set(self, "inspect_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the inspect template. Set by the server.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of the inspect template in any of the following formats:
         * `projects/{{project}}`
@@ -221,12 +273,12 @@ class _PreventionInspectTemplateState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="templateId")
-    def template_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def template_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The template id can contain uppercase and lowercase letters, numbers, and hyphens;
         that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is
@@ -235,7 +287,7 @@ class _PreventionInspectTemplateState:
         return pulumi.get(self, "template_id")
 
     @template_id.setter
-    def template_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def template_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "template_id", value)
 
 
@@ -245,11 +297,12 @@ class PreventionInspectTemplate(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_config: Optional[pulumi.Input[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 template_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_config: pulumi.Input[Optional[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 template_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An inspect job template.
@@ -545,6 +598,12 @@ class PreventionInspectTemplate(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the inspect template.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the inspect template.
         :param pulumi.Input[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']] inspect_config: The core content of the template.
@@ -871,11 +930,12 @@ class PreventionInspectTemplate(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_config: Optional[pulumi.Input[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 template_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_config: pulumi.Input[Optional[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 template_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -885,6 +945,7 @@ class PreventionInspectTemplate(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PreventionInspectTemplateArgs.__new__(PreventionInspectTemplateArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["inspect_config"] = inspect_config
@@ -903,12 +964,13 @@ class PreventionInspectTemplate(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            inspect_config: Optional[pulumi.Input[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            template_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'PreventionInspectTemplate':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            inspect_config: pulumi.Input[Optional[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            template_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'PreventionInspectTemplate':
         """
         Get an existing PreventionInspectTemplate resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -916,6 +978,12 @@ class PreventionInspectTemplate(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of the inspect template.
         :param pulumi.Input[_builtins.str] display_name: User set display name of the inspect template.
         :param pulumi.Input[Union['PreventionInspectTemplateInspectConfigArgs', 'PreventionInspectTemplateInspectConfigArgsDict']] inspect_config: The core content of the template.
@@ -934,6 +1002,7 @@ class PreventionInspectTemplate(pulumi.CustomResource):
 
         __props__ = _PreventionInspectTemplateState.__new__(_PreventionInspectTemplateState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["inspect_config"] = inspect_config
@@ -941,6 +1010,19 @@ class PreventionInspectTemplate(pulumi.CustomResource):
         __props__.__dict__["parent"] = parent
         __props__.__dict__["template_id"] = template_id
         return PreventionInspectTemplate(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

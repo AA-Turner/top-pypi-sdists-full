@@ -40,6 +40,7 @@ from chalk.client.models import (
     OfflineQueryDeadlineOptions,
     OfflineQueryInfo,
     OfflineQueryInputUri,
+    OfflineQueryProfileSummary,
     OfflineQueryReport,
     OnlineQuery,
     OnlineQueryContext,
@@ -1466,6 +1467,21 @@ class ChalkClient:
         -------
         Optional[OfflineQueryReport]
             The OfflineQueryReport object if it exists.
+        """
+        ...
+
+    def get_offline_query_profile_summary(self, offline_query_id: str) -> OfflineQueryProfileSummary:
+        """Get the profile metrics summary for an offline query.
+
+        Parameters
+        ----------
+        offline_query_id
+            Offline query's ID.
+
+        Returns
+        -------
+        OfflineQueryProfileSummary
+            Aggregated profile metrics and warnings for the offline query.
         """
         ...
 

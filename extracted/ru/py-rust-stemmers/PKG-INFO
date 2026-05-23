@@ -1,8 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: py_rust_stemmers
-Version: 0.1.5
+Version: 0.1.8
+Requires-Dist: pytest ; extra == 'dev'
+Provides-Extra: dev
 License-File: LICENSE
 Summary: Fast and parallel snowball stemmer
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # py-rust-stemmers

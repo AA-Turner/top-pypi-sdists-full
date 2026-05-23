@@ -4,13 +4,16 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union, cast
 
 from typing_extensions import NotRequired, Unpack
 
-from e2b import ConnectionConfig
 from e2b.api.client.models import (
     ListedSandbox,
     SandboxDetail,
-    SandboxLifecycle as ClientSandboxLifecycle,
-    SandboxNetworkConfig as ClientSandboxNetworkConfig,
     SandboxState,
+)
+from e2b.api.client.models import (
+    SandboxLifecycle as ClientSandboxLifecycle,
+)
+from e2b.api.client.models import (
+    SandboxNetworkConfig as ClientSandboxNetworkConfig,
 )
 from e2b.api.client.types import Unset
 from e2b.connection_config import ApiParams
@@ -115,13 +118,6 @@ class SandboxInfoLifecycle(TypedDict):
     """
     Whether activity should cause the sandbox to resume when paused.
     """
-
-
-def get_auto_resume_enabled(lifecycle: Optional[SandboxLifecycle]) -> Optional[bool]:
-    if lifecycle is None or lifecycle.get("on_timeout") != "pause":
-        return None
-
-    return lifecycle.get("auto_resume", False)
 
 
 def from_client_network_config(
@@ -307,7 +303,7 @@ class PaginatorBase:
         next_token: Optional[str] = None,
         **opts: Unpack[ApiParams],
     ):
-        self._config = ConnectionConfig(**opts)
+        self._opts: ApiParams = opts
         self.limit = limit
         self._has_next = True
         self._next_token = next_token

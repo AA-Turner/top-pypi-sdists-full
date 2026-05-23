@@ -138,6 +138,27 @@ class EventFactory:
         return events
 
     @staticmethod
+    def ai_agent_escalate_event(
+        company_info: EmpresaModel,
+        chat_id: StrObjectId,
+        reason: Optional[str],
+        trace_id: str,
+        time: datetime,
+    ) -> "AiAgentEscalateEvent":
+        from ....models.analytics.events.chat_based_events.ai_agent_escalate_event import AiAgentEscalateEvent, AiAgentEscalateEventData
+        data = AiAgentEscalateEventData(chat_id=chat_id, reason=reason)
+        return AiAgentEscalateEvent(
+            specversion=EventFactory.package_version(),
+            type=EventType.AI_AGENT_ESCALATE,
+            time=time,
+            data=data,
+            source="chatty_api.webapp",
+            company_id=company_info.id,
+            frozen_company_name=company_info.frozen_name,
+            trace_id=trace_id,
+        )
+
+    @staticmethod
     def tag_assignment_events(chat_with_assets: ChatWithAssets, company_info: EmpresaModel, trace_id: str,executor_type: ExecutorType, executor_id: StrObjectId, assigned_asset : AssignedAssetToChat, tag: Tag, event_type: EventType, time: datetime, company_snapshot: Optional[CompanyChatsSnapshot] = None, agent_snapshot: Optional[AgentChatsSnapshot] = None) -> List[Event]:
         events = []
         base_data = EventFactory._create_base_customer_event_data(

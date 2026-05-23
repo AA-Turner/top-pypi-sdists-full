@@ -1563,7 +1563,7 @@ def manual_trigger(update: Update, context: CallbackContext) -> None:
     
     update.message.reply_text("🔄 Manually triggering production scans workflow...")
     triggers = [
-            (9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+            (9, 43, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
             (15, 30, "PKBrokers", "w1-workflow-history-data-parent.yml")
         ]
     for hour, minute, repo, wf_name in triggers:

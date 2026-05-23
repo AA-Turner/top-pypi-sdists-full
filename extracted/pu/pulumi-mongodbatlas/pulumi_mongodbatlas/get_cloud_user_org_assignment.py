@@ -255,10 +255,10 @@ def get_cloud_user_org_assignment(org_id: Optional[_builtins.str] = None,
         roles={
             "org_roles": ["ORG_MEMBER"],
         })
-    example_username = example.username.apply(lambda username: mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
-        username=username))
-    example_user_id = example.user_id.apply(lambda user_id: mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
-        user_id=user_id))
+    example_username = mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
+        username=example.username)
+    example_user_id = mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
+        user_id=example.user_id)
     ```
 
 
@@ -290,9 +290,9 @@ def get_cloud_user_org_assignment(org_id: Optional[_builtins.str] = None,
         team_ids=pulumi.get(__ret__, 'team_ids'),
         user_id=pulumi.get(__ret__, 'user_id'),
         username=pulumi.get(__ret__, 'username'))
-def get_cloud_user_org_assignment_output(org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                         user_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                         username: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_cloud_user_org_assignment_output(org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                         user_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                         username: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                          opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetCloudUserOrgAssignmentResult]:
     """
     `CloudUserOrgAssignment` provides a Cloud User Organization Assignment data source. The data source lets you retrieve a user assigned to an organization.
@@ -315,10 +315,10 @@ def get_cloud_user_org_assignment_output(org_id: Optional[pulumi.Input[_builtins
         roles={
             "org_roles": ["ORG_MEMBER"],
         })
-    example_username = example.username.apply(lambda username: mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
-        username=username))
-    example_user_id = example.user_id.apply(lambda user_id: mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
-        user_id=user_id))
+    example_username = mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
+        username=example.username)
+    example_user_id = mongodbatlas.get_cloud_user_org_assignment_output(org_id=org_id,
+        user_id=example.user_id)
     ```
 
 

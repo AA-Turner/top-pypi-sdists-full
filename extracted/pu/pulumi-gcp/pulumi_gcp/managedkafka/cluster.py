@@ -25,11 +25,12 @@ class ClusterArgs:
                  cluster_id: pulumi.Input[_builtins.str],
                  gcp_config: pulumi.Input['ClusterGcpConfigArgs'],
                  location: pulumi.Input[_builtins.str],
-                 broker_capacity_config: Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rebalance_config: Optional[pulumi.Input['ClusterRebalanceConfigArgs']] = None,
-                 tls_config: Optional[pulumi.Input['ClusterTlsConfigArgs']] = None):
+                 broker_capacity_config: pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rebalance_config: pulumi.Input[Optional['ClusterRebalanceConfigArgs']] = None,
+                 tls_config: pulumi.Input[Optional['ClusterTlsConfigArgs']] = None):
         """
         The set of arguments for constructing a Cluster resource.
 
@@ -41,6 +42,12 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.str] location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
         :param pulumi.Input['ClusterBrokerCapacityConfigArgs'] broker_capacity_config: Capacity configuration at a per-broker level within the Kafka cluster. The config will be appled to each broker in the cluster.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
@@ -57,6 +64,8 @@ class ClusterArgs:
         pulumi.set(__self__, "location", location)
         if broker_capacity_config is not None:
             pulumi.set(__self__, "broker_capacity_config", broker_capacity_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
         if project is not None:
@@ -118,7 +127,7 @@ class ClusterArgs:
 
     @_builtins.property
     @pulumi.getter(name="brokerCapacityConfig")
-    def broker_capacity_config(self) -> Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']]:
+    def broker_capacity_config(self) -> pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']]:
         """
         Capacity configuration at a per-broker level within the Kafka cluster. The config will be appled to each broker in the cluster.
         Structure is documented below.
@@ -126,12 +135,29 @@ class ClusterArgs:
         return pulumi.get(self, "broker_capacity_config")
 
     @broker_capacity_config.setter
-    def broker_capacity_config(self, value: Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']]):
+    def broker_capacity_config(self, value: pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']]):
         pulumi.set(self, "broker_capacity_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -140,12 +166,12 @@ class ClusterArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -153,12 +179,12 @@ class ClusterArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rebalanceConfig")
-    def rebalance_config(self) -> Optional[pulumi.Input['ClusterRebalanceConfigArgs']]:
+    def rebalance_config(self) -> pulumi.Input[Optional['ClusterRebalanceConfigArgs']]:
         """
         Defines rebalancing behavior of a Kafka cluster.
         Structure is documented below.
@@ -166,12 +192,12 @@ class ClusterArgs:
         return pulumi.get(self, "rebalance_config")
 
     @rebalance_config.setter
-    def rebalance_config(self, value: Optional[pulumi.Input['ClusterRebalanceConfigArgs']]):
+    def rebalance_config(self, value: pulumi.Input[Optional['ClusterRebalanceConfigArgs']]):
         pulumi.set(self, "rebalance_config", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsConfig")
-    def tls_config(self) -> Optional[pulumi.Input['ClusterTlsConfigArgs']]:
+    def tls_config(self) -> pulumi.Input[Optional['ClusterTlsConfigArgs']]:
         """
         TLS configuration for the Kafka cluster. This is used to configure mTLS authentication. To clear our a TLS configuration that has been previously set, please explicitly add an empty `tls_config` block.
         Structure is documented below.
@@ -179,28 +205,29 @@ class ClusterArgs:
         return pulumi.get(self, "tls_config")
 
     @tls_config.setter
-    def tls_config(self, value: Optional[pulumi.Input['ClusterTlsConfigArgs']]):
+    def tls_config(self, value: pulumi.Input[Optional['ClusterTlsConfigArgs']]):
         pulumi.set(self, "tls_config", value)
 
 
 @pulumi.input_type
 class _ClusterState:
     def __init__(__self__, *,
-                 broker_capacity_config: Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']] = None,
-                 capacity_config: Optional[pulumi.Input['ClusterCapacityConfigArgs']] = None,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 gcp_config: Optional[pulumi.Input['ClusterGcpConfigArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 rebalance_config: Optional[pulumi.Input['ClusterRebalanceConfigArgs']] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_config: Optional[pulumi.Input['ClusterTlsConfigArgs']] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 broker_capacity_config: pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']] = None,
+                 capacity_config: pulumi.Input[Optional['ClusterCapacityConfigArgs']] = None,
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 gcp_config: pulumi.Input[Optional['ClusterGcpConfigArgs']] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 rebalance_config: pulumi.Input[Optional['ClusterRebalanceConfigArgs']] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_config: pulumi.Input[Optional['ClusterTlsConfigArgs']] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Cluster resources.
 
@@ -210,6 +237,12 @@ class _ClusterState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression `a-z?` to comply with RFC 1035. This value is structured like: `my-cluster-id`.
         :param pulumi.Input[_builtins.str] create_time: The time when the cluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input['ClusterGcpConfigArgs'] gcp_config: Configuration properties for a Kafka cluster deployed to Google Cloud Platform.
                Structure is documented below.
@@ -237,6 +270,8 @@ class _ClusterState:
             pulumi.set(__self__, "cluster_id", cluster_id)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if gcp_config is not None:
@@ -262,7 +297,7 @@ class _ClusterState:
 
     @_builtins.property
     @pulumi.getter(name="brokerCapacityConfig")
-    def broker_capacity_config(self) -> Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']]:
+    def broker_capacity_config(self) -> pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']]:
         """
         Capacity configuration at a per-broker level within the Kafka cluster. The config will be appled to each broker in the cluster.
         Structure is documented below.
@@ -270,12 +305,12 @@ class _ClusterState:
         return pulumi.get(self, "broker_capacity_config")
 
     @broker_capacity_config.setter
-    def broker_capacity_config(self, value: Optional[pulumi.Input['ClusterBrokerCapacityConfigArgs']]):
+    def broker_capacity_config(self, value: pulumi.Input[Optional['ClusterBrokerCapacityConfigArgs']]):
         pulumi.set(self, "broker_capacity_config", value)
 
     @_builtins.property
     @pulumi.getter(name="capacityConfig")
-    def capacity_config(self) -> Optional[pulumi.Input['ClusterCapacityConfigArgs']]:
+    def capacity_config(self) -> pulumi.Input[Optional['ClusterCapacityConfigArgs']]:
         """
         A capacity configuration of a Kafka cluster.
         Structure is documented below.
@@ -283,48 +318,65 @@ class _ClusterState:
         return pulumi.get(self, "capacity_config")
 
     @capacity_config.setter
-    def capacity_config(self, value: Optional[pulumi.Input['ClusterCapacityConfigArgs']]):
+    def capacity_config(self, value: pulumi.Input[Optional['ClusterCapacityConfigArgs']]):
         pulumi.set(self, "capacity_config", value)
 
     @_builtins.property
     @pulumi.getter(name="clusterId")
-    def cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cluster_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression `a-z?` to comply with RFC 1035. This value is structured like: `my-cluster-id`.
         """
         return pulumi.get(self, "cluster_id")
 
     @cluster_id.setter
-    def cluster_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cluster_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cluster_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the cluster was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpConfig")
-    def gcp_config(self) -> Optional[pulumi.Input['ClusterGcpConfigArgs']]:
+    def gcp_config(self) -> pulumi.Input[Optional['ClusterGcpConfigArgs']]:
         """
         Configuration properties for a Kafka cluster deployed to Google Cloud Platform.
         Structure is documented below.
@@ -332,12 +384,12 @@ class _ClusterState:
         return pulumi.get(self, "gcp_config")
 
     @gcp_config.setter
-    def gcp_config(self, value: Optional[pulumi.Input['ClusterGcpConfigArgs']]):
+    def gcp_config(self, value: pulumi.Input[Optional['ClusterGcpConfigArgs']]):
         pulumi.set(self, "gcp_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -346,36 +398,36 @@ class _ClusterState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the cluster. Structured like: `projects/PROJECT_ID/locations/LOCATION/clusters/CLUSTER_ID`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -383,12 +435,12 @@ class _ClusterState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -396,12 +448,12 @@ class _ClusterState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="rebalanceConfig")
-    def rebalance_config(self) -> Optional[pulumi.Input['ClusterRebalanceConfigArgs']]:
+    def rebalance_config(self) -> pulumi.Input[Optional['ClusterRebalanceConfigArgs']]:
         """
         Defines rebalancing behavior of a Kafka cluster.
         Structure is documented below.
@@ -409,24 +461,24 @@ class _ClusterState:
         return pulumi.get(self, "rebalance_config")
 
     @rebalance_config.setter
-    def rebalance_config(self, value: Optional[pulumi.Input['ClusterRebalanceConfigArgs']]):
+    def rebalance_config(self, value: pulumi.Input[Optional['ClusterRebalanceConfigArgs']]):
         pulumi.set(self, "rebalance_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the cluster. Possible values: `STATE_UNSPECIFIED`, `CREATING`, `ACTIVE`, `DELETING`.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsConfig")
-    def tls_config(self) -> Optional[pulumi.Input['ClusterTlsConfigArgs']]:
+    def tls_config(self) -> pulumi.Input[Optional['ClusterTlsConfigArgs']]:
         """
         TLS configuration for the Kafka cluster. This is used to configure mTLS authentication. To clear our a TLS configuration that has been previously set, please explicitly add an empty `tls_config` block.
         Structure is documented below.
@@ -434,19 +486,19 @@ class _ClusterState:
         return pulumi.get(self, "tls_config")
 
     @tls_config.setter
-    def tls_config(self, value: Optional[pulumi.Input['ClusterTlsConfigArgs']]):
+    def tls_config(self, value: pulumi.Input[Optional['ClusterTlsConfigArgs']]):
         pulumi.set(self, "tls_config", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the cluster was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -456,15 +508,16 @@ class Cluster(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 broker_capacity_config: Optional[pulumi.Input[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
-                 capacity_config: Optional[pulumi.Input[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_config: Optional[pulumi.Input[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rebalance_config: Optional[pulumi.Input[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
-                 tls_config: Optional[pulumi.Input[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
+                 broker_capacity_config: pulumi.Input[Optional[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
+                 capacity_config: pulumi.Input[Optional[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_config: pulumi.Input[Optional[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rebalance_config: pulumi.Input[Optional[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
+                 tls_config: pulumi.Input[Optional[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
                  __props__=None):
         """
         A Managed Service for Apache Kafka cluster. Apache Kafka is a trademark owned by the Apache Software Foundation.
@@ -588,6 +641,12 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']] capacity_config: A capacity configuration of a Kafka cluster.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression `a-z?` to comply with RFC 1035. This value is structured like: `my-cluster-id`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']] gcp_config: Configuration properties for a Kafka cluster deployed to Google Cloud Platform.
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
@@ -737,15 +796,16 @@ class Cluster(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 broker_capacity_config: Optional[pulumi.Input[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
-                 capacity_config: Optional[pulumi.Input[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
-                 cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_config: Optional[pulumi.Input[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rebalance_config: Optional[pulumi.Input[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
-                 tls_config: Optional[pulumi.Input[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
+                 broker_capacity_config: pulumi.Input[Optional[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
+                 capacity_config: pulumi.Input[Optional[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
+                 cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_config: pulumi.Input[Optional[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rebalance_config: pulumi.Input[Optional[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
+                 tls_config: pulumi.Input[Optional[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -762,6 +822,7 @@ class Cluster(pulumi.CustomResource):
             if cluster_id is None and not opts.urn:
                 raise TypeError("Missing required property 'cluster_id'")
             __props__.__dict__["cluster_id"] = cluster_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if gcp_config is None and not opts.urn:
                 raise TypeError("Missing required property 'gcp_config'")
             __props__.__dict__["gcp_config"] = gcp_config
@@ -790,21 +851,22 @@ class Cluster(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            broker_capacity_config: Optional[pulumi.Input[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
-            capacity_config: Optional[pulumi.Input[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
-            cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            gcp_config: Optional[pulumi.Input[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            rebalance_config: Optional[pulumi.Input[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            tls_config: Optional[pulumi.Input[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Cluster':
+            broker_capacity_config: pulumi.Input[Optional[Union['ClusterBrokerCapacityConfigArgs', 'ClusterBrokerCapacityConfigArgsDict']]] = None,
+            capacity_config: pulumi.Input[Optional[Union['ClusterCapacityConfigArgs', 'ClusterCapacityConfigArgsDict']]] = None,
+            cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            gcp_config: pulumi.Input[Optional[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            rebalance_config: pulumi.Input[Optional[Union['ClusterRebalanceConfigArgs', 'ClusterRebalanceConfigArgsDict']]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            tls_config: pulumi.Input[Optional[Union['ClusterTlsConfigArgs', 'ClusterTlsConfigArgsDict']]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Cluster':
         """
         Get an existing Cluster resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -818,6 +880,12 @@ class Cluster(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression `a-z?` to comply with RFC 1035. This value is structured like: `my-cluster-id`.
         :param pulumi.Input[_builtins.str] create_time: The time when the cluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Union['ClusterGcpConfigArgs', 'ClusterGcpConfigArgsDict']] gcp_config: Configuration properties for a Kafka cluster deployed to Google Cloud Platform.
                Structure is documented below.
@@ -845,6 +913,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["capacity_config"] = capacity_config
         __props__.__dict__["cluster_id"] = cluster_id
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["gcp_config"] = gcp_config
         __props__.__dict__["labels"] = labels
@@ -891,6 +960,19 @@ class Cluster(pulumi.CustomResource):
         The time when the cluster was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

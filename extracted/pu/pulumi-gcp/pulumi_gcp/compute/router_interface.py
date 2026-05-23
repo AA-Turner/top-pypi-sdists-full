@@ -20,16 +20,17 @@ __all__ = ['RouterInterfaceArgs', 'RouterInterface']
 class RouterInterfaceArgs:
     def __init__(__self__, *,
                  router: pulumi.Input[_builtins.str],
-                 interconnect_attachment: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 redundant_interface: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_tunnel: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 redundant_interface: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_tunnel: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RouterInterface resource.
 
@@ -39,6 +40,12 @@ class RouterInterfaceArgs:
                In addition to the above required fields, a router interface must have specified either `ip_range` or exactly one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork`, or both.
                
                - - -
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] interconnect_attachment: The name or resource link to the
                VLAN interconnect for this interface. Changing this forces a new interface to
                be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -62,6 +69,8 @@ class RouterInterfaceArgs:
                one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
         """
         pulumi.set(__self__, "router", router)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if interconnect_attachment is not None:
             pulumi.set(__self__, "interconnect_attachment", interconnect_attachment)
         if ip_range is not None:
@@ -101,8 +110,25 @@ class RouterInterfaceArgs:
         pulumi.set(self, "router", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="interconnectAttachment")
-    def interconnect_attachment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def interconnect_attachment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name or resource link to the
         VLAN interconnect for this interface. Changing this forces a new interface to
@@ -111,12 +137,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "interconnect_attachment")
 
     @interconnect_attachment.setter
-    def interconnect_attachment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def interconnect_attachment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "interconnect_attachment", value)
 
     @_builtins.property
     @pulumi.getter(name="ipRange")
-    def ip_range(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP address and range of the interface. The IP range must be
         in the RFC3927 link-local IP space. Changing this forces a new interface to be created.
@@ -124,24 +150,24 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "ip_range")
 
     @ip_range.setter
-    def ip_range(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_range(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_range", value)
 
     @_builtins.property
     @pulumi.getter(name="ipVersion")
-    def ip_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP version of this interface. Can be either IPV4 or IPV6.
         """
         return pulumi.get(self, "ip_version")
 
     @ip_version.setter
-    def ip_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique name for the interface, required by GCE. Changing
         this forces a new interface to be created.
@@ -149,12 +175,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="privateIpAddress")
-    def private_ip_address(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def private_ip_address(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The regional private internal IP address that is used
         to establish BGP sessions to a VM instance acting as a third-party Router Appliance. Changing this forces a new interface to be created.
@@ -162,12 +188,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "private_ip_address")
 
     @private_ip_address.setter
-    def private_ip_address(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def private_ip_address(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "private_ip_address", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which this interface's routerbelongs.
         If it is not provided, the provider project is used. Changing this forces a new interface to be created.
@@ -175,12 +201,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="redundantInterface")
-    def redundant_interface(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def redundant_interface(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the interface that is redundant to
         this interface. Changing this forces a new interface to be created.
@@ -188,12 +214,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "redundant_interface")
 
     @redundant_interface.setter
-    def redundant_interface(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def redundant_interface(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "redundant_interface", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region this interface's router sits in.
         If not specified, the project region will be used. Changing this forces a new interface to be created.
@@ -201,12 +227,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def subnetwork(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subnetwork(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the subnetwork resource that this interface
         belongs to, which must be in the same region as the Cloud Router. When you establish a BGP session to a VM instance using this interface, the VM instance must belong to the same subnetwork as the subnetwork specified here. Changing this forces a new interface to be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -214,12 +240,12 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "subnetwork")
 
     @subnetwork.setter
-    def subnetwork(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subnetwork(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subnetwork", value)
 
     @_builtins.property
     @pulumi.getter(name="vpnTunnel")
-    def vpn_tunnel(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vpn_tunnel(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name or resource link to the VPN tunnel this
         interface will be linked to. Changing this forces a new interface to be created. Only
@@ -228,27 +254,34 @@ class RouterInterfaceArgs:
         return pulumi.get(self, "vpn_tunnel")
 
     @vpn_tunnel.setter
-    def vpn_tunnel(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vpn_tunnel(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vpn_tunnel", value)
 
 
 @pulumi.input_type
 class _RouterInterfaceState:
     def __init__(__self__, *,
-                 interconnect_attachment: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 redundant_interface: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_tunnel: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 redundant_interface: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_tunnel: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RouterInterface resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] interconnect_attachment: The name or resource link to the
                VLAN interconnect for this interface. Changing this forces a new interface to
                be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -277,6 +310,8 @@ class _RouterInterfaceState:
                interface will be linked to. Changing this forces a new interface to be created. Only
                one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if interconnect_attachment is not None:
             pulumi.set(__self__, "interconnect_attachment", interconnect_attachment)
         if ip_range is not None:
@@ -301,8 +336,25 @@ class _RouterInterfaceState:
             pulumi.set(__self__, "vpn_tunnel", vpn_tunnel)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="interconnectAttachment")
-    def interconnect_attachment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def interconnect_attachment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name or resource link to the
         VLAN interconnect for this interface. Changing this forces a new interface to
@@ -311,12 +363,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "interconnect_attachment")
 
     @interconnect_attachment.setter
-    def interconnect_attachment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def interconnect_attachment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "interconnect_attachment", value)
 
     @_builtins.property
     @pulumi.getter(name="ipRange")
-    def ip_range(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP address and range of the interface. The IP range must be
         in the RFC3927 link-local IP space. Changing this forces a new interface to be created.
@@ -324,24 +376,24 @@ class _RouterInterfaceState:
         return pulumi.get(self, "ip_range")
 
     @ip_range.setter
-    def ip_range(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_range(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_range", value)
 
     @_builtins.property
     @pulumi.getter(name="ipVersion")
-    def ip_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP version of this interface. Can be either IPV4 or IPV6.
         """
         return pulumi.get(self, "ip_version")
 
     @ip_version.setter
-    def ip_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique name for the interface, required by GCE. Changing
         this forces a new interface to be created.
@@ -349,12 +401,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="privateIpAddress")
-    def private_ip_address(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def private_ip_address(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The regional private internal IP address that is used
         to establish BGP sessions to a VM instance acting as a third-party Router Appliance. Changing this forces a new interface to be created.
@@ -362,12 +414,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "private_ip_address")
 
     @private_ip_address.setter
-    def private_ip_address(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def private_ip_address(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "private_ip_address", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which this interface's routerbelongs.
         If it is not provided, the provider project is used. Changing this forces a new interface to be created.
@@ -375,12 +427,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="redundantInterface")
-    def redundant_interface(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def redundant_interface(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the interface that is redundant to
         this interface. Changing this forces a new interface to be created.
@@ -388,12 +440,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "redundant_interface")
 
     @redundant_interface.setter
-    def redundant_interface(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def redundant_interface(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "redundant_interface", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region this interface's router sits in.
         If not specified, the project region will be used. Changing this forces a new interface to be created.
@@ -401,12 +453,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def router(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def router(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the router this interface will be attached to.
         Changing this forces a new interface to be created.
@@ -418,12 +470,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "router")
 
     @router.setter
-    def router(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def router(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "router", value)
 
     @_builtins.property
     @pulumi.getter
-    def subnetwork(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subnetwork(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the subnetwork resource that this interface
         belongs to, which must be in the same region as the Cloud Router. When you establish a BGP session to a VM instance using this interface, the VM instance must belong to the same subnetwork as the subnetwork specified here. Changing this forces a new interface to be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -431,12 +483,12 @@ class _RouterInterfaceState:
         return pulumi.get(self, "subnetwork")
 
     @subnetwork.setter
-    def subnetwork(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subnetwork(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subnetwork", value)
 
     @_builtins.property
     @pulumi.getter(name="vpnTunnel")
-    def vpn_tunnel(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vpn_tunnel(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name or resource link to the VPN tunnel this
         interface will be linked to. Changing this forces a new interface to be created. Only
@@ -445,7 +497,7 @@ class _RouterInterfaceState:
         return pulumi.get(self, "vpn_tunnel")
 
     @vpn_tunnel.setter
-    def vpn_tunnel(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vpn_tunnel(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vpn_tunnel", value)
 
 
@@ -455,17 +507,18 @@ class RouterInterface(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 interconnect_attachment: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 redundant_interface: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_tunnel: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 redundant_interface: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_tunnel: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Manages a Cloud Router interface. For more information see
@@ -504,6 +557,12 @@ class RouterInterface(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] interconnect_attachment: The name or resource link to the
                VLAN interconnect for this interface. Changing this forces a new interface to
                be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -588,17 +647,18 @@ class RouterInterface(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 interconnect_attachment: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 redundant_interface: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 router: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 vpn_tunnel: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 redundant_interface: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 router: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 vpn_tunnel: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -608,6 +668,7 @@ class RouterInterface(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = RouterInterfaceArgs.__new__(RouterInterfaceArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["interconnect_attachment"] = interconnect_attachment
             __props__.__dict__["ip_range"] = ip_range
             __props__.__dict__["ip_version"] = ip_version
@@ -631,17 +692,18 @@ class RouterInterface(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            interconnect_attachment: Optional[pulumi.Input[_builtins.str]] = None,
-            ip_range: Optional[pulumi.Input[_builtins.str]] = None,
-            ip_version: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            private_ip_address: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            redundant_interface: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            router: Optional[pulumi.Input[_builtins.str]] = None,
-            subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-            vpn_tunnel: Optional[pulumi.Input[_builtins.str]] = None) -> 'RouterInterface':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            interconnect_attachment: pulumi.Input[Optional[_builtins.str]] = None,
+            ip_range: pulumi.Input[Optional[_builtins.str]] = None,
+            ip_version: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            private_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            redundant_interface: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            router: pulumi.Input[Optional[_builtins.str]] = None,
+            subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+            vpn_tunnel: pulumi.Input[Optional[_builtins.str]] = None) -> 'RouterInterface':
         """
         Get an existing RouterInterface resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -649,6 +711,12 @@ class RouterInterface(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] interconnect_attachment: The name or resource link to the
                VLAN interconnect for this interface. Changing this forces a new interface to
                be created. Only one of `vpn_tunnel`, `interconnect_attachment` or `subnetwork` can be specified.
@@ -681,6 +749,7 @@ class RouterInterface(pulumi.CustomResource):
 
         __props__ = _RouterInterfaceState.__new__(_RouterInterfaceState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["interconnect_attachment"] = interconnect_attachment
         __props__.__dict__["ip_range"] = ip_range
         __props__.__dict__["ip_version"] = ip_version
@@ -693,6 +762,19 @@ class RouterInterface(pulumi.CustomResource):
         __props__.__dict__["subnetwork"] = subnetwork
         __props__.__dict__["vpn_tunnel"] = vpn_tunnel
         return RouterInterface(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="interconnectAttachment")

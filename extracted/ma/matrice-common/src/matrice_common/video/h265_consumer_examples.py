@@ -1,13 +1,26 @@
 """Example H.265 consumer classes and runnable demo script (not library API)."""
 
+from __future__ import annotations
+
 import logging
 import queue
 import threading
 from typing import Callable, Generator, Optional
 
-import cv2
-import numpy as np
-import redis
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
+
+try:
+    import redis
+except ImportError:
+    redis = None  # type: ignore[assignment]
 
 from .h265_video_processor import H265FrameDecoder, H265StreamDecoder, decode_frame_h265
 

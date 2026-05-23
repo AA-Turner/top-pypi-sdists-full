@@ -483,7 +483,7 @@ def launch_aedt_in_lsf(non_graphical: bool, port: int, host: str | None = None):
         pyaedt_logger.info("[LSF]:" + err)
         m = re.search(r"<<Starting on (.+?)>>", err)
         if m:
-            aedt_startup_timeout = 120
+            aedt_startup_timeout = settings.desktop_launch_timeout
             k = 0
             # LSF resources are assigned. Make sure AEDT starts
             while not _is_port_occupied(port, host=m.group(1)):
@@ -1203,6 +1203,38 @@ class Desktop(PyAedtBase):
 
         """
         return self.odesktop.GetPersonalLibDirectory()
+
+    @property
+    def global_project_directory(self) -> str:
+        """AEDT project directory.
+
+        Returns
+        -------
+        str
+            Full absolute path for the ``ProjectDirectory`` directory.
+
+        """
+        return self.odesktop.GetProjectDirectory()
+
+    @global_project_directory.setter
+    def global_project_directory(self, value: str | Path) -> None:
+        self.odesktop.SetProjectDirectory(str(value))
+
+    @property
+    def temp_directory(self) -> str:
+        """AEDT temp directory.
+
+        Returns
+        -------
+        str
+            Full absolute path for the ``TempDirectory`` directory.
+
+        """
+        return self.odesktop.GetTempDirectory()
+
+    @temp_directory.setter
+    def temp_directory(self, value: str | Path) -> None:
+        self.odesktop.SetTempDirectory(str(value))
 
     @property
     def src_dir(self) -> str:

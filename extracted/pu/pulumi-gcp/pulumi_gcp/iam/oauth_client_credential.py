@@ -22,9 +22,10 @@ class OauthClientCredentialArgs:
                  location: pulumi.Input[_builtins.str],
                  oauth_client_credential_id: pulumi.Input[_builtins.str],
                  oauthclient: pulumi.Input[_builtins.str],
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a OauthClientCredential resource.
 
@@ -34,6 +35,12 @@ class OauthClientCredentialArgs:
                and may contain the characters [a-z0-9-]. The prefix `gcp-` is
                reserved for use by Google, and may not be specified.
         :param pulumi.Input[_builtins.str] oauthclient: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Whether the OauthClientCredential is disabled. You cannot use a
                disabled OauthClientCredential.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name of the OauthClientCredential.
@@ -44,6 +51,8 @@ class OauthClientCredentialArgs:
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "oauth_client_credential_id", oauth_client_credential_id)
         pulumi.set(__self__, "oauthclient", oauthclient)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if display_name is not None:
@@ -91,8 +100,25 @@ class OauthClientCredentialArgs:
         pulumi.set(self, "oauthclient", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the OauthClientCredential is disabled. You cannot use a
         disabled OauthClientCredential.
@@ -100,12 +126,12 @@ class OauthClientCredentialArgs:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name of the OauthClientCredential.
         Cannot exceed 32 characters.
@@ -113,12 +139,12 @@ class OauthClientCredentialArgs:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -126,21 +152,22 @@ class OauthClientCredentialArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _OauthClientCredentialState:
     def __init__(__self__, *,
-                 client_secret: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauth_client_credential_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauthclient: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 client_secret: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauth_client_credential_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauthclient: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering OauthClientCredential resources.
 
@@ -150,6 +177,12 @@ class _OauthClientCredentialState:
                more, see [OAuth client and credential security risks and
                mitigations](https://cloud.google.com/iam/docs/workforce-oauth-app#security)
                **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Whether the OauthClientCredential is disabled. You cannot use a
                disabled OauthClientCredential.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name of the OauthClientCredential.
@@ -168,6 +201,8 @@ class _OauthClientCredentialState:
         """
         if client_secret is not None:
             pulumi.set(__self__, "client_secret", client_secret)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if display_name is not None:
@@ -185,7 +220,7 @@ class _OauthClientCredentialState:
 
     @_builtins.property
     @pulumi.getter(name="clientSecret")
-    def client_secret(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_secret(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The system-generated OAuth client secret.
         The client secret must be stored securely. If the client secret is
@@ -197,12 +232,29 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "client_secret")
 
     @client_secret.setter
-    def client_secret(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_secret(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_secret", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the OauthClientCredential is disabled. You cannot use a
         disabled OauthClientCredential.
@@ -210,12 +262,12 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name of the OauthClientCredential.
         Cannot exceed 32 characters.
@@ -223,24 +275,24 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. Identifier. The resource name of the OauthClientCredential.
         Format:
@@ -249,12 +301,12 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="oauthClientCredentialId")
-    def oauth_client_credential_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def oauth_client_credential_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The ID to use for the OauthClientCredential, which becomes the
         final component of the resource name. This value should be 4-32 characters,
@@ -264,24 +316,24 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "oauth_client_credential_id")
 
     @oauth_client_credential_id.setter
-    def oauth_client_credential_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def oauth_client_credential_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "oauth_client_credential_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def oauthclient(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def oauthclient(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "oauthclient")
 
     @oauthclient.setter
-    def oauthclient(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def oauthclient(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "oauthclient", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -289,7 +341,7 @@ class _OauthClientCredentialState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -299,12 +351,13 @@ class OauthClientCredential(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauth_client_credential_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauthclient: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauth_client_credential_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauthclient: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents an OAuth Client Credential. Used to authenticate an OAuth Client
@@ -359,6 +412,12 @@ class OauthClientCredential(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Whether the OauthClientCredential is disabled. You cannot use a
                disabled OauthClientCredential.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name of the OauthClientCredential.
@@ -444,12 +503,13 @@ class OauthClientCredential(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauth_client_credential_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 oauthclient: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauth_client_credential_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 oauthclient: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -459,6 +519,7 @@ class OauthClientCredential(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = OauthClientCredentialArgs.__new__(OauthClientCredentialArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disabled"] = disabled
             __props__.__dict__["display_name"] = display_name
             if location is None and not opts.urn:
@@ -485,14 +546,15 @@ class OauthClientCredential(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            client_secret: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            oauth_client_credential_id: Optional[pulumi.Input[_builtins.str]] = None,
-            oauthclient: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'OauthClientCredential':
+            client_secret: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            oauth_client_credential_id: pulumi.Input[Optional[_builtins.str]] = None,
+            oauthclient: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'OauthClientCredential':
         """
         Get an existing OauthClientCredential resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -506,6 +568,12 @@ class OauthClientCredential(pulumi.CustomResource):
                more, see [OAuth client and credential security risks and
                mitigations](https://cloud.google.com/iam/docs/workforce-oauth-app#security)
                **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Whether the OauthClientCredential is disabled. You cannot use a
                disabled OauthClientCredential.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name of the OauthClientCredential.
@@ -527,6 +595,7 @@ class OauthClientCredential(pulumi.CustomResource):
         __props__ = _OauthClientCredentialState.__new__(_OauthClientCredentialState)
 
         __props__.__dict__["client_secret"] = client_secret
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["location"] = location
@@ -548,6 +617,19 @@ class OauthClientCredential(pulumi.CustomResource):
         **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "client_secret")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

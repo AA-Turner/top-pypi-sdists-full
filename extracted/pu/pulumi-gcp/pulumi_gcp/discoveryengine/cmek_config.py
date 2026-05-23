@@ -24,9 +24,10 @@ class CmekConfigArgs:
                  cmek_config_id: pulumi.Input[_builtins.str],
                  kms_key: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 set_default: Optional[pulumi.Input[_builtins.bool]] = None,
-                 single_region_keys: Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 set_default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 single_region_keys: pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]] = None):
         """
         The set of arguments for constructing a CmekConfig resource.
 
@@ -35,6 +36,12 @@ class CmekConfigArgs:
                `projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{keyId}`.
         :param pulumi.Input[_builtins.str] location: The geographic location where the CMEK config should reside. The value can
                only be one of "us" and "eu".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[_builtins.bool] set_default: Set the following CmekConfig as the default to be used for child resources
@@ -45,6 +52,8 @@ class CmekConfigArgs:
         pulumi.set(__self__, "cmek_config_id", cmek_config_id)
         pulumi.set(__self__, "kms_key", kms_key)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if set_default is not None:
@@ -91,8 +100,25 @@ class CmekConfigArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -100,12 +126,12 @@ class CmekConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="setDefault")
-    def set_default(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def set_default(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Set the following CmekConfig as the default to be used for child resources
         if one is not specified. The default value is true.
@@ -113,12 +139,12 @@ class CmekConfigArgs:
         return pulumi.get(self, "set_default")
 
     @set_default.setter
-    def set_default(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def set_default(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "set_default", value)
 
     @_builtins.property
     @pulumi.getter(name="singleRegionKeys")
-    def single_region_keys(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]:
+    def single_region_keys(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]:
         """
         Single-regional CMEKs that are required for some VAIS features.
         Structure is documented below.
@@ -126,29 +152,36 @@ class CmekConfigArgs:
         return pulumi.get(self, "single_region_keys")
 
     @single_region_keys.setter
-    def single_region_keys(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]):
+    def single_region_keys(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]):
         pulumi.set(self, "single_region_keys", value)
 
 
 @pulumi.input_type
 class _CmekConfigState:
     def __init__(__self__, *,
-                 cmek_config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_default: Optional[pulumi.Input[_builtins.bool]] = None,
-                 kms_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_rotation_timestamp_micros: Optional[pulumi.Input[_builtins.int]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notebooklm_state: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 set_default: Optional[pulumi.Input[_builtins.bool]] = None,
-                 single_region_keys: Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 cmek_config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 kms_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_rotation_timestamp_micros: pulumi.Input[Optional[_builtins.int]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notebooklm_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 set_default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 single_region_keys: pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering CmekConfig resources.
 
         :param pulumi.Input[_builtins.str] cmek_config_id: The unique id of the cmek config.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] is_default: The default CmekConfig for the Customer.
         :param pulumi.Input[_builtins.str] kms_key: KMS key resource name which will be used to encrypt resources
                `projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{keyId}`.
@@ -172,6 +205,8 @@ class _CmekConfigState:
         """
         if cmek_config_id is not None:
             pulumi.set(__self__, "cmek_config_id", cmek_config_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if is_default is not None:
             pulumi.set(__self__, "is_default", is_default)
         if kms_key is not None:
@@ -197,31 +232,48 @@ class _CmekConfigState:
 
     @_builtins.property
     @pulumi.getter(name="cmekConfigId")
-    def cmek_config_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cmek_config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the cmek config.
         """
         return pulumi.get(self, "cmek_config_id")
 
     @cmek_config_id.setter
-    def cmek_config_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cmek_config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cmek_config_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="isDefault")
-    def is_default(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_default(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         The default CmekConfig for the Customer.
         """
         return pulumi.get(self, "is_default")
 
     @is_default.setter
-    def is_default(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_default(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_default", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsKey")
-    def kms_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         KMS key resource name which will be used to encrypt resources
         `projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{keyId}`.
@@ -229,12 +281,12 @@ class _CmekConfigState:
         return pulumi.get(self, "kms_key")
 
     @kms_key.setter
-    def kms_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_key", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsKeyVersion")
-    def kms_key_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_key_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         KMS key version resource name which will be used to encrypt resources
         `<kms_key>/cryptoKeyVersions/{keyVersion}`.
@@ -242,24 +294,24 @@ class _CmekConfigState:
         return pulumi.get(self, "kms_key_version")
 
     @kms_key_version.setter
-    def kms_key_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_key_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_key_version", value)
 
     @_builtins.property
     @pulumi.getter(name="lastRotationTimestampMicros")
-    def last_rotation_timestamp_micros(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def last_rotation_timestamp_micros(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The timestamp of the last key rotation.
         """
         return pulumi.get(self, "last_rotation_timestamp_micros")
 
     @last_rotation_timestamp_micros.setter
-    def last_rotation_timestamp_micros(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def last_rotation_timestamp_micros(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "last_rotation_timestamp_micros", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the CMEK config should reside. The value can
         only be one of "us" and "eu".
@@ -267,12 +319,12 @@ class _CmekConfigState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique full resource name of the cmek config. Values are of the format
         `projects/{project}/locations/{location}/cmekConfigs/{cmek_config_id}`.
@@ -282,24 +334,24 @@ class _CmekConfigState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="notebooklmState")
-    def notebooklm_state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notebooklm_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether the NotebookLM Corpus is ready to be used.
         """
         return pulumi.get(self, "notebooklm_state")
 
     @notebooklm_state.setter
-    def notebooklm_state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notebooklm_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notebooklm_state", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -307,12 +359,12 @@ class _CmekConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="setDefault")
-    def set_default(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def set_default(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Set the following CmekConfig as the default to be used for child resources
         if one is not specified. The default value is true.
@@ -320,12 +372,12 @@ class _CmekConfigState:
         return pulumi.get(self, "set_default")
 
     @set_default.setter
-    def set_default(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def set_default(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "set_default", value)
 
     @_builtins.property
     @pulumi.getter(name="singleRegionKeys")
-    def single_region_keys(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]:
+    def single_region_keys(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]:
         """
         Single-regional CMEKs that are required for some VAIS features.
         Structure is documented below.
@@ -333,19 +385,19 @@ class _CmekConfigState:
         return pulumi.get(self, "single_region_keys")
 
     @single_region_keys.setter
-    def single_region_keys(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]):
+    def single_region_keys(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CmekConfigSingleRegionKeyArgs']]]]):
         pulumi.set(self, "single_region_keys", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The state of the CmekConfig.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -355,12 +407,13 @@ class CmekConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cmek_config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 set_default: Optional[pulumi.Input[_builtins.bool]] = None,
-                 single_region_keys: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
+                 cmek_config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 set_default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 single_region_keys: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
                  __props__=None):
         """
         CmekConfig represents configurations used to enable CMEK data encryption with
@@ -410,6 +463,12 @@ class CmekConfig(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] cmek_config_id: The unique id of the cmek config.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] kms_key: KMS key resource name which will be used to encrypt resources
                `projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{keyId}`.
         :param pulumi.Input[_builtins.str] location: The geographic location where the CMEK config should reside. The value can
@@ -487,12 +546,13 @@ class CmekConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cmek_config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 kms_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 set_default: Optional[pulumi.Input[_builtins.bool]] = None,
-                 single_region_keys: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
+                 cmek_config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 kms_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 set_default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 single_region_keys: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -505,6 +565,7 @@ class CmekConfig(pulumi.CustomResource):
             if cmek_config_id is None and not opts.urn:
                 raise TypeError("Missing required property 'cmek_config_id'")
             __props__.__dict__["cmek_config_id"] = cmek_config_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if kms_key is None and not opts.urn:
                 raise TypeError("Missing required property 'kms_key'")
             __props__.__dict__["kms_key"] = kms_key
@@ -530,18 +591,19 @@ class CmekConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            cmek_config_id: Optional[pulumi.Input[_builtins.str]] = None,
-            is_default: Optional[pulumi.Input[_builtins.bool]] = None,
-            kms_key: Optional[pulumi.Input[_builtins.str]] = None,
-            kms_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-            last_rotation_timestamp_micros: Optional[pulumi.Input[_builtins.int]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            notebooklm_state: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            set_default: Optional[pulumi.Input[_builtins.bool]] = None,
-            single_region_keys: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'CmekConfig':
+            cmek_config_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            is_default: pulumi.Input[Optional[_builtins.bool]] = None,
+            kms_key: pulumi.Input[Optional[_builtins.str]] = None,
+            kms_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+            last_rotation_timestamp_micros: pulumi.Input[Optional[_builtins.int]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            notebooklm_state: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            set_default: pulumi.Input[Optional[_builtins.bool]] = None,
+            single_region_keys: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CmekConfigSingleRegionKeyArgs', 'CmekConfigSingleRegionKeyArgsDict']]]]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'CmekConfig':
         """
         Get an existing CmekConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -550,6 +612,12 @@ class CmekConfig(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] cmek_config_id: The unique id of the cmek config.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] is_default: The default CmekConfig for the Customer.
         :param pulumi.Input[_builtins.str] kms_key: KMS key resource name which will be used to encrypt resources
                `projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{keyId}`.
@@ -576,6 +644,7 @@ class CmekConfig(pulumi.CustomResource):
         __props__ = _CmekConfigState.__new__(_CmekConfigState)
 
         __props__.__dict__["cmek_config_id"] = cmek_config_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["is_default"] = is_default
         __props__.__dict__["kms_key"] = kms_key
         __props__.__dict__["kms_key_version"] = kms_key_version
@@ -596,6 +665,19 @@ class CmekConfig(pulumi.CustomResource):
         The unique id of the cmek config.
         """
         return pulumi.get(self, "cmek_config_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="isDefault")

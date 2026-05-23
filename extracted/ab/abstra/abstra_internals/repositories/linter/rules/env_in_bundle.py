@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 
 from abstra_internals.consts.filepaths import GITIGNORE_FILEPATH
@@ -10,14 +11,24 @@ from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
 
+def _has_root_env_entry(gitignore_file: Path) -> bool:
+    if not gitignore_file.exists():
+        return False
+    try:
+        lines = gitignore_file.read_text().splitlines()
+    except (IOError, UnicodeDecodeError):
+        return False
+    return any(line.strip() in (".env", "/.env") for line in lines)
+
+
 class UntrackEnv(LinterFix):
-    label = "Add env to git ignore"
+    label = "Untrack and ignore .env"
 
     def fix(self):
         env_file = Settings.root_path / ".env"
+        gitignore_file = Settings.root_path / GITIGNORE_FILEPATH
 
-        if not FileSystemService.is_ignored(env_file):
-            gitignore_file = Settings.root_path / GITIGNORE_FILEPATH
+        if not _has_root_env_entry(gitignore_file):
             with gitignore_file.open("a") as file:
                 file.write("\n.env")
 
@@ -26,7 +37,7 @@ class UntrackEnv(LinterFix):
 
 class EnvInBundleFound(LinterIssue):
     def __init__(self) -> None:
-        self.label = "You have not ignored the .env file"
+        self.label = "Your .env file is exposed to git"
         self.fixes = [UntrackEnv()]
 
 

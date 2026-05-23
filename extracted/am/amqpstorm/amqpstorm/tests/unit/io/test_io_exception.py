@@ -52,7 +52,7 @@ class IOExceptionTests(TestFramework):
 
         io = IO(connection.parameters, exceptions=connection.exceptions)
         io.socket = mock.Mock(name='socket', spec=socket.socket)
-        io.socket.recv.side_effect = socket.error(EWOULDBLOCK)
+        io.socket.recv.side_effect = OSError(EWOULDBLOCK, 'would block')
         io._receive()
         self.assertIsNone(connection.check_for_errors())
 
@@ -71,7 +71,7 @@ class IOExceptionTests(TestFramework):
         io._exceptions = []
         io.socket = mock.Mock(name='socket', spec=socket.socket)
         io.socket.send.side_effect = socket.error('error')
-        io.write_to_socket(self.message)
+        io.write_to_socket(self.message.encode('utf-8'))
 
         self.assertIsInstance(io._exceptions[0], AMQPConnectionError)
 
@@ -83,13 +83,13 @@ class IOExceptionTests(TestFramework):
             if self.raised:
                 return 1
             self.raised = True
-            raise socket.error(EWOULDBLOCK)
+            raise OSError(EWOULDBLOCK, 'would block')
 
         io = IO(connection.parameters)
         io._exceptions = []
         io.socket = mock.Mock(name='socket', spec=socket.socket)
         io.socket.send.side_effect = custom_raise
-        io.write_to_socket(self.message)
+        io.write_to_socket(self.message.encode('utf-8'))
 
         self.assertTrue(self.raised)
         self.assertFalse(io._exceptions)
@@ -108,7 +108,7 @@ class IOExceptionTests(TestFramework):
         io._exceptions = []
         io.socket = mock.Mock(name='socket', spec=socket.socket)
         io.socket.send.side_effect = custom_raise
-        io.write_to_socket(self.message)
+        io.write_to_socket(self.message.encode('utf-8'))
 
         self.assertTrue(self.raised)
         self.assertFalse(io._exceptions)
@@ -119,7 +119,7 @@ class IOExceptionTests(TestFramework):
         io = IO(connection.parameters)
         io._exceptions = []
         io.socket = None
-        io.write_to_socket(self.message)
+        io.write_to_socket(self.message.encode('utf-8'))
 
         self.assertTrue(io._exceptions)
 
@@ -175,7 +175,7 @@ class IOExceptionTests(TestFramework):
 
     @mock.patch('select.select')
     def test_io_select_poller_eintr(self, mock_select):
-        mock_select.side_effect = select.error(EINTR)
+        mock_select.side_effect = OSError(EINTR, 'eintr')
         exceptions = []
         poller = SelectPoller(0, exceptions)
         self.assertFalse(poller.is_ready)
@@ -184,7 +184,7 @@ class IOExceptionTests(TestFramework):
     @unittest.skipIf(not hasattr(select, 'poll'), 'poll not available')
     @mock.patch('select.poll')
     def test_io_poll_poller_eintr(self, mock_poll):
-        mock_poll().poll.side_effect = select.error(EINTR)
+        mock_poll().poll.side_effect = OSError(EINTR, 'eintr')
         exceptions = []
         poller = Poller(0, exceptions)
         self.assertFalse(poller.is_ready)
@@ -227,6 +227,34 @@ class IOExceptionTests(TestFramework):
         self.assertEqual(
             'Stopping inbound thread due to connection/socket error',
             self.get_last_log()
+        )
+
+    def test_io_inbound_thread_records_unexpected_exception(self):
+        connection = FakeConnection()
+
+        def crashing_read_impl(_):
+            raise RuntimeError('boom')
+
+        io = IO(
+            connection.parameters,
+            exceptions=connection.exceptions,
+            on_read_impl=crashing_read_impl,
+        )
+        io._running.set()
+        io.poller = mock.Mock()
+        io.poller.is_ready = True
+        io.socket = mock.Mock(name='socket', spec=socket.socket)
+        io.socket.recv.return_value = b'payload'
+
+        io._process_incoming_data()
+
+        self.assertFalse(io._running.is_set())
+        self.assertRaisesRegex(
+            AMQPConnectionError, 'boom', connection.check_for_errors,
+        )
+        self.assertEqual(
+            'Stopping inbound thread due to boom',
+            self.get_last_log(),
         )
 
     def test_io_socket_read_fails(self):

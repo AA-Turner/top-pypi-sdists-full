@@ -102,6 +102,7 @@ class ScreeningStatistics:
             trace=False,
             log_file_path="pkscreener-logs.txt",
             filter=None,
+            selective_debug= False if "PK_DEBUG_ALL" in os.environ.keys() else True
         )
 
     def calc_relative_strength(self,df:pd.DataFrame):

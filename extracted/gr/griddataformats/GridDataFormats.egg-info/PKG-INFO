@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GridDataFormats
-Version: 1.1.0
+Version: 1.2.0
 Summary: Reading and writing of data on regular grids in Python
 Author-email: Oliver Beckstein <orbeckst@gmail.com>
 Maintainer-email: MDAnalysis <mdanalysis@numfocus.org>

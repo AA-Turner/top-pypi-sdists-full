@@ -24,12 +24,13 @@ class CxEntityTypeArgs:
                  display_name: pulumi.Input[_builtins.str],
                  entities: pulumi.Input[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]],
                  kind: pulumi.Input[_builtins.str],
-                 auto_expansion_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 excluded_phrases: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 redact: Optional[pulumi.Input[_builtins.bool]] = None):
+                 auto_expansion_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 excluded_phrases: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 redact: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a CxEntityType resource.
 
@@ -45,6 +46,12 @@ class CxEntityTypeArgs:
                * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
                * AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity.
                Possible values are: `AUTO_EXPANSION_MODE_DEFAULT`, `AUTO_EXPANSION_MODE_UNSPECIFIED`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]] excluded_phrases: Collection of exceptional words and phrases that shouldn't be matched. For example, if you have a size entity type with entry giant(an adjective), you might consider adding giants(a noun) as an exclusion.
                If the kind of entity type is KIND_MAP, then the phrases specified by entities and excluded phrases should be mutually exclusive.
@@ -63,6 +70,8 @@ class CxEntityTypeArgs:
         pulumi.set(__self__, "kind", kind)
         if auto_expansion_mode is not None:
             pulumi.set(__self__, "auto_expansion_mode", auto_expansion_mode)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enable_fuzzy_extraction is not None:
             pulumi.set(__self__, "enable_fuzzy_extraction", enable_fuzzy_extraction)
         if excluded_phrases is not None:
@@ -117,7 +126,7 @@ class CxEntityTypeArgs:
 
     @_builtins.property
     @pulumi.getter(name="autoExpansionMode")
-    def auto_expansion_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def auto_expansion_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Represents kinds of entities.
         * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
@@ -127,24 +136,41 @@ class CxEntityTypeArgs:
         return pulumi.get(self, "auto_expansion_mode")
 
     @auto_expansion_mode.setter
-    def auto_expansion_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def auto_expansion_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "auto_expansion_mode", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="enableFuzzyExtraction")
-    def enable_fuzzy_extraction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_fuzzy_extraction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Enables fuzzy entity extraction during classification.
         """
         return pulumi.get(self, "enable_fuzzy_extraction")
 
     @enable_fuzzy_extraction.setter
-    def enable_fuzzy_extraction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_fuzzy_extraction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_fuzzy_extraction", value)
 
     @_builtins.property
     @pulumi.getter(name="excludedPhrases")
-    def excluded_phrases(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]:
+    def excluded_phrases(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]:
         """
         Collection of exceptional words and phrases that shouldn't be matched. For example, if you have a size entity type with entry giant(an adjective), you might consider adding giants(a noun) as an exclusion.
         If the kind of entity type is KIND_MAP, then the phrases specified by entities and excluded phrases should be mutually exclusive.
@@ -153,12 +179,12 @@ class CxEntityTypeArgs:
         return pulumi.get(self, "excluded_phrases")
 
     @excluded_phrases.setter
-    def excluded_phrases(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]):
+    def excluded_phrases(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]):
         pulumi.set(self, "excluded_phrases", value)
 
     @_builtins.property
     @pulumi.getter(name="languageCode")
-    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def language_code(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The language of the following fields in entityType:
         EntityType.entities.value
@@ -169,12 +195,12 @@ class CxEntityTypeArgs:
         return pulumi.get(self, "language_code")
 
     @language_code.setter
-    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def language_code(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "language_code", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create a entity type for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -182,35 +208,36 @@ class CxEntityTypeArgs:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def redact(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def redact(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging.
         """
         return pulumi.get(self, "redact")
 
     @redact.setter
-    def redact(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def redact(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "redact", value)
 
 
 @pulumi.input_type
 class _CxEntityTypeState:
     def __init__(__self__, *,
-                 auto_expansion_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]] = None,
-                 excluded_phrases: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 redact: Optional[pulumi.Input[_builtins.bool]] = None):
+                 auto_expansion_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]] = None,
+                 excluded_phrases: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 redact: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering CxEntityType resources.
 
@@ -218,6 +245,12 @@ class _CxEntityTypeState:
                * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
                * AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity.
                Possible values are: `AUTO_EXPANSION_MODE_DEFAULT`, `AUTO_EXPANSION_MODE_UNSPECIFIED`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the entity type, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]] entities: The collection of entity entries associated with the entity type.
@@ -243,6 +276,8 @@ class _CxEntityTypeState:
         """
         if auto_expansion_mode is not None:
             pulumi.set(__self__, "auto_expansion_mode", auto_expansion_mode)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if enable_fuzzy_extraction is not None:
@@ -264,7 +299,7 @@ class _CxEntityTypeState:
 
     @_builtins.property
     @pulumi.getter(name="autoExpansionMode")
-    def auto_expansion_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def auto_expansion_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Represents kinds of entities.
         * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
@@ -274,36 +309,53 @@ class _CxEntityTypeState:
         return pulumi.get(self, "auto_expansion_mode")
 
     @auto_expansion_mode.setter
-    def auto_expansion_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def auto_expansion_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "auto_expansion_mode", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable name of the entity type, unique within the agent.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enableFuzzyExtraction")
-    def enable_fuzzy_extraction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_fuzzy_extraction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Enables fuzzy entity extraction during classification.
         """
         return pulumi.get(self, "enable_fuzzy_extraction")
 
     @enable_fuzzy_extraction.setter
-    def enable_fuzzy_extraction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_fuzzy_extraction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_fuzzy_extraction", value)
 
     @_builtins.property
     @pulumi.getter
-    def entities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]]:
+    def entities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]]:
         """
         The collection of entity entries associated with the entity type.
         Structure is documented below.
@@ -311,12 +363,12 @@ class _CxEntityTypeState:
         return pulumi.get(self, "entities")
 
     @entities.setter
-    def entities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]]):
+    def entities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeEntityArgs']]]]):
         pulumi.set(self, "entities", value)
 
     @_builtins.property
     @pulumi.getter(name="excludedPhrases")
-    def excluded_phrases(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]:
+    def excluded_phrases(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]:
         """
         Collection of exceptional words and phrases that shouldn't be matched. For example, if you have a size entity type with entry giant(an adjective), you might consider adding giants(a noun) as an exclusion.
         If the kind of entity type is KIND_MAP, then the phrases specified by entities and excluded phrases should be mutually exclusive.
@@ -325,12 +377,12 @@ class _CxEntityTypeState:
         return pulumi.get(self, "excluded_phrases")
 
     @excluded_phrases.setter
-    def excluded_phrases(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]):
+    def excluded_phrases(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxEntityTypeExcludedPhraseArgs']]]]):
         pulumi.set(self, "excluded_phrases", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates whether the entity type can be automatically expanded.
         * KIND_MAP: Map entity types allow mapping of a group of synonyms to a canonical value.
@@ -341,12 +393,12 @@ class _CxEntityTypeState:
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter(name="languageCode")
-    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def language_code(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The language of the following fields in entityType:
         EntityType.entities.value
@@ -357,12 +409,12 @@ class _CxEntityTypeState:
         return pulumi.get(self, "language_code")
 
     @language_code.setter
-    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def language_code(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "language_code", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the entity type.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/entityTypes/<Entity Type ID>.
@@ -370,12 +422,12 @@ class _CxEntityTypeState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create a entity type for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -383,19 +435,19 @@ class _CxEntityTypeState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def redact(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def redact(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging.
         """
         return pulumi.get(self, "redact")
 
     @redact.setter
-    def redact(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def redact(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "redact", value)
 
 
@@ -405,15 +457,16 @@ class CxEntityType(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 auto_expansion_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
-                 excluded_phrases: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 redact: Optional[pulumi.Input[_builtins.bool]] = None,
+                 auto_expansion_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
+                 excluded_phrases: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 redact: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         Entities are extracted from user input and represent parameters that are meaningful to your application.
@@ -494,6 +547,12 @@ class CxEntityType(pulumi.CustomResource):
                * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
                * AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity.
                Possible values are: `AUTO_EXPANSION_MODE_DEFAULT`, `AUTO_EXPANSION_MODE_UNSPECIFIED`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the entity type, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]] entities: The collection of entity entries associated with the entity type.
@@ -609,15 +668,16 @@ class CxEntityType(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 auto_expansion_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
-                 excluded_phrases: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 redact: Optional[pulumi.Input[_builtins.bool]] = None,
+                 auto_expansion_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
+                 excluded_phrases: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 redact: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -628,6 +688,7 @@ class CxEntityType(pulumi.CustomResource):
             __props__ = CxEntityTypeArgs.__new__(CxEntityTypeArgs)
 
             __props__.__dict__["auto_expansion_mode"] = auto_expansion_mode
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -653,16 +714,17 @@ class CxEntityType(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            auto_expansion_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-            entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
-            excluded_phrases: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
-            kind: Optional[pulumi.Input[_builtins.str]] = None,
-            language_code: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            redact: Optional[pulumi.Input[_builtins.bool]] = None) -> 'CxEntityType':
+            auto_expansion_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+            entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]]] = None,
+            excluded_phrases: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEntityTypeExcludedPhraseArgs', 'CxEntityTypeExcludedPhraseArgsDict']]]]] = None,
+            kind: pulumi.Input[Optional[_builtins.str]] = None,
+            language_code: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            redact: pulumi.Input[Optional[_builtins.bool]] = None) -> 'CxEntityType':
         """
         Get an existing CxEntityType resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -674,6 +736,12 @@ class CxEntityType(pulumi.CustomResource):
                * AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
                * AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity.
                Possible values are: `AUTO_EXPANSION_MODE_DEFAULT`, `AUTO_EXPANSION_MODE_UNSPECIFIED`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the entity type, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input[Union['CxEntityTypeEntityArgs', 'CxEntityTypeEntityArgsDict']]]] entities: The collection of entity entries associated with the entity type.
@@ -702,6 +770,7 @@ class CxEntityType(pulumi.CustomResource):
         __props__ = _CxEntityTypeState.__new__(_CxEntityTypeState)
 
         __props__.__dict__["auto_expansion_mode"] = auto_expansion_mode
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enable_fuzzy_extraction"] = enable_fuzzy_extraction
         __props__.__dict__["entities"] = entities
@@ -723,6 +792,19 @@ class CxEntityType(pulumi.CustomResource):
         Possible values are: `AUTO_EXPANSION_MODE_DEFAULT`, `AUTO_EXPANSION_MODE_UNSPECIFIED`.
         """
         return pulumi.get(self, "auto_expansion_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

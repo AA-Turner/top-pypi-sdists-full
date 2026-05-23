@@ -20,11 +20,12 @@ __all__ = ['KeyArgs', 'Key']
 class KeyArgs:
     def __init__(__self__, *,
                  service_account_id: pulumi.Input[_builtins.str],
-                 keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 key_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_data: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 keepers: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_data: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Key resource.
 
@@ -34,6 +35,12 @@ class KeyArgs:
                automatically be inferred from the account. Otherwise, if the `projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}`
                syntax is used, the `{ACCOUNT}` specified can be the full email address of the service account or the service account's
                unique id. Substituting `-` as a wildcard for the `{PROJECT_ID}` will infer the project from the account.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger a new key to be generated.
         :param pulumi.Input[_builtins.str] key_algorithm: The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
                Valid values are listed at
@@ -44,6 +51,8 @@ class KeyArgs:
         :param pulumi.Input[_builtins.str] public_key_type: The output format of the public key requested. TYPE_X509_PEM_FILE is the default output format.
         """
         pulumi.set(__self__, "service_account_id", service_account_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if keepers is not None:
             pulumi.set(__self__, "keepers", keepers)
         if key_algorithm is not None:
@@ -73,20 +82,37 @@ class KeyArgs:
         pulumi.set(self, "service_account_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def keepers(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def keepers(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Arbitrary map of values that, when changed, will trigger a new key to be generated.
         """
         return pulumi.get(self, "keepers")
 
     @keepers.setter
-    def keepers(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def keepers(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "keepers", value)
 
     @_builtins.property
     @pulumi.getter(name="keyAlgorithm")
-    def key_algorithm(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
         Valid values are listed at
@@ -96,63 +122,70 @@ class KeyArgs:
         return pulumi.get(self, "key_algorithm")
 
     @key_algorithm.setter
-    def key_algorithm(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_algorithm(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_algorithm", value)
 
     @_builtins.property
     @pulumi.getter(name="privateKeyType")
-    def private_key_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def private_key_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The output format of the private key. TYPE_GOOGLE_CREDENTIALS_FILE is the default output format.
         """
         return pulumi.get(self, "private_key_type")
 
     @private_key_type.setter
-    def private_key_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def private_key_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "private_key_type", value)
 
     @_builtins.property
     @pulumi.getter(name="publicKeyData")
-    def public_key_data(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def public_key_data(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Public key data to create a service account key for given service account. The expected format for this field is a base64 encoded X509_PEM and it conflicts with `public_key_type` and `private_key_type`.
         """
         return pulumi.get(self, "public_key_data")
 
     @public_key_data.setter
-    def public_key_data(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def public_key_data(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "public_key_data", value)
 
     @_builtins.property
     @pulumi.getter(name="publicKeyType")
-    def public_key_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def public_key_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The output format of the public key requested. TYPE_X509_PEM_FILE is the default output format.
         """
         return pulumi.get(self, "public_key_type")
 
     @public_key_type.setter
-    def public_key_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def public_key_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "public_key_type", value)
 
 
 @pulumi.input_type
 class _KeyState:
     def __init__(__self__, *,
-                 keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 key_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_data: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 valid_after: Optional[pulumi.Input[_builtins.str]] = None,
-                 valid_before: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 keepers: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_data: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 valid_after: pulumi.Input[Optional[_builtins.str]] = None,
+                 valid_before: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Key resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger a new key to be generated.
         :param pulumi.Input[_builtins.str] key_algorithm: The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
                Valid values are listed at
@@ -175,6 +208,8 @@ class _KeyState:
         :param pulumi.Input[_builtins.str] valid_before: The key can be used before this timestamp.
                A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if keepers is not None:
             pulumi.set(__self__, "keepers", keepers)
         if key_algorithm is not None:
@@ -199,20 +234,37 @@ class _KeyState:
             pulumi.set(__self__, "valid_before", valid_before)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def keepers(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def keepers(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Arbitrary map of values that, when changed, will trigger a new key to be generated.
         """
         return pulumi.get(self, "keepers")
 
     @keepers.setter
-    def keepers(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def keepers(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "keepers", value)
 
     @_builtins.property
     @pulumi.getter(name="keyAlgorithm")
-    def key_algorithm(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
         Valid values are listed at
@@ -222,24 +274,24 @@ class _KeyState:
         return pulumi.get(self, "key_algorithm")
 
     @key_algorithm.setter
-    def key_algorithm(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_algorithm(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_algorithm", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name used for this key pair
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="privateKey")
-    def private_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def private_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The private key in JSON format, base64 encoded. This is what you normally get as a file when creating
         service account keys through the CLI or web console. This is only populated when creating a new key.
@@ -247,60 +299,60 @@ class _KeyState:
         return pulumi.get(self, "private_key")
 
     @private_key.setter
-    def private_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def private_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "private_key", value)
 
     @_builtins.property
     @pulumi.getter(name="privateKeyType")
-    def private_key_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def private_key_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The output format of the private key. TYPE_GOOGLE_CREDENTIALS_FILE is the default output format.
         """
         return pulumi.get(self, "private_key_type")
 
     @private_key_type.setter
-    def private_key_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def private_key_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "private_key_type", value)
 
     @_builtins.property
     @pulumi.getter(name="publicKey")
-    def public_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def public_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The public key, base64 encoded
         """
         return pulumi.get(self, "public_key")
 
     @public_key.setter
-    def public_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def public_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "public_key", value)
 
     @_builtins.property
     @pulumi.getter(name="publicKeyData")
-    def public_key_data(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def public_key_data(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Public key data to create a service account key for given service account. The expected format for this field is a base64 encoded X509_PEM and it conflicts with `public_key_type` and `private_key_type`.
         """
         return pulumi.get(self, "public_key_data")
 
     @public_key_data.setter
-    def public_key_data(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def public_key_data(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "public_key_data", value)
 
     @_builtins.property
     @pulumi.getter(name="publicKeyType")
-    def public_key_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def public_key_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The output format of the public key requested. TYPE_X509_PEM_FILE is the default output format.
         """
         return pulumi.get(self, "public_key_type")
 
     @public_key_type.setter
-    def public_key_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def public_key_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "public_key_type", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccountId")
-    def service_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Service account id of the Key. This can be a string in the format
         `{ACCOUNT}` or `projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}`. If the `{ACCOUNT}`-only syntax is used, either
@@ -312,24 +364,24 @@ class _KeyState:
         return pulumi.get(self, "service_account_id")
 
     @service_account_id.setter
-    def service_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="validAfter")
-    def valid_after(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def valid_after(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The key can be used after this timestamp. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "valid_after")
 
     @valid_after.setter
-    def valid_after(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def valid_after(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "valid_after", value)
 
     @_builtins.property
     @pulumi.getter(name="validBefore")
-    def valid_before(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def valid_before(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The key can be used before this timestamp.
         A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
@@ -337,7 +389,7 @@ class _KeyState:
         return pulumi.get(self, "valid_before")
 
     @valid_before.setter
-    def valid_before(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def valid_before(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "valid_before", value)
 
 
@@ -347,12 +399,13 @@ class Key(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 key_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_data: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 keepers: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_data: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Creates and manages service account keys, which allow the use of a service account with Google Cloud.
@@ -429,6 +482,12 @@ class Key(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger a new key to be generated.
         :param pulumi.Input[_builtins.str] key_algorithm: The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
                Valid values are listed at
@@ -538,12 +597,13 @@ class Key(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 key_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_data: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 keepers: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_data: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -553,6 +613,7 @@ class Key(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = KeyArgs.__new__(KeyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["keepers"] = keepers
             __props__.__dict__["key_algorithm"] = key_algorithm
             __props__.__dict__["private_key_type"] = private_key_type
@@ -580,17 +641,18 @@ class Key(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            key_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            private_key: Optional[pulumi.Input[_builtins.str]] = None,
-            private_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-            public_key: Optional[pulumi.Input[_builtins.str]] = None,
-            public_key_data: Optional[pulumi.Input[_builtins.str]] = None,
-            public_key_type: Optional[pulumi.Input[_builtins.str]] = None,
-            service_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-            valid_after: Optional[pulumi.Input[_builtins.str]] = None,
-            valid_before: Optional[pulumi.Input[_builtins.str]] = None) -> 'Key':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            keepers: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            key_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            private_key: pulumi.Input[Optional[_builtins.str]] = None,
+            private_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+            public_key: pulumi.Input[Optional[_builtins.str]] = None,
+            public_key_data: pulumi.Input[Optional[_builtins.str]] = None,
+            public_key_type: pulumi.Input[Optional[_builtins.str]] = None,
+            service_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+            valid_after: pulumi.Input[Optional[_builtins.str]] = None,
+            valid_before: pulumi.Input[Optional[_builtins.str]] = None) -> 'Key':
         """
         Get an existing Key resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -598,6 +660,12 @@ class Key(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger a new key to be generated.
         :param pulumi.Input[_builtins.str] key_algorithm: The algorithm used to generate the key. KEY_ALG_RSA_2048 is the default algorithm.
                Valid values are listed at
@@ -624,6 +692,7 @@ class Key(pulumi.CustomResource):
 
         __props__ = _KeyState.__new__(_KeyState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["keepers"] = keepers
         __props__.__dict__["key_algorithm"] = key_algorithm
         __props__.__dict__["name"] = name
@@ -636,6 +705,19 @@ class Key(pulumi.CustomResource):
         __props__.__dict__["valid_after"] = valid_after
         __props__.__dict__["valid_before"] = valid_before
         return Key(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

@@ -22,13 +22,14 @@ class NetworkPeeringArgs:
                  peer_network: pulumi.Input[_builtins.str],
                  peer_network_type: pulumi.Input[_builtins.str],
                  vmware_engine_network: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 export_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 export_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 export_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 export_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NetworkPeering resource.
 
@@ -39,6 +40,12 @@ class NetworkPeeringArgs:
         :param pulumi.Input[_builtins.str] vmware_engine_network: The relative resource name of the VMware Engine network. Specify the name in the following form:
                projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project}
                can either be a project number or a project ID.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network peering.
         :param pulumi.Input[_builtins.bool] export_custom_routes: True if custom routes are exported to the peered network; false otherwise.
         :param pulumi.Input[_builtins.bool] export_custom_routes_with_public_ip: True if all subnet routes with a public IP address range are exported; false otherwise.
@@ -51,6 +58,8 @@ class NetworkPeeringArgs:
         pulumi.set(__self__, "peer_network", peer_network)
         pulumi.set(__self__, "peer_network_type", peer_network_type)
         pulumi.set(__self__, "vmware_engine_network", vmware_engine_network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if export_custom_routes is not None:
@@ -107,80 +116,97 @@ class NetworkPeeringArgs:
         pulumi.set(self, "vmware_engine_network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description for this network peering.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="exportCustomRoutes")
-    def export_custom_routes(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def export_custom_routes(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are exported to the peered network; false otherwise.
         """
         return pulumi.get(self, "export_custom_routes")
 
     @export_custom_routes.setter
-    def export_custom_routes(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def export_custom_routes(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "export_custom_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="exportCustomRoutesWithPublicIp")
-    def export_custom_routes_with_public_ip(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def export_custom_routes_with_public_ip(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if all subnet routes with a public IP address range are exported; false otherwise.
         """
         return pulumi.get(self, "export_custom_routes_with_public_ip")
 
     @export_custom_routes_with_public_ip.setter
-    def export_custom_routes_with_public_ip(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def export_custom_routes_with_public_ip(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "export_custom_routes_with_public_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="importCustomRoutes")
-    def import_custom_routes(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def import_custom_routes(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are imported from the peered network; false otherwise.
         """
         return pulumi.get(self, "import_custom_routes")
 
     @import_custom_routes.setter
-    def import_custom_routes(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def import_custom_routes(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "import_custom_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="importCustomRoutesWithPublicIp")
-    def import_custom_routes_with_public_ip(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def import_custom_routes_with_public_ip(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are imported from the peered network; false otherwise.
         """
         return pulumi.get(self, "import_custom_routes_with_public_ip")
 
     @import_custom_routes_with_public_ip.setter
-    def import_custom_routes_with_public_ip(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def import_custom_routes_with_public_ip(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "import_custom_routes_with_public_ip", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Network Peering.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -188,35 +214,42 @@ class NetworkPeeringArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _NetworkPeeringState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 export_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 export_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 state_details: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network_canonical: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 export_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 export_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 state_details: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network_canonical: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering NetworkPeering resources.
 
         :param pulumi.Input[_builtins.str] create_time: Creation time of this resource.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
                up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network peering.
         :param pulumi.Input[_builtins.bool] export_custom_routes: True if custom routes are exported to the peered network; false otherwise.
         :param pulumi.Input[_builtins.bool] export_custom_routes_with_public_ip: True if all subnet routes with a public IP address range are exported; false otherwise.
@@ -245,6 +278,8 @@ class _NetworkPeeringState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if export_custom_routes is not None:
@@ -278,7 +313,7 @@ class _NetworkPeeringState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation time of this resource.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
@@ -287,84 +322,101 @@ class _NetworkPeeringState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description for this network peering.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="exportCustomRoutes")
-    def export_custom_routes(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def export_custom_routes(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are exported to the peered network; false otherwise.
         """
         return pulumi.get(self, "export_custom_routes")
 
     @export_custom_routes.setter
-    def export_custom_routes(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def export_custom_routes(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "export_custom_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="exportCustomRoutesWithPublicIp")
-    def export_custom_routes_with_public_ip(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def export_custom_routes_with_public_ip(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if all subnet routes with a public IP address range are exported; false otherwise.
         """
         return pulumi.get(self, "export_custom_routes_with_public_ip")
 
     @export_custom_routes_with_public_ip.setter
-    def export_custom_routes_with_public_ip(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def export_custom_routes_with_public_ip(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "export_custom_routes_with_public_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="importCustomRoutes")
-    def import_custom_routes(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def import_custom_routes(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are imported from the peered network; false otherwise.
         """
         return pulumi.get(self, "import_custom_routes")
 
     @import_custom_routes.setter
-    def import_custom_routes(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def import_custom_routes(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "import_custom_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="importCustomRoutesWithPublicIp")
-    def import_custom_routes_with_public_ip(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def import_custom_routes_with_public_ip(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         True if custom routes are imported from the peered network; false otherwise.
         """
         return pulumi.get(self, "import_custom_routes_with_public_ip")
 
     @import_custom_routes_with_public_ip.setter
-    def import_custom_routes_with_public_ip(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def import_custom_routes_with_public_ip(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "import_custom_routes_with_public_ip", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Network Peering.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="peerNetwork")
-    def peer_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def peer_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the network to peer with a standard VMware Engine network.
         The provided network can be a consumer VPC network or another standard VMware Engine network.
@@ -372,12 +424,12 @@ class _NetworkPeeringState:
         return pulumi.get(self, "peer_network")
 
     @peer_network.setter
-    def peer_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def peer_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "peer_network", value)
 
     @_builtins.property
     @pulumi.getter(name="peerNetworkType")
-    def peer_network_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def peer_network_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the network to peer with the VMware Engine network.
         Possible values are: `STANDARD`, `VMWARE_ENGINE_NETWORK`, `PRIVATE_SERVICES_ACCESS`, `NETAPP_CLOUD_VOLUMES`, `THIRD_PARTY_SERVICE`, `DELL_POWERSCALE`, `GOOGLE_CLOUD_NETAPP_VOLUMES`.
@@ -385,12 +437,12 @@ class _NetworkPeeringState:
         return pulumi.get(self, "peer_network_type")
 
     @peer_network_type.setter
-    def peer_network_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def peer_network_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "peer_network_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -398,12 +450,12 @@ class _NetworkPeeringState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         State of the network peering.
         This field has a value of 'ACTIVE' when there's a matching configuration in the peer network.
@@ -412,36 +464,36 @@ class _NetworkPeeringState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="stateDetails")
-    def state_details(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state_details(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Details about the current state of the network peering.
         """
         return pulumi.get(self, "state_details")
 
     @state_details.setter
-    def state_details(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state_details(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state_details", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         System-generated unique identifier for the resource.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Last updated time of this resource.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine
@@ -450,12 +502,12 @@ class _NetworkPeeringState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="vmwareEngineNetwork")
-    def vmware_engine_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vmware_engine_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the VMware Engine network. Specify the name in the following form:
         projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project}
@@ -464,12 +516,12 @@ class _NetworkPeeringState:
         return pulumi.get(self, "vmware_engine_network")
 
     @vmware_engine_network.setter
-    def vmware_engine_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vmware_engine_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vmware_engine_network", value)
 
     @_builtins.property
     @pulumi.getter(name="vmwareEngineNetworkCanonical")
-    def vmware_engine_network_canonical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vmware_engine_network_canonical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The canonical name of the VMware Engine network in the form:
         projects/{project_number}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId}
@@ -477,7 +529,7 @@ class _NetworkPeeringState:
         return pulumi.get(self, "vmware_engine_network_canonical")
 
     @vmware_engine_network_canonical.setter
-    def vmware_engine_network_canonical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vmware_engine_network_canonical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vmware_engine_network_canonical", value)
 
 
@@ -487,16 +539,17 @@ class NetworkPeering(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 export_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 export_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 export_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 export_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a network peering resource. Network peerings are global resources.
@@ -570,6 +623,12 @@ class NetworkPeering(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network peering.
         :param pulumi.Input[_builtins.bool] export_custom_routes: True if custom routes are exported to the peered network; false otherwise.
         :param pulumi.Input[_builtins.bool] export_custom_routes_with_public_ip: True if all subnet routes with a public IP address range are exported; false otherwise.
@@ -677,16 +736,17 @@ class NetworkPeering(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 export_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 export_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-                 import_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 peer_network_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 export_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 export_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+                 import_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 peer_network_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -696,6 +756,7 @@ class NetworkPeering(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = NetworkPeeringArgs.__new__(NetworkPeeringArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["export_custom_routes"] = export_custom_routes
             __props__.__dict__["export_custom_routes_with_public_ip"] = export_custom_routes_with_public_ip
@@ -728,22 +789,23 @@ class NetworkPeering(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            export_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-            export_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-            import_custom_routes: Optional[pulumi.Input[_builtins.bool]] = None,
-            import_custom_routes_with_public_ip: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            peer_network: Optional[pulumi.Input[_builtins.str]] = None,
-            peer_network_type: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            state_details: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
-            vmware_engine_network_canonical: Optional[pulumi.Input[_builtins.str]] = None) -> 'NetworkPeering':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            export_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+            export_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+            import_custom_routes: pulumi.Input[Optional[_builtins.bool]] = None,
+            import_custom_routes_with_public_ip: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            peer_network: pulumi.Input[Optional[_builtins.str]] = None,
+            peer_network_type: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            state_details: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
+            vmware_engine_network_canonical: pulumi.Input[Optional[_builtins.str]] = None) -> 'NetworkPeering':
         """
         Get an existing NetworkPeering resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -754,6 +816,12 @@ class NetworkPeering(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: Creation time of this resource.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
                up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network peering.
         :param pulumi.Input[_builtins.bool] export_custom_routes: True if custom routes are exported to the peered network; false otherwise.
         :param pulumi.Input[_builtins.bool] export_custom_routes_with_public_ip: True if all subnet routes with a public IP address range are exported; false otherwise.
@@ -785,6 +853,7 @@ class NetworkPeering(pulumi.CustomResource):
         __props__ = _NetworkPeeringState.__new__(_NetworkPeeringState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["export_custom_routes"] = export_custom_routes
         __props__.__dict__["export_custom_routes_with_public_ip"] = export_custom_routes_with_public_ip
@@ -811,6 +880,19 @@ class NetworkPeering(pulumi.CustomResource):
         up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

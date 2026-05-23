@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/running-process-core", "crates/running-process-proto", "crates/running-process-client", "crates/running-process-py", "crates/test-watchdog"]
 
 [workspace.package]
-version = "3.4.0"
+version = "3.4.1"
 edition = "2021"
 rust-version = "1.85"
 license = "BSD-3-Clause"

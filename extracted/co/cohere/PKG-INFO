@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cohere
-Version: 6.1.0
+Version: 7.0.0
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0
@@ -23,13 +23,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: aiohttp
 Provides-Extra: oci
-Requires-Dist: aiohttp (>=3.10.0,<4) ; extra == "aiohttp"
+Requires-Dist: aiohttp (>=3.13.4,<4) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: fastavro (>=1.9.4,<2.0.0)
 Requires-Dist: httpx (>=0.21.2)
-Requires-Dist: httpx-aiohttp (==0.1.8) ; extra == "aiohttp"
+Requires-Dist: httpx-aiohttp (==0.1.8) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: oci (>=2.165.0,<3.0.0) ; extra == "oci"
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2,<2.44.0)
+Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
 Requires-Dist: requests (>=2.0.0,<3.0.0)
 Requires-Dist: tokenizers (>=0.15,<1)
 Requires-Dist: types-requests (>=2.0.0,<3.0.0)

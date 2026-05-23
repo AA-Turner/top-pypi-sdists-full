@@ -217,8 +217,8 @@ def get_flex_cluster(name: Optional[_builtins.str] = None,
             "region_name": "US_EAST_1",
         },
         termination_protection_enabled=True)
-    example_cluster = example_cluster_flex_cluster.name.apply(lambda name: mongodbatlas.get_flex_cluster_output(project_id=project_id,
-        name=name))
+    example_cluster = mongodbatlas.get_flex_cluster_output(project_id=project_id,
+        name=example_cluster_flex_cluster.name)
     example_clusters = mongodbatlas.get_flex_clusters(project_id=project_id)
     pulumi.export("mongodbatlasFlexCluster", example_cluster.name)
     pulumi.export("mongodbatlasFlexClustersNames", [cluster.name for cluster in example_clusters.results])
@@ -248,8 +248,8 @@ def get_flex_cluster(name: Optional[_builtins.str] = None,
         tags=pulumi.get(__ret__, 'tags'),
         termination_protection_enabled=pulumi.get(__ret__, 'termination_protection_enabled'),
         version_release_system=pulumi.get(__ret__, 'version_release_system'))
-def get_flex_cluster_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                            project_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_flex_cluster_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                            project_id: pulumi.Input[Optional[_builtins.str]] = None,
                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetFlexClusterResult]:
     """
     `FlexCluster` describes a flex cluster.
@@ -271,8 +271,8 @@ def get_flex_cluster_output(name: Optional[pulumi.Input[_builtins.str]] = None,
             "region_name": "US_EAST_1",
         },
         termination_protection_enabled=True)
-    example_cluster = example_cluster_flex_cluster.name.apply(lambda name: mongodbatlas.get_flex_cluster_output(project_id=project_id,
-        name=name))
+    example_cluster = mongodbatlas.get_flex_cluster_output(project_id=project_id,
+        name=example_cluster_flex_cluster.name)
     example_clusters = mongodbatlas.get_flex_clusters(project_id=project_id)
     pulumi.export("mongodbatlasFlexCluster", example_cluster.name)
     pulumi.export("mongodbatlasFlexClustersNames", [cluster.name for cluster in example_clusters.results])

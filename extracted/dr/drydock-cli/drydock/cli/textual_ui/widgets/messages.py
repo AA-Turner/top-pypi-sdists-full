@@ -387,6 +387,14 @@ class ReasoningMessage(SpinnerMixin, StreamingMessageBase):
         self._indicator_widget: Static | None = None
         self._triangle_widget: Static | None = None
         self.init_spinner()
+        # Track when thinking started so we can show elapsed time +
+        # token estimate while collapsed. Operator 2026-05-22:
+        # "harness would get stuck in a loop when thinking, so I
+        # wasn't notified" — without a visible elapsed counter the
+        # user can't distinguish a 5-second think from a 5-minute
+        # thinking loop until they press Ctrl+O.
+        import time as _t
+        self._think_started: float = _t.monotonic()
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="reasoning-message-wrapper"):
@@ -407,6 +415,38 @@ class ReasoningMessage(SpinnerMixin, StreamingMessageBase):
             markdown.display = not self.collapsed
             self._markdown = markdown
             yield markdown
+
+    def _format_header_text(self) -> str:
+        """Header text shown next to the spinner. While thinking, append
+        elapsed time + char count so a thinking loop is visible without
+        Ctrl+O. After completion, show just 'Thought'."""
+        if not self._is_spinning:
+            return self.COMPLETED_TEXT
+        import time as _t
+        elapsed = _t.monotonic() - self._think_started
+        n = len(self._content or "")
+        # Suppress the counter for the first ~3 seconds so quick
+        # thinks don't look noisy.
+        if elapsed < 3 and n < 50:
+            return self.SPINNING_TEXT
+        if n >= 1000:
+            tok = f"{n / 1000:.1f}k chars"
+        else:
+            tok = f"{n} chars"
+        if elapsed >= 60:
+            m, s = divmod(int(elapsed), 60)
+            elapsed_s = f"{m}m {s}s"
+        else:
+            elapsed_s = f"{int(elapsed)}s"
+        return f"{self.SPINNING_TEXT} ({elapsed_s} · {tok})"
+
+    def _update_spinner_frame(self) -> None:
+        # Drive the header text from the same timer that updates the
+        # spinner — 10×/sec is plenty for a seconds-resolution counter.
+        if self._indicator_widget and self._is_spinning:
+            self._indicator_widget.update(self._spinner.next_frame())
+        if self._status_text_widget and self._is_spinning:
+            self._status_text_widget.update(self._format_header_text())
 
     def on_mount(self) -> None:
         self.start_spinner_timer()

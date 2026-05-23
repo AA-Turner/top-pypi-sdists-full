@@ -22,14 +22,21 @@ __all__ = ['FulfillmentArgs', 'Fulfillment']
 class FulfillmentArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 features: Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]] = None,
-                 generic_web_service: Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 features: pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]] = None,
+                 generic_web_service: pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Fulfillment resource.
 
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the fulfillment, unique within the agent.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] enabled: Whether fulfillment is enabled.
         :param pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]] features: The field defines whether the fulfillment is enabled for certain features.
                Structure is documented below.
@@ -39,6 +46,8 @@ class FulfillmentArgs:
                If it is not provided, the provider project is used.
         """
         pulumi.set(__self__, "display_name", display_name)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enabled is not None:
             pulumi.set(__self__, "enabled", enabled)
         if features is not None:
@@ -61,20 +70,37 @@ class FulfillmentArgs:
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether fulfillment is enabled.
         """
         return pulumi.get(self, "enabled")
 
     @enabled.setter
-    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def features(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]:
+    def features(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]:
         """
         The field defines whether the fulfillment is enabled for certain features.
         Structure is documented below.
@@ -82,12 +108,12 @@ class FulfillmentArgs:
         return pulumi.get(self, "features")
 
     @features.setter
-    def features(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]):
+    def features(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]):
         pulumi.set(self, "features", value)
 
     @_builtins.property
     @pulumi.getter(name="genericWebService")
-    def generic_web_service(self) -> Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']]:
+    def generic_web_service(self) -> pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']]:
         """
         Represents configuration for a generic web service. Dialogflow supports two mechanisms for authentications: - Basic authentication with username and password. - Authentication with additional authentication headers.
         Structure is documented below.
@@ -95,12 +121,12 @@ class FulfillmentArgs:
         return pulumi.get(self, "generic_web_service")
 
     @generic_web_service.setter
-    def generic_web_service(self, value: Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']]):
+    def generic_web_service(self, value: pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']]):
         pulumi.set(self, "generic_web_service", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -108,22 +134,29 @@ class FulfillmentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _FulfillmentState:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 features: Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]] = None,
-                 generic_web_service: Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 features: pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]] = None,
+                 generic_web_service: pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Fulfillment resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the fulfillment, unique within the agent.
         :param pulumi.Input[_builtins.bool] enabled: Whether fulfillment is enabled.
         :param pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]] features: The field defines whether the fulfillment is enabled for certain features.
@@ -135,6 +168,8 @@ class _FulfillmentState:
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if enabled is not None:
@@ -149,32 +184,49 @@ class _FulfillmentState:
             pulumi.set(__self__, "project", project)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable name of the fulfillment, unique within the agent.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether fulfillment is enabled.
         """
         return pulumi.get(self, "enabled")
 
     @enabled.setter
-    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def features(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]:
+    def features(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]:
         """
         The field defines whether the fulfillment is enabled for certain features.
         Structure is documented below.
@@ -182,12 +234,12 @@ class _FulfillmentState:
         return pulumi.get(self, "features")
 
     @features.setter
-    def features(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]):
+    def features(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['FulfillmentFeatureArgs']]]]):
         pulumi.set(self, "features", value)
 
     @_builtins.property
     @pulumi.getter(name="genericWebService")
-    def generic_web_service(self) -> Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']]:
+    def generic_web_service(self) -> pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']]:
         """
         Represents configuration for a generic web service. Dialogflow supports two mechanisms for authentications: - Basic authentication with username and password. - Authentication with additional authentication headers.
         Structure is documented below.
@@ -195,12 +247,12 @@ class _FulfillmentState:
         return pulumi.get(self, "generic_web_service")
 
     @generic_web_service.setter
-    def generic_web_service(self, value: Optional[pulumi.Input['FulfillmentGenericWebServiceArgs']]):
+    def generic_web_service(self, value: pulumi.Input[Optional['FulfillmentGenericWebServiceArgs']]):
         pulumi.set(self, "generic_web_service", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the fulfillment.
         Format: projects/<Project ID>/agent/fulfillment - projects/<Project ID>/locations/<Location ID>/agent/fulfillment
@@ -208,12 +260,12 @@ class _FulfillmentState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -221,7 +273,7 @@ class _FulfillmentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -231,11 +283,12 @@ class Fulfillment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 features: Optional[pulumi.Input[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
-                 generic_web_service: Optional[pulumi.Input[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 features: pulumi.Input[Optional[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
+                 generic_web_service: pulumi.Input[Optional[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         By default, your agent responds to a matched intent with a static response. If you're using one of the integration options, you can provide a more dynamic response by using fulfillment. When you enable fulfillment for an intent, Dialogflow responds to that intent by calling a service that you define. For example, if an end-user wants to schedule a haircut on Friday, your service can check your database and respond to the end-user with availability information for Friday.
@@ -287,6 +340,12 @@ class Fulfillment(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the fulfillment, unique within the agent.
         :param pulumi.Input[_builtins.bool] enabled: Whether fulfillment is enabled.
         :param pulumi.Input[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]] features: The field defines whether the fulfillment is enabled for certain features.
@@ -365,11 +424,12 @@ class Fulfillment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 features: Optional[pulumi.Input[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
-                 generic_web_service: Optional[pulumi.Input[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 features: pulumi.Input[Optional[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
+                 generic_web_service: pulumi.Input[Optional[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -379,6 +439,7 @@ class Fulfillment(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = FulfillmentArgs.__new__(FulfillmentArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -397,12 +458,13 @@ class Fulfillment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            features: Optional[pulumi.Input[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
-            generic_web_service: Optional[pulumi.Input[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'Fulfillment':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            features: pulumi.Input[Optional[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]]] = None,
+            generic_web_service: pulumi.Input[Optional[Union['FulfillmentGenericWebServiceArgs', 'FulfillmentGenericWebServiceArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'Fulfillment':
         """
         Get an existing Fulfillment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -410,6 +472,12 @@ class Fulfillment(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the fulfillment, unique within the agent.
         :param pulumi.Input[_builtins.bool] enabled: Whether fulfillment is enabled.
         :param pulumi.Input[Sequence[pulumi.Input[Union['FulfillmentFeatureArgs', 'FulfillmentFeatureArgsDict']]]] features: The field defines whether the fulfillment is enabled for certain features.
@@ -425,6 +493,7 @@ class Fulfillment(pulumi.CustomResource):
 
         __props__ = _FulfillmentState.__new__(_FulfillmentState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enabled"] = enabled
         __props__.__dict__["features"] = features
@@ -432,6 +501,19 @@ class Fulfillment(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         return Fulfillment(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

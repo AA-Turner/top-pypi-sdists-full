@@ -21,8 +21,9 @@ class BackendBucketSignedUrlKeyArgs:
     def __init__(__self__, *,
                  backend_bucket: pulumi.Input[_builtins.str],
                  key_value: pulumi.Input[_builtins.str],
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a BackendBucketSignedUrlKey resource.
 
@@ -30,12 +31,20 @@ class BackendBucketSignedUrlKeyArgs:
         :param pulumi.Input[_builtins.str] key_value: 128-bit key value used for signing the URL. The key value must be a
                valid RFC 4648 Section 5 base64url encoded string.
                **Note**: This property is sensitive and will not be displayed in the plan.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the signed URL key.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
         pulumi.set(__self__, "backend_bucket", backend_bucket)
         pulumi.set(__self__, "key_value", key_value)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -68,20 +77,37 @@ class BackendBucketSignedUrlKeyArgs:
         pulumi.set(self, "key_value", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the signed URL key.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -89,21 +115,28 @@ class BackendBucketSignedUrlKeyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _BackendBucketSignedUrlKeyState:
     def __init__(__self__, *,
-                 backend_bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_value: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 backend_bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_value: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BackendBucketSignedUrlKey resources.
 
         :param pulumi.Input[_builtins.str] backend_bucket: The backend bucket this signed URL key belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] key_value: 128-bit key value used for signing the URL. The key value must be a
                valid RFC 4648 Section 5 base64url encoded string.
                **Note**: This property is sensitive and will not be displayed in the plan.
@@ -113,6 +146,8 @@ class _BackendBucketSignedUrlKeyState:
         """
         if backend_bucket is not None:
             pulumi.set(__self__, "backend_bucket", backend_bucket)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if key_value is not None:
             pulumi.set(__self__, "key_value", key_value)
         if name is not None:
@@ -122,19 +157,36 @@ class _BackendBucketSignedUrlKeyState:
 
     @_builtins.property
     @pulumi.getter(name="backendBucket")
-    def backend_bucket(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backend_bucket(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The backend bucket this signed URL key belongs.
         """
         return pulumi.get(self, "backend_bucket")
 
     @backend_bucket.setter
-    def backend_bucket(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backend_bucket(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backend_bucket", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="keyValue")
-    def key_value(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key_value(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         128-bit key value used for signing the URL. The key value must be a
         valid RFC 4648 Section 5 base64url encoded string.
@@ -143,24 +195,24 @@ class _BackendBucketSignedUrlKeyState:
         return pulumi.get(self, "key_value")
 
     @key_value.setter
-    def key_value(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key_value(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key_value", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the signed URL key.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -168,7 +220,7 @@ class _BackendBucketSignedUrlKeyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -178,10 +230,11 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend_bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_value: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 backend_bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_value: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A key for signing Cloud CDN signed URLs for BackendBuckets.
@@ -224,6 +277,12 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] backend_bucket: The backend bucket this signed URL key belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] key_value: 128-bit key value used for signing the URL. The key value must be a
                valid RFC 4648 Section 5 base64url encoded string.
                **Note**: This property is sensitive and will not be displayed in the plan.
@@ -290,10 +349,11 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend_bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 key_value: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 backend_bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 key_value: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -306,6 +366,7 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
             if backend_bucket is None and not opts.urn:
                 raise TypeError("Missing required property 'backend_bucket'")
             __props__.__dict__["backend_bucket"] = backend_bucket
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if key_value is None and not opts.urn:
                 raise TypeError("Missing required property 'key_value'")
             __props__.__dict__["key_value"] = None if key_value is None else pulumi.Output.secret(key_value)
@@ -323,10 +384,11 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backend_bucket: Optional[pulumi.Input[_builtins.str]] = None,
-            key_value: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'BackendBucketSignedUrlKey':
+            backend_bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            key_value: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'BackendBucketSignedUrlKey':
         """
         Get an existing BackendBucketSignedUrlKey resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -335,6 +397,12 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] backend_bucket: The backend bucket this signed URL key belongs.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] key_value: 128-bit key value used for signing the URL. The key value must be a
                valid RFC 4648 Section 5 base64url encoded string.
                **Note**: This property is sensitive and will not be displayed in the plan.
@@ -347,6 +415,7 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
         __props__ = _BackendBucketSignedUrlKeyState.__new__(_BackendBucketSignedUrlKeyState)
 
         __props__.__dict__["backend_bucket"] = backend_bucket
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["key_value"] = key_value
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
@@ -359,6 +428,19 @@ class BackendBucketSignedUrlKey(pulumi.CustomResource):
         The backend bucket this signed URL key belongs.
         """
         return pulumi.get(self, "backend_bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="keyValue")

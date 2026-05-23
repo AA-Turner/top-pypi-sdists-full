@@ -5,22 +5,40 @@ theme:
   features:
     - content.code.copy
     - toc.integrate
+    - navigation.expand
   palette:
-    scheme: slate
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
   icon:
     logo: material/code-tags
 nav:
   - README.md
   - usage.md
+  - How-to guides:
+      - how-to/django.md
+      - how-to/async.md
+      - how-to/starlette.md
+      - how-to/convert-html.md
   - common-patterns.md
   - static-typing.md
-  - django.md
-  - async.md
-  - starlette.md
   - streaming.md
-  - html2htpy.md
   - faq.md
   - references.md
+  - Reference:
+      - reference/html2htpy.md
+
 markdown_extensions:
   - admonition
   - pymdownx.highlight:
@@ -42,4 +60,8 @@ markdown_extensions:
 plugins:
   - redirects:
       redirect_maps:
-        'changelog.md': 'https://github.com/pelme/htpy/releases'
+        "changelog.md": "https://github.com/pelme/htpy/releases"
+        async.md: how-to/async.md
+        django.md: how-to/django.md
+        starlette.md: how-to/starlette.md
+        html2htpy.md: reference/html2htpy.md

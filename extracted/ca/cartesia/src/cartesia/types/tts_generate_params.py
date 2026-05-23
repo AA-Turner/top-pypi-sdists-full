@@ -6,6 +6,7 @@ from typing import Union, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .model_speed import ModelSpeed
+from .raw_encoding import RawEncoding
 from .supported_language import SupportedLanguage
 from .voice_specifier_param import VoiceSpecifierParam
 from .generation_config_param import GenerationConfigParam
@@ -24,7 +25,8 @@ class TTSGenerateParams(TypedDict, total=False):
     model_id: Required[str]
     """The ID of the model to use for the generation.
 
-    See [Models](/build-with-cartesia/tts-models) for available models.
+    See [Models](https://docs.cartesia.ai/build-with-cartesia/tts-models) for
+    available models.
     """
 
     output_format: Required[OutputFormat]
@@ -39,14 +41,15 @@ class TTSGenerateParams(TypedDict, total=False):
     These are only for `sonic-3` and have no effect on earlier models.
 
     See
-    [Volume, Speed, and Emotion in Sonic-3](/build-with-cartesia/sonic-3/volume-speed-emotion)
+    [Volume, Speed, and Emotion in Sonic-3](https://docs.cartesia.ai/build-with-cartesia/sonic-3/volume-speed-emotion)
     for a guide on this option.
     """
 
     language: Optional[SupportedLanguage]
     """The language that the given voice should speak the transcript in.
 
-    For valid options, see [Models](/build-with-cartesia/tts-models).
+    For valid options, see
+    [Models](https://docs.cartesia.ai/build-with-cartesia/tts-models).
     """
 
     pronunciation_dict_id: Optional[str]
@@ -62,7 +65,7 @@ class TTSGenerateParams(TypedDict, total=False):
     """
 
     speed: ModelSpeed
-    """Use `generation_config.speed` for sonic-3. Speed setting for the model.
+    """Speed setting for the model.
 
     Defaults to `normal`. This feature is experimental and may not work for all
     voices. Influences the speed of the generated speech. Faster speeds may reduce
@@ -71,11 +74,15 @@ class TTSGenerateParams(TypedDict, total=False):
 
 
 class OutputFormatRawOutputFormat(RawOutputFormatParam, total=False):
-    container: Literal["raw"]
+    container: Literal["raw"]  # type: ignore
 
 
-class OutputFormatWavOutputFormat(RawOutputFormatParam, total=False):
-    container: Literal["wav"]
+class OutputFormatWavOutputFormat(TypedDict, total=False):
+    container: Required[Literal["wav"]]
+
+    encoding: Required[RawEncoding]
+
+    sample_rate: Required[Literal[8000, 16000, 22050, 24000, 44100, 48000]]
 
 
 class OutputFormatMP3OutputFormat(TypedDict, total=False):

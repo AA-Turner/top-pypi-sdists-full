@@ -25,7 +25,8 @@ class DocumentAiWarehouseDocumentSchemaArgs:
                  location: pulumi.Input[_builtins.str],
                  project_number: pulumi.Input[_builtins.str],
                  property_definitions: pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]],
-                 document_is_folder: Optional[pulumi.Input[_builtins.bool]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_is_folder: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a DocumentAiWarehouseDocumentSchema resource.
 
@@ -34,12 +35,20 @@ class DocumentAiWarehouseDocumentSchemaArgs:
         :param pulumi.Input[_builtins.str] project_number: The unique identifier of the project.
         :param pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]] property_definitions: Defines the metadata for a schema property.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] document_is_folder: Tells whether the document is a folder or a typical document.
         """
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "project_number", project_number)
         pulumi.set(__self__, "property_definitions", property_definitions)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if document_is_folder is not None:
             pulumi.set(__self__, "document_is_folder", document_is_folder)
 
@@ -93,30 +102,54 @@ class DocumentAiWarehouseDocumentSchemaArgs:
         pulumi.set(self, "property_definitions", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="documentIsFolder")
-    def document_is_folder(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def document_is_folder(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Tells whether the document is a folder or a typical document.
         """
         return pulumi.get(self, "document_is_folder")
 
     @document_is_folder.setter
-    def document_is_folder(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def document_is_folder(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "document_is_folder", value)
 
 
 @pulumi.input_type
 class _DocumentAiWarehouseDocumentSchemaState:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_is_folder: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project_number: Optional[pulumi.Input[_builtins.str]] = None,
-                 property_definitions: Optional[pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_is_folder: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project_number: pulumi.Input[Optional[_builtins.str]] = None,
+                 property_definitions: pulumi.Input[Optional[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]] = None):
         """
         Input properties used for looking up and filtering DocumentAiWarehouseDocumentSchema resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name of the schema given by the user.
         :param pulumi.Input[_builtins.bool] document_is_folder: Tells whether the document is a folder or a typical document.
         :param pulumi.Input[_builtins.str] location: The location of the resource.
@@ -125,6 +158,8 @@ class _DocumentAiWarehouseDocumentSchemaState:
         :param pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]] property_definitions: Defines the metadata for a schema property.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if document_is_folder is not None:
@@ -139,68 +174,85 @@ class _DocumentAiWarehouseDocumentSchemaState:
             pulumi.set(__self__, "property_definitions", property_definitions)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the schema given by the user.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="documentIsFolder")
-    def document_is_folder(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def document_is_folder(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Tells whether the document is a folder or a typical document.
         """
         return pulumi.get(self, "document_is_folder")
 
     @document_is_folder.setter
-    def document_is_folder(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def document_is_folder(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "document_is_folder", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the resource.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the document schema.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="projectNumber")
-    def project_number(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project_number(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the project.
         """
         return pulumi.get(self, "project_number")
 
     @project_number.setter
-    def project_number(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project_number(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project_number", value)
 
     @_builtins.property
     @pulumi.getter(name="propertyDefinitions")
-    def property_definitions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]]:
+    def property_definitions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]]:
         """
         Defines the metadata for a schema property.
         Structure is documented below.
@@ -208,7 +260,7 @@ class _DocumentAiWarehouseDocumentSchemaState:
         return pulumi.get(self, "property_definitions")
 
     @property_definitions.setter
-    def property_definitions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]]):
+    def property_definitions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs']]]]):
         pulumi.set(self, "property_definitions", value)
 
 
@@ -218,11 +270,12 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_is_folder: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project_number: Optional[pulumi.Input[_builtins.str]] = None,
-                 property_definitions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_is_folder: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project_number: pulumi.Input[Optional[_builtins.str]] = None,
+                 property_definitions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None,
                  __props__=None):
         """
         A document schema is used to define document structure.
@@ -281,6 +334,12 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name of the schema given by the user.
         :param pulumi.Input[_builtins.bool] document_is_folder: Tells whether the document is a folder or a typical document.
         :param pulumi.Input[_builtins.str] location: The location of the resource.
@@ -364,11 +423,12 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_is_folder: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project_number: Optional[pulumi.Input[_builtins.str]] = None,
-                 property_definitions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_is_folder: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project_number: pulumi.Input[Optional[_builtins.str]] = None,
+                 property_definitions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -378,6 +438,7 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = DocumentAiWarehouseDocumentSchemaArgs.__new__(DocumentAiWarehouseDocumentSchemaArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -402,12 +463,13 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            document_is_folder: Optional[pulumi.Input[_builtins.bool]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project_number: Optional[pulumi.Input[_builtins.str]] = None,
-            property_definitions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None) -> 'DocumentAiWarehouseDocumentSchema':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            document_is_folder: pulumi.Input[Optional[_builtins.bool]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project_number: pulumi.Input[Optional[_builtins.str]] = None,
+            property_definitions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgs', 'DocumentAiWarehouseDocumentSchemaPropertyDefinitionArgsDict']]]]] = None) -> 'DocumentAiWarehouseDocumentSchema':
         """
         Get an existing DocumentAiWarehouseDocumentSchema resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -415,6 +477,12 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Name of the schema given by the user.
         :param pulumi.Input[_builtins.bool] document_is_folder: Tells whether the document is a folder or a typical document.
         :param pulumi.Input[_builtins.str] location: The location of the resource.
@@ -427,6 +495,7 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
 
         __props__ = _DocumentAiWarehouseDocumentSchemaState.__new__(_DocumentAiWarehouseDocumentSchemaState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["document_is_folder"] = document_is_folder
         __props__.__dict__["location"] = location
@@ -434,6 +503,19 @@ class DocumentAiWarehouseDocumentSchema(pulumi.CustomResource):
         __props__.__dict__["project_number"] = project_number
         __props__.__dict__["property_definitions"] = property_definitions
         return DocumentAiWarehouseDocumentSchema(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

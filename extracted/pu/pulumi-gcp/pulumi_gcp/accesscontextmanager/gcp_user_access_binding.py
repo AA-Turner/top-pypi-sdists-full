@@ -23,15 +23,22 @@ class GcpUserAccessBindingArgs:
     def __init__(__self__, *,
                  group_key: pulumi.Input[_builtins.str],
                  organization_id: pulumi.Input[_builtins.str],
-                 access_levels: Optional[pulumi.Input[_builtins.str]] = None,
-                 scoped_access_settings: Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]] = None,
-                 session_settings: Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']] = None):
+                 access_levels: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 scoped_access_settings: pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]] = None,
+                 session_settings: pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']] = None):
         """
         The set of arguments for constructing a GcpUserAccessBinding resource.
 
         :param pulumi.Input[_builtins.str] group_key: Required. Immutable. Google Group id whose members are subject to this binding's restrictions. See "id" in the G Suite Directory API's Groups resource. If a group's email address/alias is changed, this resource will continue to point at the changed group. This field does not accept group email addresses or aliases. Example: "01d520gv4vjcrht"
         :param pulumi.Input[_builtins.str] organization_id: Required. ID of the parent organization.
         :param pulumi.Input[_builtins.str] access_levels: Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]] scoped_access_settings: Optional. A list of scoped access settings that set this binding's restrictions on a subset of applications.
                Structure is documented below.
         :param pulumi.Input['GcpUserAccessBindingSessionSettingsArgs'] session_settings: Optional. The Google Cloud session length (GCSL) policy for the group key.
@@ -41,6 +48,8 @@ class GcpUserAccessBindingArgs:
         pulumi.set(__self__, "organization_id", organization_id)
         if access_levels is not None:
             pulumi.set(__self__, "access_levels", access_levels)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if scoped_access_settings is not None:
             pulumi.set(__self__, "scoped_access_settings", scoped_access_settings)
         if session_settings is not None:
@@ -72,19 +81,36 @@ class GcpUserAccessBindingArgs:
 
     @_builtins.property
     @pulumi.getter(name="accessLevels")
-    def access_levels(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def access_levels(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
         """
         return pulumi.get(self, "access_levels")
 
     @access_levels.setter
-    def access_levels(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def access_levels(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "access_levels", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="scopedAccessSettings")
-    def scoped_access_settings(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]:
+    def scoped_access_settings(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]:
         """
         Optional. A list of scoped access settings that set this binding's restrictions on a subset of applications.
         Structure is documented below.
@@ -92,12 +118,12 @@ class GcpUserAccessBindingArgs:
         return pulumi.get(self, "scoped_access_settings")
 
     @scoped_access_settings.setter
-    def scoped_access_settings(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]):
+    def scoped_access_settings(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]):
         pulumi.set(self, "scoped_access_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="sessionSettings")
-    def session_settings(self) -> Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']]:
+    def session_settings(self) -> pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']]:
         """
         Optional. The Google Cloud session length (GCSL) policy for the group key.
         Structure is documented below.
@@ -105,23 +131,30 @@ class GcpUserAccessBindingArgs:
         return pulumi.get(self, "session_settings")
 
     @session_settings.setter
-    def session_settings(self, value: Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']]):
+    def session_settings(self, value: pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']]):
         pulumi.set(self, "session_settings", value)
 
 
 @pulumi.input_type
 class _GcpUserAccessBindingState:
     def __init__(__self__, *,
-                 access_levels: Optional[pulumi.Input[_builtins.str]] = None,
-                 group_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scoped_access_settings: Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]] = None,
-                 session_settings: Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']] = None):
+                 access_levels: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scoped_access_settings: pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]] = None,
+                 session_settings: pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']] = None):
         """
         Input properties used for looking up and filtering GcpUserAccessBinding resources.
 
         :param pulumi.Input[_builtins.str] access_levels: Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] group_key: Required. Immutable. Google Group id whose members are subject to this binding's restrictions. See "id" in the G Suite Directory API's Groups resource. If a group's email address/alias is changed, this resource will continue to point at the changed group. This field does not accept group email addresses or aliases. Example: "01d520gv4vjcrht"
         :param pulumi.Input[_builtins.str] name: Immutable. Assigned by the server during creation. The last segment has an arbitrary length and has only URI unreserved characters (as defined by RFC 3986 Section 2.3). Should not be specified by the client during creation. Example: "organizations/256/gcpUserAccessBindings/b3-BhcX_Ud5N"
         :param pulumi.Input[_builtins.str] organization_id: Required. ID of the parent organization.
@@ -132,6 +165,8 @@ class _GcpUserAccessBindingState:
         """
         if access_levels is not None:
             pulumi.set(__self__, "access_levels", access_levels)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if group_key is not None:
             pulumi.set(__self__, "group_key", group_key)
         if name is not None:
@@ -145,55 +180,72 @@ class _GcpUserAccessBindingState:
 
     @_builtins.property
     @pulumi.getter(name="accessLevels")
-    def access_levels(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def access_levels(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
         """
         return pulumi.get(self, "access_levels")
 
     @access_levels.setter
-    def access_levels(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def access_levels(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "access_levels", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="groupKey")
-    def group_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def group_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Immutable. Google Group id whose members are subject to this binding's restrictions. See "id" in the G Suite Directory API's Groups resource. If a group's email address/alias is changed, this resource will continue to point at the changed group. This field does not accept group email addresses or aliases. Example: "01d520gv4vjcrht"
         """
         return pulumi.get(self, "group_key")
 
     @group_key.setter
-    def group_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def group_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "group_key", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. Assigned by the server during creation. The last segment has an arbitrary length and has only URI unreserved characters (as defined by RFC 3986 Section 2.3). Should not be specified by the client during creation. Example: "organizations/256/gcpUserAccessBindings/b3-BhcX_Ud5N"
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="organizationId")
-    def organization_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. ID of the parent organization.
         """
         return pulumi.get(self, "organization_id")
 
     @organization_id.setter
-    def organization_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization_id", value)
 
     @_builtins.property
     @pulumi.getter(name="scopedAccessSettings")
-    def scoped_access_settings(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]:
+    def scoped_access_settings(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]:
         """
         Optional. A list of scoped access settings that set this binding's restrictions on a subset of applications.
         Structure is documented below.
@@ -201,12 +253,12 @@ class _GcpUserAccessBindingState:
         return pulumi.get(self, "scoped_access_settings")
 
     @scoped_access_settings.setter
-    def scoped_access_settings(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]):
+    def scoped_access_settings(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GcpUserAccessBindingScopedAccessSettingArgs']]]]):
         pulumi.set(self, "scoped_access_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="sessionSettings")
-    def session_settings(self) -> Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']]:
+    def session_settings(self) -> pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']]:
         """
         Optional. The Google Cloud session length (GCSL) policy for the group key.
         Structure is documented below.
@@ -214,7 +266,7 @@ class _GcpUserAccessBindingState:
         return pulumi.get(self, "session_settings")
 
     @session_settings.setter
-    def session_settings(self, value: Optional[pulumi.Input['GcpUserAccessBindingSessionSettingsArgs']]):
+    def session_settings(self, value: pulumi.Input[Optional['GcpUserAccessBindingSessionSettingsArgs']]):
         pulumi.set(self, "session_settings", value)
 
 
@@ -224,11 +276,12 @@ class GcpUserAccessBinding(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_levels: Optional[pulumi.Input[_builtins.str]] = None,
-                 group_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scoped_access_settings: Optional[pulumi.Input[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
-                 session_settings: Optional[pulumi.Input[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None,
+                 access_levels: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scoped_access_settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
+                 session_settings: pulumi.Input[Optional[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None,
                  __props__=None):
         """
         Restricts access to Cloud Console and Google Cloud APIs for a set of users using Context-Aware Access.
@@ -296,6 +349,12 @@ class GcpUserAccessBinding(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] access_levels: Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] group_key: Required. Immutable. Google Group id whose members are subject to this binding's restrictions. See "id" in the G Suite Directory API's Groups resource. If a group's email address/alias is changed, this resource will continue to point at the changed group. This field does not accept group email addresses or aliases. Example: "01d520gv4vjcrht"
         :param pulumi.Input[_builtins.str] organization_id: Required. ID of the parent organization.
         :param pulumi.Input[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]] scoped_access_settings: Optional. A list of scoped access settings that set this binding's restrictions on a subset of applications.
@@ -387,11 +446,12 @@ class GcpUserAccessBinding(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_levels: Optional[pulumi.Input[_builtins.str]] = None,
-                 group_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scoped_access_settings: Optional[pulumi.Input[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
-                 session_settings: Optional[pulumi.Input[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None,
+                 access_levels: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 group_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scoped_access_settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
+                 session_settings: pulumi.Input[Optional[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -402,6 +462,7 @@ class GcpUserAccessBinding(pulumi.CustomResource):
             __props__ = GcpUserAccessBindingArgs.__new__(GcpUserAccessBindingArgs)
 
             __props__.__dict__["access_levels"] = access_levels
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if group_key is None and not opts.urn:
                 raise TypeError("Missing required property 'group_key'")
             __props__.__dict__["group_key"] = group_key
@@ -421,12 +482,13 @@ class GcpUserAccessBinding(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            access_levels: Optional[pulumi.Input[_builtins.str]] = None,
-            group_key: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-            scoped_access_settings: Optional[pulumi.Input[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
-            session_settings: Optional[pulumi.Input[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None) -> 'GcpUserAccessBinding':
+            access_levels: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            group_key: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+            scoped_access_settings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['GcpUserAccessBindingScopedAccessSettingArgs', 'GcpUserAccessBindingScopedAccessSettingArgsDict']]]]] = None,
+            session_settings: pulumi.Input[Optional[Union['GcpUserAccessBindingSessionSettingsArgs', 'GcpUserAccessBindingSessionSettingsArgsDict']]] = None) -> 'GcpUserAccessBinding':
         """
         Get an existing GcpUserAccessBinding resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -435,6 +497,12 @@ class GcpUserAccessBinding(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] access_levels: Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] group_key: Required. Immutable. Google Group id whose members are subject to this binding's restrictions. See "id" in the G Suite Directory API's Groups resource. If a group's email address/alias is changed, this resource will continue to point at the changed group. This field does not accept group email addresses or aliases. Example: "01d520gv4vjcrht"
         :param pulumi.Input[_builtins.str] name: Immutable. Assigned by the server during creation. The last segment has an arbitrary length and has only URI unreserved characters (as defined by RFC 3986 Section 2.3). Should not be specified by the client during creation. Example: "organizations/256/gcpUserAccessBindings/b3-BhcX_Ud5N"
         :param pulumi.Input[_builtins.str] organization_id: Required. ID of the parent organization.
@@ -448,6 +516,7 @@ class GcpUserAccessBinding(pulumi.CustomResource):
         __props__ = _GcpUserAccessBindingState.__new__(_GcpUserAccessBindingState)
 
         __props__.__dict__["access_levels"] = access_levels
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["group_key"] = group_key
         __props__.__dict__["name"] = name
         __props__.__dict__["organization_id"] = organization_id
@@ -462,6 +531,19 @@ class GcpUserAccessBinding(pulumi.CustomResource):
         Optional. Access level that a user must have to be granted access. Only one access level is supported, not multiple. This repeated field must have exactly one element. Example: "accessPolicies/9522/accessLevels/device_trusted"
         """
         return pulumi.get(self, "access_levels")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="groupKey")

@@ -25,10 +25,11 @@ class PluginInstanceArgs:
                  location: pulumi.Input[_builtins.str],
                  plugin: pulumi.Input[_builtins.str],
                  plugin_instance_id: pulumi.Input[_builtins.str],
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]] = None,
-                 auth_config: Optional[pulumi.Input['PluginInstanceAuthConfigArgs']] = None,
-                 disable: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]] = None,
+                 auth_config: pulumi.Input[Optional['PluginInstanceAuthConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PluginInstance resource.
 
@@ -47,6 +48,12 @@ class PluginInstanceArgs:
                Structure is documented below.
         :param pulumi.Input['PluginInstanceAuthConfigArgs'] auth_config: AuthConfig represents the authentication information.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -59,6 +66,8 @@ class PluginInstanceArgs:
             pulumi.set(__self__, "actions", actions)
         if auth_config is not None:
             pulumi.set(__self__, "auth_config", auth_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable is not None:
             pulumi.set(__self__, "disable", disable)
         if project is not None:
@@ -121,7 +130,7 @@ class PluginInstanceArgs:
 
     @_builtins.property
     @pulumi.getter
-    def actions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]:
+    def actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]:
         """
         The action status for the plugin instance.
         Structure is documented below.
@@ -129,12 +138,12 @@ class PluginInstanceArgs:
         return pulumi.get(self, "actions")
 
     @actions.setter
-    def actions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]):
+    def actions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]):
         pulumi.set(self, "actions", value)
 
     @_builtins.property
     @pulumi.getter(name="authConfig")
-    def auth_config(self) -> Optional[pulumi.Input['PluginInstanceAuthConfigArgs']]:
+    def auth_config(self) -> pulumi.Input[Optional['PluginInstanceAuthConfigArgs']]:
         """
         AuthConfig represents the authentication information.
         Structure is documented below.
@@ -142,24 +151,41 @@ class PluginInstanceArgs:
         return pulumi.get(self, "auth_config")
 
     @auth_config.setter
-    def auth_config(self, value: Optional[pulumi.Input['PluginInstanceAuthConfigArgs']]):
+    def auth_config(self, value: pulumi.Input[Optional['PluginInstanceAuthConfigArgs']]):
         pulumi.set(self, "auth_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disable(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         The display name for this plugin instance. Max length is 255 characters.
         """
         return pulumi.get(self, "disable")
 
     @disable.setter
-    def disable(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -167,26 +193,27 @@ class PluginInstanceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _PluginInstanceState:
     def __init__(__self__, *,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]] = None,
-                 auth_config: Optional[pulumi.Input['PluginInstanceAuthConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 disable: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 error_message: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin_instance_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]] = None,
+                 auth_config: pulumi.Input[Optional['PluginInstanceAuthConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 error_message: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin_instance_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PluginInstance resources.
 
@@ -195,6 +222,12 @@ class _PluginInstanceState:
         :param pulumi.Input['PluginInstanceAuthConfigArgs'] auth_config: AuthConfig represents the authentication information.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp indicating when the plugin instance was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] display_name: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] error_message: Error message describing the failure, if any, during Create, Delete or
@@ -233,6 +266,8 @@ class _PluginInstanceState:
             pulumi.set(__self__, "auth_config", auth_config)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disable is not None:
             pulumi.set(__self__, "disable", disable)
         if display_name is not None:
@@ -256,7 +291,7 @@ class _PluginInstanceState:
 
     @_builtins.property
     @pulumi.getter
-    def actions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]:
+    def actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]:
         """
         The action status for the plugin instance.
         Structure is documented below.
@@ -264,12 +299,12 @@ class _PluginInstanceState:
         return pulumi.get(self, "actions")
 
     @actions.setter
-    def actions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]):
+    def actions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PluginInstanceActionArgs']]]]):
         pulumi.set(self, "actions", value)
 
     @_builtins.property
     @pulumi.getter(name="authConfig")
-    def auth_config(self) -> Optional[pulumi.Input['PluginInstanceAuthConfigArgs']]:
+    def auth_config(self) -> pulumi.Input[Optional['PluginInstanceAuthConfigArgs']]:
         """
         AuthConfig represents the authentication information.
         Structure is documented below.
@@ -277,48 +312,65 @@ class _PluginInstanceState:
         return pulumi.get(self, "auth_config")
 
     @auth_config.setter
-    def auth_config(self, value: Optional[pulumi.Input['PluginInstanceAuthConfigArgs']]):
+    def auth_config(self, value: pulumi.Input[Optional['PluginInstanceAuthConfigArgs']]):
         pulumi.set(self, "auth_config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp indicating when the plugin instance was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disable(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disable(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         The display name for this plugin instance. Max length is 255 characters.
         """
         return pulumi.get(self, "disable")
 
     @disable.setter
-    def disable(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disable(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disable", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name for this plugin instance. Max length is 255 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="errorMessage")
-    def error_message(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def error_message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Error message describing the failure, if any, during Create, Delete or
         ApplyConfig operation corresponding to the plugin instance.This field will
@@ -327,24 +379,24 @@ class _PluginInstanceState:
         return pulumi.get(self, "error_message")
 
     @error_message.setter
-    def error_message(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def error_message(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "error_message", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The unique name of the plugin instance resource.
         Format:
@@ -353,24 +405,24 @@ class _PluginInstanceState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def plugin(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def plugin(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "plugin")
 
     @plugin.setter
-    def plugin(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def plugin(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "plugin", value)
 
     @_builtins.property
     @pulumi.getter(name="pluginInstanceId")
-    def plugin_instance_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def plugin_instance_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the plugin instance, which will become the final
         component of the plugin instance's resource name. This field is optional.
@@ -384,12 +436,12 @@ class _PluginInstanceState:
         return pulumi.get(self, "plugin_instance_id")
 
     @plugin_instance_id.setter
-    def plugin_instance_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def plugin_instance_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "plugin_instance_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -397,12 +449,12 @@ class _PluginInstanceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the plugin instance (e.g., enabled, disabled,
         provisioning).
@@ -418,19 +470,19 @@ class _PluginInstanceState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp indicating when the plugin instance was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -440,14 +492,15 @@ class PluginInstance(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
-                 auth_config: Optional[pulumi.Input[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
-                 disable: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin_instance_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
+                 auth_config: pulumi.Input[Optional[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin_instance_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Description
@@ -494,6 +547,12 @@ class PluginInstance(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']] auth_config: AuthConfig represents the authentication information.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] display_name: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] location: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
@@ -569,14 +628,15 @@ class PluginInstance(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
-                 auth_config: Optional[pulumi.Input[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
-                 disable: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin: Optional[pulumi.Input[_builtins.str]] = None,
-                 plugin_instance_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
+                 auth_config: pulumi.Input[Optional[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disable: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin: pulumi.Input[Optional[_builtins.str]] = None,
+                 plugin_instance_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -588,6 +648,7 @@ class PluginInstance(pulumi.CustomResource):
 
             __props__.__dict__["actions"] = actions
             __props__.__dict__["auth_config"] = auth_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disable"] = disable
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -617,19 +678,20 @@ class PluginInstance(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
-            auth_config: Optional[pulumi.Input[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            disable: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            error_message: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            plugin: Optional[pulumi.Input[_builtins.str]] = None,
-            plugin_instance_id: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'PluginInstance':
+            actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PluginInstanceActionArgs', 'PluginInstanceActionArgsDict']]]]] = None,
+            auth_config: pulumi.Input[Optional[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disable: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            error_message: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            plugin: pulumi.Input[Optional[_builtins.str]] = None,
+            plugin_instance_id: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'PluginInstance':
         """
         Get an existing PluginInstance resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -642,6 +704,12 @@ class PluginInstance(pulumi.CustomResource):
         :param pulumi.Input[Union['PluginInstanceAuthConfigArgs', 'PluginInstanceAuthConfigArgsDict']] auth_config: AuthConfig represents the authentication information.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp indicating when the plugin instance was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disable: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] display_name: The display name for this plugin instance. Max length is 255 characters.
         :param pulumi.Input[_builtins.str] error_message: Error message describing the failure, if any, during Create, Delete or
@@ -681,6 +749,7 @@ class PluginInstance(pulumi.CustomResource):
         __props__.__dict__["actions"] = actions
         __props__.__dict__["auth_config"] = auth_config
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disable"] = disable
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["error_message"] = error_message
@@ -718,6 +787,19 @@ class PluginInstance(pulumi.CustomResource):
         Timestamp indicating when the plugin instance was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

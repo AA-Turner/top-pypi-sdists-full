@@ -6,18 +6,19 @@ from asyncio import (
     get_running_loop,
     timeout as asyncio_timeout,
 )
-from collections.abc import Coroutine
 import ipaddress
 import math
 import sys
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
 
 _T = TypeVar("_T")
 
 
 def fix_float_single_double_conversion(value: float) -> float:
-    """Fix precision for single-precision floats and return what was probably
-    meant as a float.
+    """Restore precision of a single-precision float carried over a double.
 
     In ESPHome we work with single-precision floats internally for performance.
     But python uses double-precision floats, and when protobuf reads the message
@@ -88,8 +89,8 @@ def build_log_name(
         return name or addresses[0]
     if (
         name
-        and name != preferred_address
-        and not preferred_address.startswith(f"{name}.")
+        and name.lower() != preferred_address.lower()
+        and not preferred_address.lower().startswith(f"{name.lower()}.")
     ):
         return f"{name} @ {preferred_address}"
     return preferred_address

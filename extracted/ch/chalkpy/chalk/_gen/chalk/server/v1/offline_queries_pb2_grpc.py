@@ -41,6 +41,11 @@ class OfflineQueryMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.FromString,
         )
+        self.GetOfflineQueryProfileSummary = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryProfileSummary",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.FromString,
+        )
         self.ListOfflineQueryShardPerformanceSummaries = channel.unary_unary(
             "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShardPerformanceSummaries",
             request_serializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesRequest.SerializeToString,
@@ -111,6 +116,12 @@ class OfflineQueryMetadataServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetOfflineQueryInfraSummary(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineQueryProfileSummary(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -191,6 +202,11 @@ def add_OfflineQueryMetadataServiceServicer_to_server(servicer, server):
             servicer.GetOfflineQueryInfraSummary,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.SerializeToString,
+        ),
+        "GetOfflineQueryProfileSummary": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryProfileSummary,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.SerializeToString,
         ),
         "ListOfflineQueryShardPerformanceSummaries": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineQueryShardPerformanceSummaries,
@@ -378,6 +394,35 @@ class OfflineQueryMetadataService(object):
             "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryInfraSummary",
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryProfileSummary(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryProfileSummary",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.FromString,
             options,
             channel_credentials,
             insecure,

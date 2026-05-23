@@ -22,20 +22,27 @@ __all__ = ['EntryArgs', 'Entry']
 class EntryArgs:
     def __init__(__self__, *,
                  entry_type: pulumi.Input[_builtins.str],
-                 aspects: Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]] = None,
-                 entry_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_source: Optional[pulumi.Input['EntryEntrySourceArgs']] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_entry: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 aspects: pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_source: pulumi.Input[Optional['EntryEntrySourceArgs']] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_entry: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Entry resource.
 
         :param pulumi.Input[_builtins.str] entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}.
         :param pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]] aspects: The aspects that are attached to the entry.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] entry_group_id: The entry group id of the entry group the entry will be created in.
         :param pulumi.Input[_builtins.str] entry_id: The entry id of the entry.
         :param pulumi.Input['EntryEntrySourceArgs'] entry_source: A nested object resource.
@@ -50,6 +57,8 @@ class EntryArgs:
         pulumi.set(__self__, "entry_type", entry_type)
         if aspects is not None:
             pulumi.set(__self__, "aspects", aspects)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if entry_group_id is not None:
             pulumi.set(__self__, "entry_group_id", entry_group_id)
         if entry_id is not None:
@@ -79,7 +88,7 @@ class EntryArgs:
 
     @_builtins.property
     @pulumi.getter
-    def aspects(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]]:
+    def aspects(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]]:
         """
         The aspects that are attached to the entry.
         Structure is documented below.
@@ -87,36 +96,53 @@ class EntryArgs:
         return pulumi.get(self, "aspects")
 
     @aspects.setter
-    def aspects(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]]):
+    def aspects(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]]):
         pulumi.set(self, "aspects", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="entryGroupId")
-    def entry_group_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entry_group_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The entry group id of the entry group the entry will be created in.
         """
         return pulumi.get(self, "entry_group_id")
 
     @entry_group_id.setter
-    def entry_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entry_group_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entry_group_id", value)
 
     @_builtins.property
     @pulumi.getter(name="entryId")
-    def entry_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entry_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The entry id of the entry.
         """
         return pulumi.get(self, "entry_id")
 
     @entry_id.setter
-    def entry_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entry_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entry_id", value)
 
     @_builtins.property
     @pulumi.getter(name="entrySource")
-    def entry_source(self) -> Optional[pulumi.Input['EntryEntrySourceArgs']]:
+    def entry_source(self) -> pulumi.Input[Optional['EntryEntrySourceArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -124,12 +150,12 @@ class EntryArgs:
         return pulumi.get(self, "entry_source")
 
     @entry_source.setter
-    def entry_source(self, value: Optional[pulumi.Input['EntryEntrySourceArgs']]):
+    def entry_source(self, value: pulumi.Input[Optional['EntryEntrySourceArgs']]):
         pulumi.set(self, "entry_source", value)
 
     @_builtins.property
     @pulumi.getter(name="fullyQualifiedName")
-    def fully_qualified_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fully_qualified_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names.
         The maximum size of the field is 4000 characters.
@@ -137,36 +163,36 @@ class EntryArgs:
         return pulumi.get(self, "fully_qualified_name")
 
     @fully_qualified_name.setter
-    def fully_qualified_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fully_qualified_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fully_qualified_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where entry will be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="parentEntry")
-    def parent_entry(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent_entry(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}.
         """
         return pulumi.get(self, "parent_entry")
 
     @parent_entry.setter
-    def parent_entry(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent_entry(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent_entry", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -174,31 +200,38 @@ class EntryArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _EntryState:
     def __init__(__self__, *,
-                 aspects: Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_source: Optional[pulumi.Input['EntryEntrySourceArgs']] = None,
-                 entry_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_entry: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 aspects: pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_source: pulumi.Input[Optional['EntryEntrySourceArgs']] = None,
+                 entry_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_entry: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Entry resources.
 
         :param pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]] aspects: The aspects that are attached to the entry.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The time when the Entry was created in Dataplex.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] entry_group_id: The entry group id of the entry group the entry will be created in.
         :param pulumi.Input[_builtins.str] entry_id: The entry id of the entry.
         :param pulumi.Input['EntryEntrySourceArgs'] entry_source: A nested object resource.
@@ -217,6 +250,8 @@ class _EntryState:
             pulumi.set(__self__, "aspects", aspects)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if entry_group_id is not None:
             pulumi.set(__self__, "entry_group_id", entry_group_id)
         if entry_id is not None:
@@ -240,7 +275,7 @@ class _EntryState:
 
     @_builtins.property
     @pulumi.getter
-    def aspects(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]]:
+    def aspects(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]]:
         """
         The aspects that are attached to the entry.
         Structure is documented below.
@@ -248,48 +283,65 @@ class _EntryState:
         return pulumi.get(self, "aspects")
 
     @aspects.setter
-    def aspects(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EntryAspectArgs']]]]):
+    def aspects(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['EntryAspectArgs']]]]):
         pulumi.set(self, "aspects", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the Entry was created in Dataplex.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="entryGroupId")
-    def entry_group_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entry_group_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The entry group id of the entry group the entry will be created in.
         """
         return pulumi.get(self, "entry_group_id")
 
     @entry_group_id.setter
-    def entry_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entry_group_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entry_group_id", value)
 
     @_builtins.property
     @pulumi.getter(name="entryId")
-    def entry_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entry_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The entry id of the entry.
         """
         return pulumi.get(self, "entry_id")
 
     @entry_id.setter
-    def entry_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entry_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entry_id", value)
 
     @_builtins.property
     @pulumi.getter(name="entrySource")
-    def entry_source(self) -> Optional[pulumi.Input['EntryEntrySourceArgs']]:
+    def entry_source(self) -> pulumi.Input[Optional['EntryEntrySourceArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -297,24 +349,24 @@ class _EntryState:
         return pulumi.get(self, "entry_source")
 
     @entry_source.setter
-    def entry_source(self, value: Optional[pulumi.Input['EntryEntrySourceArgs']]):
+    def entry_source(self, value: pulumi.Input[Optional['EntryEntrySourceArgs']]):
         pulumi.set(self, "entry_source", value)
 
     @_builtins.property
     @pulumi.getter(name="entryType")
-    def entry_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entry_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}.
         """
         return pulumi.get(self, "entry_type")
 
     @entry_type.setter
-    def entry_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entry_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entry_type", value)
 
     @_builtins.property
     @pulumi.getter(name="fullyQualifiedName")
-    def fully_qualified_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fully_qualified_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names.
         The maximum size of the field is 4000 characters.
@@ -322,48 +374,48 @@ class _EntryState:
         return pulumi.get(self, "fully_qualified_name")
 
     @fully_qualified_name.setter
-    def fully_qualified_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fully_qualified_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fully_qualified_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where entry will be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="parentEntry")
-    def parent_entry(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent_entry(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}.
         """
         return pulumi.get(self, "parent_entry")
 
     @parent_entry.setter
-    def parent_entry(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent_entry(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent_entry", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -371,19 +423,19 @@ class _EntryState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time when the entry was last updated in Dataplex.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -393,15 +445,16 @@ class Entry(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 aspects: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
-                 entry_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_source: Optional[pulumi.Input[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
-                 entry_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_entry: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 aspects: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_source: pulumi.Input[Optional[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
+                 entry_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_entry: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An entry represents a data asset for which you capture metadata, such as a BigQuery table.
@@ -753,6 +806,12 @@ class Entry(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]] aspects: The aspects that are attached to the entry.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] entry_group_id: The entry group id of the entry group the entry will be created in.
         :param pulumi.Input[_builtins.str] entry_id: The entry id of the entry.
         :param pulumi.Input[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']] entry_source: A nested object resource.
@@ -1132,15 +1191,16 @@ class Entry(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 aspects: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
-                 entry_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 entry_source: Optional[pulumi.Input[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
-                 entry_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_entry: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 aspects: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 entry_source: pulumi.Input[Optional[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
+                 entry_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_entry: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1151,6 +1211,7 @@ class Entry(pulumi.CustomResource):
             __props__ = EntryArgs.__new__(EntryArgs)
 
             __props__.__dict__["aspects"] = aspects
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["entry_group_id"] = entry_group_id
             __props__.__dict__["entry_id"] = entry_id
             __props__.__dict__["entry_source"] = entry_source
@@ -1174,18 +1235,19 @@ class Entry(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            aspects: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            entry_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-            entry_id: Optional[pulumi.Input[_builtins.str]] = None,
-            entry_source: Optional[pulumi.Input[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
-            entry_type: Optional[pulumi.Input[_builtins.str]] = None,
-            fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent_entry: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Entry':
+            aspects: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            entry_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+            entry_id: pulumi.Input[Optional[_builtins.str]] = None,
+            entry_source: pulumi.Input[Optional[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']]] = None,
+            entry_type: pulumi.Input[Optional[_builtins.str]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent_entry: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Entry':
         """
         Get an existing Entry resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1196,6 +1258,12 @@ class Entry(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['EntryAspectArgs', 'EntryAspectArgsDict']]]] aspects: The aspects that are attached to the entry.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The time when the Entry was created in Dataplex.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] entry_group_id: The entry group id of the entry group the entry will be created in.
         :param pulumi.Input[_builtins.str] entry_id: The entry id of the entry.
         :param pulumi.Input[Union['EntryEntrySourceArgs', 'EntryEntrySourceArgsDict']] entry_source: A nested object resource.
@@ -1216,6 +1284,7 @@ class Entry(pulumi.CustomResource):
 
         __props__.__dict__["aspects"] = aspects
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["entry_group_id"] = entry_group_id
         __props__.__dict__["entry_id"] = entry_id
         __props__.__dict__["entry_source"] = entry_source
@@ -1244,6 +1313,19 @@ class Entry(pulumi.CustomResource):
         The time when the Entry was created in Dataplex.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="entryGroupId")

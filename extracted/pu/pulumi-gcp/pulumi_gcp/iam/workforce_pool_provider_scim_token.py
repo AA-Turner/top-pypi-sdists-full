@@ -24,7 +24,8 @@ class WorkforcePoolProviderScimTokenArgs:
                  scim_tenant_id: pulumi.Input[_builtins.str],
                  scim_token_id: pulumi.Input[_builtins.str],
                  workforce_pool_id: pulumi.Input[_builtins.str],
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkforcePoolProviderScimToken resource.
 
@@ -33,6 +34,12 @@ class WorkforcePoolProviderScimTokenArgs:
         :param pulumi.Input[_builtins.str] scim_tenant_id: The ID of the SCIM Tenant.
         :param pulumi.Input[_builtins.str] scim_token_id: The ID to use for the SCIM Token, which becomes the final component of the resource name. This value should be 4-32 characters and follow the pattern: `(a-z)`.
         :param pulumi.Input[_builtins.str] workforce_pool_id: The ID of the Workforce Pool.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name for the scim token. Cannot exceed 32 characters.
         """
         pulumi.set(__self__, "location", location)
@@ -40,6 +47,8 @@ class WorkforcePoolProviderScimTokenArgs:
         pulumi.set(__self__, "scim_tenant_id", scim_tenant_id)
         pulumi.set(__self__, "scim_token_id", scim_token_id)
         pulumi.set(__self__, "workforce_pool_id", workforce_pool_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
 
@@ -104,33 +113,57 @@ class WorkforcePoolProviderScimTokenArgs:
         pulumi.set(self, "workforce_pool_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name for the scim token. Cannot exceed 32 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
 
 @pulumi.input_type
 class _WorkforcePoolProviderScimTokenState:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_token_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_token: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_token_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_token: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkforcePoolProviderScimToken resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name for the scim token. Cannot exceed 32 characters.
         :param pulumi.Input[_builtins.str] location: The location for the resource.
         :param pulumi.Input[_builtins.str] name: Identifier. The resource name of the scim token.
@@ -144,6 +177,8 @@ class _WorkforcePoolProviderScimTokenState:
                * DELETED: The token is soft-deleted. Soft-deleted tokens are permanently deleted after approximately 30 days.
         :param pulumi.Input[_builtins.str] workforce_pool_id: The ID of the Workforce Pool.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if location is not None:
@@ -164,32 +199,49 @@ class _WorkforcePoolProviderScimTokenState:
             pulumi.set(__self__, "workforce_pool_id", workforce_pool_id)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-specified display name for the scim token. Cannot exceed 32 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the scim token.
         Format: `locations/{location}/workforcePools/{workforce_pool}/providers/{workforce_pool_provider}/scimTenants/{scim_tenant_id}/tokens/{scim_token_id}`
@@ -197,60 +249,60 @@ class _WorkforcePoolProviderScimTokenState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="providerId")
-    def provider_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def provider_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Provider.
         """
         return pulumi.get(self, "provider_id")
 
     @provider_id.setter
-    def provider_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def provider_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "provider_id", value)
 
     @_builtins.property
     @pulumi.getter(name="scimTenantId")
-    def scim_tenant_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scim_tenant_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the SCIM Tenant.
         """
         return pulumi.get(self, "scim_tenant_id")
 
     @scim_tenant_id.setter
-    def scim_tenant_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scim_tenant_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scim_tenant_id", value)
 
     @_builtins.property
     @pulumi.getter(name="scimTokenId")
-    def scim_token_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scim_token_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the SCIM Token, which becomes the final component of the resource name. This value should be 4-32 characters and follow the pattern: `(a-z)`.
         """
         return pulumi.get(self, "scim_token_id")
 
     @scim_token_id.setter
-    def scim_token_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scim_token_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scim_token_id", value)
 
     @_builtins.property
     @pulumi.getter(name="securityToken")
-    def security_token(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_token(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The token string provided to the IdP for authentication and will be set only during creation.
         """
         return pulumi.get(self, "security_token")
 
     @security_token.setter
-    def security_token(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_token(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_token", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current state of the scim token.
         * ACTIVE: The token is active and may be used to provision users and groups.
@@ -259,19 +311,19 @@ class _WorkforcePoolProviderScimTokenState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="workforcePoolId")
-    def workforce_pool_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def workforce_pool_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Workforce Pool.
         """
         return pulumi.get(self, "workforce_pool_id")
 
     @workforce_pool_id.setter
-    def workforce_pool_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def workforce_pool_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workforce_pool_id", value)
 
 
@@ -281,12 +333,13 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_token_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_token_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a SCIM Token for a Workforce Pool Provider Scim Tenant.
@@ -376,6 +429,12 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name for the scim token. Cannot exceed 32 characters.
         :param pulumi.Input[_builtins.str] location: The location for the resource.
         :param pulumi.Input[_builtins.str] provider_id: The ID of the Provider.
@@ -490,12 +549,13 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 scim_token_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 scim_token_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -505,6 +565,7 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = WorkforcePoolProviderScimTokenArgs.__new__(WorkforcePoolProviderScimTokenArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -534,15 +595,16 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            provider_id: Optional[pulumi.Input[_builtins.str]] = None,
-            scim_tenant_id: Optional[pulumi.Input[_builtins.str]] = None,
-            scim_token_id: Optional[pulumi.Input[_builtins.str]] = None,
-            security_token: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            workforce_pool_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkforcePoolProviderScimToken':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            provider_id: pulumi.Input[Optional[_builtins.str]] = None,
+            scim_tenant_id: pulumi.Input[Optional[_builtins.str]] = None,
+            scim_token_id: pulumi.Input[Optional[_builtins.str]] = None,
+            security_token: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            workforce_pool_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'WorkforcePoolProviderScimToken':
         """
         Get an existing WorkforcePoolProviderScimToken resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -550,6 +612,12 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: A user-specified display name for the scim token. Cannot exceed 32 characters.
         :param pulumi.Input[_builtins.str] location: The location for the resource.
         :param pulumi.Input[_builtins.str] name: Identifier. The resource name of the scim token.
@@ -567,6 +635,7 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
 
         __props__ = _WorkforcePoolProviderScimTokenState.__new__(_WorkforcePoolProviderScimTokenState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -577,6 +646,19 @@ class WorkforcePoolProviderScimToken(pulumi.CustomResource):
         __props__.__dict__["state"] = state
         __props__.__dict__["workforce_pool_id"] = workforce_pool_id
         return WorkforcePoolProviderScimToken(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

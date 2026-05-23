@@ -114,8 +114,8 @@ def get_service_account_project_assignments(client_id: Optional[_builtins.str] =
         roles=["GROUP_READ_ONLY"])
     this = mongodbatlas.get_service_account_project_assignment_output(project_id=this_service_account_project_assignment.project_id,
         client_id=this_service_account_project_assignment.client_id)
-    this_get_service_account_project_assignments = this_service_account.client_id.apply(lambda client_id: mongodbatlas.get_service_account_project_assignments_output(org_id=org_id,
-        client_id=client_id))
+    this_get_service_account_project_assignments = mongodbatlas.get_service_account_project_assignments_output(org_id=org_id,
+        client_id=this_service_account.client_id)
     pulumi.export("serviceAccountProjectRoles", this.roles)
     pulumi.export("serviceAccountAssignedProjects", this_get_service_account_project_assignments.results)
     ```
@@ -135,8 +135,8 @@ def get_service_account_project_assignments(client_id: Optional[_builtins.str] =
         id=pulumi.get(__ret__, 'id'),
         org_id=pulumi.get(__ret__, 'org_id'),
         results=pulumi.get(__ret__, 'results'))
-def get_service_account_project_assignments_output(client_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                                   org_id: Optional[pulumi.Input[_builtins.str]] = None,
+def get_service_account_project_assignments_output(client_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                                   org_id: pulumi.Input[Optional[_builtins.str]] = None,
                                                    opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetServiceAccountProjectAssignmentsResult]:
     """
     `get_service_account_project_assignments` returns all Projects that the specified Service Account is assigned to.
@@ -163,8 +163,8 @@ def get_service_account_project_assignments_output(client_id: Optional[pulumi.In
         roles=["GROUP_READ_ONLY"])
     this = mongodbatlas.get_service_account_project_assignment_output(project_id=this_service_account_project_assignment.project_id,
         client_id=this_service_account_project_assignment.client_id)
-    this_get_service_account_project_assignments = this_service_account.client_id.apply(lambda client_id: mongodbatlas.get_service_account_project_assignments_output(org_id=org_id,
-        client_id=client_id))
+    this_get_service_account_project_assignments = mongodbatlas.get_service_account_project_assignments_output(org_id=org_id,
+        client_id=this_service_account.client_id)
     pulumi.export("serviceAccountProjectRoles", this.roles)
     pulumi.export("serviceAccountAssignedProjects", this_get_service_account_project_assignments.results)
     ```

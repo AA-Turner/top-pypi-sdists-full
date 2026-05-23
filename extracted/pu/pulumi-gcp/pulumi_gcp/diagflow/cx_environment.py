@@ -23,20 +23,29 @@ class CxEnvironmentArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
                  version_configs: pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a CxEnvironment resource.
 
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters.
         :param pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]] version_configs: A list of configurations for flow versions. You should include version configs for all flows that are reachable from [Start Flow][Agent.start_flow] in the agent. Otherwise, an error will be returned.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] parent: The Agent to create an Environment for.
                Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
         """
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "version_configs", version_configs)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if parent is not None:
@@ -68,20 +77,37 @@ class CxEnvironmentArgs:
         pulumi.set(self, "version_configs", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Agent to create an Environment for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -89,22 +115,29 @@ class CxEnvironmentArgs:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
 
 @pulumi.input_type
 class _CxEnvironmentState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_configs: Optional[pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_configs: pulumi.Input[Optional[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]] = None):
         """
         Input properties used for looking up and filtering CxEnvironment resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters.
         :param pulumi.Input[_builtins.str] name: The name of the environment.
@@ -114,6 +147,8 @@ class _CxEnvironmentState:
         :param pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]] version_configs: A list of configurations for flow versions. You should include version configs for all flows that are reachable from [Start Flow][Agent.start_flow] in the agent. Otherwise, an error will be returned.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -128,44 +163,61 @@ class _CxEnvironmentState:
             pulumi.set(__self__, "version_configs", version_configs)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable name of the environment (unique in an agent). Limit of 64 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the environment.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Agent to create an Environment for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -173,24 +225,24 @@ class _CxEnvironmentState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Update time of this environment. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="versionConfigs")
-    def version_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]]:
+    def version_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]]:
         """
         A list of configurations for flow versions. You should include version configs for all flows that are reachable from [Start Flow][Agent.start_flow] in the agent. Otherwise, an error will be returned.
         Structure is documented below.
@@ -198,7 +250,7 @@ class _CxEnvironmentState:
         return pulumi.get(self, "version_configs")
 
     @version_configs.setter
-    def version_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]]):
+    def version_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxEnvironmentVersionConfigArgs']]]]):
         pulumi.set(self, "version_configs", value)
 
 
@@ -208,10 +260,11 @@ class CxEnvironment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None,
                  __props__=None):
         """
         Represents an environment for an agent. You can create multiple versions of your agent and publish them to separate environments.
@@ -279,6 +332,12 @@ class CxEnvironment(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters.
         :param pulumi.Input[_builtins.str] parent: The Agent to create an Environment for.
@@ -371,10 +430,11 @@ class CxEnvironment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -384,6 +444,7 @@ class CxEnvironment(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = CxEnvironmentArgs.__new__(CxEnvironmentArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -404,12 +465,13 @@ class CxEnvironment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            version_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None) -> 'CxEnvironment':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            version_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxEnvironmentVersionConfigArgs', 'CxEnvironmentVersionConfigArgsDict']]]]] = None) -> 'CxEnvironment':
         """
         Get an existing CxEnvironment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -417,6 +479,12 @@ class CxEnvironment(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters.
         :param pulumi.Input[_builtins.str] name: The name of the environment.
@@ -430,6 +498,7 @@ class CxEnvironment(pulumi.CustomResource):
 
         __props__ = _CxEnvironmentState.__new__(_CxEnvironmentState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["name"] = name
@@ -437,6 +506,19 @@ class CxEnvironment(pulumi.CustomResource):
         __props__.__dict__["update_time"] = update_time
         __props__.__dict__["version_configs"] = version_configs
         return CxEnvironment(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

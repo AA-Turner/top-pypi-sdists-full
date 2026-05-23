@@ -1,61 +1,72 @@
 """
 Async Examples for Cartesia Python SDK v3.x
+
+Run an example:
+    uv sync && CARTESIA_API_KEY=... uv run examples/async_examples.py <functionName>
 """
 
 from __future__ import annotations
 
 import asyncio
 import datetime
-from typing import IO, Optional
+from typing import IO
 
 from cartesia import (
     AsyncCartesia,
 )
+from cartesia.types import RawOutputFormatParam
 
 # =============================================================================
 # TTS Bytes (Async)
 # =============================================================================
 
+
 async def tts_generate_async(client: AsyncCartesia) -> None:
     """Async TTS generation to file."""
     response = await client.tts.generate(
-        model_id="sonic-3",
+        model_id="sonic-latest",
         transcript="Hello, world!",
         voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
         output_format={"container": "wav", "encoding": "pcm_f32le", "sample_rate": 44100},
+        language="en",
     )
     await response.write_to_file("output_async.wav")
     print("Saved audio to output_async.wav")
     print("Play with: ffplay -f wav output_async.wav")
 
+
 async def tts_bytes_async(client: AsyncCartesia) -> None:
     """Async bytes iterator."""
     response = await client.tts.bytes(  # pyright: ignore[reportDeprecated]
-        model_id="sonic-3",
+        model_id="sonic-latest",
         transcript="Hello, world!",
         voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
         output_format={"container": "wav", "encoding": "pcm_f32le", "sample_rate": 44100},
+        language="en",
     )
-    
+
     filename = "output_bytes_async.wav"
     with open(filename, "wb") as f:
         async for chunk in response:
             f.write(chunk)
-            
+
     print(f"Saved audio to {filename}")
     print(f"Play with: ffplay -f wav {filename}")
+
 
 # =============================================================================
 # TTS SSE (Async)
 # =============================================================================
 
+
 async def tts_sse_basic_async(client: AsyncCartesia) -> None:
     """Async SSE streaming."""
     stream = await client.tts.generate_sse(
-        model_id="sonic-3",
+        model_id="sonic-latest",
         transcript="Hello, world!",
         voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
         output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+        language="en",
     )
 
     filename = f"tts_sse_async_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pcm"
@@ -68,18 +79,20 @@ async def tts_sse_basic_async(client: AsyncCartesia) -> None:
             elif event.type == "done":
                 break
             elif event.type == "error":
-                raise Exception(f"Error: {event.error}")
+                raise Exception(f"{event.title}: {event.message}")
 
     print(f"Saved audio to {filename}")
     print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
 
+
 async def tts_sse_with_timestamps_async(client: AsyncCartesia) -> None:
     """Async SSE streaming with timestamps."""
     stream = await client.tts.generate_sse(
-        model_id="sonic-3",
+        model_id="sonic-latest",
         transcript="Hello, world!",
         voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
         output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+        language="en",
         add_timestamps=True,
     )
 
@@ -97,53 +110,55 @@ async def tts_sse_with_timestamps_async(client: AsyncCartesia) -> None:
             elif event.type == "done":
                 break
             elif event.type == "error":
-                raise Exception(f"Error: {event.error}")
+                raise Exception(f"{event.title}: {event.message}")
 
     print(f"Saved audio to {filename}")
     print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
+
 
 # =============================================================================
 # TTS WebSocket (Async)
 # =============================================================================
 
+
 async def tts_websocket_basic_async(client: AsyncCartesia) -> None:
     """Async WebSocket usage with websocket_connect()."""
-    async with client.tts.websocket_connect() as connection:
-        await connection.send({
-            "model_id": "sonic-3",
-            "transcript": "Hello, world!",
-            "voice": {"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            "output_format": {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
-        })
+    async with client.tts.websocket_connect() as ws:
+        ctx = ws.context(
+            model_id="sonic-latest",
+            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
+            output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+            language="en",
+        )
+        await ctx.push("Hello, world!")
+        await ctx.no_more_inputs()
 
         filename = f"tts_ws_basic_async_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pcm"
 
         with open(filename, "wb") as f:
-            async for response in connection:
+            async for response in ctx.receive():
                 if response.type == "chunk" and response.audio:
                     f.write(response.audio)
-                elif response.done:
-                    break
-        
+                elif response.type == "error":
+                    print(f"error: {response.message or response.title}")
+
         print(f"Saved audio to {filename}")
         print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
+
 
 async def tts_websocket_continuations_async(client: AsyncCartesia) -> None:
     """Async streaming multiple transcripts with continuations."""
     transcripts = ["The only thing we have to fear ", "is ", "fear itself."]
-    output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
 
-    async with client.tts.websocket_connect() as connection:
-        ctx = connection.context()
+    async with client.tts.websocket_connect() as ws:
+        ctx = ws.context(
+            model_id="sonic-latest",
+            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
+            output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+        )
 
         for transcript in transcripts:
-            await ctx.send(
-                model_id="sonic-3",
-                transcript=transcript,
-                voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-                output_format=output_format,
-                continue_=True,
-            )
+            await ctx.push(transcript)
 
         await ctx.no_more_inputs()
 
@@ -153,54 +168,43 @@ async def tts_websocket_continuations_async(client: AsyncCartesia) -> None:
             async for response in ctx.receive():
                 if response.type == "chunk" and response.audio:
                     f.write(response.audio)
+                elif response.type == "error":
+                    print(f"error: {response.message or response.title}")
 
         print(f"Saved audio to {filename}")
         print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
 
+
 async def tts_websocket_flushing_async(client: AsyncCartesia) -> None:
     """Async manual flushing example."""
     transcripts = ["First transcript.", "Second transcript."]
-    output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
 
-    async with client.tts.websocket_connect() as connection:
-        ctx = connection.context()
+    async with client.tts.websocket_connect() as ws:
+        ctx = ws.context(
+            model_id="sonic-latest",
+            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
+            output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+            language="en",
+        )
 
         # 1. Send first transcript
         print("Sending first transcript...")
-        await ctx.send(
-            model_id="sonic-3",
-            transcript=transcripts[0],
-            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            output_format=output_format,
-            continue_=True,
-        )
+        await ctx.push(transcripts[0])
 
         # 2. Flush!
         print("Flushing...")
-        await ctx.send(
-            model_id="sonic-3",
-            transcript="",
-            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            output_format=output_format,
-            continue_=True,
-            flush=True,
-        )
+        await ctx.push("", flush=True)
 
         # 3. Send second transcript
         print("Sending second transcript...")
-        await ctx.send(
-            model_id="sonic-3",
-            transcript=transcripts[1],
-            voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            output_format=output_format,
-            continue_=True,
-        )
+        await ctx.push(transcripts[1])
 
         await ctx.no_more_inputs()
 
         import datetime
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
         files: dict[int, IO[bytes]] = {}
 
         async for response in ctx.receive():
@@ -217,6 +221,9 @@ async def tts_websocket_flushing_async(client: AsyncCartesia) -> None:
             elif response.type == "flush_done":
                 print(f"Flush done received for flush_id: {response.flush_id}")
 
+            elif response.type == "error":
+                print(f"error: {response.message or response.title}")
+
         for f in files.values():
             f.close()
 
@@ -225,15 +232,16 @@ async def tts_websocket_flushing_async(client: AsyncCartesia) -> None:
         for flush_id, f in files.items():
             print(f"  Flush ID {flush_id}: ffplay -f f32le -ar 44100 {f.name}")
 
+
 async def tts_websocket_emotion_async(client: AsyncCartesia) -> None:
     """Async emotion changing example."""
-    output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
 
-    async with client.tts.websocket_connect() as connection:
-        ctx = connection.context(
-            model_id="sonic-3",
+    async with client.tts.websocket_connect() as ws:
+        ctx = ws.context(
+            model_id="sonic-latest",
             voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            output_format=output_format
+            output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+            language="en",
         )
 
         print("Sending neutral text...")
@@ -245,25 +253,29 @@ async def tts_websocket_emotion_async(client: AsyncCartesia) -> None:
         await ctx.no_more_inputs()
 
         import datetime
+
         filename = f"tts_emotion_async_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pcm"
 
         with open(filename, "wb") as f:
             async for response in ctx.receive():
                 if response.type == "chunk" and response.audio:
                     f.write(response.audio)
+                elif response.type == "error":
+                    print(f"error: {response.message or response.title}")
 
         print(f"Saved audio to {filename}")
         print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
 
+
 async def tts_websocket_speed_async(client: AsyncCartesia) -> None:
     """Async speed changing example."""
-    output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
 
-    async with client.tts.websocket_connect() as connection:
-        ctx = connection.context(
-            model_id="sonic-3",
+    async with client.tts.websocket_connect() as ws:
+        ctx = ws.context(
+            model_id="sonic-latest",
             voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
-            output_format=output_format
+            output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+            language="en",
         )
 
         print("Sending normal speed text...")
@@ -275,15 +287,19 @@ async def tts_websocket_speed_async(client: AsyncCartesia) -> None:
         await ctx.no_more_inputs()
 
         import datetime
+
         filename = f"tts_speed_async_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pcm"
 
         with open(filename, "wb") as f:
             async for response in ctx.receive():
                 if response.type == "chunk" and response.audio:
                     f.write(response.audio)
+                elif response.type == "error":
+                    print(f"error: {response.message or response.title}")
 
         print(f"Saved audio to {filename}")
         print(f"Play with: ffplay -f f32le -ar 44100 {filename}")
+
 
 async def tts_websocket_concurrent_receives_async(client: AsyncCartesia) -> None:
     """Two contexts on one connection, each using ctx.receive() concurrently via tasks.
@@ -293,28 +309,32 @@ async def tts_websocket_concurrent_receives_async(client: AsyncCartesia) -> None
     """
     from cartesia.resources.tts import AsyncWebSocketContext
 
-    output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
+    output_format: RawOutputFormatParam = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
 
     async with client.tts.websocket_connect() as connection:
         ctx1 = connection.context(
-            model_id="sonic-3",
+            model_id="sonic-latest",
             voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
             output_format=output_format,
         )
         ctx2 = connection.context(
-            model_id="sonic-3",
+            model_id="sonic-latest",
             voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
             output_format=output_format,
         )
 
         # Send to both contexts
-        await ctx1.push("Context one is speaking now. This is a longer transcript to ensure that audio chunks from both contexts are interleaved on the wire. The quick brown fox jumps over the lazy dog.")
+        await ctx1.push(
+            "Context one is speaking now. This is a longer transcript to ensure that audio chunks from both contexts are interleaved on the wire. The quick brown fox jumps over the lazy dog."
+        )
         await ctx1.no_more_inputs()
 
-        await ctx2.push("Context two has a different message. We want to verify that the routing logic correctly separates the audio streams. Pack my box with five dozen liquor jugs.")
+        await ctx2.push(
+            "Context two has a different message. We want to verify that the routing logic correctly separates the audio streams. Pack my box with five dozen liquor jugs."
+        )
         await ctx2.no_more_inputs()
 
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Receive concurrently via tasks, writing to files
         async def collect(ctx: AsyncWebSocketContext, filename: str) -> None:
@@ -322,6 +342,8 @@ async def tts_websocket_concurrent_receives_async(client: AsyncCartesia) -> None
                 async for response in ctx.receive():
                     if response.type == "chunk" and response.audio:
                         f.write(response.audio)
+                    elif response.type == "error":
+                        print(f"error: {response.message or response.title}")
 
         filename1 = f"tts_concurrent_async_ctx1_{timestamp}.pcm"
         filename2 = f"tts_concurrent_async_ctx2_{timestamp}.pcm"
@@ -342,37 +364,34 @@ async def tts_async_concurrent_contexts(client: AsyncCartesia) -> None:
     """
     Demonstrates using a single WebSocket connection to manage multiple contexts concurrently.
 
-    We spawn separate tasks to push audio to 3 different contexts.
-    We use a single receiver loop to demultiplex the responses to the correct files.
+    We spawn separate sender and receiver tasks per context. The connection runs a
+    background listener that routes events into per-context queues, and each
+    ``ctx.receive()`` iterator drains its own queue.
     """
     from cartesia.resources.tts import AsyncWebSocketContext
 
     output_format = {"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100}
-    voice_id = "6ccbfb76-1fc6-48f7-b71d-91ac6298247b" # Standard voice
+    voice_id = "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"  # Standard voice
 
     async with client.tts.websocket_connect() as connection:
         # Create 3 contexts
         contexts: list[AsyncWebSocketContext] = []
         for i in range(3):
             ctx = connection.context(
-                model_id="sonic-3",
-                voice={"mode": "id", "id": voice_id},
-                output_format=output_format
+                model_id="sonic-latest", voice={"mode": "id", "id": voice_id}, output_format=output_format
             )
             contexts.append(ctx)
             print(f"Created context {i}: {ctx._context_id}")
 
-        # Define a sender function
         async def send_transcript(ctx_index: int, ctx: AsyncWebSocketContext) -> None:
             all_quotes = [
                 ["Ask not what your country can do for you, ", "ask what you can do ", "for your country."],
                 ["I have a dream ", "that one day this nation ", "will rise up."],
-                ["In the end, it's not the years in your life that count. ", "It's the life ", "in your years."]
+                ["In the end, it's not the years in your life that count. ", "It's the life ", "in your years."],
             ]
             transcripts = all_quotes[ctx_index]
             for part in transcripts:
                 print(f"Sending '{part.strip()}' to context {ctx_index}")
-                # Use the new push() helper
                 await ctx.push(part)
                 # Small delay to simulate real-time input and interleave requests
                 await asyncio.sleep(0.1)
@@ -380,74 +399,68 @@ async def tts_async_concurrent_contexts(client: AsyncCartesia) -> None:
             await ctx.no_more_inputs()
             print(f"Finished sending to context {ctx_index}")
 
-        # Start sender tasks
-        send_tasks = [
-            asyncio.create_task(send_transcript(i, ctx))
-            for i, ctx in enumerate(contexts)
-        ]
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filenames: dict[str, str] = {}
 
-        # Receiver loop
-        files: dict[Optional[str], IO[bytes]] = {}
-        active_contexts: set[Optional[str]] = {ctx._context_id for ctx in contexts}
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        async def receive_for(ctx_index: int, ctx: AsyncWebSocketContext) -> None:
+            filename = f"tts_concurrent_{ctx_index}_{timestamp}.pcm"
+            filenames[ctx._context_id or ""] = filename
+            file_created = False
+            with open(filename, "wb") as f:
+                async for event in ctx.receive():
+                    if event.type == "chunk" and event.audio:
+                        if not file_created:
+                            print(f"Created file for context {ctx_index}: {filename}")
+                            file_created = True
+                        f.write(event.audio)
+                    elif event.type == "done":
+                        print(f"Context {ctx._context_id} finished.")
+                        return
+                    elif event.type == "error":
+                        raise RuntimeError(f"Context {ctx_index} error: {getattr(event, 'error', 'Unknown')}")
 
-        print("Starting receiver loop...")
+        send_tasks = [asyncio.create_task(send_transcript(i, ctx)) for i, ctx in enumerate(contexts)]
+        recv_tasks = [asyncio.create_task(receive_for(i, ctx)) for i, ctx in enumerate(contexts)]
 
-        # Iterate over the connection directly to receive all events
-        async for event in connection:
-            if event.type == "chunk" and event.audio:
-                ctx_id = event.context_id
-                if ctx_id not in files:
-                    # Find which context index this matches for filename
-                    ctx_idx = next((i for i, c in enumerate(contexts) if c._context_id == ctx_id), "unknown")
-                    filename = f"tts_concurrent_{ctx_idx}_{timestamp}.pcm"
-                    files[ctx_id] = open(filename, "wb")
-                    print(f"Created file for context {ctx_idx}: {filename}")
-
-                files[ctx_id].write(event.audio)
-
-            elif event.type == "done":
-                ctx_id = event.context_id
-                print(f"Context {ctx_id} finished.")
-                if ctx_id in active_contexts:
-                    active_contexts.remove(ctx_id)
-
-                if not active_contexts:
-                    print("All contexts finished.")
-                    break
-
-        # Clean up
-        for f in files.values():
-            f.close()
-
-        # Ensure all send tasks are done (they should be by now if we got "done" events)
-        await asyncio.gather(*send_tasks)
+        await asyncio.gather(*send_tasks, *recv_tasks)
+        print("All contexts finished.")
 
         print("\nFinished.")
         print("You can play the generated audio files with these commands:")
-        for ctx_id, f in files.items():
+        for ctx_id, filename in filenames.items():
             ctx_idx = next((i for i, c in enumerate(contexts) if c._context_id == ctx_id), "unknown")
-            print(f"  Context {ctx_idx}: ffplay -f f32le -ar 44100 {f.name}")
+            print(f"  Context {ctx_idx}: ffplay -f f32le -ar 44100 {filename}")
+
 
 # =============================================================================
 # Infill API (Async)
 # =============================================================================
 
-async def infill_create_async(client: AsyncCartesia) -> None:
+
+async def infill_create_async(client: AsyncCartesia, *args: str) -> None:
     """Async infill creation."""
+    import sys
     from pathlib import Path
+
+    if len(args) < 3:
+        print("Usage: infill_create_async <audio_file_before> <audio_file_after> <transcript>")
+        sys.exit(1)
+
+    left_file, right_file, *transcript_parts = args
+
     response = await client.tts.infill(
         model_id="sonic-3",
         language="en",
-        transcript="Infill text",
-        left_audio=Path("left.wav"),
-        right_audio=Path("right.wav"),
+        transcript=" ".join(transcript_parts),
+        left_audio=Path(left_file),
+        right_audio=Path(right_file),
         voice_id="6ccbfb76-1fc6-48f7-b71d-91ac6298247b",
-        output_format={"container": "raw", "encoding": "pcm_f32le", "sample_rate": 44100},
+        output_format={"container": "wav", "encoding": "pcm_f32le", "sample_rate": 44100},
     )
     await response.write_to_file("infill_output_async.wav")
     print("Saved audio to infill_output_async.wav")
     print("Play with: ffplay -f wav infill_output_async.wav")
+
 
 if __name__ == "__main__":
     import os
@@ -456,8 +469,9 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Usage: python async_examples.py <function_name>")
-        available_functions = [name for name, obj in globals().items() 
-                             if inspect.iscoroutinefunction(obj) and obj.__module__ == __name__]
+        available_functions = [
+            name for name, obj in globals().items() if inspect.iscoroutinefunction(obj) and obj.__module__ == __name__
+        ]
         print(f"Available functions: {', '.join(available_functions)}")
         sys.exit(1)
 
@@ -467,20 +481,15 @@ if __name__ == "__main__":
         sys.exit(1)
 
     func = globals()[func_name]
-    
+
     api_key = os.environ.get("CARTESIA_API_KEY")
     if not api_key:
         print("Error: CARTESIA_API_KEY environment variable not set.")
         sys.exit(1)
-        
-    extra_headers: dict[str, str] = {}
-    cartesia_version = os.environ.get("CARTESIA_VERSION")
-    if cartesia_version:
-        extra_headers["Cartesia-Version"] = cartesia_version
 
     async def run() -> None:
-        async with AsyncCartesia(api_key=api_key, default_headers=extra_headers) as client:
-            await func(client)
+        async with AsyncCartesia(api_key=api_key) as client:
+            await func(client, *sys.argv[2:])
 
     try:
         asyncio.run(run())

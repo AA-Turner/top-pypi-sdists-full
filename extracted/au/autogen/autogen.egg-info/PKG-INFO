@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.13.0
+Version: 0.13.1
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -23,6 +23,7 @@ Provides-Extra: anthropic
 Provides-Extra: gemini
 Provides-Extra: gemini-realtime
 Provides-Extra: groq
+Provides-Extra: xai
 Provides-Extra: ollama
 Provides-Extra: bedrock
 Provides-Extra: mistral

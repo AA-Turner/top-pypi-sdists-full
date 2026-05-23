@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint
-Version: 4.1.0
+Version: 4.1.1
 Summary: Library with base interfaces for LangGraph checkpoint savers.
 Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint
 Project-URL: Twitter, https://x.com/langchain_oss

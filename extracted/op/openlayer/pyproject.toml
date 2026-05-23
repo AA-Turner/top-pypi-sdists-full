@@ -1,6 +1,6 @@
 [project]
 name = "openlayer"
-version = "0.27.3"
+version = "0.28.0"
 description = "The official Python library for the openlayer API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -159,7 +159,7 @@ exclude = [
     ".git",
 ]
 
-ignore = ["src/openlayer/lib/*", "examples/*"]
+ignore = ["src/openlayer/lib/*", "examples/*", "tests/integrations/*"]
 
 reportImplicitOverride = true
 reportOverlappingOverload = false

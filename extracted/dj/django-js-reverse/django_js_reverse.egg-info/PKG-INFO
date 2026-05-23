@@ -1,36 +1,59 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-js-reverse
-Version: 0.10.2
+Version: 1.0.0
 Summary: Javascript url handling for Django that doesn't hurt.
-Home-page: https://github.com/ierror/django-js-reverse
-Download-URL: http://pypi.python.org/pypi/django-js-reverse/
+Home-page: https://github.com/vintasoftware/django-js-reverse
 Author: Bernhard Janetzki
 Author-email: boerni@gmail.com
+Maintainer: Vinta Software
+Maintainer-email: contact@vinta.com.br
 License: MIT
+Project-URL: Source, https://github.com/vintasoftware/django-js-reverse
+Project-URL: Tracker, https://github.com/vintasoftware/django-js-reverse/issues
+Project-URL: PyPI, https://pypi.org/project/django-js-reverse/
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: Django<6.1,>=5.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =================
 Django JS Reverse
 =================
 
 .. image:: https://img.shields.io/pypi/v/django-js-reverse.svg
-   :target: https://pypi.python.org/pypi/django-js-reverse/
+   :target: https://pypi.org/project/django-js-reverse/
 
-.. image:: https://img.shields.io/travis/ierror/django-js-reverse/master.svg
-   :target: https://travis-ci.org/ierror/django-js-reverse
+.. image:: https://github.com/vintasoftware/django-js-reverse/actions/workflows/main.yml/badge.svg?branch=main
+   :target: https://github.com/vintasoftware/django-js-reverse/actions/workflows/main.yml
 
-.. image:: https://coveralls.io/repos/github/vintasoftware/django-js-reverse/badge.svg?branch=master
-   :target: https://coveralls.io/github/vintasoftware/django-js-reverse?branch=master
-
-.. image:: https://img.shields.io/github/license/ierror/django-js-reverse.svg
-    :target: https://raw.githubusercontent.com/ierror/django-js-reverse/master/LICENSE
+.. image:: https://img.shields.io/github/license/vintasoftware/django-js-reverse.svg
+    :target: https://raw.githubusercontent.com/vintasoftware/django-js-reverse/main/LICENSE
 
 .. image:: https://img.shields.io/pypi/wheel/django-js-reverse.svg
 
@@ -44,7 +67,7 @@ Overview
 --------
 
 Django JS Reverse is a small django app that makes url handling of
-`named urls <https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`__ in javascript easy and non-annoying..
+`named urls <https://docs.djangoproject.com/en/stable/topics/http/urls/#naming-url-patterns>`__ in javascript easy and non-annoying..
 
 For example you can retrieve a named url:
 
@@ -52,7 +75,11 @@ urls.py:
 
 ::
 
-    url(r'^/betterliving/(?P<category_slug>[-\w]+)/(?P<entry_pk>\d+)/$', 'get_house', name='betterliving_get_house'),
+    from django.urls import path
+
+    urlpatterns = [
+        path("betterliving/<slug:category_slug>/<int:entry_pk>/", get_house, name="betterliving_get_house"),
+    ]
 
 in javascript like:
 
@@ -73,14 +100,18 @@ Requirements
 +----------------+--------------------+
 | Python version | Django versions    |
 +================+====================+
-| 3.11           | 4.2, 4.1, 4.0, 3.2 |
+| 3.14           | 6.0, 5.2           |
 +----------------+--------------------+
-| 3.10           | 4.2, 4.1, 4.0, 3.2 |
+| 3.13           | 6.0, 5.2           |
 +----------------+--------------------+
-| 3.9            | 4.2, 4.1, 4.0, 3.2 |
+| 3.12           | 6.0, 5.2           |
 +----------------+--------------------+
-| 3.8            | 4.2, 4.1, 4.0, 3.2 |
+| 3.11           | 5.2                |
 +----------------+--------------------+
+| 3.10           | 5.2                |
++----------------+--------------------+
+
+Django 5.2 is the current LTS release.
 
 
 Installation
@@ -96,7 +127,7 @@ Install using ``pip`` …
 
 ::
 
-    git clone https://github.com/ierror/django-js-reverse.git
+    git clone https://github.com/vintasoftware/django-js-reverse.git
 
 Add ``'django_js_reverse'`` to your ``INSTALLED_APPS`` setting.
 
@@ -122,18 +153,23 @@ Include none-cached view …
 
 ::
 
-    urlpatterns = patterns('',
-        url(r'^jsreverse.json$', 'django_js_reverse.views.urls_json', name='js_reverse'),
-    )
+    from django.urls import path
+    from django_js_reverse.views import urls_json
+
+    urlpatterns = [
+        path("jsreverse.json", urls_json, name="js_reverse"),
+    ]
 
 … or a cached one that delivers the urls JSON
 
 ::
 
-    from django_js_reverse import views
-    urlpatterns = patterns('',
-        url(r'^jsreverse.json$', cache_page(3600)(views.urls_json), name='js_reverse'),
-    )
+    from django.urls import path
+    from django_js_reverse.views import urls_json
+
+    urlpatterns = [
+        path("jsreverse.json", cache_page(3600)(urls_json), name="js_reverse"),
+    ]
 
 Include JavaScript in your bundle:
 
@@ -189,26 +225,25 @@ Include none-cached view …
 
 ::
 
-    urlpatterns = patterns('',
-        url(r'^jsreverse/$', 'django_js_reverse.views.urls_js', name='js_reverse'),
-    )
+    from django.urls import path
+    from django_js_reverse.views import urls_js
+
+    urlpatterns = [
+        path("jsreverse/", urls_js, name="js_reverse"),
+    ]
 
 … or a cached one that delivers the urls javascript
 
 ::
 
+    from django.urls import path
     from django_js_reverse.views import urls_js
-    urlpatterns = patterns('',
-        url(r'^jsreverse/$', cache_page(3600)(urls_js), name='js_reverse'),
-    )
+
+    urlpatterns = [
+        path("jsreverse/", cache_page(3600)(urls_js), name="js_reverse"),
+    ]
 
 Include javascript in your template
-
-::
-
-    <script src="{% url js_reverse %}" type="text/javascript"></script>
-
-or, if you are using Django > 1.5
 
 ::
 
@@ -330,7 +365,7 @@ Running the test suite
 License
 -------
 
-`MIT <https://raw.github.com/ierror/django-js-reverse/master/LICENSE>`__
+`MIT <https://raw.githubusercontent.com/vintasoftware/django-js-reverse/main/LICENSE>`__
 
 
 Support
@@ -342,6 +377,13 @@ This project is currently maintained by `Vinta Software <https://vintasoftware.c
 
 Enjoy!
 
+
+1.0.0 (2026-05-21)
+---------------------
+
+- Support Django 5.2 LTS and 6.0 only, dropping unsupported release series.
+- Migrate CI from Travis CI to GitHub Actions and refresh the supported tox matrix.
+- Update package metadata and documentation links to point to the Vinta-maintained fork.
 
 0.10.2 (2023-08-14)
 ---------------------

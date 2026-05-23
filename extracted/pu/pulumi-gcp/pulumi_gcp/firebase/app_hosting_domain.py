@@ -24,8 +24,9 @@ class AppHostingDomainArgs:
                  backend: pulumi.Input[_builtins.str],
                  domain_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 serve: Optional[pulumi.Input['AppHostingDomainServeArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 serve: pulumi.Input[Optional['AppHostingDomainServeArgs']] = None):
         """
         The set of arguments for constructing a AppHostingDomain resource.
 
@@ -33,6 +34,12 @@ class AppHostingDomainArgs:
         :param pulumi.Input[_builtins.str] domain_id: Id of the domain to create.
                Must be a valid domain name, such as "foo.com"
         :param pulumi.Input[_builtins.str] location: The location of the Backend that this Domain is associated with
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input['AppHostingDomainServeArgs'] serve: The serving behavior of the domain. If specified, the domain will
@@ -42,6 +49,8 @@ class AppHostingDomainArgs:
         pulumi.set(__self__, "backend", backend)
         pulumi.set(__self__, "domain_id", domain_id)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if serve is not None:
@@ -85,8 +94,25 @@ class AppHostingDomainArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -94,12 +120,12 @@ class AppHostingDomainArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def serve(self) -> Optional[pulumi.Input['AppHostingDomainServeArgs']]:
+    def serve(self) -> pulumi.Input[Optional['AppHostingDomainServeArgs']]:
         """
         The serving behavior of the domain. If specified, the domain will
         serve content other than its Backend's live content.
@@ -108,26 +134,27 @@ class AppHostingDomainArgs:
         return pulumi.get(self, "serve")
 
     @serve.setter
-    def serve(self, value: Optional[pulumi.Input['AppHostingDomainServeArgs']]):
+    def serve(self, value: pulumi.Input[Optional['AppHostingDomainServeArgs']]):
         pulumi.set(self, "serve", value)
 
 
 @pulumi.input_type
 class _AppHostingDomainState:
     def __init__(__self__, *,
-                 backend: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_domain_statuses: Optional[pulumi.Input[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]] = None,
-                 delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 purge_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 serve: Optional[pulumi.Input['AppHostingDomainServeArgs']] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 backend: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_domain_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]] = None,
+                 delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 purge_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 serve: pulumi.Input[Optional['AppHostingDomainServeArgs']] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AppHostingDomain resources.
 
@@ -136,6 +163,12 @@ class _AppHostingDomainState:
         :param pulumi.Input[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]] custom_domain_statuses: The status of a custom domain's linkage to the Backend.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] delete_time: Time at which the domain was deleted.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_id: Id of the domain to create.
                Must be a valid domain name, such as "foo.com"
         :param pulumi.Input[_builtins.str] etag: Server-computed checksum based on other values; may be sent
@@ -161,6 +194,8 @@ class _AppHostingDomainState:
             pulumi.set(__self__, "custom_domain_statuses", custom_domain_statuses)
         if delete_time is not None:
             pulumi.set(__self__, "delete_time", delete_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if domain_id is not None:
             pulumi.set(__self__, "domain_id", domain_id)
         if etag is not None:
@@ -182,31 +217,31 @@ class _AppHostingDomainState:
 
     @_builtins.property
     @pulumi.getter
-    def backend(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backend(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Backend that this Domain is associated with
         """
         return pulumi.get(self, "backend")
 
     @backend.setter
-    def backend(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backend(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backend", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which the domain was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="customDomainStatuses")
-    def custom_domain_statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]]:
+    def custom_domain_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]]:
         """
         The status of a custom domain's linkage to the Backend.
         Structure is documented below.
@@ -214,24 +249,41 @@ class _AppHostingDomainState:
         return pulumi.get(self, "custom_domain_statuses")
 
     @custom_domain_statuses.setter
-    def custom_domain_statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]]):
+    def custom_domain_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AppHostingDomainCustomDomainStatusArgs']]]]):
         pulumi.set(self, "custom_domain_statuses", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteTime")
-    def delete_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def delete_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which the domain was deleted.
         """
         return pulumi.get(self, "delete_time")
 
     @delete_time.setter
-    def delete_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def delete_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "delete_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="domainId")
-    def domain_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def domain_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Id of the domain to create.
         Must be a valid domain name, such as "foo.com"
@@ -239,12 +291,12 @@ class _AppHostingDomainState:
         return pulumi.get(self, "domain_id")
 
     @domain_id.setter
-    def domain_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def domain_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "domain_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-computed checksum based on other values; may be sent
         on update or delete to ensure operation is done on expected resource.
@@ -252,24 +304,24 @@ class _AppHostingDomainState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the Backend that this Domain is associated with
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the domain, e.g.
         `projects/{project}/locations/{locationId}/backends/{backendId}/domains/{domainId}`
@@ -277,12 +329,12 @@ class _AppHostingDomainState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -290,12 +342,12 @@ class _AppHostingDomainState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="purgeTime")
-    def purge_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def purge_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which a soft-deleted domain will be purged, rendering in
         permanently deleted.
@@ -303,12 +355,12 @@ class _AppHostingDomainState:
         return pulumi.get(self, "purge_time")
 
     @purge_time.setter
-    def purge_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def purge_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "purge_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def serve(self) -> Optional[pulumi.Input['AppHostingDomainServeArgs']]:
+    def serve(self) -> pulumi.Input[Optional['AppHostingDomainServeArgs']]:
         """
         The serving behavior of the domain. If specified, the domain will
         serve content other than its Backend's live content.
@@ -317,31 +369,31 @@ class _AppHostingDomainState:
         return pulumi.get(self, "serve")
 
     @serve.setter
-    def serve(self, value: Optional[pulumi.Input['AppHostingDomainServeArgs']]):
+    def serve(self, value: pulumi.Input[Optional['AppHostingDomainServeArgs']]):
         pulumi.set(self, "serve", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         System-assigned, unique identifier.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time at which the domain was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -351,11 +403,12 @@ class AppHostingDomain(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 serve: Optional[pulumi.Input[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
+                 backend: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 serve: pulumi.Input[Optional[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
                  __props__=None):
         """
         A domain name that is associated with a backend.
@@ -437,6 +490,12 @@ class AppHostingDomain(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] backend: The ID of the Backend that this Domain is associated with
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_id: Id of the domain to create.
                Must be a valid domain name, such as "foo.com"
         :param pulumi.Input[_builtins.str] location: The location of the Backend that this Domain is associated with
@@ -544,11 +603,12 @@ class AppHostingDomain(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 serve: Optional[pulumi.Input[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
+                 backend: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 serve: pulumi.Input[Optional[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -561,6 +621,7 @@ class AppHostingDomain(pulumi.CustomResource):
             if backend is None and not opts.urn:
                 raise TypeError("Missing required property 'backend'")
             __props__.__dict__["backend"] = backend
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if domain_id is None and not opts.urn:
                 raise TypeError("Missing required property 'domain_id'")
             __props__.__dict__["domain_id"] = domain_id
@@ -587,19 +648,20 @@ class AppHostingDomain(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backend: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            custom_domain_statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppHostingDomainCustomDomainStatusArgs', 'AppHostingDomainCustomDomainStatusArgsDict']]]]] = None,
-            delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-            domain_id: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            purge_time: Optional[pulumi.Input[_builtins.str]] = None,
-            serve: Optional[pulumi.Input[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'AppHostingDomain':
+            backend: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            custom_domain_statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppHostingDomainCustomDomainStatusArgs', 'AppHostingDomainCustomDomainStatusArgsDict']]]]] = None,
+            delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            domain_id: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            purge_time: pulumi.Input[Optional[_builtins.str]] = None,
+            serve: pulumi.Input[Optional[Union['AppHostingDomainServeArgs', 'AppHostingDomainServeArgsDict']]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'AppHostingDomain':
         """
         Get an existing AppHostingDomain resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -612,6 +674,12 @@ class AppHostingDomain(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['AppHostingDomainCustomDomainStatusArgs', 'AppHostingDomainCustomDomainStatusArgsDict']]]] custom_domain_statuses: The status of a custom domain's linkage to the Backend.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] delete_time: Time at which the domain was deleted.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_id: Id of the domain to create.
                Must be a valid domain name, such as "foo.com"
         :param pulumi.Input[_builtins.str] etag: Server-computed checksum based on other values; may be sent
@@ -637,6 +705,7 @@ class AppHostingDomain(pulumi.CustomResource):
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["custom_domain_statuses"] = custom_domain_statuses
         __props__.__dict__["delete_time"] = delete_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["domain_id"] = domain_id
         __props__.__dict__["etag"] = etag
         __props__.__dict__["location"] = location
@@ -680,6 +749,19 @@ class AppHostingDomain(pulumi.CustomResource):
         Time at which the domain was deleted.
         """
         return pulumi.get(self, "delete_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="domainId")

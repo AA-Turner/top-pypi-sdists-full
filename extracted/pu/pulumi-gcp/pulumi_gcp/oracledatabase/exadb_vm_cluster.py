@@ -27,10 +27,11 @@ class ExadbVmClusterArgs:
                  location: pulumi.Input[_builtins.str],
                  odb_subnet: pulumi.Input[_builtins.str],
                  properties: pulumi.Input['ExadbVmClusterPropertiesArgs'],
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ExadbVmCluster resource.
 
@@ -50,6 +51,12 @@ class ExadbVmClusterArgs:
                projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
         :param pulumi.Input['ExadbVmClusterPropertiesArgs'] properties: The properties of an ExadbVmCluster.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: The labels or tags associated with the ExadbVmCluster.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -67,6 +74,8 @@ class ExadbVmClusterArgs:
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "odb_subnet", odb_subnet)
         pulumi.set(__self__, "properties", properties)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if labels is not None:
@@ -159,20 +168,37 @@ class ExadbVmClusterArgs:
         pulumi.set(self, "properties", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels or tags associated with the ExadbVmCluster.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -181,12 +207,12 @@ class ExadbVmClusterArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="odbNetwork")
-    def odb_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbNetwork associated with the ExadbVmCluster.
         Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}
@@ -196,12 +222,12 @@ class ExadbVmClusterArgs:
         return pulumi.get(self, "odb_network")
 
     @odb_network.setter
-    def odb_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -209,29 +235,30 @@ class ExadbVmClusterArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ExadbVmClusterState:
     def __init__(__self__, *,
-                 backup_odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 entitlement_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 exadb_vm_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input['ExadbVmClusterPropertiesArgs']] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 backup_odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 entitlement_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 exadb_vm_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional['ExadbVmClusterPropertiesArgs']] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering ExadbVmCluster resources.
 
@@ -239,6 +266,12 @@ class _ExadbVmClusterState:
                Format:
                projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
         :param pulumi.Input[_builtins.str] create_time: The date and time that the ExadbVmCluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the ExadbVmCluster. The name does not have to
                be unique within your project. The name must be 1-255 characters long and
@@ -277,6 +310,8 @@ class _ExadbVmClusterState:
             pulumi.set(__self__, "backup_odb_subnet", backup_odb_subnet)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if display_name is not None:
@@ -308,7 +343,7 @@ class _ExadbVmClusterState:
 
     @_builtins.property
     @pulumi.getter(name="backupOdbSubnet")
-    def backup_odb_subnet(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backup_odb_subnet(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the backup OdbSubnet associated with the ExadbVmCluster.
         Format:
@@ -317,36 +352,53 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "backup_odb_subnet")
 
     @backup_odb_subnet.setter
-    def backup_odb_subnet(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backup_odb_subnet(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backup_odb_subnet", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The date and time that the ExadbVmCluster was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name for the ExadbVmCluster. The name does not have to
         be unique within your project. The name must be 1-255 characters long and
@@ -355,36 +407,36 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="entitlementId")
-    def entitlement_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entitlement_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the subscription entitlement associated with the ExadbVmCluster.
         """
         return pulumi.get(self, "entitlement_id")
 
     @entitlement_id.setter
-    def entitlement_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entitlement_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entitlement_id", value)
 
     @_builtins.property
     @pulumi.getter(name="exadbVmClusterId")
-    def exadb_vm_cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def exadb_vm_cluster_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the ExadbVmCluster to create. This value is
         restricted to (^a-z?$) and must be a maximum of
@@ -394,12 +446,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "exadb_vm_cluster_id")
 
     @exadb_vm_cluster_id.setter
-    def exadb_vm_cluster_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def exadb_vm_cluster_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "exadb_vm_cluster_id", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpOracleZone")
-    def gcp_oracle_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gcp_oracle_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The GCP Oracle zone where Oracle ExadbVmCluster is hosted.
         Example: us-east4-b-r2.
@@ -409,12 +461,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "gcp_oracle_zone")
 
     @gcp_oracle_zone.setter
-    def gcp_oracle_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gcp_oracle_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gcp_oracle_zone", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels or tags associated with the ExadbVmCluster.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -423,24 +475,24 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The name of the ExadbVmCluster resource in the following format:
         projects/{project}/locations/{region}/exadbVmClusters/{exadb_vm_cluster}
@@ -448,12 +500,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="odbNetwork")
-    def odb_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbNetwork associated with the ExadbVmCluster.
         Format: projects/{project}/locations/{location}/odbNetworks/{odb_network}
@@ -463,12 +515,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "odb_network")
 
     @odb_network.setter
-    def odb_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_network", value)
 
     @_builtins.property
     @pulumi.getter(name="odbSubnet")
-    def odb_subnet(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def odb_subnet(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the OdbSubnet associated with the ExadbVmCluster for IP
         allocation. Format:
@@ -477,12 +529,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "odb_subnet")
 
     @odb_subnet.setter
-    def odb_subnet(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def odb_subnet(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "odb_subnet", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -490,12 +542,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[pulumi.Input['ExadbVmClusterPropertiesArgs']]:
+    def properties(self) -> pulumi.Input[Optional['ExadbVmClusterPropertiesArgs']]:
         """
         The properties of an ExadbVmCluster.
         Structure is documented below.
@@ -503,12 +555,12 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "properties")
 
     @properties.setter
-    def properties(self, value: Optional[pulumi.Input['ExadbVmClusterPropertiesArgs']]):
+    def properties(self, value: pulumi.Input[Optional['ExadbVmClusterPropertiesArgs']]):
         pulumi.set(self, "properties", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -516,7 +568,7 @@ class _ExadbVmClusterState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
 
@@ -526,16 +578,17 @@ class ExadbVmCluster(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 exadb_vm_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
+                 backup_odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 exadb_vm_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
                  __props__=None):
         """
         Description
@@ -664,6 +717,12 @@ class ExadbVmCluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] backup_odb_subnet: The name of the backup OdbSubnet associated with the ExadbVmCluster.
                Format:
                projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the ExadbVmCluster. The name does not have to
                be unique within your project. The name must be 1-255 characters long and
@@ -831,16 +890,17 @@ class ExadbVmCluster(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 exadb_vm_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
+                 backup_odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 exadb_vm_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -853,6 +913,7 @@ class ExadbVmCluster(pulumi.CustomResource):
             if backup_odb_subnet is None and not opts.urn:
                 raise TypeError("Missing required property 'backup_odb_subnet'")
             __props__.__dict__["backup_odb_subnet"] = backup_odb_subnet
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -890,22 +951,23 @@ class ExadbVmCluster(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backup_odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            entitlement_id: Optional[pulumi.Input[_builtins.str]] = None,
-            exadb_vm_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
-            gcp_oracle_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            odb_network: Optional[pulumi.Input[_builtins.str]] = None,
-            odb_subnet: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            properties: Optional[pulumi.Input[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'ExadbVmCluster':
+            backup_odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            entitlement_id: pulumi.Input[Optional[_builtins.str]] = None,
+            exadb_vm_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+            gcp_oracle_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            odb_network: pulumi.Input[Optional[_builtins.str]] = None,
+            odb_subnet: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            properties: pulumi.Input[Optional[Union['ExadbVmClusterPropertiesArgs', 'ExadbVmClusterPropertiesArgsDict']]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'ExadbVmCluster':
         """
         Get an existing ExadbVmCluster resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -917,6 +979,12 @@ class ExadbVmCluster(pulumi.CustomResource):
                Format:
                projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
         :param pulumi.Input[_builtins.str] create_time: The date and time that the ExadbVmCluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or pulumi up that would delete the instance will fail.
         :param pulumi.Input[_builtins.str] display_name: The display name for the ExadbVmCluster. The name does not have to
                be unique within your project. The name must be 1-255 characters long and
@@ -957,6 +1025,7 @@ class ExadbVmCluster(pulumi.CustomResource):
 
         __props__.__dict__["backup_odb_subnet"] = backup_odb_subnet
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_labels"] = effective_labels
@@ -990,6 +1059,19 @@ class ExadbVmCluster(pulumi.CustomResource):
         The date and time that the ExadbVmCluster was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

@@ -63,6 +63,28 @@ _TEMPLATE_NOISE: frozenset[str] = frozenset(
         "ALL OF ABOVE", "NONE OF ABOVE",
         "CHOOSE ONE", "SELECT ONE", "WHICH OF THE",
         "WHICH OF THE FOLLOWING",
+        # Python keywords — match _RE_ACRONYM (≥3 uppercase) but are never
+        # unknown to a coding assistant. 2026-05-22 queue audit: CLI (300×),
+        # NOT (200×), README (102×) in top false positives.
+        "NOT", "AND", "OR", "FOR", "DEF", "CLASS", "PASS", "RETURN",
+        "IMPORT", "FROM", "WITH", "TRY", "EXCEPT", "RAISE", "YIELD",
+        "ASYNC", "AWAIT", "TRUE", "FALSE", "NONE",
+        # Common coding / CLI abbreviations always known in coding context
+        "CLI", "GUI", "TUI", "URL", "HTTP", "HTTPS", "TCP", "UDP",
+        "README", "CHANGELOG", "LICENSE", "TODO", "FIXME", "HACK",
+        "ENV", "DIR", "STR", "INT", "BOOL", "DICT", "LIST", "SET",
+        "OBJ", "ERR", "MSG", "NUM", "VAR", "FMT", "RES", "REQ",
+        "LOG", "PID", "CWD", "SRC", "LIB", "BIN", "TMP",
+        # File formats and data interchange standards — always known
+        "JSON", "CSV", "TSV", "XML", "HTML", "YAML", "YML", "TOML",
+        "SQL", "SQLITE", "POSTGRESQL", "MYSQL", "REDIS",
+        "PDF", "SVG", "PNG", "JPG", "JPEG", "GIF", "ICO", "WEBP",
+        "ISO", "ASCII", "UTF", "UTF8", "UTF16", "BASE64",
+        "API", "SDK", "REST", "SOAP", "RPC", "GRPC", "CRUD",
+        "ORM", "MVC", "MVP", "MVVM", "OOP", "FP",
+        "CI", "CD", "PR", "MR", "WIP",
+        "SSH", "SSL", "TLS", "JWT", "OAUTH", "SAML",
+        "CPU", "GPU", "RAM", "SSD", "HDD", "NFS",
     }
 )
 
@@ -89,6 +111,22 @@ def _is_template_noise(candidate: str) -> bool:
     # prose filler, not an entity ("None of the", "All of the", etc.).
     words = norm.split()
     if len(words) >= 2 and all(w in _CONNECTOR_WORDS for w in words[1:]):
+        return True
+    # Python source filenames (cli.py, __init__.py, main.py, etc.) are
+    # never unknown to a coding assistant — they're being written. Matched
+    # by _RE_DOTTED_IDENT because "name.py" has a dot. 2026-05-22 audit:
+    # __init__.py (100×), cli.py (80×), renderer.py (69×) top false
+    # positives.
+    # Bare filenames (no directory separator) with common extensions are
+    # always known in a coding context — filter them to prevent spam.
+    # Full paths ("/data3/foo/bar.csv") are kept as they reference specific
+    # resources worth looking up.
+    _CODE_EXTS = (
+        ".py", ".md", ".txt", ".csv", ".json", ".yaml", ".yml",
+        ".toml", ".log", ".html", ".xml", ".sql", ".sh", ".rs",
+        ".go", ".ts", ".js", ".jsx", ".tsx", ".css", ".scss",
+    )
+    if "/" not in norm and any(norm.endswith(ext) for ext in _CODE_EXTS):
         return True
     return False
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: complexipy
-Version: 5.4.1
+Version: 5.5.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -103,6 +103,9 @@ complexipy . --output-format json --output-format csv
 # Show the top 5 most complex functions
 complexipy . --top 5
 
+# Show deterministic refactor suggestions for failing functions
+complexipy . --failed --suggest-refactors
+
 # Emit plain text for scripting/AI agents
 complexipy . --plain
 
@@ -117,8 +120,8 @@ complexipy . --diff HEAD~1
 
 # Fail only on threshold-breaking regressions in a diff
 complexipy . --diff main --ratchet
-# Analyze current directory while excluding specific files
-complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
+# Analyze current directory while excluding files or directories with glob patterns
+complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
 ```
 
 ### Python API
@@ -274,11 +277,12 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 
 | Flag                            | Description                                                                                                                                                      | Default |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--exclude`                     | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--exclude`                     | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |         |
 | `--max-complexity-allowed`      | Complexity threshold                                                                                                                                             | `15`    |
 | `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
 | `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
 | `--failed`                      | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--suggest-refactors`           | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain`                                                                        | `false` |
 | `--color <auto\|yes\|no>`       | Use color                                                                                                                                                        | `auto`  |
 | `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                     | `asc`   |
 | `--quiet`                       | Suppress output                                                                                                                                                  | `false` |
@@ -299,11 +303,29 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 Example:
 
 ```
-# Exclude only top-level 'tests' directory under the provided root
-complexipy . --exclude tests
-# This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
-# because there is no './utils' directory or file at that level.
+# Exclude a directory recursively under the provided root
+complexipy . --exclude "tests/**"
+# Exclude a specific file
+complexipy . --exclude "src/legacy/old_code.py"
 ```
+
+### Refactor Suggestions
+
+Use `--suggest-refactors` to print a small, ranked set of deterministic refactor plans next to rich CLI results:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Sample output:
+
+```text
+Refactor plans:
+  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
+    - invert the outer condition and return early
+```
+
+Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
 
 ### Snapshot Baselines
 
@@ -405,7 +427,18 @@ FunctionComplexity:
   ├─ complexity: int
   ├─ line_start: int
   ├─ line_end: int
-  └─ line_complexities: List[LineComplexity]
+  ├─ line_complexities: List[LineComplexity]
+  └─ refactor_plans: List[RefactorPlan]
+
+RefactorPlan:
+  ├─ kind: str
+  ├─ title: str
+  ├─ line_start: int
+  ├─ line_end: int
+  ├─ current_complexity: int
+  ├─ estimated_reduction: int
+  ├─ estimated_complexity_after: int
+  └─ steps: List[str]
 
 LineComplexity:
   ├─ line: int

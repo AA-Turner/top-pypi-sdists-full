@@ -25,9 +25,10 @@ class MulticastGroupProducerActivationArgs:
                  multicast_group_producer_activation_id: pulumi.Input[_builtins.str],
                  multicast_group_range_activation: pulumi.Input[_builtins.str],
                  multicast_producer_association: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a MulticastGroupProducerActivation resource.
 
@@ -44,6 +45,12 @@ class MulticastGroupProducerActivationArgs:
                same zone as this multicast group producer activation.
                Use the following format:
                `projects/*/locations/*/multicastProducerAssociations/*`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional text description of the multicast group producer activation.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key-value pairs
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -55,6 +62,8 @@ class MulticastGroupProducerActivationArgs:
         pulumi.set(__self__, "multicast_group_producer_activation_id", multicast_group_producer_activation_id)
         pulumi.set(__self__, "multicast_group_range_activation", multicast_group_range_activation)
         pulumi.set(__self__, "multicast_producer_association", multicast_producer_association)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -120,20 +129,37 @@ class MulticastGroupProducerActivationArgs:
         pulumi.set(self, "multicast_producer_association", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional text description of the multicast group producer activation.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key-value pairs
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -142,12 +168,12 @@ class MulticastGroupProducerActivationArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -155,31 +181,38 @@ class MulticastGroupProducerActivationArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _MulticastGroupProducerActivationState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_producer_activation_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_range_activation: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_producer_association: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 states: Optional[pulumi.Input[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]] = None,
-                 unique_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_producer_activation_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_range_activation: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_producer_association: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 states: pulumi.Input[Optional[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]] = None,
+                 unique_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MulticastGroupProducerActivation resources.
 
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the multicast group producer activation was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional text description of the multicast group producer activation.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key-value pairs
@@ -224,6 +257,8 @@ class _MulticastGroupProducerActivationState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -253,43 +288,60 @@ class _MulticastGroupProducerActivationState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the multicast group producer activation was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional text description of the multicast group producer activation.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels as key-value pairs
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -298,24 +350,24 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="multicastGroupProducerActivationId")
-    def multicast_group_producer_activation_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def multicast_group_producer_activation_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique name for the multicast group producer activation.
         The name is restricted to letters, numbers, and hyphen, with the first
@@ -325,12 +377,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "multicast_group_producer_activation_id")
 
     @multicast_group_producer_activation_id.setter
-    def multicast_group_producer_activation_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def multicast_group_producer_activation_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "multicast_group_producer_activation_id", value)
 
     @_builtins.property
     @pulumi.getter(name="multicastGroupRangeActivation")
-    def multicast_group_range_activation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def multicast_group_range_activation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the multicast group range activationcreated by the
         admin in the same zone as this multicast group producer activation. Use the
@@ -340,12 +392,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "multicast_group_range_activation")
 
     @multicast_group_range_activation.setter
-    def multicast_group_range_activation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def multicast_group_range_activation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "multicast_group_range_activation", value)
 
     @_builtins.property
     @pulumi.getter(name="multicastProducerAssociation")
-    def multicast_producer_association(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def multicast_producer_association(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the multicast producer association that is in the
         same zone as this multicast group producer activation.
@@ -355,12 +407,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "multicast_producer_association")
 
     @multicast_producer_association.setter
-    def multicast_producer_association(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def multicast_producer_association(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "multicast_producer_association", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the multicast group producer activation.
         Use the following format:
@@ -369,12 +421,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -382,12 +434,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -395,12 +447,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def states(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]]:
+    def states(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]]:
         """
         (Output)
         The state of the multicast resource.
@@ -416,12 +468,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "states")
 
     @states.setter
-    def states(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]]):
+    def states(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['MulticastGroupProducerActivationStateArgs']]]]):
         pulumi.set(self, "states", value)
 
     @_builtins.property
     @pulumi.getter(name="uniqueId")
-    def unique_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def unique_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Google-generated UUID for the resource. This value is
         unique across all multicast group producer activation resources. If a group
@@ -431,12 +483,12 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "unique_id")
 
     @unique_id.setter
-    def unique_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def unique_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "unique_id", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the multicast group producer activation
         was most recently updated.
@@ -444,7 +496,7 @@ class _MulticastGroupProducerActivationState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -454,13 +506,14 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_producer_activation_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_range_activation: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_producer_association: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_producer_activation_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_range_activation: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_producer_association: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Create a multicast group producer activation in the specified location of the current project.
@@ -542,6 +595,12 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional text description of the multicast group producer activation.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key-value pairs
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -661,13 +720,14 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_producer_activation_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_group_range_activation: Optional[pulumi.Input[_builtins.str]] = None,
-                 multicast_producer_association: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_producer_activation_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_group_range_activation: pulumi.Input[Optional[_builtins.str]] = None,
+                 multicast_producer_association: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -677,6 +737,7 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = MulticastGroupProducerActivationArgs.__new__(MulticastGroupProducerActivationArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
@@ -711,20 +772,21 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            multicast_group_producer_activation_id: Optional[pulumi.Input[_builtins.str]] = None,
-            multicast_group_range_activation: Optional[pulumi.Input[_builtins.str]] = None,
-            multicast_producer_association: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            states: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MulticastGroupProducerActivationStateArgs', 'MulticastGroupProducerActivationStateArgsDict']]]]] = None,
-            unique_id: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'MulticastGroupProducerActivation':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            multicast_group_producer_activation_id: pulumi.Input[Optional[_builtins.str]] = None,
+            multicast_group_range_activation: pulumi.Input[Optional[_builtins.str]] = None,
+            multicast_producer_association: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            states: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MulticastGroupProducerActivationStateArgs', 'MulticastGroupProducerActivationStateArgsDict']]]]] = None,
+            unique_id: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'MulticastGroupProducerActivation':
         """
         Get an existing MulticastGroupProducerActivation resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -733,6 +795,12 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the multicast group producer activation was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional text description of the multicast group producer activation.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key-value pairs
@@ -780,6 +848,7 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
         __props__ = _MulticastGroupProducerActivationState.__new__(_MulticastGroupProducerActivationState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -802,6 +871,19 @@ class MulticastGroupProducerActivation(pulumi.CustomResource):
         The timestamp when the multicast group producer activation was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

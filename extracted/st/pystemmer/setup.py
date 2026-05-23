@@ -26,7 +26,7 @@ researchers wishing to reproduce results of earlier experiments.
 
 """.strip()
 
-version_str = '3.0.0'
+version_str = '3.1.0'
 # libstemmer_c versions have 3 components but pystemmer versions may have more
 # (so we can address a pystemmer-specific issue without having to wait for the
 # next libstemmer_c release) so take the first 3 components from version_str.
@@ -40,7 +40,7 @@ class LibrarySourceCode:
     DEFAULT_URI = 'https://snowballstem.org/dist/libstemmer_c-%s.tar.gz' % \
         libstemmer_c_version
     DEFAULT_CHECKSUM = \
-        'd4eca4485f6d3cb4387626a5f508b9b3489d24737525c23ba58026159497a8bc'
+        '321d582f88b07101378596ad65c2e0b9c60cfab406cc736484799854d09eaa09'
 
     def __init__(self, directory='libstemmer_c-%s' % libstemmer_c_version):
         """ Constructor.
@@ -175,12 +175,15 @@ setup(name='PyStemmer',
           "License :: OSI Approved :: MIT License",
           "License :: OSI Approved :: BSD License",
           "Natural Language :: Arabic",
+          "Natural Language :: Armenian",
           "Natural Language :: Basque",
           "Natural Language :: Catalan",
+          "Natural Language :: Czech",
           "Natural Language :: Danish",
           "Natural Language :: Dutch",
           "Natural Language :: English",
           "Natural Language :: Esperanto",
+          "Natural Language :: Estonian",
           "Natural Language :: Finnish",
           "Natural Language :: French",
           "Natural Language :: German",
@@ -193,21 +196,23 @@ setup(name='PyStemmer',
           "Natural Language :: Lithuanian",
           "Natural Language :: Nepali",
           "Natural Language :: Norwegian",
+          "Natural Language :: Persian",
+          "Natural Language :: Polish",
           "Natural Language :: Portuguese",
           "Natural Language :: Romanian",
           "Natural Language :: Russian",
           "Natural Language :: Serbian",
+          # FIXME: https://github.com/pypa/trove-classifiers/pull/246
+          #"Natural Language :: Sesotho",
           "Natural Language :: Spanish",
           "Natural Language :: Swedish",
           "Natural Language :: Tamil",
           "Natural Language :: Turkish",
+          "Natural Language :: Yiddish",
           "Operating System :: OS Independent",
           "Programming Language :: C",
           "Programming Language :: Other",
           "Programming Language :: Python",
-          "Programming Language :: Python :: 2",
-          "Programming Language :: Python :: 2.6",
-          "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.3",
           "Programming Language :: Python :: 3.4",
@@ -220,6 +225,7 @@ setup(name='PyStemmer',
           "Programming Language :: Python :: 3.11",
           "Programming Language :: Python :: 3.12",
           "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
           "Topic :: Database",
           "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
           "Topic :: Text Processing :: Indexing",

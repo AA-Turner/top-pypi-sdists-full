@@ -865,3 +865,110 @@ def test_stop_no_sessions(manager):
     manager.stop()  # should not raise
     assert manager._spark_session is None
     assert manager.emr_serverless_session_id is None
+
+
+# --- Tests for spark.dynamicAllocation.executorIdleTimeout ---
+
+
+def _setup_manager_for_session_start(manager, mock_boto3_clients, connection_spark_configs=None):
+    """Helper to set up manager for _start_emr_serverless_session tests."""
+    emr_client, _ = mock_boto3_clients
+    manager.emr_serverless_client = emr_client
+    manager.application_id = "app-1"
+    manager.project = MagicMock()
+    manager.project.id = "proj-123"
+    manager.emr_serverless_runtime_role = "arn:aws:iam::123:role/role"
+    manager.connection_spark_configs = connection_spark_configs or {}
+    manager.resolved_connection_name = "test_connection"
+
+    emr_client.start_session.return_value = {"sessionId": "sess-idle"}
+    emr_client.get_session.return_value = {"session": {"state": "STARTED"}}
+    emr_client.get_session_endpoint.return_value = {
+        "endpoint": "https://emr.aws.com/session",
+        "authToken": "tok",
+        "authTokenExpiresAt": None,
+    }
+    return emr_client
+
+
+def _get_spark_props_from_start_session(emr_client):
+    """Extract spark properties dict from the start_session call."""
+    call_kwargs = emr_client.start_session.call_args
+    return call_kwargs[1]["configurationOverrides"]["runtimeConfiguration"][0]["properties"]
+
+
+def test_executor_idle_timeout_default(manager, mock_boto3_clients):
+    """Ensure executorIdleTimeout is set to 120s by default."""
+    emr_client = _setup_manager_for_session_start(manager, mock_boto3_clients)
+
+    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+
+    with patch.object(
+        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
+    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
+        return_value={"spark.sql.catalogImplementation": "hive"},
+    ), patch.object(
+        manager, "_get_s3_access_grants_configs", return_value={}
+    ):
+        manager._start_emr_serverless_session("app-1")
+
+    spark_props = _get_spark_props_from_start_session(emr_client)
+    assert spark_props["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
+    # Base defaults preserved
+    assert spark_props["spark.sql.catalogImplementation"] == "hive"
+
+
+def test_executor_idle_timeout_overridden_by_connection_config(manager, mock_boto3_clients):
+    """Ensure connection-level spark config overrides the SDK default executorIdleTimeout."""
+    connection_configs = {"spark.dynamicAllocation.executorIdleTimeout": "300s"}
+    emr_client = _setup_manager_for_session_start(
+        manager, mock_boto3_clients, connection_spark_configs=connection_configs
+    )
+
+    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+
+    with patch.object(
+        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
+    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
+        return_value={},
+    ), patch.object(
+        manager, "_get_s3_access_grants_configs", return_value={}
+    ):
+        manager._start_emr_serverless_session("app-1")
+
+    spark_props = _get_spark_props_from_start_session(emr_client)
+    assert spark_props["spark.dynamicAllocation.executorIdleTimeout"] == "300s"
+
+
+def test_executor_idle_timeout_spark_conf_wins_over_all(manager, mock_boto3_clients):
+    """Ensure user spark_conf overrides both SDK default and connection config."""
+    connection_configs = {"spark.dynamicAllocation.executorIdleTimeout": "300s"}
+    emr_client = _setup_manager_for_session_start(
+        manager, mock_boto3_clients, connection_spark_configs=connection_configs
+    )
+    manager.spark_conf = {
+        "spark.dynamicAllocation.executorIdleTimeout": "45s",
+        "spark.executor.memory": "4g",
+    }
+
+    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+
+    with patch.object(
+        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
+    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
+        return_value={"spark.sql.catalogImplementation": "hive"},
+    ), patch.object(
+        manager, "_get_s3_access_grants_configs", return_value={}
+    ):
+        manager._start_emr_serverless_session("app-1")
+
+    spark_props = _get_spark_props_from_start_session(emr_client)
+    # spark_conf wins over connection config and SDK default
+    assert spark_props["spark.dynamicAllocation.executorIdleTimeout"] == "45s"
+    # spark_conf additions present
+    assert spark_props["spark.executor.memory"] == "4g"
+    # Base defaults preserved
+    assert spark_props["spark.sql.catalogImplementation"] == "hive"

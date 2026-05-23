@@ -25,7 +25,8 @@ class PostureDeploymentArgs:
                  posture_id: pulumi.Input[_builtins.str],
                  posture_revision_id: pulumi.Input[_builtins.str],
                  target_resource: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PostureDeployment resource.
 
@@ -39,6 +40,12 @@ class PostureDeploymentArgs:
                projects/{project_number},
                folders/{folder_number},
                organizations/{organization_id}
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the posture deployment.
         """
         pulumi.set(__self__, "location", location)
@@ -47,6 +54,8 @@ class PostureDeploymentArgs:
         pulumi.set(__self__, "posture_id", posture_id)
         pulumi.set(__self__, "posture_revision_id", posture_revision_id)
         pulumi.set(__self__, "target_resource", target_resource)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
 
@@ -127,41 +136,65 @@ class PostureDeploymentArgs:
         pulumi.set(self, "target_resource", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the posture deployment.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
 
 @pulumi.input_type
 class _PostureDeploymentState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 desired_posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 desired_posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 failure_message: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 desired_posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 failure_message: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PostureDeployment resources.
 
         :param pulumi.Input[_builtins.str] create_time: Time the posture deployment was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the posture deployment.
         :param pulumi.Input[_builtins.str] desired_posture_id: This is an output only optional field which will be filled in case when
                PostureDeployment state is UPDATE_FAILED or CREATE_FAILED or DELETE_FAILED.
@@ -192,6 +225,8 @@ class _PostureDeploymentState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if desired_posture_id is not None:
@@ -225,31 +260,48 @@ class _PostureDeploymentState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the posture deployment was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the posture deployment.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="desiredPostureId")
-    def desired_posture_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def desired_posture_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This is an output only optional field which will be filled in case when
         PostureDeployment state is UPDATE_FAILED or CREATE_FAILED or DELETE_FAILED.
@@ -258,12 +310,12 @@ class _PostureDeploymentState:
         return pulumi.get(self, "desired_posture_id")
 
     @desired_posture_id.setter
-    def desired_posture_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def desired_posture_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "desired_posture_id", value)
 
     @_builtins.property
     @pulumi.getter(name="desiredPostureRevisionId")
-    def desired_posture_revision_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def desired_posture_revision_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This is an output only optional field which will be filled in case when
         PostureDeployment state is UPDATE_FAILED or CREATE_FAILED or DELETE_FAILED.
@@ -272,24 +324,24 @@ class _PostureDeploymentState:
         return pulumi.get(self, "desired_posture_revision_id")
 
     @desired_posture_revision_id.setter
-    def desired_posture_revision_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def desired_posture_revision_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "desired_posture_revision_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         For Resource freshness validation (https://google.aip.dev/154)
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="failureMessage")
-    def failure_message(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def failure_message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This is a output only optional field which will be filled in case where
         PostureDeployment enters a failure state like UPDATE_FAILED or
@@ -299,60 +351,60 @@ class _PostureDeploymentState:
         return pulumi.get(self, "failure_message")
 
     @failure_message.setter
-    def failure_message(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def failure_message(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "failure_message", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the resource, eg. global`.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the posture deployment instance.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of the resource, an organization. Format should be `organizations/{organization_id}`.
         """
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="postureDeploymentId")
-    def posture_deployment_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def posture_deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the posture deployment.
         """
         return pulumi.get(self, "posture_deployment_id")
 
     @posture_deployment_id.setter
-    def posture_deployment_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def posture_deployment_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "posture_deployment_id", value)
 
     @_builtins.property
     @pulumi.getter(name="postureId")
-    def posture_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def posture_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Relative name of the posture which needs to be deployed. It should be in the format:
         organizations/{organization_id}/locations/{location}/postures/{posture_id}
@@ -360,36 +412,36 @@ class _PostureDeploymentState:
         return pulumi.get(self, "posture_id")
 
     @posture_id.setter
-    def posture_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def posture_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "posture_id", value)
 
     @_builtins.property
     @pulumi.getter(name="postureRevisionId")
-    def posture_revision_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def posture_revision_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Revision_id the posture which needs to be deployed.
         """
         return pulumi.get(self, "posture_revision_id")
 
     @posture_revision_id.setter
-    def posture_revision_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def posture_revision_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "posture_revision_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set, there are currently changes in flight to the posture deployment.
         """
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         State of the posture deployment. A posture deployment can be in the following terminal states:
         ACTIVE, CREATE_FAILED, UPDATE_FAILED, DELETE_FAILED.
@@ -397,12 +449,12 @@ class _PostureDeploymentState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="targetResource")
-    def target_resource(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def target_resource(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource on which the posture should be deployed. This can be in one of the following formats:
         projects/{project_number},
@@ -412,19 +464,19 @@ class _PostureDeploymentState:
         return pulumi.get(self, "target_resource")
 
     @target_resource.setter
-    def target_resource(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def target_resource(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "target_resource", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the posture deployment was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -434,13 +486,14 @@ class PostureDeployment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a deployment of a security posture on a resource. A posture contains user curated policy sets. A posture can
@@ -470,6 +523,12 @@ class PostureDeployment(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the posture deployment.
         :param pulumi.Input[_builtins.str] location: The location of the resource, eg. global`.
         :param pulumi.Input[_builtins.str] parent: The parent of the resource, an organization. Format should be `organizations/{organization_id}`.
@@ -529,13 +588,14 @@ class PostureDeployment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -545,6 +605,7 @@ class PostureDeployment(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PostureDeploymentArgs.__new__(PostureDeploymentArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -583,22 +644,23 @@ class PostureDeployment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            desired_posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-            desired_posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            failure_message: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            posture_deployment_id: Optional[pulumi.Input[_builtins.str]] = None,
-            posture_id: Optional[pulumi.Input[_builtins.str]] = None,
-            posture_revision_id: Optional[pulumi.Input[_builtins.str]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            target_resource: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'PostureDeployment':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            desired_posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+            desired_posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            failure_message: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            posture_deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+            posture_id: pulumi.Input[Optional[_builtins.str]] = None,
+            posture_revision_id: pulumi.Input[Optional[_builtins.str]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            target_resource: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'PostureDeployment':
         """
         Get an existing PostureDeployment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -607,6 +669,12 @@ class PostureDeployment(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Time the posture deployment was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Description of the posture deployment.
         :param pulumi.Input[_builtins.str] desired_posture_id: This is an output only optional field which will be filled in case when
                PostureDeployment state is UPDATE_FAILED or CREATE_FAILED or DELETE_FAILED.
@@ -640,6 +708,7 @@ class PostureDeployment(pulumi.CustomResource):
         __props__ = _PostureDeploymentState.__new__(_PostureDeploymentState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["desired_posture_id"] = desired_posture_id
         __props__.__dict__["desired_posture_revision_id"] = desired_posture_revision_id
@@ -664,6 +733,19 @@ class PostureDeployment(pulumi.CustomResource):
         Time the posture deployment was created in UTC.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

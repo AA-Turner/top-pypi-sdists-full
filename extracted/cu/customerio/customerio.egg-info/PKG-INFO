@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: customerio
-Version: 3.0.0
+Version: 3.1.0
 Summary: Customer.io Python bindings.
 Author-email: "Peaberry Software Inc." <support@customerio.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/customerio/customerio-python
-Project-URL: Changelog, https://github.com/customerio/customerio-python/blob/main/CHANGELOG.md
+Project-URL: Releases, https://github.com/customerio/customerio-python/releases
 Project-URL: Issues, https://github.com/customerio/customerio-python/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment

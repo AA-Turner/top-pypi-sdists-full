@@ -27,13 +27,16 @@ class GetHealthCheckResult:
     """
     A collection of values returned by getHealthCheck.
     """
-    def __init__(__self__, check_interval_sec=None, creation_timestamp=None, description=None, grpc_health_checks=None, grpc_tls_health_checks=None, healthy_threshold=None, http2_health_checks=None, http_health_checks=None, https_health_checks=None, id=None, log_configs=None, name=None, project=None, self_link=None, source_regions=None, ssl_health_checks=None, tcp_health_checks=None, timeout_sec=None, type=None, unhealthy_threshold=None):
+    def __init__(__self__, check_interval_sec=None, creation_timestamp=None, deletion_policy=None, description=None, grpc_health_checks=None, grpc_tls_health_checks=None, healthy_threshold=None, http2_health_checks=None, http_health_checks=None, https_health_checks=None, id=None, log_configs=None, name=None, project=None, self_link=None, source_regions=None, ssl_health_checks=None, tcp_health_checks=None, timeout_sec=None, type=None, unhealthy_threshold=None):
         if check_interval_sec and not isinstance(check_interval_sec, int):
             raise TypeError("Expected argument 'check_interval_sec' to be a int")
         pulumi.set(__self__, "check_interval_sec", check_interval_sec)
         if creation_timestamp and not isinstance(creation_timestamp, str):
             raise TypeError("Expected argument 'creation_timestamp' to be a str")
         pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy and not isinstance(deletion_policy, str):
+            raise TypeError("Expected argument 'deletion_policy' to be a str")
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description and not isinstance(description, str):
             raise TypeError("Expected argument 'description' to be a str")
         pulumi.set(__self__, "description", description)
@@ -98,6 +101,11 @@ class GetHealthCheckResult:
     @pulumi.getter(name="creationTimestamp")
     def creation_timestamp(self) -> _builtins.str:
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -201,6 +209,7 @@ class AwaitableGetHealthCheckResult(GetHealthCheckResult):
         return GetHealthCheckResult(
             check_interval_sec=self.check_interval_sec,
             creation_timestamp=self.creation_timestamp,
+            deletion_policy=self.deletion_policy,
             description=self.description,
             grpc_health_checks=self.grpc_health_checks,
             grpc_tls_health_checks=self.grpc_tls_health_checks,
@@ -252,6 +261,7 @@ def get_health_check(name: Optional[_builtins.str] = None,
     return AwaitableGetHealthCheckResult(
         check_interval_sec=pulumi.get(__ret__, 'check_interval_sec'),
         creation_timestamp=pulumi.get(__ret__, 'creation_timestamp'),
+        deletion_policy=pulumi.get(__ret__, 'deletion_policy'),
         description=pulumi.get(__ret__, 'description'),
         grpc_health_checks=pulumi.get(__ret__, 'grpc_health_checks'),
         grpc_tls_health_checks=pulumi.get(__ret__, 'grpc_tls_health_checks'),
@@ -270,8 +280,8 @@ def get_health_check(name: Optional[_builtins.str] = None,
         timeout_sec=pulumi.get(__ret__, 'timeout_sec'),
         type=pulumi.get(__ret__, 'type'),
         unhealthy_threshold=pulumi.get(__ret__, 'unhealthy_threshold'))
-def get_health_check_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                            project: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_health_check_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                            project: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetHealthCheckResult]:
     """
     Get information about a HealthCheck.
@@ -300,6 +310,7 @@ def get_health_check_output(name: Optional[pulumi.Input[_builtins.str]] = None,
     return __ret__.apply(lambda __response__: GetHealthCheckResult(
         check_interval_sec=pulumi.get(__response__, 'check_interval_sec'),
         creation_timestamp=pulumi.get(__response__, 'creation_timestamp'),
+        deletion_policy=pulumi.get(__response__, 'deletion_policy'),
         description=pulumi.get(__response__, 'description'),
         grpc_health_checks=pulumi.get(__response__, 'grpc_health_checks'),
         grpc_tls_health_checks=pulumi.get(__response__, 'grpc_tls_health_checks'),

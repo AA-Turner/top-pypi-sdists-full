@@ -1,21 +1,15 @@
 Metadata-Version: 2.4
 Name: dagit
-Version: 1.13.5
+Version: 1.13.6
 Summary: Web UI for dagster.
 Project-URL: Homepage, https://github.com/dagster-io/dagster
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster-webserver==1.13.5
+Requires-Dist: dagster-webserver==1.13.6
 Provides-Extra: notebook
-Requires-Dist: dagster-webserver[notebook]==1.13.5; extra == 'notebook'
+Requires-Dist: dagster-webserver[notebook]==1.13.6; extra == 'notebook'
 Description-Content-Type: text/x-rst
 
 =================

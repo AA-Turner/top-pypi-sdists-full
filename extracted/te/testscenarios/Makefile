@@ -10,10 +10,10 @@ check:
 clean:
 	find . -name '*.pyc' -print0 | xargs -0 rm -f
 
-TAGS: testscenarios/*.py testscenarios/tests/*.py
-	ctags -e -R testscenarios/
+TAGS: testscenarios/*.py tests/*.py
+	ctags -e -R testscenarios/ tests/
 
-tags: testscenarios/*.py testscenarios/tests/*.py
-	ctags -R testscenarios/
+tags: testscenarios/*.py tests/*.py
+	ctags -R testscenarios/ tests/
 
 .PHONY: all check

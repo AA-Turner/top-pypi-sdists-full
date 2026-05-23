@@ -32,7 +32,18 @@ _SKIP_DIR_NAMES = frozenset({
     "__pycache__", ".git", ".venv", "venv", "node_modules",
     ".tox", "dist", "build", ".mypy_cache", ".pytest_cache",
     "site-packages", ".eggs",
+    # Operational / test artifacts — not useful for project retrieval
+    "test_bank_results", "logs",
 })
+
+# File stems (case-insensitive) that produce noisy retrieval results.
+# trip_log and CHANGELOG are high-volume but carry no project-code signal.
+_SKIP_FILENAME_STEMS = frozenset({
+    "trip_log", "changelog",
+})
+
+# Filename prefixes (lowercase) for bulk-generated stress/prompt files.
+_SKIP_FILENAME_PREFIXES = ("stress_prompts",)
 
 _MAX_FILE_BYTES = 2_000_000
 MAX_CHUNK_CHARS = 1500
@@ -61,7 +72,7 @@ def index_path(root: str | Path) -> Iterator[TextChunk]:
     """
     root = Path(root).resolve()
     if root.is_file():
-        if _is_text_file(root):
+        if _is_text_file(root) and not _is_noisy_file(root):
             yield from _chunk_file(root)
         return
     if not root.is_dir():
@@ -90,6 +101,8 @@ def _walk_text_files(root: Path) -> Iterator[Path]:
                     continue
                 stack.append(entry)
             elif entry.is_file() and _is_text_file(entry):
+                if _is_noisy_file(entry):
+                    continue
                 try:
                     if entry.stat().st_size > _MAX_FILE_BYTES:
                         continue
@@ -100,6 +113,13 @@ def _walk_text_files(root: Path) -> Iterator[Path]:
 
 def _is_text_file(path: Path) -> bool:
     return path.suffix.lower() in _TEXT_EXTENSIONS
+
+
+def _is_noisy_file(path: Path) -> bool:
+    stem = path.stem.lower()
+    if stem in _SKIP_FILENAME_STEMS:
+        return True
+    return any(stem.startswith(p) for p in _SKIP_FILENAME_PREFIXES)
 
 
 def _chunk_file(path: Path) -> Iterator[TextChunk]:

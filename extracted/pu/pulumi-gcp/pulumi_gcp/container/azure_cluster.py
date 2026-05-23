@@ -28,13 +28,14 @@ class AzureClusterArgs:
                  location: pulumi.Input[_builtins.str],
                  networking: pulumi.Input['AzureClusterNetworkingArgs'],
                  resource_group_id: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 azure_services_authentication: Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']] = None,
-                 client: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input['AzureClusterLoggingConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 azure_services_authentication: pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']] = None,
+                 client: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional['AzureClusterLoggingConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AzureCluster resource.
 
@@ -51,6 +52,12 @@ class AzureClusterArgs:
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input['AzureClusterAzureServicesAuthenticationArgs'] azure_services_authentication: Azure authentication configuration for management of Azure resources
         :param pulumi.Input[_builtins.str] client: Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         :param pulumi.Input['AzureClusterLoggingConfigArgs'] logging_config: Logging configuration.
         :param pulumi.Input[_builtins.str] name: The name of this resource.
@@ -69,6 +76,8 @@ class AzureClusterArgs:
             pulumi.set(__self__, "azure_services_authentication", azure_services_authentication)
         if client is not None:
             pulumi.set(__self__, "client", client)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if logging_config is not None:
@@ -164,7 +173,7 @@ class AzureClusterArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between.
 
@@ -174,108 +183,126 @@ class AzureClusterArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="azureServicesAuthentication")
-    def azure_services_authentication(self) -> Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']]:
+    def azure_services_authentication(self) -> pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']]:
         """
         Azure authentication configuration for management of Azure resources
         """
         return pulumi.get(self, "azure_services_authentication")
 
     @azure_services_authentication.setter
-    def azure_services_authentication(self, value: Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']]):
+    def azure_services_authentication(self, value: pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']]):
         pulumi.set(self, "azure_services_authentication", value)
 
     @_builtins.property
     @pulumi.getter
-    def client(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
         """
         return pulumi.get(self, "client")
 
     @client.setter
-    def client(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingConfig")
-    def logging_config(self) -> Optional[pulumi.Input['AzureClusterLoggingConfigArgs']]:
+    def logging_config(self) -> pulumi.Input[Optional['AzureClusterLoggingConfigArgs']]:
         """
         Logging configuration.
         """
         return pulumi.get(self, "logging_config")
 
     @logging_config.setter
-    def logging_config(self, value: Optional[pulumi.Input['AzureClusterLoggingConfigArgs']]):
+    def logging_config(self, value: pulumi.Input[Optional['AzureClusterLoggingConfigArgs']]):
         pulumi.set(self, "logging_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AzureClusterState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 authorization: Optional[pulumi.Input['AzureClusterAuthorizationArgs']] = None,
-                 azure_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 azure_services_authentication: Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']] = None,
-                 client: Optional[pulumi.Input[_builtins.str]] = None,
-                 control_plane: Optional[pulumi.Input['AzureClusterControlPlaneArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 fleet: Optional[pulumi.Input['AzureClusterFleetArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input['AzureClusterLoggingConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networking: Optional[pulumi.Input['AzureClusterNetworkingArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload_identity_configs: Optional[pulumi.Input[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 authorization: pulumi.Input[Optional['AzureClusterAuthorizationArgs']] = None,
+                 azure_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 azure_services_authentication: pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']] = None,
+                 client: pulumi.Input[Optional[_builtins.str]] = None,
+                 control_plane: pulumi.Input[Optional['AzureClusterControlPlaneArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 fleet: pulumi.Input[Optional['AzureClusterFleetArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional['AzureClusterLoggingConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networking: pulumi.Input[Optional['AzureClusterNetworkingArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 resource_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload_identity_configs: pulumi.Input[Optional[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]] = None):
         """
         Input properties used for looking up and filtering AzureCluster resources.
 
@@ -289,6 +316,12 @@ class _AzureClusterState:
         :param pulumi.Input[_builtins.str] client: Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
         :param pulumi.Input['AzureClusterControlPlaneArgs'] control_plane: Configuration related to the cluster control plane.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this cluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] endpoint: Output only. The endpoint of the cluster's API server.
@@ -320,6 +353,8 @@ class _AzureClusterState:
             pulumi.set(__self__, "control_plane", control_plane)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_annotations is not None:
@@ -355,7 +390,7 @@ class _AzureClusterState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between.
 
@@ -365,271 +400,288 @@ class _AzureClusterState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def authorization(self) -> Optional[pulumi.Input['AzureClusterAuthorizationArgs']]:
+    def authorization(self) -> pulumi.Input[Optional['AzureClusterAuthorizationArgs']]:
         """
         Configuration related to the cluster RBAC settings.
         """
         return pulumi.get(self, "authorization")
 
     @authorization.setter
-    def authorization(self, value: Optional[pulumi.Input['AzureClusterAuthorizationArgs']]):
+    def authorization(self, value: pulumi.Input[Optional['AzureClusterAuthorizationArgs']]):
         pulumi.set(self, "authorization", value)
 
     @_builtins.property
     @pulumi.getter(name="azureRegion")
-    def azure_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def azure_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Azure region where the cluster runs. Each Google Cloud region supports a subset of nearby Azure regions. You can call to list all supported Azure regions within a given Google Cloud region.
         """
         return pulumi.get(self, "azure_region")
 
     @azure_region.setter
-    def azure_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def azure_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "azure_region", value)
 
     @_builtins.property
     @pulumi.getter(name="azureServicesAuthentication")
-    def azure_services_authentication(self) -> Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']]:
+    def azure_services_authentication(self) -> pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']]:
         """
         Azure authentication configuration for management of Azure resources
         """
         return pulumi.get(self, "azure_services_authentication")
 
     @azure_services_authentication.setter
-    def azure_services_authentication(self, value: Optional[pulumi.Input['AzureClusterAzureServicesAuthenticationArgs']]):
+    def azure_services_authentication(self, value: pulumi.Input[Optional['AzureClusterAzureServicesAuthenticationArgs']]):
         pulumi.set(self, "azure_services_authentication", value)
 
     @_builtins.property
     @pulumi.getter
-    def client(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
         """
         return pulumi.get(self, "client")
 
     @client.setter
-    def client(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client", value)
 
     @_builtins.property
     @pulumi.getter(name="controlPlane")
-    def control_plane(self) -> Optional[pulumi.Input['AzureClusterControlPlaneArgs']]:
+    def control_plane(self) -> pulumi.Input[Optional['AzureClusterControlPlaneArgs']]:
         """
         Configuration related to the cluster control plane.
         """
         return pulumi.get(self, "control_plane")
 
     @control_plane.setter
-    def control_plane(self, value: Optional[pulumi.Input['AzureClusterControlPlaneArgs']]):
+    def control_plane(self, value: pulumi.Input[Optional['AzureClusterControlPlaneArgs']]):
         pulumi.set(self, "control_plane", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this cluster was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def endpoint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The endpoint of the cluster's API server.
         """
         return pulumi.get(self, "endpoint")
 
     @endpoint.setter
-    def endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def endpoint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "endpoint", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Allows clients to perform consistent read-modify-writes through optimistic concurrency control. May be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def fleet(self) -> Optional[pulumi.Input['AzureClusterFleetArgs']]:
+    def fleet(self) -> pulumi.Input[Optional['AzureClusterFleetArgs']]:
         """
         Fleet configuration.
         """
         return pulumi.get(self, "fleet")
 
     @fleet.setter
-    def fleet(self, value: Optional[pulumi.Input['AzureClusterFleetArgs']]):
+    def fleet(self, value: pulumi.Input[Optional['AzureClusterFleetArgs']]):
         pulumi.set(self, "fleet", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingConfig")
-    def logging_config(self) -> Optional[pulumi.Input['AzureClusterLoggingConfigArgs']]:
+    def logging_config(self) -> pulumi.Input[Optional['AzureClusterLoggingConfigArgs']]:
         """
         Logging configuration.
         """
         return pulumi.get(self, "logging_config")
 
     @logging_config.setter
-    def logging_config(self, value: Optional[pulumi.Input['AzureClusterLoggingConfigArgs']]):
+    def logging_config(self, value: pulumi.Input[Optional['AzureClusterLoggingConfigArgs']]):
         pulumi.set(self, "logging_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def networking(self) -> Optional[pulumi.Input['AzureClusterNetworkingArgs']]:
+    def networking(self) -> pulumi.Input[Optional['AzureClusterNetworkingArgs']]:
         """
         Cluster-wide networking configuration.
         """
         return pulumi.get(self, "networking")
 
     @networking.setter
-    def networking(self, value: Optional[pulumi.Input['AzureClusterNetworkingArgs']]):
+    def networking(self, value: pulumi.Input[Optional['AzureClusterNetworkingArgs']]):
         pulumi.set(self, "networking", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Output only. If set, there are currently changes in flight to the cluster.
         """
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceGroupId")
-    def resource_group_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_group_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ARM ID of the resource group where the cluster resources are deployed. For example: `/subscriptions/*/resourceGroups/*`
         """
         return pulumi.get(self, "resource_group_id")
 
     @resource_group_id.setter
-    def resource_group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_group_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_group_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The current state of the cluster. Possible values: STATE_UNSPECIFIED, PROVISIONING, RUNNING, RECONCILING, STOPPING, ERROR, DEGRADED
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. A globally unique identifier for the cluster.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this cluster was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="workloadIdentityConfigs")
-    def workload_identity_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]]:
+    def workload_identity_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]]:
         """
         Output only. Workload Identity settings.
         """
         return pulumi.get(self, "workload_identity_configs")
 
     @workload_identity_configs.setter
-    def workload_identity_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]]):
+    def workload_identity_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AzureClusterWorkloadIdentityConfigArgs']]]]):
         pulumi.set(self, "workload_identity_configs", value)
 
 
@@ -639,20 +691,21 @@ class AzureCluster(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 authorization: Optional[pulumi.Input[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
-                 azure_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 azure_services_authentication: Optional[pulumi.Input[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
-                 client: Optional[pulumi.Input[_builtins.str]] = None,
-                 control_plane: Optional[pulumi.Input[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 fleet: Optional[pulumi.Input[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networking: Optional[pulumi.Input[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 authorization: pulumi.Input[Optional[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
+                 azure_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 azure_services_authentication: pulumi.Input[Optional[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
+                 client: pulumi.Input[Optional[_builtins.str]] = None,
+                 control_plane: pulumi.Input[Optional[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 fleet: pulumi.Input[Optional[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networking: pulumi.Input[Optional[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An Anthos cluster running on Azure.
@@ -784,6 +837,12 @@ class AzureCluster(pulumi.CustomResource):
         :param pulumi.Input[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']] azure_services_authentication: Azure authentication configuration for management of Azure resources
         :param pulumi.Input[_builtins.str] client: Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
         :param pulumi.Input[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']] control_plane: Configuration related to the cluster control plane.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         :param pulumi.Input[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']] fleet: Fleet configuration.
         :param pulumi.Input[_builtins.str] location: The location for the resource
@@ -933,20 +992,21 @@ class AzureCluster(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 authorization: Optional[pulumi.Input[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
-                 azure_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 azure_services_authentication: Optional[pulumi.Input[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
-                 client: Optional[pulumi.Input[_builtins.str]] = None,
-                 control_plane: Optional[pulumi.Input[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 fleet: Optional[pulumi.Input[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_config: Optional[pulumi.Input[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networking: Optional[pulumi.Input[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 authorization: pulumi.Input[Optional[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
+                 azure_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 azure_services_authentication: pulumi.Input[Optional[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
+                 client: pulumi.Input[Optional[_builtins.str]] = None,
+                 control_plane: pulumi.Input[Optional[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 fleet: pulumi.Input[Optional[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_config: pulumi.Input[Optional[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networking: pulumi.Input[Optional[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_group_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -968,6 +1028,7 @@ class AzureCluster(pulumi.CustomResource):
             if control_plane is None and not opts.urn:
                 raise TypeError("Missing required property 'control_plane'")
             __props__.__dict__["control_plane"] = control_plane
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if fleet is None and not opts.urn:
                 raise TypeError("Missing required property 'fleet'")
@@ -1003,29 +1064,30 @@ class AzureCluster(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            authorization: Optional[pulumi.Input[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
-            azure_region: Optional[pulumi.Input[_builtins.str]] = None,
-            azure_services_authentication: Optional[pulumi.Input[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
-            client: Optional[pulumi.Input[_builtins.str]] = None,
-            control_plane: Optional[pulumi.Input[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            endpoint: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            fleet: Optional[pulumi.Input[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            logging_config: Optional[pulumi.Input[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            networking: Optional[pulumi.Input[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            workload_identity_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AzureClusterWorkloadIdentityConfigArgs', 'AzureClusterWorkloadIdentityConfigArgsDict']]]]] = None) -> 'AzureCluster':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            authorization: pulumi.Input[Optional[Union['AzureClusterAuthorizationArgs', 'AzureClusterAuthorizationArgsDict']]] = None,
+            azure_region: pulumi.Input[Optional[_builtins.str]] = None,
+            azure_services_authentication: pulumi.Input[Optional[Union['AzureClusterAzureServicesAuthenticationArgs', 'AzureClusterAzureServicesAuthenticationArgsDict']]] = None,
+            client: pulumi.Input[Optional[_builtins.str]] = None,
+            control_plane: pulumi.Input[Optional[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            fleet: pulumi.Input[Optional[Union['AzureClusterFleetArgs', 'AzureClusterFleetArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            logging_config: pulumi.Input[Optional[Union['AzureClusterLoggingConfigArgs', 'AzureClusterLoggingConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            networking: pulumi.Input[Optional[Union['AzureClusterNetworkingArgs', 'AzureClusterNetworkingArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            resource_group_id: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            workload_identity_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AzureClusterWorkloadIdentityConfigArgs', 'AzureClusterWorkloadIdentityConfigArgsDict']]]]] = None) -> 'AzureCluster':
         """
         Get an existing AzureCluster resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1043,6 +1105,12 @@ class AzureCluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] client: Name of the AzureClient. The `AzureClient` resource must reside on the same GCP project and region as the `AzureCluster`. `AzureClient` names are formatted as `projects/<project-number>/locations/<region>/azureClients/<client-id>`. See Resource Names (https:cloud.google.com/apis/design/resource_names) for more details on Google Cloud resource names.
         :param pulumi.Input[Union['AzureClusterControlPlaneArgs', 'AzureClusterControlPlaneArgsDict']] control_plane: Configuration related to the cluster control plane.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this cluster was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. A human readable description of this cluster. Cannot be longer than 255 UTF-8 encoded bytes.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] endpoint: Output only. The endpoint of the cluster's API server.
@@ -1071,6 +1139,7 @@ class AzureCluster(pulumi.CustomResource):
         __props__.__dict__["client"] = client
         __props__.__dict__["control_plane"] = control_plane
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["endpoint"] = endpoint
@@ -1147,6 +1216,19 @@ class AzureCluster(pulumi.CustomResource):
         Output only. The time at which this cluster was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

@@ -45,14 +45,22 @@ Usage:
     frame, idx, skipped = ring2.read_next()  # Will skip if too slow
 """
 
+from __future__ import annotations
+
 import logging
 import mmap
 import os
 import struct
 import time
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-import numpy as np
+try:
+    import numpy as np
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -465,7 +473,9 @@ class CudaIpcRingBuffer:
                 self._imported_ipc_ptr = imported_ptr
 
                 total_shape = (self.num_slots,) + self.frame_shape
-                total_elements = int(np.prod(total_shape))
+                total_elements = 1
+                for _dim in total_shape:
+                    total_elements *= int(_dim)
 
                 mem = cp.cuda.UnownedMemory(imported_ptr, total_elements, owner=None)
                 memptr = cp.cuda.MemoryPointer(mem, 0)

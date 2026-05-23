@@ -24,11 +24,12 @@ class V2PolicyOrchestratorArgs:
                  action: pulumi.Input[_builtins.str],
                  orchestrated_resource: pulumi.Input['V2PolicyOrchestratorOrchestratedResourceArgs'],
                  policy_orchestrator_id: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 orchestration_scope: Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 orchestration_scope: pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a V2PolicyOrchestrator resource.
 
@@ -46,6 +47,12 @@ class V2PolicyOrchestratorArgs:
                * Must be between 1-63 characters.
                * Must end with a number or a letter.
                * Must be unique within the parent.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Freeform text describing the purpose of the resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional. Labels as key value pairs
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -66,6 +73,8 @@ class V2PolicyOrchestratorArgs:
         pulumi.set(__self__, "action", action)
         pulumi.set(__self__, "orchestrated_resource", orchestrated_resource)
         pulumi.set(__self__, "policy_orchestrator_id", policy_orchestrator_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -125,20 +134,37 @@ class V2PolicyOrchestratorArgs:
         pulumi.set(self, "policy_orchestrator_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Freeform text describing the purpose of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Labels as key value pairs
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -147,12 +173,12 @@ class V2PolicyOrchestratorArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="orchestrationScope")
-    def orchestration_scope(self) -> Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']]:
+    def orchestration_scope(self) -> pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']]:
         """
         Defines a set of selectors which drive which resources are in scope of policy
         orchestration.
@@ -161,12 +187,12 @@ class V2PolicyOrchestratorArgs:
         return pulumi.get(self, "orchestration_scope")
 
     @orchestration_scope.setter
-    def orchestration_scope(self, value: Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']]):
+    def orchestration_scope(self, value: pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']]):
         pulumi.set(self, "orchestration_scope", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -174,12 +200,12 @@ class V2PolicyOrchestratorArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. State of the orchestrator. Can be updated to change orchestrator behaviour.
         Allowed values:
@@ -192,28 +218,29 @@ class V2PolicyOrchestratorArgs:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
 @pulumi.input_type
 class _V2PolicyOrchestratorState:
     def __init__(__self__, *,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 orchestrated_resource: Optional[pulumi.Input['V2PolicyOrchestratorOrchestratedResourceArgs']] = None,
-                 orchestration_scope: Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']] = None,
-                 orchestration_states: Optional[pulumi.Input[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]] = None,
-                 policy_orchestrator_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 orchestrated_resource: pulumi.Input[Optional['V2PolicyOrchestratorOrchestratedResourceArgs']] = None,
+                 orchestration_scope: pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']] = None,
+                 orchestration_states: pulumi.Input[Optional[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]] = None,
+                 policy_orchestrator_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering V2PolicyOrchestrator resources.
 
@@ -223,6 +250,12 @@ class _V2PolicyOrchestratorState:
                - `UPSERT` - Orchestrator will create or update target resources.
                - `DELETE` - Orchestrator will delete target resources, if they exist
         :param pulumi.Input[_builtins.str] create_time: Output only. Timestamp when the policy orchestrator resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Freeform text describing the purpose of the resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional. Labels as key value pairs
@@ -265,6 +298,8 @@ class _V2PolicyOrchestratorState:
             pulumi.set(__self__, "action", action)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -294,7 +329,7 @@ class _V2PolicyOrchestratorState:
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def action(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Action to be done by the orchestrator in
         `projects/{project_id}/zones/{zone_id}` locations defined by the
@@ -305,48 +340,65 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "action")
 
     @action.setter
-    def action(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def action(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "action", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Timestamp when the policy orchestrator resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Freeform text describing the purpose of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Labels as key value pairs
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -355,12 +407,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. Identifier. In form of
         * `organizations/{organization_id}/locations/global/policyOrchestrators/{orchestrator_id}`
@@ -370,12 +422,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orchestratedResource")
-    def orchestrated_resource(self) -> Optional[pulumi.Input['V2PolicyOrchestratorOrchestratedResourceArgs']]:
+    def orchestrated_resource(self) -> pulumi.Input[Optional['V2PolicyOrchestratorOrchestratedResourceArgs']]:
         """
         Represents a resource that is being orchestrated by the policy orchestrator.
         Structure is documented below.
@@ -383,12 +435,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "orchestrated_resource")
 
     @orchestrated_resource.setter
-    def orchestrated_resource(self, value: Optional[pulumi.Input['V2PolicyOrchestratorOrchestratedResourceArgs']]):
+    def orchestrated_resource(self, value: pulumi.Input[Optional['V2PolicyOrchestratorOrchestratedResourceArgs']]):
         pulumi.set(self, "orchestrated_resource", value)
 
     @_builtins.property
     @pulumi.getter(name="orchestrationScope")
-    def orchestration_scope(self) -> Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']]:
+    def orchestration_scope(self) -> pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']]:
         """
         Defines a set of selectors which drive which resources are in scope of policy
         orchestration.
@@ -397,12 +449,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "orchestration_scope")
 
     @orchestration_scope.setter
-    def orchestration_scope(self, value: Optional[pulumi.Input['V2PolicyOrchestratorOrchestrationScopeArgs']]):
+    def orchestration_scope(self, value: pulumi.Input[Optional['V2PolicyOrchestratorOrchestrationScopeArgs']]):
         pulumi.set(self, "orchestration_scope", value)
 
     @_builtins.property
     @pulumi.getter(name="orchestrationStates")
-    def orchestration_states(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]]:
+    def orchestration_states(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]]:
         """
         Describes the state of the orchestration process.
         Structure is documented below.
@@ -410,12 +462,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "orchestration_states")
 
     @orchestration_states.setter
-    def orchestration_states(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]]):
+    def orchestration_states(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['V2PolicyOrchestratorOrchestrationStateArgs']]]]):
         pulumi.set(self, "orchestration_states", value)
 
     @_builtins.property
     @pulumi.getter(name="policyOrchestratorId")
-    def policy_orchestrator_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_orchestrator_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The logical identifier of the policy orchestrator, with the following
         restrictions:
@@ -428,12 +480,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "policy_orchestrator_id")
 
     @policy_orchestrator_id.setter
-    def policy_orchestrator_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_orchestrator_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_orchestrator_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -441,12 +493,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -454,12 +506,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Output only. Set to true, if the there are ongoing changes being applied by the
         orchestrator.
@@ -467,12 +519,12 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. State of the orchestrator. Can be updated to change orchestrator behaviour.
         Allowed values:
@@ -485,19 +537,19 @@ class _V2PolicyOrchestratorState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Timestamp when the policy orchestrator resource was last modified.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -507,14 +559,15 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 orchestrated_resource: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
-                 orchestration_scope: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
-                 policy_orchestrator_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 orchestrated_resource: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
+                 orchestration_scope: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
+                 policy_orchestrator_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         PolicyOrchestrator helps managing project+zone level policy resources (e.g.
@@ -592,6 +645,12 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
                `orchestration_scope`. Allowed values:
                - `UPSERT` - Orchestrator will create or update target resources.
                - `DELETE` - Orchestrator will delete target resources, if they exist
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Freeform text describing the purpose of the resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional. Labels as key value pairs
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -708,14 +767,15 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 orchestrated_resource: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
-                 orchestration_scope: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
-                 policy_orchestrator_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 orchestrated_resource: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
+                 orchestration_scope: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
+                 policy_orchestrator_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -728,6 +788,7 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
             if action is None and not opts.urn:
                 raise TypeError("Missing required property 'action'")
             __props__.__dict__["action"] = action
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["labels"] = labels
             if orchestrated_resource is None and not opts.urn:
@@ -758,21 +819,22 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            action: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            orchestrated_resource: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
-            orchestration_scope: Optional[pulumi.Input[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
-            orchestration_states: Optional[pulumi.Input[Sequence[pulumi.Input[Union['V2PolicyOrchestratorOrchestrationStateArgs', 'V2PolicyOrchestratorOrchestrationStateArgsDict']]]]] = None,
-            policy_orchestrator_id: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'V2PolicyOrchestrator':
+            action: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            orchestrated_resource: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestratedResourceArgs', 'V2PolicyOrchestratorOrchestratedResourceArgsDict']]] = None,
+            orchestration_scope: pulumi.Input[Optional[Union['V2PolicyOrchestratorOrchestrationScopeArgs', 'V2PolicyOrchestratorOrchestrationScopeArgsDict']]] = None,
+            orchestration_states: pulumi.Input[Optional[Sequence[pulumi.Input[Union['V2PolicyOrchestratorOrchestrationStateArgs', 'V2PolicyOrchestratorOrchestrationStateArgsDict']]]]] = None,
+            policy_orchestrator_id: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'V2PolicyOrchestrator':
         """
         Get an existing V2PolicyOrchestrator resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -786,6 +848,12 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
                - `UPSERT` - Orchestrator will create or update target resources.
                - `DELETE` - Orchestrator will delete target resources, if they exist
         :param pulumi.Input[_builtins.str] create_time: Output only. Timestamp when the policy orchestrator resource was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Optional. Freeform text describing the purpose of the resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional. Labels as key value pairs
@@ -830,6 +898,7 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
 
         __props__.__dict__["action"] = action
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -864,6 +933,19 @@ class V2PolicyOrchestrator(pulumi.CustomResource):
         Output only. Timestamp when the policy orchestrator resource was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

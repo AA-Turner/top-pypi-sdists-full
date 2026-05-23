@@ -1345,7 +1345,7 @@ class DagsterCloudUserCodeLauncher(
         if self._started:
             self._graceful_cleanup_servers(include_own_servers=True)
 
-        super().__exit__(exception_value, exception_value, traceback)  # pyright: ignore[reportAbstractUsage]
+        super().__exit__(exception_value, exception_value, traceback)
 
     def add_upload_metadata_for_deployment(
         self,

@@ -1,20 +1,23 @@
 //! Keplerian orbital elements module
 //!
 
-use anyhow::Result;
 use thiserror::Error;
 
+/// Errors that can occur while constructing or converting [`Kepler`] elements.
 #[derive(Debug, Error)]
-pub enum KeplerError {
+pub enum Error {
+    /// Returned by [`Kepler::from_pv`] when the computed eccentricity is
+    /// outside the valid range for an elliptical orbit.
     #[error("Eccentricity Out of Bounds {0}")]
     EccenOutOfBound(f64),
 }
 
-impl<T> From<KeplerError> for Result<T> {
-    fn from(e: KeplerError) -> Self {
-        Err(e.into())
-    }
-}
+/// Convenient type alias used throughout the `kepler` module.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Backwards-compatible alias for [`Error`].
+#[deprecated(note = "use kepler::Error instead")]
+pub type KeplerError = Error;
 
 /// Keplerian element can be defined by multiple
 /// types of "anomalies", which describe the position
@@ -151,14 +154,7 @@ impl Kepler {
     /// * `raan` - Right Ascension of the Ascending Node, radians
     /// * `argp` - Argument of Perigee, radians
     /// * `ma` - Mean anomaly, radians
-    pub fn with_mean_anomaly(
-        a: f64,
-        eccen: f64,
-        incl: f64,
-        raan: f64,
-        argp: f64,
-        ma: f64,
-    ) -> Self {
+    pub fn with_mean_anomaly(a: f64, eccen: f64, incl: f64, raan: f64, argp: f64, ma: f64) -> Self {
         Self::new(a, eccen, incl, raan, argp, Anomaly::Mean(ma))
     }
 
@@ -271,7 +267,7 @@ impl Kepler {
             / crate::consts::MU_EARTH;
         let eccen = e.norm();
         if eccen >= 1.0 {
-            return KeplerError::EccenOutOfBound(eccen).into();
+            return Err(Error::EccenOutOfBound(eccen));
         }
         let xi = v.norm().powi(2) / 2.0 - crate::consts::MU_EARTH / r.norm();
         let a = -crate::consts::MU_EARTH / (2.0 * xi);
@@ -303,9 +299,8 @@ impl Kepler {
         let r_pqw = numeris::vector![r * self.nu.cos(), r * self.nu.sin(), 0.0];
         let v_pqw = numeris::vector![-self.nu.sin(), self.eccen + self.nu.cos(), 0.0]
             * (crate::consts::MU_EARTH / p).sqrt();
-        let q = Quaternion::rotz(self.raan)
-            * Quaternion::rotx(self.incl)
-            * Quaternion::rotz(self.w);
+        let q =
+            Quaternion::rotz(self.raan) * Quaternion::rotx(self.incl) * Quaternion::rotz(self.w);
         (q * r_pqw, q * v_pqw)
     }
 }
@@ -405,10 +400,7 @@ mod tests {
                 let nu = eccentric2true(ea, e);
 
                 // Reconstruct eccentric anomaly from true anomaly
-                let ea2 = f64::atan2(
-                    nu.sin() * e.mul_add(-e, 1.0).sqrt(),
-                    e + nu.cos(),
-                );
+                let ea2 = f64::atan2(nu.sin() * e.mul_add(-e, 1.0).sqrt(), e + nu.cos());
                 // Reconstruct mean anomaly from eccentric anomaly
                 let m_back = e.mul_add(-ea2.sin(), ea2);
 

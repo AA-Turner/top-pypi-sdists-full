@@ -21,16 +21,23 @@ __all__ = ['LiteTopicArgs', 'LiteTopic']
 @pulumi.input_type
 class LiteTopicArgs:
     def __init__(__self__, *,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 partition_config: Optional[pulumi.Input['LiteTopicPartitionConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation_config: Optional[pulumi.Input['LiteTopicReservationConfigArgs']] = None,
-                 retention_config: Optional[pulumi.Input['LiteTopicRetentionConfigArgs']] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 partition_config: pulumi.Input[Optional['LiteTopicPartitionConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation_config: pulumi.Input[Optional['LiteTopicReservationConfigArgs']] = None,
+                 retention_config: pulumi.Input[Optional['LiteTopicRetentionConfigArgs']] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a LiteTopic resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the topic.
         :param pulumi.Input['LiteTopicPartitionConfigArgs'] partition_config: The settings for this topic's partitions.
                Structure is documented below.
@@ -43,6 +50,8 @@ class LiteTopicArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] zone: The zone of the pubsub lite topic.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if partition_config is not None:
@@ -59,20 +68,37 @@ class LiteTopicArgs:
             pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the topic.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="partitionConfig")
-    def partition_config(self) -> Optional[pulumi.Input['LiteTopicPartitionConfigArgs']]:
+    def partition_config(self) -> pulumi.Input[Optional['LiteTopicPartitionConfigArgs']]:
         """
         The settings for this topic's partitions.
         Structure is documented below.
@@ -80,12 +106,12 @@ class LiteTopicArgs:
         return pulumi.get(self, "partition_config")
 
     @partition_config.setter
-    def partition_config(self, value: Optional[pulumi.Input['LiteTopicPartitionConfigArgs']]):
+    def partition_config(self, value: pulumi.Input[Optional['LiteTopicPartitionConfigArgs']]):
         pulumi.set(self, "partition_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -93,24 +119,24 @@ class LiteTopicArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region of the pubsub lite topic.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="reservationConfig")
-    def reservation_config(self) -> Optional[pulumi.Input['LiteTopicReservationConfigArgs']]:
+    def reservation_config(self) -> pulumi.Input[Optional['LiteTopicReservationConfigArgs']]:
         """
         The settings for this topic's Reservation usage.
         Structure is documented below.
@@ -118,12 +144,12 @@ class LiteTopicArgs:
         return pulumi.get(self, "reservation_config")
 
     @reservation_config.setter
-    def reservation_config(self, value: Optional[pulumi.Input['LiteTopicReservationConfigArgs']]):
+    def reservation_config(self, value: pulumi.Input[Optional['LiteTopicReservationConfigArgs']]):
         pulumi.set(self, "reservation_config", value)
 
     @_builtins.property
     @pulumi.getter(name="retentionConfig")
-    def retention_config(self) -> Optional[pulumi.Input['LiteTopicRetentionConfigArgs']]:
+    def retention_config(self) -> pulumi.Input[Optional['LiteTopicRetentionConfigArgs']]:
         """
         The settings for a topic's message retention.
         Structure is documented below.
@@ -131,35 +157,42 @@ class LiteTopicArgs:
         return pulumi.get(self, "retention_config")
 
     @retention_config.setter
-    def retention_config(self, value: Optional[pulumi.Input['LiteTopicRetentionConfigArgs']]):
+    def retention_config(self, value: pulumi.Input[Optional['LiteTopicRetentionConfigArgs']]):
         pulumi.set(self, "retention_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The zone of the pubsub lite topic.
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
 @pulumi.input_type
 class _LiteTopicState:
     def __init__(__self__, *,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 partition_config: Optional[pulumi.Input['LiteTopicPartitionConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation_config: Optional[pulumi.Input['LiteTopicReservationConfigArgs']] = None,
-                 retention_config: Optional[pulumi.Input['LiteTopicRetentionConfigArgs']] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 partition_config: pulumi.Input[Optional['LiteTopicPartitionConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation_config: pulumi.Input[Optional['LiteTopicReservationConfigArgs']] = None,
+                 retention_config: pulumi.Input[Optional['LiteTopicRetentionConfigArgs']] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering LiteTopic resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the topic.
         :param pulumi.Input['LiteTopicPartitionConfigArgs'] partition_config: The settings for this topic's partitions.
                Structure is documented below.
@@ -172,6 +205,8 @@ class _LiteTopicState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] zone: The zone of the pubsub lite topic.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if partition_config is not None:
@@ -188,20 +223,37 @@ class _LiteTopicState:
             pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the topic.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="partitionConfig")
-    def partition_config(self) -> Optional[pulumi.Input['LiteTopicPartitionConfigArgs']]:
+    def partition_config(self) -> pulumi.Input[Optional['LiteTopicPartitionConfigArgs']]:
         """
         The settings for this topic's partitions.
         Structure is documented below.
@@ -209,12 +261,12 @@ class _LiteTopicState:
         return pulumi.get(self, "partition_config")
 
     @partition_config.setter
-    def partition_config(self, value: Optional[pulumi.Input['LiteTopicPartitionConfigArgs']]):
+    def partition_config(self, value: pulumi.Input[Optional['LiteTopicPartitionConfigArgs']]):
         pulumi.set(self, "partition_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -222,24 +274,24 @@ class _LiteTopicState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region of the pubsub lite topic.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="reservationConfig")
-    def reservation_config(self) -> Optional[pulumi.Input['LiteTopicReservationConfigArgs']]:
+    def reservation_config(self) -> pulumi.Input[Optional['LiteTopicReservationConfigArgs']]:
         """
         The settings for this topic's Reservation usage.
         Structure is documented below.
@@ -247,12 +299,12 @@ class _LiteTopicState:
         return pulumi.get(self, "reservation_config")
 
     @reservation_config.setter
-    def reservation_config(self, value: Optional[pulumi.Input['LiteTopicReservationConfigArgs']]):
+    def reservation_config(self, value: pulumi.Input[Optional['LiteTopicReservationConfigArgs']]):
         pulumi.set(self, "reservation_config", value)
 
     @_builtins.property
     @pulumi.getter(name="retentionConfig")
-    def retention_config(self) -> Optional[pulumi.Input['LiteTopicRetentionConfigArgs']]:
+    def retention_config(self) -> pulumi.Input[Optional['LiteTopicRetentionConfigArgs']]:
         """
         The settings for a topic's message retention.
         Structure is documented below.
@@ -260,19 +312,19 @@ class _LiteTopicState:
         return pulumi.get(self, "retention_config")
 
     @retention_config.setter
-    def retention_config(self, value: Optional[pulumi.Input['LiteTopicRetentionConfigArgs']]):
+    def retention_config(self, value: pulumi.Input[Optional['LiteTopicRetentionConfigArgs']]):
         pulumi.set(self, "retention_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The zone of the pubsub lite topic.
         """
         return pulumi.get(self, "zone")
 
     @zone.setter
-    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "zone", value)
 
 
@@ -282,13 +334,14 @@ class LiteTopic(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 partition_config: Optional[pulumi.Input[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation_config: Optional[pulumi.Input[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
-                 retention_config: Optional[pulumi.Input[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 partition_config: pulumi.Input[Optional[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation_config: pulumi.Input[Optional[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
+                 retention_config: pulumi.Input[Optional[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         > **Warning:** [Pubsub Lite is deprecated and will be turned down effective March 18, 2026](https://cloud.google.com/pubsub/lite/docs/release-notes#June_17_2024). The resource will be removed in a future major release, please use `pubsub.Topic` instead.
@@ -353,6 +406,12 @@ class LiteTopic(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the topic.
         :param pulumi.Input[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']] partition_config: The settings for this topic's partitions.
                Structure is documented below.
@@ -447,13 +506,14 @@ class LiteTopic(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 partition_config: Optional[pulumi.Input[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 reservation_config: Optional[pulumi.Input[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
-                 retention_config: Optional[pulumi.Input[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
-                 zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 partition_config: pulumi.Input[Optional[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 reservation_config: pulumi.Input[Optional[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
+                 retention_config: pulumi.Input[Optional[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
+                 zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -463,6 +523,7 @@ class LiteTopic(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = LiteTopicArgs.__new__(LiteTopicArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["name"] = name
             __props__.__dict__["partition_config"] = partition_config
             __props__.__dict__["project"] = project
@@ -480,13 +541,14 @@ class LiteTopic(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            partition_config: Optional[pulumi.Input[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            reservation_config: Optional[pulumi.Input[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
-            retention_config: Optional[pulumi.Input[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
-            zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'LiteTopic':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            partition_config: pulumi.Input[Optional[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            reservation_config: pulumi.Input[Optional[Union['LiteTopicReservationConfigArgs', 'LiteTopicReservationConfigArgsDict']]] = None,
+            retention_config: pulumi.Input[Optional[Union['LiteTopicRetentionConfigArgs', 'LiteTopicRetentionConfigArgsDict']]] = None,
+            zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'LiteTopic':
         """
         Get an existing LiteTopic resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -494,6 +556,12 @@ class LiteTopic(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the topic.
         :param pulumi.Input[Union['LiteTopicPartitionConfigArgs', 'LiteTopicPartitionConfigArgsDict']] partition_config: The settings for this topic's partitions.
                Structure is documented below.
@@ -510,6 +578,7 @@ class LiteTopic(pulumi.CustomResource):
 
         __props__ = _LiteTopicState.__new__(_LiteTopicState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["partition_config"] = partition_config
         __props__.__dict__["project"] = project
@@ -518,6 +587,19 @@ class LiteTopic(pulumi.CustomResource):
         __props__.__dict__["retention_config"] = retention_config
         __props__.__dict__["zone"] = zone
         return LiteTopic(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

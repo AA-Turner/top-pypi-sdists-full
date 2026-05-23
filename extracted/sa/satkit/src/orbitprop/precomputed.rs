@@ -3,12 +3,12 @@ use crate::jplephem;
 use crate::mathtypes::{Quaternion, Vector3};
 use crate::Duration;
 use crate::Instant;
-use crate::TimeLike;
 use crate::SolarSystem;
+use crate::TimeLike;
 
 pub type InterpType = (Quaternion, Vector3, Vector3);
 
-use anyhow::Result;
+use super::error::{Error, Result};
 #[derive(Debug, Clone)]
 pub struct Precomputed {
     pub begin: Instant,
@@ -77,8 +77,7 @@ impl Precomputed {
             end: pend,
             step,
             data: {
-                let nsteps: usize =
-                    2 + ((pend - pbegin).as_seconds() / step.abs()).ceil() as usize;
+                let nsteps: usize = 2 + ((pend - pbegin).as_seconds() / step.abs()).ceil() as usize;
                 let mut data = Vec::with_capacity(nsteps);
                 for idx in 0..nsteps {
                     let t = pbegin + Duration::from_seconds((idx as f64) * step);
@@ -95,12 +94,11 @@ impl Precomputed {
     pub fn interp<T: TimeLike>(&self, t: &T) -> Result<InterpType> {
         let t = t.as_instant();
         if t < self.begin || t > self.end {
-            anyhow::bail!(
-                "Precomputed::interp: time {} is outside of precomputed range : {} to {}",
-                t,
-                self.begin,
-                self.end
-            );
+            return Err(Error::PrecomputedOutOfRange {
+                time: t.to_string(),
+                begin: self.begin.to_string(),
+                end: self.end.to_string(),
+            });
         }
 
         let idx = (t - self.begin).as_seconds() / self.step;

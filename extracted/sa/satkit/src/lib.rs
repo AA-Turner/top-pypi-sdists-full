@@ -106,6 +106,8 @@
 //!
 //! ### Downloading Data Files
 //!
+//! Requires building with the `download` Cargo feature.
+//!
 //! ```no_run
 //! // Print the directory where data will be stored
 //! println!("Data directory: {:?}", satkit::utils::datadir());
@@ -114,6 +116,7 @@
 //! // - Downloads missing files
 //! // - Updates space weather and Earth orientation parameters
 //! // - Skips files that already exist
+//! # #[cfg(feature = "download")]
 //! satkit::utils::update_datafiles(None, false);
 //! ```
 //!
@@ -206,14 +209,19 @@ pub mod tle;
 pub mod utils;
 
 /// Coordinate frames (re-exported as `Frame` at crate root)
-mod frames;
+pub mod frames;
 
 // Orbital Mean-Element Messages
 pub mod omm;
 
 // Time and duration
 mod time;
-pub use time::{Duration, Instant, TimeLike, TimeScale, Weekday};
+pub use time::{Duration, Instant, InstantError, TimeLike, TimeScale, Weekday};
+
+// Top-level façade error type (deprecated 0.17.0; re-exported for source compat).
+mod error;
+#[allow(deprecated)]
+pub use error::{Error, Result};
 
 // Core types available at crate level
 pub use frames::Frame;

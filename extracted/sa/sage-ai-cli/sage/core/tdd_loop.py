@@ -55,7 +55,7 @@ class StuckTracker:
     as stuck.
     """
 
-    def __init__(self, threshold: int = 3):
+    def __init__(self, threshold: int = 7):
         self.threshold = threshold
         self._history: deque[int] = deque(maxlen=threshold)
 

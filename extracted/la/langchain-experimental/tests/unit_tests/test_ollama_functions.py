@@ -2,10 +2,20 @@ import json
 from typing import Any
 from unittest.mock import patch
 
-from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
+import pytest
 
-from langchain_experimental.llms.ollama_functions import OllamaFunctions
+pytest.importorskip(
+    "langchain_community.chat_models.ollama",
+    reason=(
+        "`langchain_community.chat_models.ollama` was removed in "
+        "`langchain-community>=0.4.2`; `OllamaFunctions` is unusable without it."
+    ),
+)
+
+from langchain_core.prompts import ChatPromptTemplate  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
+from langchain_experimental.llms.ollama_functions import OllamaFunctions  # noqa: E402
 
 
 class Schema(BaseModel):

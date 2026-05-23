@@ -10,17 +10,17 @@ SHM_BASE_PATH: Any
 logger: Any
 
 # Functions
-def bgr_to_nv12(bgr_frame: Any.Any) -> Any:
+def bgr_to_nv12(bgr_frame: 'Any.Any') -> Any:
     """
     Convert BGR frame to NV12 format.
     """
     ...
-def nv12_to_bgr(nv12_bytes: Any, width: int, height: int) -> Any.Any:
+def nv12_to_bgr(nv12_bytes: Any, width: int, height: int) -> 'Any.Any':
     """
     Convert NV12 bytes to BGR frame.
     """
     ...
-def rgb_to_nv12(rgb_frame: Any.Any) -> Any:
+def rgb_to_nv12(rgb_frame: 'Any.Any') -> Any:
     """
     Convert RGB frame to NV12 format.
     """

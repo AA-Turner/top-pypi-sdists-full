@@ -376,7 +376,7 @@ def test_construct_code_location_deployment():
                 labels={},
                 resources={},
             )
-            construct_code_location_deployment(  # pyright: ignore[reportCallIssue]  # ty: ignore[missing-argument]
+            construct_code_location_deployment(  # ty: ignore[missing-argument]
                 instance,
                 deployment_name="sandbox",
                 location_name="foobar_",

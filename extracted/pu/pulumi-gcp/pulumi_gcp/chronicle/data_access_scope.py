@@ -24,11 +24,12 @@ class DataAccessScopeArgs:
                  data_access_scope_id: pulumi.Input[_builtins.str],
                  instance: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 allow_all: Optional[pulumi.Input[_builtins.bool]] = None,
-                 allowed_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]] = None,
-                 denied_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_all: pulumi.Input[Optional[_builtins.bool]] = None,
+                 allowed_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 denied_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DataAccessScope resource.
 
@@ -52,6 +53,12 @@ class DataAccessScopeArgs:
                E.g.: A customer with scope with allowed labels A and B will be able
                to see data with labeled with A or B or (A and B).
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]] denied_data_access_labels: Optional. The denied labels for the scope.
                The logical operator for evaluation of the denied labels is AND.
                E.g.: A customer with scope with denied labels A and B won't be able
@@ -69,6 +76,8 @@ class DataAccessScopeArgs:
             pulumi.set(__self__, "allow_all", allow_all)
         if allowed_data_access_labels is not None:
             pulumi.set(__self__, "allowed_data_access_labels", allowed_data_access_labels)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if denied_data_access_labels is not None:
             pulumi.set(__self__, "denied_data_access_labels", denied_data_access_labels)
         if description is not None:
@@ -116,7 +125,7 @@ class DataAccessScopeArgs:
 
     @_builtins.property
     @pulumi.getter(name="allowAll")
-    def allow_all(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_all(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Optional. Whether or not the scope allows all labels, allow_all and
         allowed_data_access_labels are mutually exclusive and one of them must be
@@ -130,12 +139,12 @@ class DataAccessScopeArgs:
         return pulumi.get(self, "allow_all")
 
     @allow_all.setter
-    def allow_all(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_all(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_all", value)
 
     @_builtins.property
     @pulumi.getter(name="allowedDataAccessLabels")
-    def allowed_data_access_labels(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]:
+    def allowed_data_access_labels(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]:
         """
         The allowed labels for the scope. There has to be at
         least one label allowed for the scope to be valid.
@@ -148,12 +157,29 @@ class DataAccessScopeArgs:
         return pulumi.get(self, "allowed_data_access_labels")
 
     @allowed_data_access_labels.setter
-    def allowed_data_access_labels(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]):
+    def allowed_data_access_labels(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]):
         pulumi.set(self, "allowed_data_access_labels", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deniedDataAccessLabels")
-    def denied_data_access_labels(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]:
+    def denied_data_access_labels(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]:
         """
         Optional. The denied labels for the scope.
         The logical operator for evaluation of the denied labels is AND.
@@ -165,24 +191,24 @@ class DataAccessScopeArgs:
         return pulumi.get(self, "denied_data_access_labels")
 
     @denied_data_access_labels.setter
-    def denied_data_access_labels(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]):
+    def denied_data_access_labels(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]):
         pulumi.set(self, "denied_data_access_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A description of the data access scope for a human reader.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -190,27 +216,28 @@ class DataAccessScopeArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DataAccessScopeState:
     def __init__(__self__, *,
-                 allow_all: Optional[pulumi.Input[_builtins.bool]] = None,
-                 allowed_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]] = None,
-                 author: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_access_scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 denied_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_editor: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_all: pulumi.Input[Optional[_builtins.bool]] = None,
+                 allowed_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]] = None,
+                 author: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_access_scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 denied_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_editor: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DataAccessScope resources.
 
@@ -234,6 +261,12 @@ class _DataAccessScopeState:
         :param pulumi.Input[_builtins.str] data_access_scope_id: Required. The user provided scope id which will become the last part of the name
                of the scope resource.
                Needs to be compliant with https://google.aip.dev/122
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]] denied_data_access_labels: Optional. The denied labels for the scope.
                The logical operator for evaluation of the denied labels is AND.
                E.g.: A customer with scope with denied labels A and B won't be able
@@ -262,6 +295,8 @@ class _DataAccessScopeState:
             pulumi.set(__self__, "create_time", create_time)
         if data_access_scope_id is not None:
             pulumi.set(__self__, "data_access_scope_id", data_access_scope_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if denied_data_access_labels is not None:
             pulumi.set(__self__, "denied_data_access_labels", denied_data_access_labels)
         if description is not None:
@@ -283,7 +318,7 @@ class _DataAccessScopeState:
 
     @_builtins.property
     @pulumi.getter(name="allowAll")
-    def allow_all(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_all(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Optional. Whether or not the scope allows all labels, allow_all and
         allowed_data_access_labels are mutually exclusive and one of them must be
@@ -297,12 +332,12 @@ class _DataAccessScopeState:
         return pulumi.get(self, "allow_all")
 
     @allow_all.setter
-    def allow_all(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_all(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_all", value)
 
     @_builtins.property
     @pulumi.getter(name="allowedDataAccessLabels")
-    def allowed_data_access_labels(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]:
+    def allowed_data_access_labels(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]:
         """
         The allowed labels for the scope. There has to be at
         least one label allowed for the scope to be valid.
@@ -315,36 +350,36 @@ class _DataAccessScopeState:
         return pulumi.get(self, "allowed_data_access_labels")
 
     @allowed_data_access_labels.setter
-    def allowed_data_access_labels(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]):
+    def allowed_data_access_labels(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeAllowedDataAccessLabelArgs']]]]):
         pulumi.set(self, "allowed_data_access_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def author(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def author(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The user who created the data access scope.
         """
         return pulumi.get(self, "author")
 
     @author.setter
-    def author(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def author(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "author", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which the data access scope was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataAccessScopeId")
-    def data_access_scope_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_access_scope_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The user provided scope id which will become the last part of the name
         of the scope resource.
@@ -353,12 +388,29 @@ class _DataAccessScopeState:
         return pulumi.get(self, "data_access_scope_id")
 
     @data_access_scope_id.setter
-    def data_access_scope_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_access_scope_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_access_scope_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deniedDataAccessLabels")
-    def denied_data_access_labels(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]:
+    def denied_data_access_labels(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]:
         """
         Optional. The denied labels for the scope.
         The logical operator for evaluation of the denied labels is AND.
@@ -370,72 +422,72 @@ class _DataAccessScopeState:
         return pulumi.get(self, "denied_data_access_labels")
 
     @denied_data_access_labels.setter
-    def denied_data_access_labels(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]):
+    def denied_data_access_labels(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAccessScopeDeniedDataAccessLabelArgs']]]]):
         pulumi.set(self, "denied_data_access_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A description of the data access scope for a human reader.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The name to be used for display to customers of the data access scope.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier for the Chronicle instance, which is the same as the customer ID.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter(name="lastEditor")
-    def last_editor(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_editor(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The user who last updated the data access scope.
         """
         return pulumi.get(self, "last_editor")
 
     @last_editor.setter
-    def last_editor(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_editor(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_editor", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique full name of the data access scope. This unique identifier is generated using values provided for the URL parameters.
         Format:
@@ -444,12 +496,12 @@ class _DataAccessScopeState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -457,19 +509,19 @@ class _DataAccessScopeState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which the data access scope was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -479,14 +531,15 @@ class DataAccessScope(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_all: Optional[pulumi.Input[_builtins.bool]] = None,
-                 allowed_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
-                 data_access_scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 denied_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_all: pulumi.Input[Optional[_builtins.bool]] = None,
+                 allowed_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
+                 data_access_scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 denied_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A DataAccessScope is a boolean expression of data access labels used to restrict access to data for users.
@@ -645,6 +698,12 @@ class DataAccessScope(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_access_scope_id: Required. The user provided scope id which will become the last part of the name
                of the scope resource.
                Needs to be compliant with https://google.aip.dev/122
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]] denied_data_access_labels: Optional. The denied labels for the scope.
                The logical operator for evaluation of the denied labels is AND.
                E.g.: A customer with scope with denied labels A and B won't be able
@@ -815,14 +874,15 @@ class DataAccessScope(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_all: Optional[pulumi.Input[_builtins.bool]] = None,
-                 allowed_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
-                 data_access_scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 denied_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow_all: pulumi.Input[Optional[_builtins.bool]] = None,
+                 allowed_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
+                 data_access_scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 denied_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -837,6 +897,7 @@ class DataAccessScope(pulumi.CustomResource):
             if data_access_scope_id is None and not opts.urn:
                 raise TypeError("Missing required property 'data_access_scope_id'")
             __props__.__dict__["data_access_scope_id"] = data_access_scope_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["denied_data_access_labels"] = denied_data_access_labels
             __props__.__dict__["description"] = description
             if instance is None and not opts.urn:
@@ -862,20 +923,21 @@ class DataAccessScope(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allow_all: Optional[pulumi.Input[_builtins.bool]] = None,
-            allowed_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
-            author: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_access_scope_id: Optional[pulumi.Input[_builtins.str]] = None,
-            denied_data_access_labels: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            last_editor: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'DataAccessScope':
+            allow_all: pulumi.Input[Optional[_builtins.bool]] = None,
+            allowed_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeAllowedDataAccessLabelArgs', 'DataAccessScopeAllowedDataAccessLabelArgsDict']]]]] = None,
+            author: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_access_scope_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            denied_data_access_labels: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            last_editor: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'DataAccessScope':
         """
         Get an existing DataAccessScope resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -903,6 +965,12 @@ class DataAccessScope(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_access_scope_id: Required. The user provided scope id which will become the last part of the name
                of the scope resource.
                Needs to be compliant with https://google.aip.dev/122
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['DataAccessScopeDeniedDataAccessLabelArgs', 'DataAccessScopeDeniedDataAccessLabelArgsDict']]]] denied_data_access_labels: Optional. The denied labels for the scope.
                The logical operator for evaluation of the denied labels is AND.
                E.g.: A customer with scope with denied labels A and B won't be able
@@ -930,6 +998,7 @@ class DataAccessScope(pulumi.CustomResource):
         __props__.__dict__["author"] = author
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["data_access_scope_id"] = data_access_scope_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["denied_data_access_labels"] = denied_data_access_labels
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
@@ -995,6 +1064,19 @@ class DataAccessScope(pulumi.CustomResource):
         Needs to be compliant with https://google.aip.dev/122
         """
         return pulumi.get(self, "data_access_scope_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deniedDataAccessLabels")

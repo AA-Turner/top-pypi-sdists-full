@@ -115,6 +115,7 @@ from chalk._gen.chalk.server.v1.named_query_pb2_grpc import NamedQueryServiceStu
 from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     CancelAsyncOfflineQueryRequest,
     GetBatchReportRequest,
+    GetOfflineQueryProfileSummaryRequest,
     GetOfflineQueryRequest,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
@@ -169,6 +170,7 @@ from chalk.client.models import (
     ModelUploadUrlResponse,
     NamedQueryMetadata,
     OfflineQueryInfo,
+    OfflineQueryProfileSummary,
     OfflineQueryReport,
     OnlineQuery,
     OnlineQueryResponse,
@@ -1798,6 +1800,27 @@ class ChalkGRPCClient:
             ),
             all_errors=[ChalkError.from_proto(err) for err in batch_report_resp.batch_report.all_errors],
         )
+
+    def get_offline_query_profile_summary(self, offline_query_id: str) -> OfflineQueryProfileSummary:
+        """
+        Get the profile metrics summary for an offline query.
+
+        Parameters
+        ----------
+        offline_query_id
+            Offline query's ID.
+
+        Returns
+        -------
+        OfflineQueryProfileSummary
+            Aggregated profile metrics and warnings for the offline query.
+        """
+        resp = self._stub_refresher.call_offline_query_stub(
+            lambda x: x.GetOfflineQueryProfileSummary(
+                GetOfflineQueryProfileSummaryRequest(offline_query_id=offline_query_id)
+            )
+        )
+        return OfflineQueryProfileSummary.from_proto(resp)
 
     def _get_active_deployment_id(self) -> str:
         resp = self._stub_refresher.call_deploy_stub(lambda x: x.GetActiveDeployments(GetActiveDeploymentsRequest()))

@@ -23,21 +23,22 @@ class ConnectionArgs:
     def __init__(__self__, *,
                  connector_version: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 auth_config: Optional[pulumi.Input['ConnectionAuthConfigArgs']] = None,
-                 config_variables: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_configs: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]] = None,
-                 eventing_config: Optional[pulumi.Input['ConnectionEventingConfigArgs']] = None,
-                 eventing_enablement_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 lock_config: Optional[pulumi.Input['ConnectionLockConfigArgs']] = None,
-                 log_config: Optional[pulumi.Input['ConnectionLogConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input['ConnectionNodeConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_config: Optional[pulumi.Input['ConnectionSslConfigArgs']] = None,
-                 suspended: Optional[pulumi.Input[_builtins.bool]] = None):
+                 auth_config: pulumi.Input[Optional['ConnectionAuthConfigArgs']] = None,
+                 config_variables: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_configs: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]] = None,
+                 eventing_config: pulumi.Input[Optional['ConnectionEventingConfigArgs']] = None,
+                 eventing_enablement_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 lock_config: pulumi.Input[Optional['ConnectionLockConfigArgs']] = None,
+                 log_config: pulumi.Input[Optional['ConnectionLogConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional['ConnectionNodeConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_config: pulumi.Input[Optional['ConnectionSslConfigArgs']] = None,
+                 suspended: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Connection resource.
 
@@ -47,6 +48,12 @@ class ConnectionArgs:
                Structure is documented below.
         :param pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]] config_variables: Config Variables for the connection.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An arbitrary description for the Connection.
         :param pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]] destination_configs: Define the Connectors target endpoint.
                Structure is documented below.
@@ -78,6 +85,8 @@ class ConnectionArgs:
             pulumi.set(__self__, "auth_config", auth_config)
         if config_variables is not None:
             pulumi.set(__self__, "config_variables", config_variables)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if destination_configs is not None:
@@ -131,7 +140,7 @@ class ConnectionArgs:
 
     @_builtins.property
     @pulumi.getter(name="authConfig")
-    def auth_config(self) -> Optional[pulumi.Input['ConnectionAuthConfigArgs']]:
+    def auth_config(self) -> pulumi.Input[Optional['ConnectionAuthConfigArgs']]:
         """
         authConfig for the connection.
         Structure is documented below.
@@ -139,12 +148,12 @@ class ConnectionArgs:
         return pulumi.get(self, "auth_config")
 
     @auth_config.setter
-    def auth_config(self, value: Optional[pulumi.Input['ConnectionAuthConfigArgs']]):
+    def auth_config(self, value: pulumi.Input[Optional['ConnectionAuthConfigArgs']]):
         pulumi.set(self, "auth_config", value)
 
     @_builtins.property
     @pulumi.getter(name="configVariables")
-    def config_variables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]:
+    def config_variables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]:
         """
         Config Variables for the connection.
         Structure is documented below.
@@ -152,24 +161,41 @@ class ConnectionArgs:
         return pulumi.get(self, "config_variables")
 
     @config_variables.setter
-    def config_variables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]):
+    def config_variables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]):
         pulumi.set(self, "config_variables", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An arbitrary description for the Connection.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="destinationConfigs")
-    def destination_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]:
+    def destination_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]:
         """
         Define the Connectors target endpoint.
         Structure is documented below.
@@ -177,12 +203,12 @@ class ConnectionArgs:
         return pulumi.get(self, "destination_configs")
 
     @destination_configs.setter
-    def destination_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]):
+    def destination_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]):
         pulumi.set(self, "destination_configs", value)
 
     @_builtins.property
     @pulumi.getter(name="eventingConfig")
-    def eventing_config(self) -> Optional[pulumi.Input['ConnectionEventingConfigArgs']]:
+    def eventing_config(self) -> pulumi.Input[Optional['ConnectionEventingConfigArgs']]:
         """
         Eventing Configuration of a connection
         Structure is documented below.
@@ -190,12 +216,12 @@ class ConnectionArgs:
         return pulumi.get(self, "eventing_config")
 
     @eventing_config.setter
-    def eventing_config(self, value: Optional[pulumi.Input['ConnectionEventingConfigArgs']]):
+    def eventing_config(self, value: pulumi.Input[Optional['ConnectionEventingConfigArgs']]):
         pulumi.set(self, "eventing_config", value)
 
     @_builtins.property
     @pulumi.getter(name="eventingEnablementType")
-    def eventing_enablement_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def eventing_enablement_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Eventing enablement type. Will be nil if eventing is not enabled.
         Possible values are: `EVENTING_AND_CONNECTION`, `ONLY_EVENTING`.
@@ -203,12 +229,12 @@ class ConnectionArgs:
         return pulumi.get(self, "eventing_enablement_type")
 
     @eventing_enablement_type.setter
-    def eventing_enablement_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def eventing_enablement_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "eventing_enablement_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Resource labels to represent user provided metadata.
 
@@ -218,12 +244,12 @@ class ConnectionArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="lockConfig")
-    def lock_config(self) -> Optional[pulumi.Input['ConnectionLockConfigArgs']]:
+    def lock_config(self) -> pulumi.Input[Optional['ConnectionLockConfigArgs']]:
         """
         Determines whether or no a connection is locked. If locked, a reason must be specified.
         Structure is documented below.
@@ -231,12 +257,12 @@ class ConnectionArgs:
         return pulumi.get(self, "lock_config")
 
     @lock_config.setter
-    def lock_config(self, value: Optional[pulumi.Input['ConnectionLockConfigArgs']]):
+    def lock_config(self, value: pulumi.Input[Optional['ConnectionLockConfigArgs']]):
         pulumi.set(self, "lock_config", value)
 
     @_builtins.property
     @pulumi.getter(name="logConfig")
-    def log_config(self) -> Optional[pulumi.Input['ConnectionLogConfigArgs']]:
+    def log_config(self) -> pulumi.Input[Optional['ConnectionLogConfigArgs']]:
         """
         Log configuration for the connection.
         Structure is documented below.
@@ -244,24 +270,24 @@ class ConnectionArgs:
         return pulumi.get(self, "log_config")
 
     @log_config.setter
-    def log_config(self, value: Optional[pulumi.Input['ConnectionLogConfigArgs']]):
+    def log_config(self, value: pulumi.Input[Optional['ConnectionLogConfigArgs']]):
         pulumi.set(self, "log_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of Connection needs to be created.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeConfig")
-    def node_config(self) -> Optional[pulumi.Input['ConnectionNodeConfigArgs']]:
+    def node_config(self) -> pulumi.Input[Optional['ConnectionNodeConfigArgs']]:
         """
         Node configuration for the connection.
         Structure is documented below.
@@ -269,12 +295,12 @@ class ConnectionArgs:
         return pulumi.get(self, "node_config")
 
     @node_config.setter
-    def node_config(self, value: Optional[pulumi.Input['ConnectionNodeConfigArgs']]):
+    def node_config(self, value: pulumi.Input[Optional['ConnectionNodeConfigArgs']]):
         pulumi.set(self, "node_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -282,24 +308,24 @@ class ConnectionArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Service account needed for runtime plane to access Google Cloud resources.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
     @_builtins.property
     @pulumi.getter(name="sslConfig")
-    def ssl_config(self) -> Optional[pulumi.Input['ConnectionSslConfigArgs']]:
+    def ssl_config(self) -> pulumi.Input[Optional['ConnectionSslConfigArgs']]:
         """
         SSL Configuration of a connection
         Structure is documented below.
@@ -307,53 +333,54 @@ class ConnectionArgs:
         return pulumi.get(self, "ssl_config")
 
     @ssl_config.setter
-    def ssl_config(self, value: Optional[pulumi.Input['ConnectionSslConfigArgs']]):
+    def ssl_config(self, value: pulumi.Input[Optional['ConnectionSslConfigArgs']]):
         pulumi.set(self, "ssl_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def suspended(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def suspended(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Suspended indicates if a user has suspended a connection or not.
         """
         return pulumi.get(self, "suspended")
 
     @suspended.setter
-    def suspended(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def suspended(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "suspended", value)
 
 
 @pulumi.input_type
 class _ConnectionState:
     def __init__(__self__, *,
-                 auth_config: Optional[pulumi.Input['ConnectionAuthConfigArgs']] = None,
-                 config_variables: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]] = None,
-                 connection_revision: Optional[pulumi.Input[_builtins.str]] = None,
-                 connector_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 connector_version_infra_configs: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]] = None,
-                 connector_version_launch_stage: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_configs: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 eventing_config: Optional[pulumi.Input['ConnectionEventingConfigArgs']] = None,
-                 eventing_enablement_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 eventing_runtime_datas: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 lock_config: Optional[pulumi.Input['ConnectionLockConfigArgs']] = None,
-                 log_config: Optional[pulumi.Input['ConnectionLogConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input['ConnectionNodeConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_directory: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_config: Optional[pulumi.Input['ConnectionSslConfigArgs']] = None,
-                 statuses: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionStatusArgs']]]] = None,
-                 subscription_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 suspended: Optional[pulumi.Input[_builtins.bool]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 auth_config: pulumi.Input[Optional['ConnectionAuthConfigArgs']] = None,
+                 config_variables: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]] = None,
+                 connection_revision: pulumi.Input[Optional[_builtins.str]] = None,
+                 connector_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 connector_version_infra_configs: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]] = None,
+                 connector_version_launch_stage: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_configs: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 eventing_config: pulumi.Input[Optional['ConnectionEventingConfigArgs']] = None,
+                 eventing_enablement_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 eventing_runtime_datas: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 lock_config: pulumi.Input[Optional['ConnectionLockConfigArgs']] = None,
+                 log_config: pulumi.Input[Optional['ConnectionLogConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional['ConnectionNodeConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_directory: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_config: pulumi.Input[Optional['ConnectionSslConfigArgs']] = None,
+                 statuses: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionStatusArgs']]]] = None,
+                 subscription_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 suspended: pulumi.Input[Optional[_builtins.bool]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Connection resources.
 
@@ -367,6 +394,12 @@ class _ConnectionState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] connector_version_launch_stage: Flag to mark the version indicating the launch stage.
         :param pulumi.Input[_builtins.str] create_time: Time the Namespace was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An arbitrary description for the Connection.
         :param pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]] destination_configs: Define the Connectors target endpoint.
                Structure is documented below.
@@ -419,6 +452,8 @@ class _ConnectionState:
             pulumi.set(__self__, "connector_version_launch_stage", connector_version_launch_stage)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if destination_configs is not None:
@@ -464,7 +499,7 @@ class _ConnectionState:
 
     @_builtins.property
     @pulumi.getter(name="authConfig")
-    def auth_config(self) -> Optional[pulumi.Input['ConnectionAuthConfigArgs']]:
+    def auth_config(self) -> pulumi.Input[Optional['ConnectionAuthConfigArgs']]:
         """
         authConfig for the connection.
         Structure is documented below.
@@ -472,12 +507,12 @@ class _ConnectionState:
         return pulumi.get(self, "auth_config")
 
     @auth_config.setter
-    def auth_config(self, value: Optional[pulumi.Input['ConnectionAuthConfigArgs']]):
+    def auth_config(self, value: pulumi.Input[Optional['ConnectionAuthConfigArgs']]):
         pulumi.set(self, "auth_config", value)
 
     @_builtins.property
     @pulumi.getter(name="configVariables")
-    def config_variables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]:
+    def config_variables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]:
         """
         Config Variables for the connection.
         Structure is documented below.
@@ -485,36 +520,36 @@ class _ConnectionState:
         return pulumi.get(self, "config_variables")
 
     @config_variables.setter
-    def config_variables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]):
+    def config_variables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConfigVariableArgs']]]]):
         pulumi.set(self, "config_variables", value)
 
     @_builtins.property
     @pulumi.getter(name="connectionRevision")
-    def connection_revision(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def connection_revision(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Connection revision. This field is only updated when the connection is created or updated by User.
         """
         return pulumi.get(self, "connection_revision")
 
     @connection_revision.setter
-    def connection_revision(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def connection_revision(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "connection_revision", value)
 
     @_builtins.property
     @pulumi.getter(name="connectorVersion")
-    def connector_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def connector_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         connectorVersion of the Connector.
         """
         return pulumi.get(self, "connector_version")
 
     @connector_version.setter
-    def connector_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def connector_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "connector_version", value)
 
     @_builtins.property
     @pulumi.getter(name="connectorVersionInfraConfigs")
-    def connector_version_infra_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]]:
+    def connector_version_infra_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]]:
         """
         This configuration provides infra configs like rate limit threshold which need to be configurable for every connector version.
         Structure is documented below.
@@ -522,48 +557,65 @@ class _ConnectionState:
         return pulumi.get(self, "connector_version_infra_configs")
 
     @connector_version_infra_configs.setter
-    def connector_version_infra_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]]):
+    def connector_version_infra_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionConnectorVersionInfraConfigArgs']]]]):
         pulumi.set(self, "connector_version_infra_configs", value)
 
     @_builtins.property
     @pulumi.getter(name="connectorVersionLaunchStage")
-    def connector_version_launch_stage(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def connector_version_launch_stage(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Flag to mark the version indicating the launch stage.
         """
         return pulumi.get(self, "connector_version_launch_stage")
 
     @connector_version_launch_stage.setter
-    def connector_version_launch_stage(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def connector_version_launch_stage(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "connector_version_launch_stage", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the Namespace was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An arbitrary description for the Connection.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="destinationConfigs")
-    def destination_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]:
+    def destination_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]:
         """
         Define the Connectors target endpoint.
         Structure is documented below.
@@ -571,24 +623,24 @@ class _ConnectionState:
         return pulumi.get(self, "destination_configs")
 
     @destination_configs.setter
-    def destination_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]):
+    def destination_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionDestinationConfigArgs']]]]):
         pulumi.set(self, "destination_configs", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="eventingConfig")
-    def eventing_config(self) -> Optional[pulumi.Input['ConnectionEventingConfigArgs']]:
+    def eventing_config(self) -> pulumi.Input[Optional['ConnectionEventingConfigArgs']]:
         """
         Eventing Configuration of a connection
         Structure is documented below.
@@ -596,12 +648,12 @@ class _ConnectionState:
         return pulumi.get(self, "eventing_config")
 
     @eventing_config.setter
-    def eventing_config(self, value: Optional[pulumi.Input['ConnectionEventingConfigArgs']]):
+    def eventing_config(self, value: pulumi.Input[Optional['ConnectionEventingConfigArgs']]):
         pulumi.set(self, "eventing_config", value)
 
     @_builtins.property
     @pulumi.getter(name="eventingEnablementType")
-    def eventing_enablement_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def eventing_enablement_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Eventing enablement type. Will be nil if eventing is not enabled.
         Possible values are: `EVENTING_AND_CONNECTION`, `ONLY_EVENTING`.
@@ -609,12 +661,12 @@ class _ConnectionState:
         return pulumi.get(self, "eventing_enablement_type")
 
     @eventing_enablement_type.setter
-    def eventing_enablement_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def eventing_enablement_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "eventing_enablement_type", value)
 
     @_builtins.property
     @pulumi.getter(name="eventingRuntimeDatas")
-    def eventing_runtime_datas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]]:
+    def eventing_runtime_datas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]]:
         """
         Eventing Runtime Data.
         Structure is documented below.
@@ -622,12 +674,12 @@ class _ConnectionState:
         return pulumi.get(self, "eventing_runtime_datas")
 
     @eventing_runtime_datas.setter
-    def eventing_runtime_datas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]]):
+    def eventing_runtime_datas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionEventingRuntimeDataArgs']]]]):
         pulumi.set(self, "eventing_runtime_datas", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Resource labels to represent user provided metadata.
 
@@ -637,24 +689,24 @@ class _ConnectionState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location in which Connection needs to be created.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="lockConfig")
-    def lock_config(self) -> Optional[pulumi.Input['ConnectionLockConfigArgs']]:
+    def lock_config(self) -> pulumi.Input[Optional['ConnectionLockConfigArgs']]:
         """
         Determines whether or no a connection is locked. If locked, a reason must be specified.
         Structure is documented below.
@@ -662,12 +714,12 @@ class _ConnectionState:
         return pulumi.get(self, "lock_config")
 
     @lock_config.setter
-    def lock_config(self, value: Optional[pulumi.Input['ConnectionLockConfigArgs']]):
+    def lock_config(self, value: pulumi.Input[Optional['ConnectionLockConfigArgs']]):
         pulumi.set(self, "lock_config", value)
 
     @_builtins.property
     @pulumi.getter(name="logConfig")
-    def log_config(self) -> Optional[pulumi.Input['ConnectionLogConfigArgs']]:
+    def log_config(self) -> pulumi.Input[Optional['ConnectionLogConfigArgs']]:
         """
         Log configuration for the connection.
         Structure is documented below.
@@ -675,24 +727,24 @@ class _ConnectionState:
         return pulumi.get(self, "log_config")
 
     @log_config.setter
-    def log_config(self, value: Optional[pulumi.Input['ConnectionLogConfigArgs']]):
+    def log_config(self, value: pulumi.Input[Optional['ConnectionLogConfigArgs']]):
         pulumi.set(self, "log_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of Connection needs to be created.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeConfig")
-    def node_config(self) -> Optional[pulumi.Input['ConnectionNodeConfigArgs']]:
+    def node_config(self) -> pulumi.Input[Optional['ConnectionNodeConfigArgs']]:
         """
         Node configuration for the connection.
         Structure is documented below.
@@ -700,12 +752,12 @@ class _ConnectionState:
         return pulumi.get(self, "node_config")
 
     @node_config.setter
-    def node_config(self, value: Optional[pulumi.Input['ConnectionNodeConfigArgs']]):
+    def node_config(self, value: pulumi.Input[Optional['ConnectionNodeConfigArgs']]):
         pulumi.set(self, "node_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -713,12 +765,12 @@ class _ConnectionState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -726,24 +778,24 @@ class _ConnectionState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Service account needed for runtime plane to access Google Cloud resources.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceDirectory")
-    def service_directory(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_directory(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Service Directory service name. Used for Private Harpoon to resolve the ILB address.
         e.g. "projects/cloud-connectors-e2e-testing/locations/us-central1/namespaces/istio-system/services/istio-ingressgateway-connectors"
@@ -751,12 +803,12 @@ class _ConnectionState:
         return pulumi.get(self, "service_directory")
 
     @service_directory.setter
-    def service_directory(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_directory(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_directory", value)
 
     @_builtins.property
     @pulumi.getter(name="sslConfig")
-    def ssl_config(self) -> Optional[pulumi.Input['ConnectionSslConfigArgs']]:
+    def ssl_config(self) -> pulumi.Input[Optional['ConnectionSslConfigArgs']]:
         """
         SSL Configuration of a connection
         Structure is documented below.
@@ -764,12 +816,12 @@ class _ConnectionState:
         return pulumi.get(self, "ssl_config")
 
     @ssl_config.setter
-    def ssl_config(self, value: Optional[pulumi.Input['ConnectionSslConfigArgs']]):
+    def ssl_config(self, value: pulumi.Input[Optional['ConnectionSslConfigArgs']]):
         pulumi.set(self, "ssl_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionStatusArgs']]]]:
+    def statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionStatusArgs']]]]:
         """
         (Output)
         Current status of eventing.
@@ -778,43 +830,43 @@ class _ConnectionState:
         return pulumi.get(self, "statuses")
 
     @statuses.setter
-    def statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ConnectionStatusArgs']]]]):
+    def statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ConnectionStatusArgs']]]]):
         pulumi.set(self, "statuses", value)
 
     @_builtins.property
     @pulumi.getter(name="subscriptionType")
-    def subscription_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subscription_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This subscription type enum states the subscription type of the project.
         """
         return pulumi.get(self, "subscription_type")
 
     @subscription_type.setter
-    def subscription_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subscription_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subscription_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def suspended(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def suspended(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Suspended indicates if a user has suspended a connection or not.
         """
         return pulumi.get(self, "suspended")
 
     @suspended.setter
-    def suspended(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def suspended(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "suspended", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the Namespace was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -824,23 +876,24 @@ class Connection(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 auth_config: Optional[pulumi.Input[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
-                 config_variables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
-                 connector_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
-                 eventing_config: Optional[pulumi.Input[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
-                 eventing_enablement_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 lock_config: Optional[pulumi.Input[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
-                 log_config: Optional[pulumi.Input[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_config: Optional[pulumi.Input[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
-                 suspended: Optional[pulumi.Input[_builtins.bool]] = None,
+                 auth_config: pulumi.Input[Optional[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
+                 config_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
+                 connector_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
+                 eventing_config: pulumi.Input[Optional[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
+                 eventing_enablement_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 lock_config: pulumi.Input[Optional[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
+                 log_config: pulumi.Input[Optional[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_config: pulumi.Input[Optional[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
+                 suspended: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         An Integration connectors Connection.
@@ -1135,6 +1188,12 @@ class Connection(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]] config_variables: Config Variables for the connection.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] connector_version: connectorVersion of the Connector.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An arbitrary description for the Connection.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]] destination_configs: Define the Connectors target endpoint.
                Structure is documented below.
@@ -1468,23 +1527,24 @@ class Connection(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 auth_config: Optional[pulumi.Input[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
-                 config_variables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
-                 connector_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
-                 eventing_config: Optional[pulumi.Input[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
-                 eventing_enablement_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 lock_config: Optional[pulumi.Input[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
-                 log_config: Optional[pulumi.Input[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_config: Optional[pulumi.Input[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
-                 suspended: Optional[pulumi.Input[_builtins.bool]] = None,
+                 auth_config: pulumi.Input[Optional[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
+                 config_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
+                 connector_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
+                 eventing_config: pulumi.Input[Optional[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
+                 eventing_enablement_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 lock_config: pulumi.Input[Optional[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
+                 log_config: pulumi.Input[Optional[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_config: pulumi.Input[Optional[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
+                 suspended: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1499,6 +1559,7 @@ class Connection(pulumi.CustomResource):
             if connector_version is None and not opts.urn:
                 raise TypeError("Missing required property 'connector_version'")
             __props__.__dict__["connector_version"] = connector_version
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["destination_configs"] = destination_configs
             __props__.__dict__["eventing_config"] = eventing_config
@@ -1538,34 +1599,35 @@ class Connection(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            auth_config: Optional[pulumi.Input[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
-            config_variables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
-            connection_revision: Optional[pulumi.Input[_builtins.str]] = None,
-            connector_version: Optional[pulumi.Input[_builtins.str]] = None,
-            connector_version_infra_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionConnectorVersionInfraConfigArgs', 'ConnectionConnectorVersionInfraConfigArgsDict']]]]] = None,
-            connector_version_launch_stage: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            destination_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            eventing_config: Optional[pulumi.Input[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
-            eventing_enablement_type: Optional[pulumi.Input[_builtins.str]] = None,
-            eventing_runtime_datas: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionEventingRuntimeDataArgs', 'ConnectionEventingRuntimeDataArgsDict']]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            lock_config: Optional[pulumi.Input[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
-            log_config: Optional[pulumi.Input[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            node_config: Optional[pulumi.Input[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            service_account: Optional[pulumi.Input[_builtins.str]] = None,
-            service_directory: Optional[pulumi.Input[_builtins.str]] = None,
-            ssl_config: Optional[pulumi.Input[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
-            statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ConnectionStatusArgs', 'ConnectionStatusArgsDict']]]]] = None,
-            subscription_type: Optional[pulumi.Input[_builtins.str]] = None,
-            suspended: Optional[pulumi.Input[_builtins.bool]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Connection':
+            auth_config: pulumi.Input[Optional[Union['ConnectionAuthConfigArgs', 'ConnectionAuthConfigArgsDict']]] = None,
+            config_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionConfigVariableArgs', 'ConnectionConfigVariableArgsDict']]]]] = None,
+            connection_revision: pulumi.Input[Optional[_builtins.str]] = None,
+            connector_version: pulumi.Input[Optional[_builtins.str]] = None,
+            connector_version_infra_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionConnectorVersionInfraConfigArgs', 'ConnectionConnectorVersionInfraConfigArgsDict']]]]] = None,
+            connector_version_launch_stage: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            destination_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            eventing_config: pulumi.Input[Optional[Union['ConnectionEventingConfigArgs', 'ConnectionEventingConfigArgsDict']]] = None,
+            eventing_enablement_type: pulumi.Input[Optional[_builtins.str]] = None,
+            eventing_runtime_datas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionEventingRuntimeDataArgs', 'ConnectionEventingRuntimeDataArgsDict']]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            lock_config: pulumi.Input[Optional[Union['ConnectionLockConfigArgs', 'ConnectionLockConfigArgsDict']]] = None,
+            log_config: pulumi.Input[Optional[Union['ConnectionLogConfigArgs', 'ConnectionLogConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            node_config: pulumi.Input[Optional[Union['ConnectionNodeConfigArgs', 'ConnectionNodeConfigArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            service_account: pulumi.Input[Optional[_builtins.str]] = None,
+            service_directory: pulumi.Input[Optional[_builtins.str]] = None,
+            ssl_config: pulumi.Input[Optional[Union['ConnectionSslConfigArgs', 'ConnectionSslConfigArgsDict']]] = None,
+            statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ConnectionStatusArgs', 'ConnectionStatusArgsDict']]]]] = None,
+            subscription_type: pulumi.Input[Optional[_builtins.str]] = None,
+            suspended: pulumi.Input[Optional[_builtins.bool]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Connection':
         """
         Get an existing Connection resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1583,6 +1645,12 @@ class Connection(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] connector_version_launch_stage: Flag to mark the version indicating the launch stage.
         :param pulumi.Input[_builtins.str] create_time: Time the Namespace was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An arbitrary description for the Connection.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ConnectionDestinationConfigArgs', 'ConnectionDestinationConfigArgsDict']]]] destination_configs: Define the Connectors target endpoint.
                Structure is documented below.
@@ -1632,6 +1700,7 @@ class Connection(pulumi.CustomResource):
         __props__.__dict__["connector_version_infra_configs"] = connector_version_infra_configs
         __props__.__dict__["connector_version_launch_stage"] = connector_version_launch_stage
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["destination_configs"] = destination_configs
         __props__.__dict__["effective_labels"] = effective_labels
@@ -1713,6 +1782,19 @@ class Connection(pulumi.CustomResource):
         Time the Namespace was created in UTC.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

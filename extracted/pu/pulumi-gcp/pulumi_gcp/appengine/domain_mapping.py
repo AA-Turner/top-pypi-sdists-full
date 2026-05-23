@@ -22,13 +22,20 @@ __all__ = ['DomainMappingArgs', 'DomainMapping']
 class DomainMappingArgs:
     def __init__(__self__, *,
                  domain_name: pulumi.Input[_builtins.str],
-                 override_strategy: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_settings: Optional[pulumi.Input['DomainMappingSslSettingsArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 override_strategy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_settings: pulumi.Input[Optional['DomainMappingSslSettingsArgs']] = None):
         """
         The set of arguments for constructing a DomainMapping resource.
 
         :param pulumi.Input[_builtins.str] domain_name: Relative name of the domain serving the application. Example: example.com.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] override_strategy: Whether the domain creation should override any existing mappings for this domain.
                By default, overrides are rejected.
                Default value is `STRICT`.
@@ -39,6 +46,8 @@ class DomainMappingArgs:
                Structure is documented below.
         """
         pulumi.set(__self__, "domain_name", domain_name)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if override_strategy is not None:
             pulumi.set(__self__, "override_strategy", override_strategy)
         if project is not None:
@@ -59,8 +68,25 @@ class DomainMappingArgs:
         pulumi.set(self, "domain_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="overrideStrategy")
-    def override_strategy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def override_strategy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether the domain creation should override any existing mappings for this domain.
         By default, overrides are rejected.
@@ -70,12 +96,12 @@ class DomainMappingArgs:
         return pulumi.get(self, "override_strategy")
 
     @override_strategy.setter
-    def override_strategy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def override_strategy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "override_strategy", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -83,12 +109,12 @@ class DomainMappingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="sslSettings")
-    def ssl_settings(self) -> Optional[pulumi.Input['DomainMappingSslSettingsArgs']]:
+    def ssl_settings(self) -> pulumi.Input[Optional['DomainMappingSslSettingsArgs']]:
         """
         SSL configuration for this domain. If unconfigured, this domain will not serve with SSL.
         Structure is documented below.
@@ -96,22 +122,29 @@ class DomainMappingArgs:
         return pulumi.get(self, "ssl_settings")
 
     @ssl_settings.setter
-    def ssl_settings(self, value: Optional[pulumi.Input['DomainMappingSslSettingsArgs']]):
+    def ssl_settings(self, value: pulumi.Input[Optional['DomainMappingSslSettingsArgs']]):
         pulumi.set(self, "ssl_settings", value)
 
 
 @pulumi.input_type
 class _DomainMappingState:
     def __init__(__self__, *,
-                 domain_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 override_strategy: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_records: Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]] = None,
-                 ssl_settings: Optional[pulumi.Input['DomainMappingSslSettingsArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 override_strategy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_records: pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]] = None,
+                 ssl_settings: pulumi.Input[Optional['DomainMappingSslSettingsArgs']] = None):
         """
         Input properties used for looking up and filtering DomainMapping resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_name: Relative name of the domain serving the application. Example: example.com.
         :param pulumi.Input[_builtins.str] name: Relative name of the object affected by this record. Only applicable for CNAME records. Example: 'www'.
         :param pulumi.Input[_builtins.str] override_strategy: Whether the domain creation should override any existing mappings for this domain.
@@ -126,6 +159,8 @@ class _DomainMappingState:
         :param pulumi.Input['DomainMappingSslSettingsArgs'] ssl_settings: SSL configuration for this domain. If unconfigured, this domain will not serve with SSL.
                Structure is documented below.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if domain_name is not None:
             pulumi.set(__self__, "domain_name", domain_name)
         if name is not None:
@@ -140,32 +175,49 @@ class _DomainMappingState:
             pulumi.set(__self__, "ssl_settings", ssl_settings)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="domainName")
-    def domain_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def domain_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Relative name of the domain serving the application. Example: example.com.
         """
         return pulumi.get(self, "domain_name")
 
     @domain_name.setter
-    def domain_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def domain_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "domain_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Relative name of the object affected by this record. Only applicable for CNAME records. Example: 'www'.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="overrideStrategy")
-    def override_strategy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def override_strategy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Whether the domain creation should override any existing mappings for this domain.
         By default, overrides are rejected.
@@ -175,12 +227,12 @@ class _DomainMappingState:
         return pulumi.get(self, "override_strategy")
 
     @override_strategy.setter
-    def override_strategy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def override_strategy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "override_strategy", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -188,12 +240,12 @@ class _DomainMappingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceRecords")
-    def resource_records(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]]:
+    def resource_records(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]]:
         """
         The resource records required to configure this domain mapping. These records must be added to the domain's DNS
         configuration in order to serve the application via this domain mapping.
@@ -202,12 +254,12 @@ class _DomainMappingState:
         return pulumi.get(self, "resource_records")
 
     @resource_records.setter
-    def resource_records(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]]):
+    def resource_records(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DomainMappingResourceRecordArgs']]]]):
         pulumi.set(self, "resource_records", value)
 
     @_builtins.property
     @pulumi.getter(name="sslSettings")
-    def ssl_settings(self) -> Optional[pulumi.Input['DomainMappingSslSettingsArgs']]:
+    def ssl_settings(self) -> pulumi.Input[Optional['DomainMappingSslSettingsArgs']]:
         """
         SSL configuration for this domain. If unconfigured, this domain will not serve with SSL.
         Structure is documented below.
@@ -215,7 +267,7 @@ class _DomainMappingState:
         return pulumi.get(self, "ssl_settings")
 
     @ssl_settings.setter
-    def ssl_settings(self, value: Optional[pulumi.Input['DomainMappingSslSettingsArgs']]):
+    def ssl_settings(self, value: pulumi.Input[Optional['DomainMappingSslSettingsArgs']]):
         pulumi.set(self, "ssl_settings", value)
 
 
@@ -225,10 +277,11 @@ class DomainMapping(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 domain_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 override_strategy: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_settings: Optional[pulumi.Input[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 override_strategy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_settings: pulumi.Input[Optional[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None,
                  __props__=None):
         """
         A domain serving an App Engine application.
@@ -273,6 +326,12 @@ class DomainMapping(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_name: Relative name of the domain serving the application. Example: example.com.
         :param pulumi.Input[_builtins.str] override_strategy: Whether the domain creation should override any existing mappings for this domain.
                By default, overrides are rejected.
@@ -345,10 +404,11 @@ class DomainMapping(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 domain_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 override_strategy: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ssl_settings: Optional[pulumi.Input[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 override_strategy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ssl_settings: pulumi.Input[Optional[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -358,6 +418,7 @@ class DomainMapping(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = DomainMappingArgs.__new__(DomainMappingArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if domain_name is None and not opts.urn:
                 raise TypeError("Missing required property 'domain_name'")
             __props__.__dict__["domain_name"] = domain_name
@@ -376,12 +437,13 @@ class DomainMapping(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            domain_name: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            override_strategy: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_records: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DomainMappingResourceRecordArgs', 'DomainMappingResourceRecordArgsDict']]]]] = None,
-            ssl_settings: Optional[pulumi.Input[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None) -> 'DomainMapping':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            override_strategy: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_records: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DomainMappingResourceRecordArgs', 'DomainMappingResourceRecordArgsDict']]]]] = None,
+            ssl_settings: pulumi.Input[Optional[Union['DomainMappingSslSettingsArgs', 'DomainMappingSslSettingsArgsDict']]] = None) -> 'DomainMapping':
         """
         Get an existing DomainMapping resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -389,6 +451,12 @@ class DomainMapping(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain_name: Relative name of the domain serving the application. Example: example.com.
         :param pulumi.Input[_builtins.str] name: Relative name of the object affected by this record. Only applicable for CNAME records. Example: 'www'.
         :param pulumi.Input[_builtins.str] override_strategy: Whether the domain creation should override any existing mappings for this domain.
@@ -407,6 +475,7 @@ class DomainMapping(pulumi.CustomResource):
 
         __props__ = _DomainMappingState.__new__(_DomainMappingState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["domain_name"] = domain_name
         __props__.__dict__["name"] = name
         __props__.__dict__["override_strategy"] = override_strategy
@@ -414,6 +483,19 @@ class DomainMapping(pulumi.CustomResource):
         __props__.__dict__["resource_records"] = resource_records
         __props__.__dict__["ssl_settings"] = ssl_settings
         return DomainMapping(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="domainName")

@@ -5,6 +5,7 @@ authors.workspace = true
 categories.workspace = true
 documentation.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 license.workspace = true
@@ -14,7 +15,7 @@ readme = "README.md"
 
 [features]
 default = []
-experimental-async = ["pyo3/experimental-async"]
+experimental-async = ["pyo3/experimental-async", "ryo3-tokio-rt/experimental-async"]
 json = ["ryo3-jiter"]
 ry = ["json"]
 

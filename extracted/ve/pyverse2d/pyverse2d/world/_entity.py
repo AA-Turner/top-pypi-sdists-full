@@ -147,6 +147,7 @@ class Entity:
     @property
     def trail_renderer(self) -> TrailRenderer | None:
         """Composant ``TrailRenderer`` *(lecture seule)*"""
+        return self._trail_renderer
     
     @property
     def sound_emitter(self) -> SoundEmitter | None:

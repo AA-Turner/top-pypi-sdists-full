@@ -5,7 +5,7 @@ from tests.fixtures import BaseTest
 
 class TestForms(BaseTest):
     def test_raise_exception_on_invalid_propery_update(self):
-        form = self.controller.create_form("New form", "form.py")
+        form = self.controller.create_stage("form", "New form", "form.py")
 
         with self.assertRaises(Exception):
             self.controller.update_stage(

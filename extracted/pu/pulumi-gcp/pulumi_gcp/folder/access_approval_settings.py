@@ -23,8 +23,9 @@ class AccessApprovalSettingsArgs:
     def __init__(__self__, *,
                  enrolled_services: pulumi.Input[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]],
                  folder_id: pulumi.Input[_builtins.str],
-                 active_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_emails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 active_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_emails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a AccessApprovalSettings resource.
 
@@ -37,6 +38,12 @@ class AccessApprovalSettingsArgs:
         :param pulumi.Input[_builtins.str] active_key_version: The asymmetric crypto key version to use for signing approval requests.
                Empty active_key_version indicates that a Google-managed key should be used for signing.
                This property will be ignored if set by an ancestor of the resource, and new non-empty values may not be set.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] notification_emails: A list of email addresses to which notifications relating to approval requests should be sent.
                Notifications relating to a resource will be sent to all emails in the settings of ancestor
                resources of that resource. A maximum of 50 email addresses are allowed.
@@ -45,6 +52,8 @@ class AccessApprovalSettingsArgs:
         pulumi.set(__self__, "folder_id", folder_id)
         if active_key_version is not None:
             pulumi.set(__self__, "active_key_version", active_key_version)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if notification_emails is not None:
             pulumi.set(__self__, "notification_emails", notification_emails)
 
@@ -78,7 +87,7 @@ class AccessApprovalSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="activeKeyVersion")
-    def active_key_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def active_key_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The asymmetric crypto key version to use for signing approval requests.
         Empty active_key_version indicates that a Google-managed key should be used for signing.
@@ -87,12 +96,29 @@ class AccessApprovalSettingsArgs:
         return pulumi.get(self, "active_key_version")
 
     @active_key_version.setter
-    def active_key_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def active_key_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "active_key_version", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="notificationEmails")
-    def notification_emails(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def notification_emails(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of email addresses to which notifications relating to approval requests should be sent.
         Notifications relating to a resource will be sent to all emails in the settings of ancestor
@@ -101,21 +127,22 @@ class AccessApprovalSettingsArgs:
         return pulumi.get(self, "notification_emails")
 
     @notification_emails.setter
-    def notification_emails(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def notification_emails(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "notification_emails", value)
 
 
 @pulumi.input_type
 class _AccessApprovalSettingsState:
     def __init__(__self__, *,
-                 active_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 ancestor_has_active_key_version: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enrolled_ancestor: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enrolled_services: Optional[pulumi.Input[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]] = None,
-                 folder_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 invalid_key_version: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_emails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 active_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 ancestor_has_active_key_version: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enrolled_ancestor: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enrolled_services: pulumi.Input[Optional[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]] = None,
+                 folder_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 invalid_key_version: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_emails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering AccessApprovalSettings resources.
 
@@ -123,6 +150,12 @@ class _AccessApprovalSettingsState:
                Empty active_key_version indicates that a Google-managed key should be used for signing.
                This property will be ignored if set by an ancestor of the resource, and new non-empty values may not be set.
         :param pulumi.Input[_builtins.bool] ancestor_has_active_key_version: If the field is true, that indicates that an ancestor of this Folder has set active_key_version.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] enrolled_ancestor: If the field is true, that indicates that at least one service is enrolled for Access Approval in one or more ancestors of the Folder.
         :param pulumi.Input[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]] enrolled_services: A list of Google Cloud Services for which the given resource has Access Approval enrolled.
                Access requests for the resource given by name against any of these services contained here will be required
@@ -143,6 +176,8 @@ class _AccessApprovalSettingsState:
             pulumi.set(__self__, "active_key_version", active_key_version)
         if ancestor_has_active_key_version is not None:
             pulumi.set(__self__, "ancestor_has_active_key_version", ancestor_has_active_key_version)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enrolled_ancestor is not None:
             pulumi.set(__self__, "enrolled_ancestor", enrolled_ancestor)
         if enrolled_services is not None:
@@ -158,7 +193,7 @@ class _AccessApprovalSettingsState:
 
     @_builtins.property
     @pulumi.getter(name="activeKeyVersion")
-    def active_key_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def active_key_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The asymmetric crypto key version to use for signing approval requests.
         Empty active_key_version indicates that a Google-managed key should be used for signing.
@@ -167,36 +202,53 @@ class _AccessApprovalSettingsState:
         return pulumi.get(self, "active_key_version")
 
     @active_key_version.setter
-    def active_key_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def active_key_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "active_key_version", value)
 
     @_builtins.property
     @pulumi.getter(name="ancestorHasActiveKeyVersion")
-    def ancestor_has_active_key_version(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def ancestor_has_active_key_version(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If the field is true, that indicates that an ancestor of this Folder has set active_key_version.
         """
         return pulumi.get(self, "ancestor_has_active_key_version")
 
     @ancestor_has_active_key_version.setter
-    def ancestor_has_active_key_version(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def ancestor_has_active_key_version(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "ancestor_has_active_key_version", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="enrolledAncestor")
-    def enrolled_ancestor(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enrolled_ancestor(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If the field is true, that indicates that at least one service is enrolled for Access Approval in one or more ancestors of the Folder.
         """
         return pulumi.get(self, "enrolled_ancestor")
 
     @enrolled_ancestor.setter
-    def enrolled_ancestor(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enrolled_ancestor(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enrolled_ancestor", value)
 
     @_builtins.property
     @pulumi.getter(name="enrolledServices")
-    def enrolled_services(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]]:
+    def enrolled_services(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]]:
         """
         A list of Google Cloud Services for which the given resource has Access Approval enrolled.
         Access requests for the resource given by name against any of these services contained here will be required
@@ -207,24 +259,24 @@ class _AccessApprovalSettingsState:
         return pulumi.get(self, "enrolled_services")
 
     @enrolled_services.setter
-    def enrolled_services(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]]):
+    def enrolled_services(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccessApprovalSettingsEnrolledServiceArgs']]]]):
         pulumi.set(self, "enrolled_services", value)
 
     @_builtins.property
     @pulumi.getter(name="folderId")
-    def folder_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def folder_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the folder of the access approval settings.
         """
         return pulumi.get(self, "folder_id")
 
     @folder_id.setter
-    def folder_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def folder_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "folder_id", value)
 
     @_builtins.property
     @pulumi.getter(name="invalidKeyVersion")
-    def invalid_key_version(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def invalid_key_version(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If the field is true, that indicates that there is some configuration issue with the active_key_version
         configured on this Folder (e.g. it doesn't exist or the Access Approval service account doesn't have the
@@ -234,24 +286,24 @@ class _AccessApprovalSettingsState:
         return pulumi.get(self, "invalid_key_version")
 
     @invalid_key_version.setter
-    def invalid_key_version(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def invalid_key_version(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "invalid_key_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the settings. Format is "folders/{folder_id}/accessApprovalSettings"
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="notificationEmails")
-    def notification_emails(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def notification_emails(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of email addresses to which notifications relating to approval requests should be sent.
         Notifications relating to a resource will be sent to all emails in the settings of ancestor
@@ -260,7 +312,7 @@ class _AccessApprovalSettingsState:
         return pulumi.get(self, "notification_emails")
 
     @notification_emails.setter
-    def notification_emails(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def notification_emails(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "notification_emails", value)
 
 
@@ -270,10 +322,11 @@ class AccessApprovalSettings(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 active_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 enrolled_services: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
-                 folder_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_emails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 active_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enrolled_services: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
+                 folder_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_emails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         Access Approval enables you to require your explicit approval whenever Google support and engineering need to access your customer content.
@@ -365,6 +418,12 @@ class AccessApprovalSettings(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] active_key_version: The asymmetric crypto key version to use for signing approval requests.
                Empty active_key_version indicates that a Google-managed key should be used for signing.
                This property will be ignored if set by an ancestor of the resource, and new non-empty values may not be set.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]] enrolled_services: A list of Google Cloud Services for which the given resource has Access Approval enrolled.
                Access requests for the resource given by name against any of these services contained here will be required
                to have explicit approval. Enrollment can only be done on an all or nothing basis.
@@ -481,10 +540,11 @@ class AccessApprovalSettings(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 active_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 enrolled_services: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
-                 folder_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 notification_emails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 active_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enrolled_services: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
+                 folder_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 notification_emails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -495,6 +555,7 @@ class AccessApprovalSettings(pulumi.CustomResource):
             __props__ = AccessApprovalSettingsArgs.__new__(AccessApprovalSettingsArgs)
 
             __props__.__dict__["active_key_version"] = active_key_version
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if enrolled_services is None and not opts.urn:
                 raise TypeError("Missing required property 'enrolled_services'")
             __props__.__dict__["enrolled_services"] = enrolled_services
@@ -516,14 +577,15 @@ class AccessApprovalSettings(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            active_key_version: Optional[pulumi.Input[_builtins.str]] = None,
-            ancestor_has_active_key_version: Optional[pulumi.Input[_builtins.bool]] = None,
-            enrolled_ancestor: Optional[pulumi.Input[_builtins.bool]] = None,
-            enrolled_services: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
-            folder_id: Optional[pulumi.Input[_builtins.str]] = None,
-            invalid_key_version: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            notification_emails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'AccessApprovalSettings':
+            active_key_version: pulumi.Input[Optional[_builtins.str]] = None,
+            ancestor_has_active_key_version: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            enrolled_ancestor: pulumi.Input[Optional[_builtins.bool]] = None,
+            enrolled_services: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]]] = None,
+            folder_id: pulumi.Input[Optional[_builtins.str]] = None,
+            invalid_key_version: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            notification_emails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'AccessApprovalSettings':
         """
         Get an existing AccessApprovalSettings resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -535,6 +597,12 @@ class AccessApprovalSettings(pulumi.CustomResource):
                Empty active_key_version indicates that a Google-managed key should be used for signing.
                This property will be ignored if set by an ancestor of the resource, and new non-empty values may not be set.
         :param pulumi.Input[_builtins.bool] ancestor_has_active_key_version: If the field is true, that indicates that an ancestor of this Folder has set active_key_version.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] enrolled_ancestor: If the field is true, that indicates that at least one service is enrolled for Access Approval in one or more ancestors of the Folder.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AccessApprovalSettingsEnrolledServiceArgs', 'AccessApprovalSettingsEnrolledServiceArgsDict']]]] enrolled_services: A list of Google Cloud Services for which the given resource has Access Approval enrolled.
                Access requests for the resource given by name against any of these services contained here will be required
@@ -557,6 +625,7 @@ class AccessApprovalSettings(pulumi.CustomResource):
 
         __props__.__dict__["active_key_version"] = active_key_version
         __props__.__dict__["ancestor_has_active_key_version"] = ancestor_has_active_key_version
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["enrolled_ancestor"] = enrolled_ancestor
         __props__.__dict__["enrolled_services"] = enrolled_services
         __props__.__dict__["folder_id"] = folder_id
@@ -582,6 +651,19 @@ class AccessApprovalSettings(pulumi.CustomResource):
         If the field is true, that indicates that an ancestor of this Folder has set active_key_version.
         """
         return pulumi.get(self, "ancestor_has_active_key_version")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="enrolledAncestor")

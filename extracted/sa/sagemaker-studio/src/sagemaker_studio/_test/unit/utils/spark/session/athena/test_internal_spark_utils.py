@@ -139,3 +139,87 @@ def test_generate_spark_configs_combines_all(mock_s3, mock_catalog):
     assert configs["a"] == "b"
     assert configs["c"] == "d"
     assert "spark.sql.catalogImplementation" in configs
+
+
+# -------------------------------------------------------------------
+# Tests for _generate_workday_irc_spark_configs
+# -------------------------------------------------------------------
+def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_project):
+    mock_conn = MagicMock()
+    mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+    mock_conn._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["wd_catalog"]',
+        "INSTANCE_URL": "https://workday.example.com/api",
+        "ACCESS_TOKEN": "token_abc",
+        "TENANT_ID": "tenant_xyz",
+    }
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = internal_spark_utils._generate_workday_irc_spark_configs()
+
+    assert conf["spark.sql.catalog.wd_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
+    assert conf["spark.sql.catalog.wd_catalog.type"] == "rest"
+    assert conf["spark.sql.catalog.wd_catalog.uri"] == "https://workday.example.com/api"
+    assert conf["spark.sql.catalog.wd_catalog.warehouse"] == "wd_catalog"
+    assert conf["spark.sql.catalog.wd_catalog.header.Polaris-Realm"] == "tenant_xyz"
+    assert conf["spark.sql.catalog.wd_catalog.token"] == "token_abc"
+    assert (
+        conf["spark.sql.catalog.wd_catalog.header.X-Iceberg-Access-Delegation"]
+        == "vended-credentials"
+    )
+
+
+def test_generate_workday_irc_spark_configs_multiple_catalogs(mock_utils_and_project):
+    mock_conn = MagicMock()
+    mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
+    mock_conn._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["cat_a", "cat_b"]',
+        "INSTANCE_URL": "https://wd.example.com",
+        "ACCESS_TOKEN": "tok",
+        "TENANT_ID": "realm1",
+    }
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = internal_spark_utils._generate_workday_irc_spark_configs()
+
+    assert conf["spark.sql.catalog.cat_a.uri"] == "https://wd.example.com"
+    assert conf["spark.sql.catalog.cat_b.uri"] == "https://wd.example.com"
+    assert conf["spark.sql.catalog.cat_a.warehouse"] == "cat_a"
+    assert conf["spark.sql.catalog.cat_b.warehouse"] == "cat_b"
+
+
+def test_generate_workday_irc_spark_configs_no_workday_connections(mock_utils_and_project):
+    mock_conn = MagicMock()
+    mock_conn.type = "ATHENA"
+    mock_utils_and_project.connections = [mock_conn]
+
+    conf = internal_spark_utils._generate_workday_irc_spark_configs()
+    assert conf == {}
+
+
+def test_generate_workday_irc_spark_configs_no_connections(mock_utils_and_project):
+    mock_utils_and_project.connections = []
+
+    conf = internal_spark_utils._generate_workday_irc_spark_configs()
+    assert conf == {}
+
+
+def test_generate_workday_irc_spark_configs_mixed_connections(mock_utils_and_project):
+    mock_athena = MagicMock()
+    mock_athena.type = "ATHENA"
+
+    mock_workday = MagicMock()
+    mock_workday.type = "WORKDAYICEBERGRESTCATALOG"
+    mock_workday._spark_catalog_configs.return_value = {
+        "SOURCE_CATALOG_LIST": '["wdc"]',
+        "INSTANCE_URL": "https://wd.test.com",
+        "ACCESS_TOKEN": "t",
+        "TENANT_ID": "r",
+    }
+    mock_utils_and_project.connections = [mock_athena, mock_workday]
+
+    conf = internal_spark_utils._generate_workday_irc_spark_configs()
+
+    assert "spark.sql.catalog.wdc" in conf
+    assert conf["spark.sql.catalog.wdc.token"] == "t"
+    mock_athena._spark_catalog_configs.assert_not_called()

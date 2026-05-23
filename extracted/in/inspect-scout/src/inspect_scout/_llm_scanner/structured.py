@@ -33,6 +33,7 @@ from inspect_ai.tool import (
     ToolSource,
 )
 from inspect_ai.util import JSONSchema
+from inspect_ai.util._json import resolve_schema_references
 from pydantic import BaseModel, Field, create_model
 
 from inspect_scout._llm_scanner.types import AnswerStructured
@@ -69,19 +70,28 @@ async def structured_generate(
         ),
     )
 
+    # wrap each context tool in a stub that preserves name/description/schema
+    # but whose body just tells the model to call answer() instead. these are
+    # declarations the model needs to see for the input transcript to be
+    # API-valid; we never want them executed for real.
+    executable_tools: list[ToolDef | ToolSource] = [
+        *(_context_tool_stub(t, answer_tooldef.name) for t in context_tools),
+        answer_tooldef,
+    ]
+
     # setup initial values for messages and output (we will return these)
     value: dict[str, Any] | None = None
     messages = input.copy()
     output: ModelOutput
 
     # setup a generate loop that will run until a successful call to the
-    # anwser tool is made
+    # answer tool is made
     attempts = 0
     while attempts < max_attempts:
         output = await generate_retry_refusals(
             model,
             input=messages,
-            tools=[*context_tools, answer_tooldef],
+            tools=executable_tools,
             tool_choice=ToolFunction(answer_tooldef.name),
             config=(config or GenerateConfig()).merge(
                 GenerateConfig(parallel_tool_calls=False)
@@ -90,16 +100,18 @@ async def structured_generate(
         )
         messages.append(output.message)
 
-        # if there we no tool calls then we need to insert a user message to
-        # tell the model to keep going
-        if len(output.message.tool_calls or []) == 0:
-            messages.append(
-                ChatMessageUser(
-                    content=f"Please use the {answer_tool}() tool to report your answer."
-                )
-            )
+        # execute every tool call so each tool_use is paired with a
+        # tool_result before the next generate. this validates answer()
+        # arguments against the schema, returns "not callable here" for
+        # context-tool stubs, and reports "not found" for hallucinated tools.
+        execute_messages, execute_output = await execute_tools(
+            messages=messages, tools=executable_tools
+        )
+        messages.extend(execute_messages)
+        if execute_output is not None:
+            output = execute_output
 
-        # check for a call to the 'answer' tool
+        # check for a successful call to the 'answer' tool
         answer_tool_call = next(
             (
                 tool_call
@@ -109,29 +121,64 @@ async def structured_generate(
             None,
         )
         if answer_tool_call:
-            # execute the tool calls (this will take care of validating the
-            # answer tool parameters and providing feedback for invalid cases)
-            execute_messages, execute_output = await execute_tools(
-                messages=messages, tools=[answer_tooldef]
+            answer_result = next(
+                (
+                    m
+                    for m in execute_messages
+                    if isinstance(m, ChatMessageTool)
+                    and m.tool_call_id == answer_tool_call.id
+                ),
+                None,
             )
-            messages.extend(execute_messages)
-            if execute_output is not None:
-                output = execute_output
+            if answer_result is not None and answer_result.error is None:
+                # set the value to the object returned by the model and break
+                value = answer_tool_call.arguments
+                output.completion = to_json_str_safe(answer_tool_call.arguments)
+                break
 
-            # exit if there was a successful call of the answer tool
-            if isinstance(messages[-1], ChatMessageTool):
-                tool_message = messages[-1]
-                if tool_message.error is None:
-                    # set the value to the object return by the model and break
-                    value = answer_tool_call.arguments
-                    output.completion = to_json_str_safe(answer_tool_call.arguments)
-                    break
+        # if there were no tool calls then we need to insert a user message to
+        # tell the model to keep going (otherwise the tool results above are
+        # the feedback)
+        if len(output.message.tool_calls or []) == 0:
+            messages.append(
+                ChatMessageUser(
+                    content=f"Please use the {answer_tool}() tool to report your answer."
+                )
+            )
 
         # keep going
         attempts += 1
 
-    # return resultd
+    # return results
     return value, messages, output
+
+
+def _context_tool_stub(
+    tool: Tool | ToolDef | ToolInfo | ToolSource, answer_tool: str
+) -> ToolDef | ToolSource:
+    """Clone a context tool's name/description/schema onto a non-callable stub.
+
+    The stub accepts any arguments and returns a string redirecting the model
+    to the answer tool, so ``execute_tools`` can pair the ``tool_use`` with a
+    ``tool_result`` without running anything real.
+    """
+    if isinstance(tool, ToolSource):
+        return tool
+    info = tool if isinstance(tool, (ToolDef, ToolInfo)) else ToolDef(tool)
+
+    async def stub(**kwargs: Any) -> str:
+        return (
+            f"'{info.name}' is not callable here — please respond using the "
+            f"{answer_tool}() tool."
+        )
+
+    return ToolDef(
+        tool=stub,
+        name=info.name,
+        description=info.description,
+        parameters=info.parameters,
+        options=info.options,
+    )
 
 
 ST = TypeVar("ST", bound=BaseModel)
@@ -149,13 +196,18 @@ def structured_schema(answer: AnswerStructured) -> JSONSchema:
     if missing_descriptions:
         raise_missing_descriptions(missing_descriptions)
 
+    # Pydantic emits nested BaseModel fields as $ref/$defs, but JSONSchema has
+    # no fields for these — validating through it would silently drop the
+    # references and leave the model with an unspecified item shape (see #447).
+    # Inline all $ref definitions before validating.
+    item_schema = resolve_schema_references(
+        augmented_type.model_json_schema(by_alias=False)
+    )
+
     # For result sets, synthesize a wrapper schema with a single list field
     if result_set is not False:
         # Determine the field name for the results list
         field_name = "results" if result_set is True else result_set
-
-        # Get the schema for the item type
-        item_schema = augmented_type.model_json_schema(by_alias=False)
 
         # Create a wrapper schema with a single list field containing items of this type
         wrapper_schema = {
@@ -170,16 +222,10 @@ def structured_schema(answer: AnswerStructured) -> JSONSchema:
             "required": [field_name],
         }
 
-        # If the item schema has $defs, include them in the wrapper
-        if "$defs" in item_schema:
-            wrapper_schema["$defs"] = item_schema["$defs"]
-
         return JSONSchema.model_validate(wrapper_schema)
     else:
         # For single results, return the schema as-is
-        return JSONSchema.model_validate(
-            augmented_type.model_json_schema(by_alias=False)
-        )
+        return JSONSchema.model_validate(item_schema)
 
 
 def structured_answer_type(answer: AnswerStructured) -> tuple[type[BaseModel], bool]:

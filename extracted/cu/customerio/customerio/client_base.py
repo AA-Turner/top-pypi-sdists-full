@@ -120,9 +120,15 @@ class ClientBase:
             return self._datetime_to_timestamp(value)
         if isinstance(value, float) and math.isnan(value):
             return None
+        if isinstance(value, dict):
+            return self._sanitize(value)
+        if isinstance(value, list):
+            return [self._sanitize_value(item) for item in value]
         return value
 
     def _datetime_to_timestamp(self, dt):
+        if dt.tzinfo is not None:
+            return int(dt.astimezone(timezone.utc).timestamp())
         return int(dt.replace(tzinfo=timezone.utc).timestamp())
 
     def _stringify_list(self, customer_ids):

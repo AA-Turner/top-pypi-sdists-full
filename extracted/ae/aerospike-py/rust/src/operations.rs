@@ -268,12 +268,24 @@ fn get_resize_flags(dict: &Bound<'_, PyDict>) -> PyResult<Option<BitwiseResizeFl
         .get_item("resize_flags")?
         .map(|v| v.extract())
         .transpose()?;
-    Ok(flags.map(|f| match f {
-        1 => BitwiseResizeFlags::FromFront,
-        2 => BitwiseResizeFlags::GrowOnly,
-        4 => BitwiseResizeFlags::ShrinkOnly,
-        _ => BitwiseResizeFlags::Default,
-    }))
+    // `BitwiseResizeFlags` is a plain enum in aerospike-core — it cannot
+    // represent OR-composed flags. An unrecognized value (e.g. the composed
+    // `GROW_ONLY | FROM_FRONT` == 3) previously collapsed to `Default`,
+    // silently dropping every requested flag — a resize meant to grow-only
+    // could then shrink and truncate data. Reject it loudly instead.
+    flags
+        .map(|f| match f {
+            0 => Ok(BitwiseResizeFlags::Default),
+            1 => Ok(BitwiseResizeFlags::FromFront),
+            2 => Ok(BitwiseResizeFlags::GrowOnly),
+            4 => Ok(BitwiseResizeFlags::ShrinkOnly),
+            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "bit_resize 'resize_flags' must be a single flag \
+                 (0=DEFAULT, 1=FROM_FRONT, 2=GROW_ONLY, 4=SHRINK_ONLY); \
+                 OR-composed values are not supported, got {other}"
+            ))),
+        })
+        .transpose()
 }
 
 fn get_scan_value(dict: &Bound<'_, PyDict>) -> PyResult<bool> {
@@ -290,6 +302,21 @@ fn values_from_list(val: &Value) -> Vec<Value> {
     match val {
         Value::List(v) => v.clone(),
         _ => vec![val.clone()],
+    }
+}
+
+/// Resolve the `val` of a `list_increment` op to the i64 increment amount.
+///
+/// Mirrors the bit-op (`OP_BIT_ADD`/`OP_BIT_SUBTRACT`) handling: a missing or
+/// `Nil` `val` defaults to `+1`; an integer `val` is used as-is; any other type
+/// is a type error rather than being silently collapsed to `1`.
+fn parse_increment_value(val: &Option<Value>) -> PyResult<i64> {
+    match val {
+        None | Some(Value::Nil) => Ok(1),
+        Some(Value::Int(i)) => Ok(*i),
+        Some(other) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "list_increment requires an integer value, got {other:?}"
+        ))),
     }
 }
 
@@ -556,10 +583,7 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
                 let name = require_bin(&bin_name, "list_increment")?;
                 let policy = parse_list_policy(dict)?;
                 let index = get_index(dict)?;
-                let v: i64 = match &val {
-                    Some(Value::Int(i)) => *i,
-                    _ => 1,
-                };
+                let v: i64 = parse_increment_value(&val)?;
                 list_ops::increment(&policy, &name, index, v)
             }
             OP_LIST_SORT => {
@@ -679,8 +703,12 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
                 let name = require_bin(&bin_name, "map_remove_by_index_range")?;
                 let index = get_index(dict)?;
                 let rt = int_to_map_return_type(get_return_type(dict)?);
-                let count = get_count(dict)?.unwrap_or(1);
-                map_ops::remove_by_index_range(&name, index, count, rt)
+                // An omitted `count` means "to the end of the map" — use the
+                // open-ended variant rather than silently collapsing to count=1.
+                match get_count(dict)? {
+                    Some(count) => map_ops::remove_by_index_range(&name, index, count, rt),
+                    None => map_ops::remove_by_index_range_from(&name, index, rt),
+                }
             }
             OP_MAP_REMOVE_BY_RANK => {
                 let name = require_bin(&bin_name, "map_remove_by_rank")?;
@@ -692,8 +720,12 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
                 let name = require_bin(&bin_name, "map_remove_by_rank_range")?;
                 let rank = get_rank(dict)?;
                 let rt = int_to_map_return_type(get_return_type(dict)?);
-                let count = get_count(dict)?.unwrap_or(1);
-                map_ops::remove_by_rank_range(&name, rank, count, rt)
+                // An omitted `count` means "to the last ranked item" — use the
+                // open-ended variant rather than silently collapsing to count=1.
+                match get_count(dict)? {
+                    Some(count) => map_ops::remove_by_rank_range(&name, rank, count, rt),
+                    None => map_ops::remove_by_rank_range_from(&name, rank, rt),
+                }
             }
             OP_MAP_SIZE => {
                 let name = require_bin(&bin_name, "map_size")?;
@@ -735,8 +767,12 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
                 let name = require_bin(&bin_name, "map_get_by_index_range")?;
                 let index = get_index(dict)?;
                 let rt = int_to_map_return_type(get_return_type(dict)?);
-                let count = get_count(dict)?.unwrap_or(1);
-                map_ops::get_by_index_range(&name, index, count, rt)
+                // An omitted `count` means "to the end of the map" — use the
+                // open-ended variant rather than silently collapsing to count=1.
+                match get_count(dict)? {
+                    Some(count) => map_ops::get_by_index_range(&name, index, count, rt),
+                    None => map_ops::get_by_index_range_from(&name, index, rt),
+                }
             }
             OP_MAP_GET_BY_RANK => {
                 let name = require_bin(&bin_name, "map_get_by_rank")?;
@@ -748,8 +784,12 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
                 let name = require_bin(&bin_name, "map_get_by_rank_range")?;
                 let rank = get_rank(dict)?;
                 let rt = int_to_map_return_type(get_return_type(dict)?);
-                let count = get_count(dict)?.unwrap_or(1);
-                map_ops::get_by_rank_range(&name, rank, count, rt)
+                // An omitted `count` means "to the last ranked item" — use the
+                // open-ended variant rather than silently collapsing to count=1.
+                match get_count(dict)? {
+                    Some(count) => map_ops::get_by_rank_range(&name, rank, count, rt),
+                    None => map_ops::get_by_rank_range_from(&name, rank, rt),
+                }
             }
             OP_MAP_GET_BY_KEY_LIST => {
                 let name = require_bin(&bin_name, "map_get_by_key_list")?;
@@ -1053,9 +1093,58 @@ pub fn py_ops_to_rust(ops_list: &Bound<'_, PyList>) -> PyResult<Vec<Operation>> 
 
 #[cfg(test)]
 mod tests {
-    use super::parse_i32_flag;
+    use super::{get_resize_flags, parse_i32_flag, parse_increment_value};
+    use aerospike_core::operations::bitwise::BitwiseResizeFlags;
     use aerospike_core::Value;
+    use pyo3::types::PyDict;
     use pyo3::{exceptions::PyTypeError, exceptions::PyValueError, PyErr, Python};
+
+    #[test]
+    fn get_resize_flags_accepts_known_single_flags() {
+        Python::initialize();
+        Python::attach(|py| {
+            // Missing key -> None (no flags requested).
+            let empty = PyDict::new(py);
+            assert!(get_resize_flags(&empty)
+                .expect("missing resize_flags is fine")
+                .is_none());
+
+            for (raw, expected) in [
+                (0, BitwiseResizeFlags::Default),
+                (1, BitwiseResizeFlags::FromFront),
+                (2, BitwiseResizeFlags::GrowOnly),
+                (4, BitwiseResizeFlags::ShrinkOnly),
+            ] {
+                let d = PyDict::new(py);
+                d.set_item("resize_flags", raw).unwrap();
+                let got = get_resize_flags(&d)
+                    .expect("known flag should parse")
+                    .expect("flag is present");
+                // BitwiseResizeFlags is not PartialEq; compare via discriminant.
+                assert_eq!(
+                    std::mem::discriminant(&got),
+                    std::mem::discriminant(&expected),
+                    "resize_flags {raw} should map to the matching flag"
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn get_resize_flags_rejects_composed_or_unknown_value() {
+        Python::initialize();
+        Python::attach(|py| {
+            // 3 == GROW_ONLY | FROM_FRONT — must fail loudly, not silently
+            // collapse to Default and risk truncating data on resize.
+            for bad in [3, 5, 6, 7, 99] {
+                let d = PyDict::new(py);
+                d.set_item("resize_flags", bad).unwrap();
+                let err = get_resize_flags(&d)
+                    .expect_err("composed/unknown resize flag must be rejected");
+                assert!(err.is_instance_of::<PyValueError>(py));
+            }
+        });
+    }
 
     #[test]
     fn parse_i32_flag_defaults_to_zero_for_missing_or_nil() {
@@ -1097,6 +1186,147 @@ mod tests {
         Python::initialize();
         Python::attach(|py| {
             assert!(err.is_instance_of::<PyTypeError>(py));
+        });
+    }
+
+    #[test]
+    fn parse_increment_value_defaults_to_one_for_missing_or_nil() {
+        assert_eq!(
+            parse_increment_value(&None).expect("None should default to +1"),
+            1
+        );
+        assert_eq!(
+            parse_increment_value(&Some(Value::Nil)).expect("Nil should default to +1"),
+            1
+        );
+    }
+
+    #[test]
+    fn parse_increment_value_uses_int_as_is() {
+        assert_eq!(
+            parse_increment_value(&Some(Value::Int(5))).expect("int should be used as-is"),
+            5
+        );
+        assert_eq!(
+            parse_increment_value(&Some(Value::Int(-3))).expect("negative int should be used"),
+            -3
+        );
+    }
+
+    #[test]
+    fn parse_increment_value_rejects_non_int() {
+        Python::initialize();
+        for bad in [
+            Value::String("1".to_string()),
+            Value::Float(aerospike_core::FloatValue::from(1.5_f64)),
+            Value::Bool(true),
+        ] {
+            let err: PyErr = parse_increment_value(&Some(bad))
+                .expect_err("non-int value should raise instead of defaulting to +1");
+            Python::attach(|py| {
+                assert!(err.is_instance_of::<PyValueError>(py));
+            });
+        }
+    }
+
+    // ── Map index/rank range: omitted `count` must be open-ended ──────────
+    //
+    // Regression for the bug where `map_get_by_index_range` / `_rank_range`
+    // (and the remove variants) with no `count` silently collapsed to
+    // `count = 1`, returning a single element instead of "to the end of the
+    // map". The open-ended `aerospike-core` variants emit one fewer wire
+    // argument (no trailing count `Int`), which we assert via the debug
+    // representation of the produced `Operation`.
+
+    use pyo3::prelude::*;
+    use pyo3::types::PyList;
+
+    /// Build a single-op `PyList` from `(op_code, extra fields)` and convert it.
+    fn convert_one_op<'py>(
+        py: Python<'py>,
+        op_code: i32,
+        with: impl FnOnce(&Bound<'py, PyDict>),
+    ) -> aerospike_core::operations::Operation {
+        let dict = PyDict::new(py);
+        dict.set_item("op", op_code).unwrap();
+        dict.set_item("bin", "mybin").unwrap();
+        with(&dict);
+        let ops = PyList::new(py, [dict]).unwrap();
+        let mut converted = super::py_ops_to_rust(&ops).expect("conversion should succeed");
+        assert_eq!(converted.len(), 1);
+        converted.pop().unwrap()
+    }
+
+    /// Count the `CdtArgument::Int(...)` entries in an operation's debug output.
+    fn int_arg_count(op: &aerospike_core::operations::Operation) -> usize {
+        format!("{op:?}").matches("Int(").count()
+    }
+
+    #[test]
+    fn map_index_range_omitted_count_is_open_ended() {
+        Python::initialize();
+        Python::attach(|py| {
+            for &op_code in &[
+                super::OP_MAP_GET_BY_INDEX_RANGE,
+                super::OP_MAP_REMOVE_BY_INDEX_RANGE,
+            ] {
+                // With an explicit count: return_type, index, count -> 3 Ints.
+                let with_count = convert_one_op(py, op_code, |d| {
+                    d.set_item("index", 0i64).unwrap();
+                    d.set_item("return_type", 7i32).unwrap();
+                    d.set_item("count", 3i64).unwrap();
+                });
+                assert_eq!(
+                    int_arg_count(&with_count),
+                    3,
+                    "op {op_code}: explicit count must keep the count argument"
+                );
+
+                // Without count: return_type, index -> 2 Ints (open-ended).
+                let no_count = convert_one_op(py, op_code, |d| {
+                    d.set_item("index", 0i64).unwrap();
+                    d.set_item("return_type", 7i32).unwrap();
+                });
+                assert_eq!(
+                    int_arg_count(&no_count),
+                    2,
+                    "op {op_code}: omitted count must select to the end of the map, \
+                     not collapse to count=1"
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn map_rank_range_omitted_count_is_open_ended() {
+        Python::initialize();
+        Python::attach(|py| {
+            for &op_code in &[
+                super::OP_MAP_GET_BY_RANK_RANGE,
+                super::OP_MAP_REMOVE_BY_RANK_RANGE,
+            ] {
+                let with_count = convert_one_op(py, op_code, |d| {
+                    d.set_item("rank", 1i64).unwrap();
+                    d.set_item("return_type", 7i32).unwrap();
+                    d.set_item("count", 2i64).unwrap();
+                });
+                assert_eq!(
+                    int_arg_count(&with_count),
+                    3,
+                    "op {op_code}: explicit count must keep the count argument"
+                );
+
+                let no_count = convert_one_op(py, op_code, |d| {
+                    d.set_item("rank", 1i64).unwrap();
+                    d.set_item("return_type", 7i32).unwrap();
+                });
+                assert_eq!(
+                    int_arg_count(&no_count),
+                    2,
+                    "op {op_code}: omitted count must select to the last ranked item, \
+                     not collapse to count=1"
+                );
+            }
         });
     }
 }

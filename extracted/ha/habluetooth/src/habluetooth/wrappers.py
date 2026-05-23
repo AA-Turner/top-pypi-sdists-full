@@ -7,20 +7,13 @@ import contextlib
 import inspect
 import logging
 import warnings
-from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final, Literal, overload
+from typing import TYPE_CHECKING, Any, Final, Literal, Self, overload
 
 from bleak import BleakClient, BleakError, normalize_uuid_str
-from bleak.backends import BleakBackend
 from bleak.backends.client import BaseBleakClient, get_platform_client_backend_type
 from bleak.backends.device import BLEDevice
-from bleak.backends.scanner import (
-    AdvertisementData,
-    AdvertisementDataCallback,
-    AdvertisementDataFilter,
-)
 from bleak_retry_connector import (
     ble_device_description,
     clear_cache,
@@ -51,6 +44,15 @@ def _get_device_address_type(device: BLEDevice) -> int:
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Callable
+
+    from bleak.backends import BleakBackend
+    from bleak.backends.scanner import (
+        AdvertisementData,
+        AdvertisementDataCallback,
+        AdvertisementDataFilter,
+    )
+
     from .base_scanner import BaseHaScanner
     from .manager import BluetoothManager
 
@@ -154,12 +156,12 @@ class HaBleakScannerWrapper:
     async def start(self, *args: Any, **kwargs: Any) -> None:
         """Start scanning for devices."""
 
-    async def __aenter__(self) -> HaBleakScannerWrapper:
+    async def __aenter__(self) -> Self:
         """Enter the context manager."""
         await self.start()
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *args: object) -> None:
         """Exit the context manager."""
         await self.stop()
 
@@ -407,7 +409,7 @@ class HaBleakClientWrapper(BleakClient):
         """
         return None if callback is None else partial(callback, self)
 
-    async def connect(self, **kwargs: Any) -> None:
+    async def connect(self, **kwargs: Any) -> None:  # noqa: C901
         """Connect to the specified GATT server."""
         if self.is_connected:
             return
@@ -424,7 +426,8 @@ class HaBleakClientWrapper(BleakClient):
 
         manager = self.__manager
         if manager.shutdown:
-            raise BleakError("Bluetooth is already shutdown")
+            msg = "Bluetooth is already shutdown"
+            raise BleakError(msg)
         if debug_logging := _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("%s: Looking for backend to connect", self.__address)
         wrapped_backend = self._async_get_best_available_backend_and_device(manager)
@@ -637,17 +640,19 @@ class HaBleakClientWrapper(BleakClient):
 
             if not has_active_capable_scanner:
                 scanner_names = [scanner.name for scanner in scanners]
-                raise BleakError(
+                msg = (
                     f"{address}: No connectable Bluetooth adapters. "
                     f"Shelly devices are passive-only and cannot connect. "
                     f"Need local Bluetooth adapter or ESPHome proxy. "
                     f"Available: {', '.join(scanner_names)}"
                 )
+                raise BleakError(msg)
 
-        raise BleakError(
+        msg = (
             "No backend with an available connection slot that can reach address"
             f" {address} was found"
         )
+        raise BleakError(msg)
 
     async def disconnect(self) -> None:
         """Disconnect from the device."""

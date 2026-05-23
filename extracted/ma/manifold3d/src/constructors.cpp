@@ -1,4 +1,4 @@
-// Copyright 2021 The Manifold Authors.
+// Copyright 2026 The Manifold Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -210,7 +210,9 @@ Manifold Manifold::Sphere(double radius, int circularSegments) {
   pImpl_->Subdivide([n](vec3, vec4, vec4) { return n - 1; });
   for_each_n(autoPolicy(pImpl_->NumVert(), 1e5), pImpl_->vertPos_.begin(),
              pImpl_->NumVert(), [radius](vec3& v) {
-               v = la::cos(kHalfPi * (1.0 - v));
+               v = vec3(la::cos(kHalfPi * (1.0 - v.x)),
+                        la::cos(kHalfPi * (1.0 - v.y)),
+                        la::cos(kHalfPi * (1.0 - v.z)));
                v = radius * la::normalize(v);
                if (std::isnan(v.x)) v = vec3(0.0);
              });
@@ -484,11 +486,15 @@ Manifold Manifold::Compose(const std::vector<Manifold>& manifolds) {
  */
 std::vector<Manifold> Manifold::Decompose() const {
   ZoneScoped;
-  DisjointSets uf(NumVert());
-  // Graph graph;
   auto pImpl_ = GetCsgLeafNode().GetImpl();
-  for (const Halfedge& halfedge : pImpl_->halfedge_) {
-    if (halfedge.IsForward()) uf.unite(halfedge.startVert, halfedge.endVert);
+  if (pImpl_->status_ != Error::NoError) {
+    return {PropagateStatus(pImpl_->status_)};
+  }
+  DisjointSets uf(NumVert());
+  for (size_t edge = 0; edge < pImpl_->halfedge_.size(); ++edge) {
+    if (pImpl_->halfedge_.IsForward(edge)) {
+      uf.unite(pImpl_->halfedge_.Start(edge), pImpl_->halfedge_.End(edge));
+    }
   }
   std::vector<int> componentIndices;
   const int numComponents = uf.connectedComponents(componentIndices);
@@ -521,17 +527,16 @@ std::vector<Manifold> Manifold::Decompose() const {
     gather(vertNew2Old.begin(), vertNew2Old.end(), pImpl_->vertNormal_.begin(),
            impl->vertNormal_.begin());
 
-    Vec<int> faceNew2Old(NumTri());
+    Vec<int> faceNew2Old;
+    faceNew2Old.reserve(NumTri());
     const auto& halfedge = pImpl_->halfedge_;
-    const int nFace =
-        copy_if(countAt(0_uz), countAt(NumTri()), faceNew2Old.begin(),
-                [i, &vertLabel, &halfedge](int face) {
-                  return vertLabel[halfedge[3 * face].startVert] == i;
-                }) -
-        faceNew2Old.begin();
+    for (size_t face = 0; face < NumTri(); ++face) {
+      if (vertLabel[halfedge.Start(static_cast<int>(3 * face))] == i) {
+        faceNew2Old.push_back(static_cast<int>(face));
+      }
+    }
 
-    if (nFace == 0) continue;
-    faceNew2Old.resize(nFace);
+    if (faceNew2Old.empty()) continue;
 
     impl->GatherFaces(*pImpl_, faceNew2Old);
     impl->ReindexVerts(vertNew2Old, pImpl_->NumVert());

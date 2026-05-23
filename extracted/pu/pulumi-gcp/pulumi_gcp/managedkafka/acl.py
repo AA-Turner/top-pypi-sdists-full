@@ -25,7 +25,8 @@ class AclArgs:
                  acl_id: pulumi.Input[_builtins.str],
                  cluster: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Acl resource.
 
@@ -38,6 +39,12 @@ class AclArgs:
                For acls on all resources of a given type (i.e. the wildcard literal '*''): `allTopics` (represents `topic/*`) `allConsumerGroups` (represents `consumerGroup/*`) `allTransactionalIds` (represents `transactionalId/*`).
         :param pulumi.Input[_builtins.str] cluster: The cluster name.
         :param pulumi.Input[_builtins.str] location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
@@ -45,6 +52,8 @@ class AclArgs:
         pulumi.set(__self__, "acl_id", acl_id)
         pulumi.set(__self__, "cluster", cluster)
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
 
@@ -102,8 +111,25 @@ class AclArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -111,23 +137,24 @@ class AclArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AclState:
     def __init__(__self__, *,
-                 acl_entries: Optional[pulumi.Input[Sequence[pulumi.Input['AclAclEntryArgs']]]] = None,
-                 acl_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pattern_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 acl_entries: pulumi.Input[Optional[Sequence[pulumi.Input['AclAclEntryArgs']]]] = None,
+                 acl_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pattern_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Acl resources.
 
@@ -139,6 +166,12 @@ class _AclState:
                For acls on all resources that match a prefix: `topicPrefixed/{resource_name}` `consumerGroupPrefixed/{resource_name}` `transactionalIdPrefixed/{resource_name}`
                For acls on all resources of a given type (i.e. the wildcard literal '*''): `allTopics` (represents `topic/*`) `allConsumerGroups` (represents `consumerGroup/*`) `allTransactionalIds` (represents `transactionalId/*`).
         :param pulumi.Input[_builtins.str] cluster: The cluster name.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] etag: `etag` is used for concurrency control. An `etag` is returned in the
                response to `GetAcl` and `CreateAcl`. Callers are required to put that etag
                in the request to `UpdateAcl` to ensure that their change will be applied
@@ -159,6 +192,8 @@ class _AclState:
             pulumi.set(__self__, "acl_id", acl_id)
         if cluster is not None:
             pulumi.set(__self__, "cluster", cluster)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if etag is not None:
             pulumi.set(__self__, "etag", etag)
         if location is not None:
@@ -176,7 +211,7 @@ class _AclState:
 
     @_builtins.property
     @pulumi.getter(name="aclEntries")
-    def acl_entries(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AclAclEntryArgs']]]]:
+    def acl_entries(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AclAclEntryArgs']]]]:
         """
         The acl entries that apply to the resource pattern. The maximum number of allowed entries is 100.
         Structure is documented below.
@@ -184,12 +219,12 @@ class _AclState:
         return pulumi.get(self, "acl_entries")
 
     @acl_entries.setter
-    def acl_entries(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AclAclEntryArgs']]]]):
+    def acl_entries(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AclAclEntryArgs']]]]):
         pulumi.set(self, "acl_entries", value)
 
     @_builtins.property
     @pulumi.getter(name="aclId")
-    def acl_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def acl_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the acl, which will become the final component of the acl's name. The structure of `aclId` defines the Resource Pattern (resource_type, resource_name, pattern_type) of the acl. `aclId` is structured like one of the following:
         For acls on the cluster: `cluster`
@@ -200,24 +235,41 @@ class _AclState:
         return pulumi.get(self, "acl_id")
 
     @acl_id.setter
-    def acl_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def acl_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "acl_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def cluster(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cluster(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The cluster name.
         """
         return pulumi.get(self, "cluster")
 
     @cluster.setter
-    def cluster(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cluster(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cluster", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         `etag` is used for concurrency control. An `etag` is returned in the
         response to `GetAcl` and `CreateAcl`. Callers are required to put that etag
@@ -229,48 +281,48 @@ class _AclState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the acl. The `ACL_ID` segment is used when connecting directly to the cluster. Must be in the format `projects/PROJECT_ID/locations/LOCATION/clusters/CLUSTER_ID/acls/ACL_ID`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="patternType")
-    def pattern_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pattern_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The acl pattern type derived from the name. One of: LITERAL, PREFIXED.
         """
         return pulumi.get(self, "pattern_type")
 
     @pattern_type.setter
-    def pattern_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pattern_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pattern_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -278,31 +330,31 @@ class _AclState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceName")
-    def resource_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The acl resource name derived from the name. For cluster resource_type, this is always "kafka-cluster". Can be the wildcard literal "*".
         """
         return pulumi.get(self, "resource_name")
 
     @resource_name.setter
-    def resource_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_name", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceType")
-    def resource_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The acl resource type derived from the name. One of: CLUSTER, TOPIC, GROUP, TRANSACTIONAL_ID.
         """
         return pulumi.get(self, "resource_type")
 
     @resource_type.setter
-    def resource_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_type", value)
 
 
@@ -312,11 +364,12 @@ class Acl(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 acl_entries: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
-                 acl_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 acl_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
+                 acl_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Managed Service for Apache Kafka ACL. Apache Kafka is a trademark owned by the Apache Software Foundation.
@@ -387,6 +440,12 @@ class Acl(pulumi.CustomResource):
                For acls on all resources that match a prefix: `topicPrefixed/{resource_name}` `consumerGroupPrefixed/{resource_name}` `transactionalIdPrefixed/{resource_name}`
                For acls on all resources of a given type (i.e. the wildcard literal '*''): `allTopics` (represents `topic/*`) `allConsumerGroups` (represents `consumerGroup/*`) `allTransactionalIds` (represents `transactionalId/*`).
         :param pulumi.Input[_builtins.str] cluster: The cluster name.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -471,11 +530,12 @@ class Acl(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 acl_entries: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
-                 acl_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 acl_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
+                 acl_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -494,6 +554,7 @@ class Acl(pulumi.CustomResource):
             if cluster is None and not opts.urn:
                 raise TypeError("Missing required property 'cluster'")
             __props__.__dict__["cluster"] = cluster
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
@@ -513,16 +574,17 @@ class Acl(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            acl_entries: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
-            acl_id: Optional[pulumi.Input[_builtins.str]] = None,
-            cluster: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pattern_type: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_name_: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_type: Optional[pulumi.Input[_builtins.str]] = None) -> 'Acl':
+            acl_entries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AclAclEntryArgs', 'AclAclEntryArgsDict']]]]] = None,
+            acl_id: pulumi.Input[Optional[_builtins.str]] = None,
+            cluster: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pattern_type: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_name_: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_type: pulumi.Input[Optional[_builtins.str]] = None) -> 'Acl':
         """
         Get an existing Acl resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -538,6 +600,12 @@ class Acl(pulumi.CustomResource):
                For acls on all resources that match a prefix: `topicPrefixed/{resource_name}` `consumerGroupPrefixed/{resource_name}` `transactionalIdPrefixed/{resource_name}`
                For acls on all resources of a given type (i.e. the wildcard literal '*''): `allTopics` (represents `topic/*`) `allConsumerGroups` (represents `consumerGroup/*`) `allTransactionalIds` (represents `transactionalId/*`).
         :param pulumi.Input[_builtins.str] cluster: The cluster name.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] etag: `etag` is used for concurrency control. An `etag` is returned in the
                response to `GetAcl` and `CreateAcl`. Callers are required to put that etag
                in the request to `UpdateAcl` to ensure that their change will be applied
@@ -559,6 +627,7 @@ class Acl(pulumi.CustomResource):
         __props__.__dict__["acl_entries"] = acl_entries
         __props__.__dict__["acl_id"] = acl_id
         __props__.__dict__["cluster"] = cluster
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["etag"] = etag
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -596,6 +665,19 @@ class Acl(pulumi.CustomResource):
         The cluster name.
         """
         return pulumi.get(self, "cluster")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

@@ -171,10 +171,12 @@ TimestampTypeDef = Union[datetime, str]
 
 class DeleteInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
+    ClientToken: NotRequired[str]
 
 
 class DeleteProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalPreferenceArn: str
+    ClientToken: NotRequired[str]
 
 
 class DiscountsBreakdownAmountTypeDef(TypedDict):
@@ -300,6 +302,7 @@ class UpdateProcurementPortalPreferenceStatusRequestTypeDef(TypedDict):
     EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
     PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
     PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+    ClientToken: NotRequired[str]
 
 
 class CreateInvoiceUnitResponseTypeDef(TypedDict):
@@ -541,6 +544,7 @@ class CreateInvoiceUnitRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     ResourceTags: NotRequired[Sequence[ResourceTagTypeDef]]
+    ClientToken: NotRequired[str]
 
 
 class UpdateInvoiceUnitRequestTypeDef(TypedDict):
@@ -548,6 +552,7 @@ class UpdateInvoiceUnitRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     Rule: NotRequired[InvoiceUnitRuleUnionTypeDef]
+    ClientToken: NotRequired[str]
 
 
 class ListProcurementPortalPreferencesResponseTypeDef(TypedDict):
@@ -609,6 +614,7 @@ class PutProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalInstanceEndpoint: NotRequired[str]
     TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
+    ClientToken: NotRequired[str]
 
 
 class InvoiceCurrencyAmountTypeDef(TypedDict):

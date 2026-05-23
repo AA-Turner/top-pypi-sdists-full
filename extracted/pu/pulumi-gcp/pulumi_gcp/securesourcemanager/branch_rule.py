@@ -23,14 +23,15 @@ class BranchRuleArgs:
                  include_pattern: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  repository_id: pulumi.Input[_builtins.str],
-                 allow_stale_reviews: Optional[pulumi.Input[_builtins.bool]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 minimum_approvals_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 minimum_reviews_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 require_comments_resolved: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_linear_history: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_pull_request: Optional[pulumi.Input[_builtins.bool]] = None):
+                 allow_stale_reviews: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 minimum_approvals_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 minimum_reviews_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 require_comments_resolved: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_linear_history: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_pull_request: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a BranchRule resource.
 
@@ -39,6 +40,12 @@ class BranchRuleArgs:
         :param pulumi.Input[_builtins.str] location: The location for the Repository.
         :param pulumi.Input[_builtins.str] repository_id: The ID for the Repository.
         :param pulumi.Input[_builtins.bool] allow_stale_reviews: Determines if allow stale reviews or approvals before merging to the branch.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Determines if the branch rule is disabled or not.
         :param pulumi.Input[_builtins.int] minimum_approvals_count: The minimum number of approvals required for the branch rule to be matched.
         :param pulumi.Input[_builtins.int] minimum_reviews_count: The minimum number of reviews required for the branch rule to be matched.
@@ -54,6 +61,8 @@ class BranchRuleArgs:
         pulumi.set(__self__, "repository_id", repository_id)
         if allow_stale_reviews is not None:
             pulumi.set(__self__, "allow_stale_reviews", allow_stale_reviews)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if minimum_approvals_count is not None:
@@ -119,55 +128,72 @@ class BranchRuleArgs:
 
     @_builtins.property
     @pulumi.getter(name="allowStaleReviews")
-    def allow_stale_reviews(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_stale_reviews(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if allow stale reviews or approvals before merging to the branch.
         """
         return pulumi.get(self, "allow_stale_reviews")
 
     @allow_stale_reviews.setter
-    def allow_stale_reviews(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_stale_reviews(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_stale_reviews", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if the branch rule is disabled or not.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="minimumApprovalsCount")
-    def minimum_approvals_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def minimum_approvals_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The minimum number of approvals required for the branch rule to be matched.
         """
         return pulumi.get(self, "minimum_approvals_count")
 
     @minimum_approvals_count.setter
-    def minimum_approvals_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def minimum_approvals_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "minimum_approvals_count", value)
 
     @_builtins.property
     @pulumi.getter(name="minimumReviewsCount")
-    def minimum_reviews_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def minimum_reviews_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The minimum number of reviews required for the branch rule to be matched.
         """
         return pulumi.get(self, "minimum_reviews_count")
 
     @minimum_reviews_count.setter
-    def minimum_reviews_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def minimum_reviews_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "minimum_reviews_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -175,71 +201,78 @@ class BranchRuleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="requireCommentsResolved")
-    def require_comments_resolved(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_comments_resolved(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if require comments resolved before merging to the branch.
         """
         return pulumi.get(self, "require_comments_resolved")
 
     @require_comments_resolved.setter
-    def require_comments_resolved(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_comments_resolved(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_comments_resolved", value)
 
     @_builtins.property
     @pulumi.getter(name="requireLinearHistory")
-    def require_linear_history(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_linear_history(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if require linear history before merging to the branch.
         """
         return pulumi.get(self, "require_linear_history")
 
     @require_linear_history.setter
-    def require_linear_history(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_linear_history(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_linear_history", value)
 
     @_builtins.property
     @pulumi.getter(name="requirePullRequest")
-    def require_pull_request(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_pull_request(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if the branch rule requires a pull request or not.
         """
         return pulumi.get(self, "require_pull_request")
 
     @require_pull_request.setter
-    def require_pull_request(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_pull_request(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_pull_request", value)
 
 
 @pulumi.input_type
 class _BranchRuleState:
     def __init__(__self__, *,
-                 allow_stale_reviews: Optional[pulumi.Input[_builtins.bool]] = None,
-                 branch_rule_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 include_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 minimum_approvals_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 minimum_reviews_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 require_comments_resolved: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_linear_history: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_pull_request: Optional[pulumi.Input[_builtins.bool]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow_stale_reviews: pulumi.Input[Optional[_builtins.bool]] = None,
+                 branch_rule_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 include_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 minimum_approvals_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 minimum_reviews_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 require_comments_resolved: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_linear_history: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_pull_request: pulumi.Input[Optional[_builtins.bool]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BranchRule resources.
 
         :param pulumi.Input[_builtins.bool] allow_stale_reviews: Determines if allow stale reviews or approvals before merging to the branch.
         :param pulumi.Input[_builtins.str] branch_rule_id: The ID for the BranchRule.
         :param pulumi.Input[_builtins.str] create_time: Time the BranchRule was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Determines if the branch rule is disabled or not.
         :param pulumi.Input[_builtins.str] include_pattern: The BranchRule matches branches based on the specified regular expression. Use .* to match all branches.
         :param pulumi.Input[_builtins.str] location: The location for the Repository.
@@ -261,6 +294,8 @@ class _BranchRuleState:
             pulumi.set(__self__, "branch_rule_id", branch_rule_id)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if include_pattern is not None:
@@ -290,115 +325,132 @@ class _BranchRuleState:
 
     @_builtins.property
     @pulumi.getter(name="allowStaleReviews")
-    def allow_stale_reviews(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def allow_stale_reviews(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if allow stale reviews or approvals before merging to the branch.
         """
         return pulumi.get(self, "allow_stale_reviews")
 
     @allow_stale_reviews.setter
-    def allow_stale_reviews(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def allow_stale_reviews(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "allow_stale_reviews", value)
 
     @_builtins.property
     @pulumi.getter(name="branchRuleId")
-    def branch_rule_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def branch_rule_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID for the BranchRule.
         """
         return pulumi.get(self, "branch_rule_id")
 
     @branch_rule_id.setter
-    def branch_rule_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def branch_rule_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "branch_rule_id", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the BranchRule was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if the branch rule is disabled or not.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="includePattern")
-    def include_pattern(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def include_pattern(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The BranchRule matches branches based on the specified regular expression. Use .* to match all branches.
         """
         return pulumi.get(self, "include_pattern")
 
     @include_pattern.setter
-    def include_pattern(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def include_pattern(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "include_pattern", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the Repository.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="minimumApprovalsCount")
-    def minimum_approvals_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def minimum_approvals_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The minimum number of approvals required for the branch rule to be matched.
         """
         return pulumi.get(self, "minimum_approvals_count")
 
     @minimum_approvals_count.setter
-    def minimum_approvals_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def minimum_approvals_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "minimum_approvals_count", value)
 
     @_builtins.property
     @pulumi.getter(name="minimumReviewsCount")
-    def minimum_reviews_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def minimum_reviews_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The minimum number of reviews required for the branch rule to be matched.
         """
         return pulumi.get(self, "minimum_reviews_count")
 
     @minimum_reviews_count.setter
-    def minimum_reviews_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def minimum_reviews_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "minimum_reviews_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for the BranchRule.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -406,79 +458,79 @@ class _BranchRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="repositoryId")
-    def repository_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def repository_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID for the Repository.
         """
         return pulumi.get(self, "repository_id")
 
     @repository_id.setter
-    def repository_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def repository_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "repository_id", value)
 
     @_builtins.property
     @pulumi.getter(name="requireCommentsResolved")
-    def require_comments_resolved(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_comments_resolved(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if require comments resolved before merging to the branch.
         """
         return pulumi.get(self, "require_comments_resolved")
 
     @require_comments_resolved.setter
-    def require_comments_resolved(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_comments_resolved(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_comments_resolved", value)
 
     @_builtins.property
     @pulumi.getter(name="requireLinearHistory")
-    def require_linear_history(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_linear_history(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if require linear history before merging to the branch.
         """
         return pulumi.get(self, "require_linear_history")
 
     @require_linear_history.setter
-    def require_linear_history(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_linear_history(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_linear_history", value)
 
     @_builtins.property
     @pulumi.getter(name="requirePullRequest")
-    def require_pull_request(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def require_pull_request(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines if the branch rule requires a pull request or not.
         """
         return pulumi.get(self, "require_pull_request")
 
     @require_pull_request.setter
-    def require_pull_request(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def require_pull_request(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "require_pull_request", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Unique identifier of the BranchRule.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the BranchRule was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -488,18 +540,19 @@ class BranchRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_stale_reviews: Optional[pulumi.Input[_builtins.bool]] = None,
-                 branch_rule_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 include_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 minimum_approvals_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 minimum_reviews_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 require_comments_resolved: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_linear_history: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_pull_request: Optional[pulumi.Input[_builtins.bool]] = None,
+                 allow_stale_reviews: pulumi.Input[Optional[_builtins.bool]] = None,
+                 branch_rule_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 include_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 minimum_approvals_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 minimum_reviews_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 require_comments_resolved: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_linear_history: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_pull_request: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         BranchRule is the protection rule to enforce pre-defined rules on designated branches within a repository.
@@ -585,6 +638,12 @@ class BranchRule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] allow_stale_reviews: Determines if allow stale reviews or approvals before merging to the branch.
         :param pulumi.Input[_builtins.str] branch_rule_id: The ID for the BranchRule.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Determines if the branch rule is disabled or not.
         :param pulumi.Input[_builtins.str] include_pattern: The BranchRule matches branches based on the specified regular expression. Use .* to match all branches.
         :param pulumi.Input[_builtins.str] location: The location for the Repository.
@@ -698,18 +757,19 @@ class BranchRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow_stale_reviews: Optional[pulumi.Input[_builtins.bool]] = None,
-                 branch_rule_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 include_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 minimum_approvals_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 minimum_reviews_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 repository_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 require_comments_resolved: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_linear_history: Optional[pulumi.Input[_builtins.bool]] = None,
-                 require_pull_request: Optional[pulumi.Input[_builtins.bool]] = None,
+                 allow_stale_reviews: pulumi.Input[Optional[_builtins.bool]] = None,
+                 branch_rule_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 include_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 minimum_approvals_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 minimum_reviews_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 repository_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 require_comments_resolved: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_linear_history: pulumi.Input[Optional[_builtins.bool]] = None,
+                 require_pull_request: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -723,6 +783,7 @@ class BranchRule(pulumi.CustomResource):
             if branch_rule_id is None and not opts.urn:
                 raise TypeError("Missing required property 'branch_rule_id'")
             __props__.__dict__["branch_rule_id"] = branch_rule_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disabled"] = disabled
             if include_pattern is None and not opts.urn:
                 raise TypeError("Missing required property 'include_pattern'")
@@ -753,22 +814,23 @@ class BranchRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allow_stale_reviews: Optional[pulumi.Input[_builtins.bool]] = None,
-            branch_rule_id: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            include_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            minimum_approvals_count: Optional[pulumi.Input[_builtins.int]] = None,
-            minimum_reviews_count: Optional[pulumi.Input[_builtins.int]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            repository_id: Optional[pulumi.Input[_builtins.str]] = None,
-            require_comments_resolved: Optional[pulumi.Input[_builtins.bool]] = None,
-            require_linear_history: Optional[pulumi.Input[_builtins.bool]] = None,
-            require_pull_request: Optional[pulumi.Input[_builtins.bool]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'BranchRule':
+            allow_stale_reviews: pulumi.Input[Optional[_builtins.bool]] = None,
+            branch_rule_id: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            include_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            minimum_approvals_count: pulumi.Input[Optional[_builtins.int]] = None,
+            minimum_reviews_count: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            repository_id: pulumi.Input[Optional[_builtins.str]] = None,
+            require_comments_resolved: pulumi.Input[Optional[_builtins.bool]] = None,
+            require_linear_history: pulumi.Input[Optional[_builtins.bool]] = None,
+            require_pull_request: pulumi.Input[Optional[_builtins.bool]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'BranchRule':
         """
         Get an existing BranchRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -779,6 +841,12 @@ class BranchRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] allow_stale_reviews: Determines if allow stale reviews or approvals before merging to the branch.
         :param pulumi.Input[_builtins.str] branch_rule_id: The ID for the BranchRule.
         :param pulumi.Input[_builtins.str] create_time: Time the BranchRule was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Determines if the branch rule is disabled or not.
         :param pulumi.Input[_builtins.str] include_pattern: The BranchRule matches branches based on the specified regular expression. Use .* to match all branches.
         :param pulumi.Input[_builtins.str] location: The location for the Repository.
@@ -801,6 +869,7 @@ class BranchRule(pulumi.CustomResource):
         __props__.__dict__["allow_stale_reviews"] = allow_stale_reviews
         __props__.__dict__["branch_rule_id"] = branch_rule_id
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["include_pattern"] = include_pattern
         __props__.__dict__["location"] = location
@@ -839,6 +908,19 @@ class BranchRule(pulumi.CustomResource):
         Time the BranchRule was created in UTC.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

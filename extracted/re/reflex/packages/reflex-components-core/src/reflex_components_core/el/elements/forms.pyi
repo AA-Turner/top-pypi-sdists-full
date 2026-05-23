@@ -4918,6 +4918,8 @@ class Textarea(RawTextBaseHTML):
             ValueError: when `enter_key_submit` is combined with `on_key_down`.
         """
 
+    def add_custom_code(self) -> list[str]: ...
+
 button = Button.create
 datalist = Datalist.create
 fieldset = Fieldset.create

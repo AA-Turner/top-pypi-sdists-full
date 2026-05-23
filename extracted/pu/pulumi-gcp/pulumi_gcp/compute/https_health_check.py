@@ -19,21 +19,28 @@ __all__ = ['HttpsHealthCheckArgs', 'HttpsHealthCheck']
 @pulumi.input_type
 class HttpsHealthCheckArgs:
     def __init__(__self__, *,
-                 check_interval_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 healthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 unhealthy_threshold: Optional[pulumi.Input[_builtins.int]] = None):
+                 check_interval_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 healthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeout_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 unhealthy_threshold: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The set of arguments for constructing a HttpsHealthCheck resource.
 
         :param pulumi.Input[_builtins.int] check_interval_sec: How often (in seconds) to send a health check. The default value is 5
                seconds.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when
                you create the resource.
         :param pulumi.Input[_builtins.int] healthy_threshold: A so-far unhealthy instance will be marked healthy after this many
@@ -62,6 +69,8 @@ class HttpsHealthCheckArgs:
         """
         if check_interval_sec is not None:
             pulumi.set(__self__, "check_interval_sec", check_interval_sec)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if healthy_threshold is not None:
@@ -83,7 +92,7 @@ class HttpsHealthCheckArgs:
 
     @_builtins.property
     @pulumi.getter(name="checkIntervalSec")
-    def check_interval_sec(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def check_interval_sec(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         How often (in seconds) to send a health check. The default value is 5
         seconds.
@@ -91,12 +100,29 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "check_interval_sec")
 
     @check_interval_sec.setter
-    def check_interval_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def check_interval_sec(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "check_interval_sec", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when
         you create the resource.
@@ -104,12 +130,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="healthyThreshold")
-    def healthy_threshold(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def healthy_threshold(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A so-far unhealthy instance will be marked healthy after this many
         consecutive successes. The default value is 2.
@@ -117,12 +143,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "healthy_threshold")
 
     @healthy_threshold.setter
-    def healthy_threshold(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def healthy_threshold(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "healthy_threshold", value)
 
     @_builtins.property
     @pulumi.getter
-    def host(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def host(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The value of the host header in the HTTPS health check request. If
         left empty (default value), the public IP on behalf of which this
@@ -131,12 +157,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "host")
 
     @host.setter
-    def host(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def host(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "host", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -149,12 +175,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def port(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The TCP port number for the HTTPS health check request.
         The default value is 443.
@@ -162,12 +188,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "port")
 
     @port.setter
-    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def port(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "port", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -175,12 +201,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="requestPath")
-    def request_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def request_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The request path of the HTTPS health check request.
         The default value is /.
@@ -188,12 +214,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "request_path")
 
     @request_path.setter
-    def request_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def request_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "request_path", value)
 
     @_builtins.property
     @pulumi.getter(name="timeoutSec")
-    def timeout_sec(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def timeout_sec(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         How long (in seconds) to wait before claiming failure.
         The default value is 5 seconds.  It is invalid for timeoutSec to have
@@ -202,12 +228,12 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "timeout_sec")
 
     @timeout_sec.setter
-    def timeout_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def timeout_sec(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "timeout_sec", value)
 
     @_builtins.property
     @pulumi.getter(name="unhealthyThreshold")
-    def unhealthy_threshold(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def unhealthy_threshold(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A so-far healthy instance will be marked unhealthy after this many
         consecutive failures. The default value is 2.
@@ -215,31 +241,38 @@ class HttpsHealthCheckArgs:
         return pulumi.get(self, "unhealthy_threshold")
 
     @unhealthy_threshold.setter
-    def unhealthy_threshold(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def unhealthy_threshold(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "unhealthy_threshold", value)
 
 
 @pulumi.input_type
 class _HttpsHealthCheckState:
     def __init__(__self__, *,
-                 check_interval_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 healthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 unhealthy_threshold: Optional[pulumi.Input[_builtins.int]] = None):
+                 check_interval_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 healthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeout_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 unhealthy_threshold: pulumi.Input[Optional[_builtins.int]] = None):
         """
         Input properties used for looking up and filtering HttpsHealthCheck resources.
 
         :param pulumi.Input[_builtins.int] check_interval_sec: How often (in seconds) to send a health check. The default value is 5
                seconds.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when
                you create the resource.
         :param pulumi.Input[_builtins.int] healthy_threshold: A so-far unhealthy instance will be marked healthy after this many
@@ -271,6 +304,8 @@ class _HttpsHealthCheckState:
             pulumi.set(__self__, "check_interval_sec", check_interval_sec)
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if healthy_threshold is not None:
@@ -294,7 +329,7 @@ class _HttpsHealthCheckState:
 
     @_builtins.property
     @pulumi.getter(name="checkIntervalSec")
-    def check_interval_sec(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def check_interval_sec(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         How often (in seconds) to send a health check. The default value is 5
         seconds.
@@ -302,24 +337,41 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "check_interval_sec")
 
     @check_interval_sec.setter
-    def check_interval_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def check_interval_sec(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "check_interval_sec", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource. Provide this property when
         you create the resource.
@@ -327,12 +379,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="healthyThreshold")
-    def healthy_threshold(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def healthy_threshold(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A so-far unhealthy instance will be marked healthy after this many
         consecutive successes. The default value is 2.
@@ -340,12 +392,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "healthy_threshold")
 
     @healthy_threshold.setter
-    def healthy_threshold(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def healthy_threshold(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "healthy_threshold", value)
 
     @_builtins.property
     @pulumi.getter
-    def host(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def host(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The value of the host header in the HTTPS health check request. If
         left empty (default value), the public IP on behalf of which this
@@ -354,12 +406,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "host")
 
     @host.setter
-    def host(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def host(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "host", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -372,12 +424,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def port(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The TCP port number for the HTTPS health check request.
         The default value is 443.
@@ -385,12 +437,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "port")
 
     @port.setter
-    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def port(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "port", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -398,12 +450,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="requestPath")
-    def request_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def request_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The request path of the HTTPS health check request.
         The default value is /.
@@ -411,24 +463,24 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "request_path")
 
     @request_path.setter
-    def request_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def request_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "request_path", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="timeoutSec")
-    def timeout_sec(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def timeout_sec(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         How long (in seconds) to wait before claiming failure.
         The default value is 5 seconds.  It is invalid for timeoutSec to have
@@ -437,12 +489,12 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "timeout_sec")
 
     @timeout_sec.setter
-    def timeout_sec(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def timeout_sec(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "timeout_sec", value)
 
     @_builtins.property
     @pulumi.getter(name="unhealthyThreshold")
-    def unhealthy_threshold(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def unhealthy_threshold(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         A so-far healthy instance will be marked unhealthy after this many
         consecutive failures. The default value is 2.
@@ -450,7 +502,7 @@ class _HttpsHealthCheckState:
         return pulumi.get(self, "unhealthy_threshold")
 
     @unhealthy_threshold.setter
-    def unhealthy_threshold(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def unhealthy_threshold(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "unhealthy_threshold", value)
 
 
@@ -460,16 +512,17 @@ class HttpsHealthCheck(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 check_interval_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 healthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 unhealthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
+                 check_interval_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 healthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeout_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 unhealthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         """
         An HttpsHealthCheck resource. This resource defines a template for how
@@ -523,6 +576,12 @@ class HttpsHealthCheck(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] check_interval_sec: How often (in seconds) to send a health check. The default value is 5
                seconds.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when
                you create the resource.
         :param pulumi.Input[_builtins.int] healthy_threshold: A so-far unhealthy instance will be marked healthy after this many
@@ -618,16 +677,17 @@ class HttpsHealthCheck(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 check_interval_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 healthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 request_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
-                 unhealthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
+                 check_interval_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 healthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 request_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeout_sec: pulumi.Input[Optional[_builtins.int]] = None,
+                 unhealthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -638,6 +698,7 @@ class HttpsHealthCheck(pulumi.CustomResource):
             __props__ = HttpsHealthCheckArgs.__new__(HttpsHealthCheckArgs)
 
             __props__.__dict__["check_interval_sec"] = check_interval_sec
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["healthy_threshold"] = healthy_threshold
             __props__.__dict__["host"] = host
@@ -659,18 +720,19 @@ class HttpsHealthCheck(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            check_interval_sec: Optional[pulumi.Input[_builtins.int]] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            healthy_threshold: Optional[pulumi.Input[_builtins.int]] = None,
-            host: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            port: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            request_path: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            timeout_sec: Optional[pulumi.Input[_builtins.int]] = None,
-            unhealthy_threshold: Optional[pulumi.Input[_builtins.int]] = None) -> 'HttpsHealthCheck':
+            check_interval_sec: pulumi.Input[Optional[_builtins.int]] = None,
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            healthy_threshold: pulumi.Input[Optional[_builtins.int]] = None,
+            host: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            port: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            request_path: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            timeout_sec: pulumi.Input[Optional[_builtins.int]] = None,
+            unhealthy_threshold: pulumi.Input[Optional[_builtins.int]] = None) -> 'HttpsHealthCheck':
         """
         Get an existing HttpsHealthCheck resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -681,6 +743,12 @@ class HttpsHealthCheck(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] check_interval_sec: How often (in seconds) to send a health check. The default value is 5
                seconds.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource. Provide this property when
                you create the resource.
         :param pulumi.Input[_builtins.int] healthy_threshold: A so-far unhealthy instance will be marked healthy after this many
@@ -714,6 +782,7 @@ class HttpsHealthCheck(pulumi.CustomResource):
 
         __props__.__dict__["check_interval_sec"] = check_interval_sec
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["healthy_threshold"] = healthy_threshold
         __props__.__dict__["host"] = host
@@ -742,6 +811,19 @@ class HttpsHealthCheck(pulumi.CustomResource):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

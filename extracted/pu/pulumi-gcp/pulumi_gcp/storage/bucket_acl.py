@@ -20,9 +20,10 @@ __all__ = ['BucketACLArgs', 'BucketACL']
 class BucketACLArgs:
     def __init__(__self__, *,
                  bucket: pulumi.Input[_builtins.str],
-                 default_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 predefined_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 role_entities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 default_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 predefined_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 role_entities: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a BucketACL resource.
 
@@ -30,12 +31,20 @@ class BucketACLArgs:
                
                - - -
         :param pulumi.Input[_builtins.str] default_acl: Configure this ACL to be the default ACL.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] predefined_acl: The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_entities: List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
         pulumi.set(__self__, "bucket", bucket)
         if default_acl is not None:
             pulumi.set(__self__, "default_acl", default_acl)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if predefined_acl is not None:
             pulumi.set(__self__, "predefined_acl", predefined_acl)
         if role_entities is not None:
@@ -57,48 +66,66 @@ class BucketACLArgs:
 
     @_builtins.property
     @pulumi.getter(name="defaultAcl")
-    def default_acl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_acl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Configure this ACL to be the default ACL.
         """
         return pulumi.get(self, "default_acl")
 
     @default_acl.setter
-    def default_acl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_acl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_acl", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="predefinedAcl")
-    def predefined_acl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def predefined_acl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         """
         return pulumi.get(self, "predefined_acl")
 
     @predefined_acl.setter
-    def predefined_acl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def predefined_acl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "predefined_acl", value)
 
     @_builtins.property
     @pulumi.getter(name="roleEntities")
-    def role_entities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def role_entities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
         return pulumi.get(self, "role_entities")
 
     @role_entities.setter
-    def role_entities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def role_entities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "role_entities", value)
 
 
 @pulumi.input_type
 class _BucketACLState:
     def __init__(__self__, *,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 predefined_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 role_entities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 predefined_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 role_entities: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering BucketACL resources.
 
@@ -106,6 +133,12 @@ class _BucketACLState:
                
                - - -
         :param pulumi.Input[_builtins.str] default_acl: Configure this ACL to be the default ACL.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] predefined_acl: The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_entities: List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
@@ -113,6 +146,8 @@ class _BucketACLState:
             pulumi.set(__self__, "bucket", bucket)
         if default_acl is not None:
             pulumi.set(__self__, "default_acl", default_acl)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if predefined_acl is not None:
             pulumi.set(__self__, "predefined_acl", predefined_acl)
         if role_entities is not None:
@@ -120,7 +155,7 @@ class _BucketACLState:
 
     @_builtins.property
     @pulumi.getter
-    def bucket(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bucket(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the bucket it applies to.
 
@@ -129,43 +164,60 @@ class _BucketACLState:
         return pulumi.get(self, "bucket")
 
     @bucket.setter
-    def bucket(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bucket(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bucket", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultAcl")
-    def default_acl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_acl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Configure this ACL to be the default ACL.
         """
         return pulumi.get(self, "default_acl")
 
     @default_acl.setter
-    def default_acl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_acl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_acl", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="predefinedAcl")
-    def predefined_acl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def predefined_acl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         """
         return pulumi.get(self, "predefined_acl")
 
     @predefined_acl.setter
-    def predefined_acl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def predefined_acl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "predefined_acl", value)
 
     @_builtins.property
     @pulumi.getter(name="roleEntities")
-    def role_entities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def role_entities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
         return pulumi.get(self, "role_entities")
 
     @role_entities.setter
-    def role_entities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def role_entities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "role_entities", value)
 
 
@@ -175,10 +227,11 @@ class BucketACL(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 predefined_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 role_entities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 predefined_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 role_entities: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         Authoritatively manages a bucket's ACLs in Google cloud storage service (GCS). For more information see
@@ -222,6 +275,12 @@ class BucketACL(pulumi.CustomResource):
                
                - - -
         :param pulumi.Input[_builtins.str] default_acl: Configure this ACL to be the default ACL.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] predefined_acl: The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_entities: List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
@@ -282,10 +341,11 @@ class BucketACL(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 predefined_acl: Optional[pulumi.Input[_builtins.str]] = None,
-                 role_entities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 predefined_acl: pulumi.Input[Optional[_builtins.str]] = None,
+                 role_entities: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -299,6 +359,7 @@ class BucketACL(pulumi.CustomResource):
                 raise TypeError("Missing required property 'bucket'")
             __props__.__dict__["bucket"] = bucket
             __props__.__dict__["default_acl"] = default_acl
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["predefined_acl"] = predefined_acl
             __props__.__dict__["role_entities"] = role_entities
         super(BucketACL, __self__).__init__(
@@ -311,10 +372,11 @@ class BucketACL(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bucket: Optional[pulumi.Input[_builtins.str]] = None,
-            default_acl: Optional[pulumi.Input[_builtins.str]] = None,
-            predefined_acl: Optional[pulumi.Input[_builtins.str]] = None,
-            role_entities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'BucketACL':
+            bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            default_acl: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            predefined_acl: pulumi.Input[Optional[_builtins.str]] = None,
+            role_entities: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'BucketACL':
         """
         Get an existing BucketACL resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -326,6 +388,12 @@ class BucketACL(pulumi.CustomResource):
                
                - - -
         :param pulumi.Input[_builtins.str] default_acl: Configure this ACL to be the default ACL.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] predefined_acl: The [canned GCS ACL](https://cloud.google.com/storage/docs/access-control/lists#predefined-acl) to apply. Must be set if `role_entity` is not.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_entities: List of role/entity pairs in the form `ROLE:entity`. See [GCS Bucket ACL documentation](https://cloud.google.com/storage/docs/json_api/v1/bucketAccessControls)  for more details. Must be set if `predefined_acl` is not.
         """
@@ -335,6 +403,7 @@ class BucketACL(pulumi.CustomResource):
 
         __props__.__dict__["bucket"] = bucket
         __props__.__dict__["default_acl"] = default_acl
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["predefined_acl"] = predefined_acl
         __props__.__dict__["role_entities"] = role_entities
         return BucketACL(resource_name, opts=opts, __props__=__props__)
@@ -356,6 +425,19 @@ class BucketACL(pulumi.CustomResource):
         Configure this ACL to be the default ACL.
         """
         return pulumi.get(self, "default_acl")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="predefinedAcl")

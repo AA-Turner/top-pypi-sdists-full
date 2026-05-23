@@ -21,18 +21,27 @@ class SshPublicKeyArgs:
     def __init__(__self__, *,
                  key: pulumi.Input[_builtins.str],
                  user: pulumi.Input[_builtins.str],
-                 expiration_time_usec: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 expiration_time_usec: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a SshPublicKey resource.
 
         :param pulumi.Input[_builtins.str] key: Public key text in SSH format, defined by RFC4253 section 6.6.
         :param pulumi.Input[_builtins.str] user: The user email.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] expiration_time_usec: An expiration time in microseconds since epoch.
         :param pulumi.Input[_builtins.str] project: The project ID of the Google Cloud Platform project.
         """
         pulumi.set(__self__, "key", key)
         pulumi.set(__self__, "user", user)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if expiration_time_usec is not None:
             pulumi.set(__self__, "expiration_time_usec", expiration_time_usec)
         if project is not None:
@@ -63,47 +72,73 @@ class SshPublicKeyArgs:
         pulumi.set(self, "user", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="expirationTimeUsec")
-    def expiration_time_usec(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expiration_time_usec(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An expiration time in microseconds since epoch.
         """
         return pulumi.get(self, "expiration_time_usec")
 
     @expiration_time_usec.setter
-    def expiration_time_usec(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expiration_time_usec(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expiration_time_usec", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project ID of the Google Cloud Platform project.
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _SshPublicKeyState:
     def __init__(__self__, *,
-                 expiration_time_usec: Optional[pulumi.Input[_builtins.str]] = None,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 key: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 expiration_time_usec: pulumi.Input[Optional[_builtins.str]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 key: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SshPublicKey resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] expiration_time_usec: An expiration time in microseconds since epoch.
         :param pulumi.Input[_builtins.str] fingerprint: The SHA-256 fingerprint of the SSH public key.
         :param pulumi.Input[_builtins.str] key: Public key text in SSH format, defined by RFC4253 section 6.6.
         :param pulumi.Input[_builtins.str] project: The project ID of the Google Cloud Platform project.
         :param pulumi.Input[_builtins.str] user: The user email.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if expiration_time_usec is not None:
             pulumi.set(__self__, "expiration_time_usec", expiration_time_usec)
         if fingerprint is not None:
@@ -116,63 +151,80 @@ class _SshPublicKeyState:
             pulumi.set(__self__, "user", user)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="expirationTimeUsec")
-    def expiration_time_usec(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expiration_time_usec(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An expiration time in microseconds since epoch.
         """
         return pulumi.get(self, "expiration_time_usec")
 
     @expiration_time_usec.setter
-    def expiration_time_usec(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expiration_time_usec(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expiration_time_usec", value)
 
     @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The SHA-256 fingerprint of the SSH public key.
         """
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Public key text in SSH format, defined by RFC4253 section 6.6.
         """
         return pulumi.get(self, "key")
 
     @key.setter
-    def key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "key", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project ID of the Google Cloud Platform project.
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user email.
         """
         return pulumi.get(self, "user")
 
     @user.setter
-    def user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user", value)
 
 
@@ -182,10 +234,11 @@ class SshPublicKey(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 expiration_time_usec: Optional[pulumi.Input[_builtins.str]] = None,
-                 key: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 expiration_time_usec: pulumi.Input[Optional[_builtins.str]] = None,
+                 key: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The SSH public key information associated with a Google account.
@@ -228,6 +281,12 @@ class SshPublicKey(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] expiration_time_usec: An expiration time in microseconds since epoch.
         :param pulumi.Input[_builtins.str] key: Public key text in SSH format, defined by RFC4253 section 6.6.
         :param pulumi.Input[_builtins.str] project: The project ID of the Google Cloud Platform project.
@@ -293,10 +352,11 @@ class SshPublicKey(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 expiration_time_usec: Optional[pulumi.Input[_builtins.str]] = None,
-                 key: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 expiration_time_usec: pulumi.Input[Optional[_builtins.str]] = None,
+                 key: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -306,6 +366,7 @@ class SshPublicKey(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = SshPublicKeyArgs.__new__(SshPublicKeyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["expiration_time_usec"] = expiration_time_usec
             if key is None and not opts.urn:
                 raise TypeError("Missing required property 'key'")
@@ -325,11 +386,12 @@ class SshPublicKey(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            expiration_time_usec: Optional[pulumi.Input[_builtins.str]] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            key: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            user: Optional[pulumi.Input[_builtins.str]] = None) -> 'SshPublicKey':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            expiration_time_usec: pulumi.Input[Optional[_builtins.str]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            key: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            user: pulumi.Input[Optional[_builtins.str]] = None) -> 'SshPublicKey':
         """
         Get an existing SshPublicKey resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -337,6 +399,12 @@ class SshPublicKey(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] expiration_time_usec: An expiration time in microseconds since epoch.
         :param pulumi.Input[_builtins.str] fingerprint: The SHA-256 fingerprint of the SSH public key.
         :param pulumi.Input[_builtins.str] key: Public key text in SSH format, defined by RFC4253 section 6.6.
@@ -347,12 +415,26 @@ class SshPublicKey(pulumi.CustomResource):
 
         __props__ = _SshPublicKeyState.__new__(_SshPublicKeyState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["expiration_time_usec"] = expiration_time_usec
         __props__.__dict__["fingerprint"] = fingerprint
         __props__.__dict__["key"] = key
         __props__.__dict__["project"] = project
         __props__.__dict__["user"] = user
         return SshPublicKey(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="expirationTimeUsec")

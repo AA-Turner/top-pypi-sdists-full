@@ -22,23 +22,24 @@ __all__ = ['DatasetArgs', 'Dataset']
 class DatasetArgs:
     def __init__(__self__, *,
                  dataset_id: pulumi.Input[_builtins.str],
-                 accesses: Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]] = None,
-                 default_collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_encryption_configuration: Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']] = None,
-                 default_partition_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 default_table_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 delete_contents_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_catalog_dataset_options: Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']] = None,
-                 external_dataset_reference: Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']] = None,
-                 friendly_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_case_insensitive: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_time_travel_hours: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 storage_billing_model: Optional[pulumi.Input[_builtins.str]] = None):
+                 accesses: pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]] = None,
+                 default_collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_encryption_configuration: pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']] = None,
+                 default_partition_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 default_table_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 delete_contents_on_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_catalog_dataset_options: pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']] = None,
+                 external_dataset_reference: pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']] = None,
+                 friendly_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_case_insensitive: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_time_travel_hours: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 storage_billing_model: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Dataset resource.
 
@@ -87,6 +88,12 @@ class DatasetArgs:
         :param pulumi.Input[_builtins.bool] delete_contents_on_destroy: If set to `true`, delete all the tables in the
                dataset when destroying the resource; otherwise,
                destroying the resource will fail if tables are present.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-friendly description of the dataset
         :param pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs'] external_catalog_dataset_options: Options defining open source compatible datasets living in the BigQuery catalog. Contains
                metadata of open source database, schema or namespace represented by the current dataset.
@@ -136,6 +143,8 @@ class DatasetArgs:
             pulumi.set(__self__, "default_table_expiration_ms", default_table_expiration_ms)
         if delete_contents_on_destroy is not None:
             pulumi.set(__self__, "delete_contents_on_destroy", delete_contents_on_destroy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if external_catalog_dataset_options is not None:
@@ -175,7 +184,7 @@ class DatasetArgs:
 
     @_builtins.property
     @pulumi.getter
-    def accesses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]]:
+    def accesses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]]:
         """
         An array of objects that define dataset access for one or more entities.
         Structure is documented below.
@@ -183,12 +192,12 @@ class DatasetArgs:
         return pulumi.get(self, "accesses")
 
     @accesses.setter
-    def accesses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]]):
+    def accesses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]]):
         pulumi.set(self, "accesses", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultCollation")
-    def default_collation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_collation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the default collation specification of future tables created
         in the dataset. If a table is created in this dataset without table-level
@@ -203,12 +212,12 @@ class DatasetArgs:
         return pulumi.get(self, "default_collation")
 
     @default_collation.setter
-    def default_collation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_collation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_collation", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultEncryptionConfiguration")
-    def default_encryption_configuration(self) -> Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']]:
+    def default_encryption_configuration(self) -> pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']]:
         """
         The default encryption key for all tables in the dataset. Once this property is set,
         all newly-created partitioned tables in the dataset will have encryption key set to
@@ -218,12 +227,12 @@ class DatasetArgs:
         return pulumi.get(self, "default_encryption_configuration")
 
     @default_encryption_configuration.setter
-    def default_encryption_configuration(self, value: Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']]):
+    def default_encryption_configuration(self, value: pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']]):
         pulumi.set(self, "default_encryption_configuration", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultPartitionExpirationMs")
-    def default_partition_expiration_ms(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def default_partition_expiration_ms(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The default partition expiration for all partitioned tables in
         the dataset, in milliseconds.
@@ -242,12 +251,12 @@ class DatasetArgs:
         return pulumi.get(self, "default_partition_expiration_ms")
 
     @default_partition_expiration_ms.setter
-    def default_partition_expiration_ms(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def default_partition_expiration_ms(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "default_partition_expiration_ms", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultTableExpirationMs")
-    def default_table_expiration_ms(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def default_table_expiration_ms(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The default lifetime of all tables in the dataset, in milliseconds.
         The minimum value is 3600000 milliseconds (one hour).
@@ -264,12 +273,12 @@ class DatasetArgs:
         return pulumi.get(self, "default_table_expiration_ms")
 
     @default_table_expiration_ms.setter
-    def default_table_expiration_ms(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def default_table_expiration_ms(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "default_table_expiration_ms", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteContentsOnDestroy")
-    def delete_contents_on_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def delete_contents_on_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to `true`, delete all the tables in the
         dataset when destroying the resource; otherwise,
@@ -278,24 +287,41 @@ class DatasetArgs:
         return pulumi.get(self, "delete_contents_on_destroy")
 
     @delete_contents_on_destroy.setter
-    def delete_contents_on_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def delete_contents_on_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "delete_contents_on_destroy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-friendly description of the dataset
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="externalCatalogDatasetOptions")
-    def external_catalog_dataset_options(self) -> Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']]:
+    def external_catalog_dataset_options(self) -> pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']]:
         """
         Options defining open source compatible datasets living in the BigQuery catalog. Contains
         metadata of open source database, schema or namespace represented by the current dataset.
@@ -304,12 +330,12 @@ class DatasetArgs:
         return pulumi.get(self, "external_catalog_dataset_options")
 
     @external_catalog_dataset_options.setter
-    def external_catalog_dataset_options(self, value: Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']]):
+    def external_catalog_dataset_options(self, value: pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']]):
         pulumi.set(self, "external_catalog_dataset_options", value)
 
     @_builtins.property
     @pulumi.getter(name="externalDatasetReference")
-    def external_dataset_reference(self) -> Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']]:
+    def external_dataset_reference(self) -> pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']]:
         """
         Information about the external metadata storage where the dataset is defined.
         Structure is documented below.
@@ -317,24 +343,24 @@ class DatasetArgs:
         return pulumi.get(self, "external_dataset_reference")
 
     @external_dataset_reference.setter
-    def external_dataset_reference(self, value: Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']]):
+    def external_dataset_reference(self, value: pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']]):
         pulumi.set(self, "external_dataset_reference", value)
 
     @_builtins.property
     @pulumi.getter(name="friendlyName")
-    def friendly_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def friendly_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A descriptive name for the dataset
         """
         return pulumi.get(self, "friendly_name")
 
     @friendly_name.setter
-    def friendly_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def friendly_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "friendly_name", value)
 
     @_builtins.property
     @pulumi.getter(name="isCaseInsensitive")
-    def is_case_insensitive(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_case_insensitive(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         TRUE if the dataset and its table names are case-insensitive, otherwise FALSE.
         By default, this is FALSE, which means the dataset and its table names are
@@ -343,12 +369,12 @@ class DatasetArgs:
         return pulumi.get(self, "is_case_insensitive")
 
     @is_case_insensitive.setter
-    def is_case_insensitive(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_case_insensitive(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_case_insensitive", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels associated with this dataset. You can use these to
         organize and group your datasets.
@@ -359,12 +385,12 @@ class DatasetArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the dataset should reside.
         See [official docs](https://cloud.google.com/bigquery/docs/dataset-locations).
@@ -378,24 +404,24 @@ class DatasetArgs:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="maxTimeTravelHours")
-    def max_time_travel_hours(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def max_time_travel_hours(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the time travel window in hours. The value can be from 48 to 168 hours (2 to 7 days).
         """
         return pulumi.get(self, "max_time_travel_hours")
 
     @max_time_travel_hours.setter
-    def max_time_travel_hours(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def max_time_travel_hours(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "max_time_travel_hours", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -403,12 +429,12 @@ class DatasetArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceTags")
-    def resource_tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def resource_tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The tags attached to this table. Tag keys are globally unique. Tag key is expected to be
         in the namespaced format, for example "123456789012/environment" where 123456789012 is the
@@ -419,12 +445,12 @@ class DatasetArgs:
         return pulumi.get(self, "resource_tags")
 
     @resource_tags.setter
-    def resource_tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def resource_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "resource_tags", value)
 
     @_builtins.property
     @pulumi.getter(name="storageBillingModel")
-    def storage_billing_model(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def storage_billing_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the storage billing model for the dataset.
         Set this flag value to LOGICAL to use logical bytes for storage billing,
@@ -434,37 +460,38 @@ class DatasetArgs:
         return pulumi.get(self, "storage_billing_model")
 
     @storage_billing_model.setter
-    def storage_billing_model(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def storage_billing_model(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "storage_billing_model", value)
 
 
 @pulumi.input_type
 class _DatasetState:
     def __init__(__self__, *,
-                 accesses: Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]] = None,
-                 creation_time: Optional[pulumi.Input[_builtins.int]] = None,
-                 dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_encryption_configuration: Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']] = None,
-                 default_partition_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 default_table_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 delete_contents_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_catalog_dataset_options: Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']] = None,
-                 external_dataset_reference: Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']] = None,
-                 friendly_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_case_insensitive: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 last_modified_time: Optional[pulumi.Input[_builtins.int]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_time_travel_hours: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 resource_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 storage_billing_model: Optional[pulumi.Input[_builtins.str]] = None):
+                 accesses: pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]] = None,
+                 creation_time: pulumi.Input[Optional[_builtins.int]] = None,
+                 dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_encryption_configuration: pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']] = None,
+                 default_partition_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 default_table_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 delete_contents_on_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_catalog_dataset_options: pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']] = None,
+                 external_dataset_reference: pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']] = None,
+                 friendly_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_case_insensitive: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 last_modified_time: pulumi.Input[Optional[_builtins.int]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_time_travel_hours: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 resource_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 storage_billing_model: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Dataset resources.
 
@@ -515,6 +542,12 @@ class _DatasetState:
         :param pulumi.Input[_builtins.bool] delete_contents_on_destroy: If set to `true`, delete all the tables in the
                dataset when destroying the resource; otherwise,
                destroying the resource will fail if tables are present.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-friendly description of the dataset
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] etag: A hash of the resource.
@@ -574,6 +607,8 @@ class _DatasetState:
             pulumi.set(__self__, "default_table_expiration_ms", default_table_expiration_ms)
         if delete_contents_on_destroy is not None:
             pulumi.set(__self__, "delete_contents_on_destroy", delete_contents_on_destroy)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -609,7 +644,7 @@ class _DatasetState:
 
     @_builtins.property
     @pulumi.getter
-    def accesses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]]:
+    def accesses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]]:
         """
         An array of objects that define dataset access for one or more entities.
         Structure is documented below.
@@ -617,12 +652,12 @@ class _DatasetState:
         return pulumi.get(self, "accesses")
 
     @accesses.setter
-    def accesses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DatasetAccessArgs']]]]):
+    def accesses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DatasetAccessArgs']]]]):
         pulumi.set(self, "accesses", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTime")
-    def creation_time(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def creation_time(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The time when this dataset was created, in milliseconds since the
         epoch.
@@ -630,12 +665,12 @@ class _DatasetState:
         return pulumi.get(self, "creation_time")
 
     @creation_time.setter
-    def creation_time(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def creation_time(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "creation_time", value)
 
     @_builtins.property
     @pulumi.getter(name="datasetId")
-    def dataset_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dataset_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique ID for this dataset, without the project name. The ID
         must contain only letters (a-z, A-Z), numbers (0-9), or
@@ -644,12 +679,12 @@ class _DatasetState:
         return pulumi.get(self, "dataset_id")
 
     @dataset_id.setter
-    def dataset_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dataset_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dataset_id", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultCollation")
-    def default_collation(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_collation(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the default collation specification of future tables created
         in the dataset. If a table is created in this dataset without table-level
@@ -664,12 +699,12 @@ class _DatasetState:
         return pulumi.get(self, "default_collation")
 
     @default_collation.setter
-    def default_collation(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_collation(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_collation", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultEncryptionConfiguration")
-    def default_encryption_configuration(self) -> Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']]:
+    def default_encryption_configuration(self) -> pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']]:
         """
         The default encryption key for all tables in the dataset. Once this property is set,
         all newly-created partitioned tables in the dataset will have encryption key set to
@@ -679,12 +714,12 @@ class _DatasetState:
         return pulumi.get(self, "default_encryption_configuration")
 
     @default_encryption_configuration.setter
-    def default_encryption_configuration(self, value: Optional[pulumi.Input['DatasetDefaultEncryptionConfigurationArgs']]):
+    def default_encryption_configuration(self, value: pulumi.Input[Optional['DatasetDefaultEncryptionConfigurationArgs']]):
         pulumi.set(self, "default_encryption_configuration", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultPartitionExpirationMs")
-    def default_partition_expiration_ms(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def default_partition_expiration_ms(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The default partition expiration for all partitioned tables in
         the dataset, in milliseconds.
@@ -703,12 +738,12 @@ class _DatasetState:
         return pulumi.get(self, "default_partition_expiration_ms")
 
     @default_partition_expiration_ms.setter
-    def default_partition_expiration_ms(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def default_partition_expiration_ms(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "default_partition_expiration_ms", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultTableExpirationMs")
-    def default_table_expiration_ms(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def default_table_expiration_ms(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The default lifetime of all tables in the dataset, in milliseconds.
         The minimum value is 3600000 milliseconds (one hour).
@@ -725,12 +760,12 @@ class _DatasetState:
         return pulumi.get(self, "default_table_expiration_ms")
 
     @default_table_expiration_ms.setter
-    def default_table_expiration_ms(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def default_table_expiration_ms(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "default_table_expiration_ms", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteContentsOnDestroy")
-    def delete_contents_on_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def delete_contents_on_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to `true`, delete all the tables in the
         dataset when destroying the resource; otherwise,
@@ -739,48 +774,65 @@ class _DatasetState:
         return pulumi.get(self, "delete_contents_on_destroy")
 
     @delete_contents_on_destroy.setter
-    def delete_contents_on_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def delete_contents_on_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "delete_contents_on_destroy", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-friendly description of the dataset
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A hash of the resource.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="externalCatalogDatasetOptions")
-    def external_catalog_dataset_options(self) -> Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']]:
+    def external_catalog_dataset_options(self) -> pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']]:
         """
         Options defining open source compatible datasets living in the BigQuery catalog. Contains
         metadata of open source database, schema or namespace represented by the current dataset.
@@ -789,12 +841,12 @@ class _DatasetState:
         return pulumi.get(self, "external_catalog_dataset_options")
 
     @external_catalog_dataset_options.setter
-    def external_catalog_dataset_options(self, value: Optional[pulumi.Input['DatasetExternalCatalogDatasetOptionsArgs']]):
+    def external_catalog_dataset_options(self, value: pulumi.Input[Optional['DatasetExternalCatalogDatasetOptionsArgs']]):
         pulumi.set(self, "external_catalog_dataset_options", value)
 
     @_builtins.property
     @pulumi.getter(name="externalDatasetReference")
-    def external_dataset_reference(self) -> Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']]:
+    def external_dataset_reference(self) -> pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']]:
         """
         Information about the external metadata storage where the dataset is defined.
         Structure is documented below.
@@ -802,24 +854,24 @@ class _DatasetState:
         return pulumi.get(self, "external_dataset_reference")
 
     @external_dataset_reference.setter
-    def external_dataset_reference(self, value: Optional[pulumi.Input['DatasetExternalDatasetReferenceArgs']]):
+    def external_dataset_reference(self, value: pulumi.Input[Optional['DatasetExternalDatasetReferenceArgs']]):
         pulumi.set(self, "external_dataset_reference", value)
 
     @_builtins.property
     @pulumi.getter(name="friendlyName")
-    def friendly_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def friendly_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A descriptive name for the dataset
         """
         return pulumi.get(self, "friendly_name")
 
     @friendly_name.setter
-    def friendly_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def friendly_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "friendly_name", value)
 
     @_builtins.property
     @pulumi.getter(name="isCaseInsensitive")
-    def is_case_insensitive(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_case_insensitive(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         TRUE if the dataset and its table names are case-insensitive, otherwise FALSE.
         By default, this is FALSE, which means the dataset and its table names are
@@ -828,12 +880,12 @@ class _DatasetState:
         return pulumi.get(self, "is_case_insensitive")
 
     @is_case_insensitive.setter
-    def is_case_insensitive(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_case_insensitive(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_case_insensitive", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels associated with this dataset. You can use these to
         organize and group your datasets.
@@ -844,12 +896,12 @@ class _DatasetState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="lastModifiedTime")
-    def last_modified_time(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def last_modified_time(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The date when this dataset or any of its tables was last modified, in
         milliseconds since the epoch.
@@ -857,12 +909,12 @@ class _DatasetState:
         return pulumi.get(self, "last_modified_time")
 
     @last_modified_time.setter
-    def last_modified_time(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def last_modified_time(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "last_modified_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the dataset should reside.
         See [official docs](https://cloud.google.com/bigquery/docs/dataset-locations).
@@ -876,24 +928,24 @@ class _DatasetState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="maxTimeTravelHours")
-    def max_time_travel_hours(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def max_time_travel_hours(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the time travel window in hours. The value can be from 48 to 168 hours (2 to 7 days).
         """
         return pulumi.get(self, "max_time_travel_hours")
 
     @max_time_travel_hours.setter
-    def max_time_travel_hours(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def max_time_travel_hours(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "max_time_travel_hours", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -901,12 +953,12 @@ class _DatasetState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -914,12 +966,12 @@ class _DatasetState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceTags")
-    def resource_tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def resource_tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The tags attached to this table. Tag keys are globally unique. Tag key is expected to be
         in the namespaced format, for example "123456789012/environment" where 123456789012 is the
@@ -930,24 +982,24 @@ class _DatasetState:
         return pulumi.get(self, "resource_tags")
 
     @resource_tags.setter
-    def resource_tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def resource_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "resource_tags", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="storageBillingModel")
-    def storage_billing_model(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def storage_billing_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the storage billing model for the dataset.
         Set this flag value to LOGICAL to use logical bytes for storage billing,
@@ -957,7 +1009,7 @@ class _DatasetState:
         return pulumi.get(self, "storage_billing_model")
 
     @storage_billing_model.setter
-    def storage_billing_model(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def storage_billing_model(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "storage_billing_model", value)
 
 
@@ -967,24 +1019,25 @@ class Dataset(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 accesses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
-                 dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_encryption_configuration: Optional[pulumi.Input[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
-                 default_partition_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 default_table_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 delete_contents_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_catalog_dataset_options: Optional[pulumi.Input[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
-                 external_dataset_reference: Optional[pulumi.Input[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
-                 friendly_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_case_insensitive: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_time_travel_hours: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 storage_billing_model: Optional[pulumi.Input[_builtins.str]] = None,
+                 accesses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
+                 dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_encryption_configuration: pulumi.Input[Optional[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
+                 default_partition_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 default_table_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 delete_contents_on_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_catalog_dataset_options: pulumi.Input[Optional[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
+                 external_dataset_reference: pulumi.Input[Optional[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
+                 friendly_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_case_insensitive: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_time_travel_hours: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 storage_billing_model: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Datasets allow you to organize and control access to your tables.
@@ -1252,6 +1305,12 @@ class Dataset(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] delete_contents_on_destroy: If set to `true`, delete all the tables in the
                dataset when destroying the resource; otherwise,
                destroying the resource will fail if tables are present.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-friendly description of the dataset
         :param pulumi.Input[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']] external_catalog_dataset_options: Options defining open source compatible datasets living in the BigQuery catalog. Contains
                metadata of open source database, schema or namespace represented by the current dataset.
@@ -1528,24 +1587,25 @@ class Dataset(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 accesses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
-                 dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_collation: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_encryption_configuration: Optional[pulumi.Input[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
-                 default_partition_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 default_table_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-                 delete_contents_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_catalog_dataset_options: Optional[pulumi.Input[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
-                 external_dataset_reference: Optional[pulumi.Input[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
-                 friendly_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_case_insensitive: Optional[pulumi.Input[_builtins.bool]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 max_time_travel_hours: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 storage_billing_model: Optional[pulumi.Input[_builtins.str]] = None,
+                 accesses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
+                 dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_collation: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_encryption_configuration: pulumi.Input[Optional[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
+                 default_partition_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 default_table_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+                 delete_contents_on_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_catalog_dataset_options: pulumi.Input[Optional[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
+                 external_dataset_reference: pulumi.Input[Optional[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
+                 friendly_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_case_insensitive: pulumi.Input[Optional[_builtins.bool]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 max_time_travel_hours: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 storage_billing_model: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1564,6 +1624,7 @@ class Dataset(pulumi.CustomResource):
             __props__.__dict__["default_partition_expiration_ms"] = default_partition_expiration_ms
             __props__.__dict__["default_table_expiration_ms"] = default_table_expiration_ms
             __props__.__dict__["delete_contents_on_destroy"] = delete_contents_on_destroy
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["external_catalog_dataset_options"] = external_catalog_dataset_options
             __props__.__dict__["external_dataset_reference"] = external_dataset_reference
@@ -1593,30 +1654,31 @@ class Dataset(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            accesses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
-            creation_time: Optional[pulumi.Input[_builtins.int]] = None,
-            dataset_id: Optional[pulumi.Input[_builtins.str]] = None,
-            default_collation: Optional[pulumi.Input[_builtins.str]] = None,
-            default_encryption_configuration: Optional[pulumi.Input[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
-            default_partition_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-            default_table_expiration_ms: Optional[pulumi.Input[_builtins.int]] = None,
-            delete_contents_on_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            external_catalog_dataset_options: Optional[pulumi.Input[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
-            external_dataset_reference: Optional[pulumi.Input[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
-            friendly_name: Optional[pulumi.Input[_builtins.str]] = None,
-            is_case_insensitive: Optional[pulumi.Input[_builtins.bool]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            last_modified_time: Optional[pulumi.Input[_builtins.int]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            max_time_travel_hours: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            resource_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            storage_billing_model: Optional[pulumi.Input[_builtins.str]] = None) -> 'Dataset':
+            accesses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DatasetAccessArgs', 'DatasetAccessArgsDict']]]]] = None,
+            creation_time: pulumi.Input[Optional[_builtins.int]] = None,
+            dataset_id: pulumi.Input[Optional[_builtins.str]] = None,
+            default_collation: pulumi.Input[Optional[_builtins.str]] = None,
+            default_encryption_configuration: pulumi.Input[Optional[Union['DatasetDefaultEncryptionConfigurationArgs', 'DatasetDefaultEncryptionConfigurationArgsDict']]] = None,
+            default_partition_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+            default_table_expiration_ms: pulumi.Input[Optional[_builtins.int]] = None,
+            delete_contents_on_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            external_catalog_dataset_options: pulumi.Input[Optional[Union['DatasetExternalCatalogDatasetOptionsArgs', 'DatasetExternalCatalogDatasetOptionsArgsDict']]] = None,
+            external_dataset_reference: pulumi.Input[Optional[Union['DatasetExternalDatasetReferenceArgs', 'DatasetExternalDatasetReferenceArgsDict']]] = None,
+            friendly_name: pulumi.Input[Optional[_builtins.str]] = None,
+            is_case_insensitive: pulumi.Input[Optional[_builtins.bool]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            last_modified_time: pulumi.Input[Optional[_builtins.int]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            max_time_travel_hours: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            resource_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            storage_billing_model: pulumi.Input[Optional[_builtins.str]] = None) -> 'Dataset':
         """
         Get an existing Dataset resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1671,6 +1733,12 @@ class Dataset(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] delete_contents_on_destroy: If set to `true`, delete all the tables in the
                dataset when destroying the resource; otherwise,
                destroying the resource will fail if tables are present.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A user-friendly description of the dataset
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] etag: A hash of the resource.
@@ -1726,6 +1794,7 @@ class Dataset(pulumi.CustomResource):
         __props__.__dict__["default_partition_expiration_ms"] = default_partition_expiration_ms
         __props__.__dict__["default_table_expiration_ms"] = default_table_expiration_ms
         __props__.__dict__["delete_contents_on_destroy"] = delete_contents_on_destroy
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["etag"] = etag
@@ -1846,6 +1915,19 @@ class Dataset(pulumi.CustomResource):
         destroying the resource will fail if tables are present.
         """
         return pulumi.get(self, "delete_contents_on_destroy")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

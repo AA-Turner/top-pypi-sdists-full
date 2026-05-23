@@ -218,7 +218,11 @@ def type_to_json_schema(field_type: Any) -> Dict[str, Any]:
 def pydantic_to_json_schema(model: Type[BaseModel]) -> Dict[str, Any]:
     """Convert a Pydantic model to JSON schema format for MCP"""
 
-    schema = model.model_json_schema()
+    # by_alias=False so the schema exposed to LLMs uses snake_case field names,
+    # matching the rest of the MCP tool surface. Serializable still ships
+    # camelCase on the wire via dump(by_alias=True), and populate_by_name=True
+    # keeps model construction working with either form.
+    schema = model.model_json_schema(by_alias=False)
 
     # Convert Pydantic schema to MCP-compatible format
     mcp_schema = {

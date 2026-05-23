@@ -23,14 +23,15 @@ class PipelineArgs:
     def __init__(__self__, *,
                  state: pulumi.Input[_builtins.str],
                  type: pulumi.Input[_builtins.str],
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pipeline_sources: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_info: Optional[pulumi.Input['PipelineScheduleInfoArgs']] = None,
-                 scheduler_service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload: Optional[pulumi.Input['PipelineWorkloadArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pipeline_sources: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_info: pulumi.Input[Optional['PipelineScheduleInfoArgs']] = None,
+                 scheduler_service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload: pulumi.Input[Optional['PipelineWorkloadArgs']] = None):
         """
         The set of arguments for constructing a Pipeline resource.
 
@@ -40,6 +41,12 @@ class PipelineArgs:
         :param pulumi.Input[_builtins.str] type: The type of the pipeline. This field affects the scheduling of the pipeline and the type of metrics to show for the pipeline.
                https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#pipelinetype
                Possible values are: `PIPELINE_TYPE_UNSPECIFIED`, `PIPELINE_TYPE_BATCH`, `PIPELINE_TYPE_STREAMING`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         :param pulumi.Input[_builtins.str] name: "The pipeline name. For example': 'projects/PROJECT_ID/locations/LOCATION_ID/pipelines/PIPELINE_ID."
                "- PROJECT_ID can contain letters ([A-Za-z]), numbers ([0-9]), hyphens (-), colons (:), and periods (.). For more information, see Identifying projects."
@@ -60,6 +67,8 @@ class PipelineArgs:
         """
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "type", type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if name is not None:
@@ -106,20 +115,37 @@ class PipelineArgs:
         pulumi.set(self, "type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         "The pipeline name. For example': 'projects/PROJECT_ID/locations/LOCATION_ID/pipelines/PIPELINE_ID."
         "- PROJECT_ID can contain letters ([A-Za-z]), numbers ([0-9]), hyphens (-), colons (:), and periods (.). For more information, see Identifying projects."
@@ -129,12 +155,12 @@ class PipelineArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pipelineSources")
-    def pipeline_sources(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pipeline_sources(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The sources of the pipeline (for example, Dataplex). The keys and values are set by the corresponding sources during pipeline creation.
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
@@ -142,12 +168,12 @@ class PipelineArgs:
         return pulumi.get(self, "pipeline_sources")
 
     @pipeline_sources.setter
-    def pipeline_sources(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pipeline_sources(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pipeline_sources", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -155,24 +181,24 @@ class PipelineArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the region
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="scheduleInfo")
-    def schedule_info(self) -> Optional[pulumi.Input['PipelineScheduleInfoArgs']]:
+    def schedule_info(self) -> pulumi.Input[Optional['PipelineScheduleInfoArgs']]:
         """
         Internal scheduling information for a pipeline. If this information is provided, periodic jobs will be created per the schedule. If not, users are responsible for creating jobs externally.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#schedulespec
@@ -181,24 +207,24 @@ class PipelineArgs:
         return pulumi.get(self, "schedule_info")
 
     @schedule_info.setter
-    def schedule_info(self, value: Optional[pulumi.Input['PipelineScheduleInfoArgs']]):
+    def schedule_info(self, value: pulumi.Input[Optional['PipelineScheduleInfoArgs']]):
         pulumi.set(self, "schedule_info", value)
 
     @_builtins.property
     @pulumi.getter(name="schedulerServiceAccountEmail")
-    def scheduler_service_account_email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scheduler_service_account_email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A service account email to be used with the Cloud Scheduler job. If not specified, the default compute engine service account will be used.
         """
         return pulumi.get(self, "scheduler_service_account_email")
 
     @scheduler_service_account_email.setter
-    def scheduler_service_account_email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scheduler_service_account_email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scheduler_service_account_email", value)
 
     @_builtins.property
     @pulumi.getter
-    def workload(self) -> Optional[pulumi.Input['PipelineWorkloadArgs']]:
+    def workload(self) -> pulumi.Input[Optional['PipelineWorkloadArgs']]:
         """
         Workload information for creating new jobs.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#workload
@@ -207,31 +233,38 @@ class PipelineArgs:
         return pulumi.get(self, "workload")
 
     @workload.setter
-    def workload(self, value: Optional[pulumi.Input['PipelineWorkloadArgs']]):
+    def workload(self, value: pulumi.Input[Optional['PipelineWorkloadArgs']]):
         pulumi.set(self, "workload", value)
 
 
 @pulumi.input_type
 class _PipelineState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 job_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 last_update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pipeline_sources: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_info: Optional[pulumi.Input['PipelineScheduleInfoArgs']] = None,
-                 scheduler_service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload: Optional[pulumi.Input['PipelineWorkloadArgs']] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 job_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 last_update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pipeline_sources: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_info: pulumi.Input[Optional['PipelineScheduleInfoArgs']] = None,
+                 scheduler_service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload: pulumi.Input[Optional['PipelineWorkloadArgs']] = None):
         """
         Input properties used for looking up and filtering Pipeline resources.
 
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the pipeline was initially created. Set by the Data Pipelines service.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         :param pulumi.Input[_builtins.int] job_count: Number of jobs.
         :param pulumi.Input[_builtins.str] last_update_time: The timestamp when the pipeline was last modified. Set by the Data Pipelines service.
@@ -261,6 +294,8 @@ class _PipelineState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if job_count is not None:
@@ -288,7 +323,7 @@ class _PipelineState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the pipeline was initially created. Set by the Data Pipelines service.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
@@ -296,36 +331,53 @@ class _PipelineState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="jobCount")
-    def job_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def job_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Number of jobs.
         """
         return pulumi.get(self, "job_count")
 
     @job_count.setter
-    def job_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def job_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "job_count", value)
 
     @_builtins.property
     @pulumi.getter(name="lastUpdateTime")
-    def last_update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the pipeline was last modified. Set by the Data Pipelines service.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
@@ -333,12 +385,12 @@ class _PipelineState:
         return pulumi.get(self, "last_update_time")
 
     @last_update_time.setter
-    def last_update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         "The pipeline name. For example': 'projects/PROJECT_ID/locations/LOCATION_ID/pipelines/PIPELINE_ID."
         "- PROJECT_ID can contain letters ([A-Za-z]), numbers ([0-9]), hyphens (-), colons (:), and periods (.). For more information, see Identifying projects."
@@ -348,12 +400,12 @@ class _PipelineState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="pipelineSources")
-    def pipeline_sources(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pipeline_sources(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The sources of the pipeline (for example, Dataplex). The keys and values are set by the corresponding sources during pipeline creation.
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
@@ -361,12 +413,12 @@ class _PipelineState:
         return pulumi.get(self, "pipeline_sources")
 
     @pipeline_sources.setter
-    def pipeline_sources(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pipeline_sources(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pipeline_sources", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -374,24 +426,24 @@ class _PipelineState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the region
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="scheduleInfo")
-    def schedule_info(self) -> Optional[pulumi.Input['PipelineScheduleInfoArgs']]:
+    def schedule_info(self) -> pulumi.Input[Optional['PipelineScheduleInfoArgs']]:
         """
         Internal scheduling information for a pipeline. If this information is provided, periodic jobs will be created per the schedule. If not, users are responsible for creating jobs externally.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#schedulespec
@@ -400,24 +452,24 @@ class _PipelineState:
         return pulumi.get(self, "schedule_info")
 
     @schedule_info.setter
-    def schedule_info(self, value: Optional[pulumi.Input['PipelineScheduleInfoArgs']]):
+    def schedule_info(self, value: pulumi.Input[Optional['PipelineScheduleInfoArgs']]):
         pulumi.set(self, "schedule_info", value)
 
     @_builtins.property
     @pulumi.getter(name="schedulerServiceAccountEmail")
-    def scheduler_service_account_email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def scheduler_service_account_email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. A service account email to be used with the Cloud Scheduler job. If not specified, the default compute engine service account will be used.
         """
         return pulumi.get(self, "scheduler_service_account_email")
 
     @scheduler_service_account_email.setter
-    def scheduler_service_account_email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def scheduler_service_account_email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "scheduler_service_account_email", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The state of the pipeline. When the pipeline is created, the state is set to 'PIPELINE_STATE_ACTIVE' by default. State changes can be requested by setting the state to stopping, paused, or resuming. State cannot be changed through pipelines.patch requests.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#state
@@ -426,12 +478,12 @@ class _PipelineState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of the pipeline. This field affects the scheduling of the pipeline and the type of metrics to show for the pipeline.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#pipelinetype
@@ -440,12 +492,12 @@ class _PipelineState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter
-    def workload(self) -> Optional[pulumi.Input['PipelineWorkloadArgs']]:
+    def workload(self) -> pulumi.Input[Optional['PipelineWorkloadArgs']]:
         """
         Workload information for creating new jobs.
         https://cloud.google.com/dataflow/docs/reference/data-pipelines/rest/v1/projects.locations.pipelines#workload
@@ -454,7 +506,7 @@ class _PipelineState:
         return pulumi.get(self, "workload")
 
     @workload.setter
-    def workload(self, value: Optional[pulumi.Input['PipelineWorkloadArgs']]):
+    def workload(self, value: pulumi.Input[Optional['PipelineWorkloadArgs']]):
         pulumi.set(self, "workload", value)
 
 
@@ -464,16 +516,17 @@ class Pipeline(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pipeline_sources: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_info: Optional[pulumi.Input[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
-                 scheduler_service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload: Optional[pulumi.Input[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pipeline_sources: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_info: pulumi.Input[Optional[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
+                 scheduler_service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload: pulumi.Input[Optional[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None,
                  __props__=None):
         """
         The main pipeline entity and all the necessary metadata for launching and managing linked jobs.
@@ -560,6 +613,12 @@ class Pipeline(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         :param pulumi.Input[_builtins.str] name: "The pipeline name. For example': 'projects/PROJECT_ID/locations/LOCATION_ID/pipelines/PIPELINE_ID."
                "- PROJECT_ID can contain letters ([A-Za-z]), numbers ([0-9]), hyphens (-), colons (:), and periods (.). For more information, see Identifying projects."
@@ -688,16 +747,17 @@ class Pipeline(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pipeline_sources: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 schedule_info: Optional[pulumi.Input[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
-                 scheduler_service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 workload: Optional[pulumi.Input[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pipeline_sources: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 schedule_info: pulumi.Input[Optional[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
+                 scheduler_service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 workload: pulumi.Input[Optional[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -707,6 +767,7 @@ class Pipeline(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PipelineArgs.__new__(PipelineArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["name"] = name
             __props__.__dict__["pipeline_sources"] = pipeline_sources
@@ -734,19 +795,20 @@ class Pipeline(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            job_count: Optional[pulumi.Input[_builtins.int]] = None,
-            last_update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pipeline_sources: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            schedule_info: Optional[pulumi.Input[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
-            scheduler_service_account_email: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            workload: Optional[pulumi.Input[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None) -> 'Pipeline':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            job_count: pulumi.Input[Optional[_builtins.int]] = None,
+            last_update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pipeline_sources: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            schedule_info: pulumi.Input[Optional[Union['PipelineScheduleInfoArgs', 'PipelineScheduleInfoArgsDict']]] = None,
+            scheduler_service_account_email: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            workload: pulumi.Input[Optional[Union['PipelineWorkloadArgs', 'PipelineWorkloadArgsDict']]] = None) -> 'Pipeline':
         """
         Get an existing Pipeline resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -756,6 +818,12 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the pipeline was initially created. Set by the Data Pipelines service.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the pipeline. It can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), and underscores (_).
         :param pulumi.Input[_builtins.int] job_count: Number of jobs.
         :param pulumi.Input[_builtins.str] last_update_time: The timestamp when the pipeline was last modified. Set by the Data Pipelines service.
@@ -788,6 +856,7 @@ class Pipeline(pulumi.CustomResource):
         __props__ = _PipelineState.__new__(_PipelineState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["job_count"] = job_count
         __props__.__dict__["last_update_time"] = last_update_time
@@ -810,6 +879,19 @@ class Pipeline(pulumi.CustomResource):
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

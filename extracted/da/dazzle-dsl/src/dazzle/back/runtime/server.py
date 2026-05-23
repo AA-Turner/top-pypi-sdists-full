@@ -54,6 +54,7 @@ from dazzle.back.runtime.workspace_handlers import (  # noqa: F401
 )
 from dazzle.back.runtime.workspace_region_handler import _workspace_region_handler  # noqa: F401
 from dazzle.back.runtime.workspace_route_builder import WorkspaceRouteBuilder
+from dazzle.core.db_url import add_psycopg_driver, normalise_postgres_scheme
 from dazzle.core.ir import AppSpec
 
 if FASTAPI_AVAILABLE:
@@ -147,6 +148,13 @@ class ServerConfig:
     # Propagated by build_server_config() so DazzleBackendApp can wire upload-ticket
     # routes when entities have `field foo: file storage=<name>` bindings.
     storage_defs: "dict[str, StorageConfig]" = field(default_factory=dict)
+
+    # Audit log tamper-resistance (#1197). Opt-in. Default "none" preserves
+    # today's behaviour exactly — no schema change, no extra SELECT-prev-hash.
+    # "hash_chain" enables a per-row sha256 chain (column `row_hash`) so a
+    # tampered row breaks the chain at the modified entry. See
+    # `AuditLogger.verify_chain()` for offline verification.
+    audit_integrity: str = "none"  # "none" | "hash_chain"
 
 
 def _maybe_configure_tracer() -> None:
@@ -562,13 +570,9 @@ class DazzleBackendApp:
             logger.warning("Could not list tenants for schema migration: %s", exc)
             return
 
-        metadata = build_metadata(self._entities)
-        sa_url = self._database_url
+        metadata = build_metadata(self._entities, surfaces=list(self._appspec.surfaces))
         # Normalise Heroku-style postgres:// alias before adding driver suffix
-        if sa_url.startswith("postgres://"):
-            sa_url = sa_url.replace("postgres://", "postgresql://", 1)
-        if sa_url.startswith("postgresql://"):
-            sa_url = sa_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        sa_url = add_psycopg_driver(normalise_postgres_scheme(self._database_url))
 
         for tenant in tenants:
             if tenant.status != "active":
@@ -589,7 +593,14 @@ class DazzleBackendApp:
                     dbapi_conn = conn.connection
                     cur = dbapi_conn.cursor()
                     try:
-                        cur.execute("SET search_path TO %s, public", (schema_name,))
+                        from psycopg import sql as pgsql
+
+                        # SET cannot take a bound parameter; compose the
+                        # already-validated identifier safely instead (#1201).
+                        stmt = pgsql.SQL("SET search_path TO {}, public").format(
+                            pgsql.Identifier(schema_name)
+                        )
+                        cur.execute(stmt)  # nosemgrep
                     finally:
                         cur.close()
                     metadata.create_all(conn)
@@ -660,13 +671,9 @@ class DazzleBackendApp:
 
                 from dazzle.back.runtime.sa_schema import build_metadata
 
-                metadata = build_metadata(self._entities)
-                sa_url = self._database_url
+                metadata = build_metadata(self._entities, surfaces=list(self._appspec.surfaces))
                 # Normalise Heroku-style postgres:// alias before adding driver suffix
-                if sa_url.startswith("postgres://"):
-                    sa_url = sa_url.replace("postgres://", "postgresql://", 1)
-                if sa_url.startswith("postgresql://"):
-                    sa_url = sa_url.replace("postgresql://", "postgresql+psycopg://", 1)
+                sa_url = add_psycopg_driver(normalise_postgres_scheme(self._database_url))
                 engine = _sa_create_engine(sa_url)
                 try:
                     metadata.create_all(engine)
@@ -1095,7 +1102,10 @@ class DazzleBackendApp:
                 )
             from dazzle.back.runtime.audit_log import AuditLogger
 
-            audit_logger = AuditLogger(database_url=self._database_url)
+            audit_logger = AuditLogger(
+                database_url=self._database_url,
+                audit_integrity=self._config.audit_integrity,
+            )
             audit_logger.start()
             # Keep a handle on the builder so callers (graceful shutdown,
             # in-process tests) can deterministically `drain()` the audit
@@ -1234,6 +1244,7 @@ class DazzleBackendApp:
             _admin_personas = list(self._appspec.tenancy.admin_personas)
 
         route_generator = RouteGenerator(
+            security_profile=self._security_profile,
             services=self._services,
             models=self._models,
             schemas=self._schemas,

@@ -66,7 +66,7 @@ class StockScreener:
                 levelname=logLevel,
                 trace=False,
                 log_file_path=None,  # Let the main process handle file output
-                selective_debug=False
+                selective_debug= False if "PK_DEBUG_ALL" in os.environ.keys() else True
             )
 
     # @tracelog

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qutip
-Version: 5.2.3
+Version: 5.3.0
 Summary: QuTiP: The Quantum Toolbox in Python
 Author: Alexander Pitchford, Paul D. Nation, Robert J. Johansson, Chris Granade, Arne Grimsmo, Nathan Shammah, Shahnawaz Ahmed, Neill Lambert, Eric Giguère, Boxi Li, Jake Lishman, Simon Cross
 Author-email: qutip-admin@googlegroups.com
@@ -9,8 +9,9 @@ Project-URL: Homepage, https://qutip.org
 Project-URL: Issues, https://github.com/qutip/qutip/issues
 Project-URL: Documentation, https://qutip.readthedocs.io/en/stable/
 Project-URL: Source Code, https://github.com/qutip/qutip
+Project-URL: Funding, https://github.com/sponsors/qutip
 Keywords: quantum,physics,dynamics
-Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -19,29 +20,28 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: numpy>=1.22
-Requires-Dist: scipy!=1.16.0,!=1.17.0,>=1.9
+Requires-Dist: numpy>=1.23.2
+Requires-Dist: scipy!=1.16.0,!=1.17.0,>=1.9.2
 Requires-Dist: packaging
 Provides-Extra: graphics
-Requires-Dist: matplotlib>=3.5; extra == "graphics"
+Requires-Dist: matplotlib>=3.6; extra == "graphics"
 Provides-Extra: runtime-compilation
-Requires-Dist: cython>=0.29.20; extra == "runtime-compilation"
+Requires-Dist: cython>=0.29.34; extra == "runtime-compilation"
 Requires-Dist: filelock; extra == "runtime-compilation"
 Requires-Dist: setuptools; extra == "runtime-compilation"
 Provides-Extra: semidefinite
-Requires-Dist: cvxpy>=1.0; extra == "semidefinite"
+Requires-Dist: cvxpy>=1.3; extra == "semidefinite"
 Requires-Dist: cvxopt; extra == "semidefinite"
 Provides-Extra: tests
-Requires-Dist: pytest>=5.2; extra == "tests"
+Requires-Dist: pytest>=7.2; extra == "tests"
 Requires-Dist: pytest-rerunfailures; extra == "tests"
 Provides-Extra: ipython
 Requires-Dist: ipython; extra == "ipython"
 Provides-Extra: extras
-Requires-Dist: loky; python_version >= "3.11" and extra == "extras"
-Requires-Dist: loky!=3.5.0; python_version <= "3.10" and extra == "extras"
+Requires-Dist: loky; extra == "extras"
 Requires-Dist: tqdm; extra == "extras"
 Requires-Dist: mpmath; extra == "extras"
 Provides-Extra: mpi
@@ -115,17 +115,6 @@ For more details, including instructions on how to build from source, see [the d
 
 All back releases are also available for download in the [releases section of this repository](https://github.com/qutip/qutip/releases), where you can also find per-version changelogs.
 For the most complete set of release notes and changelogs for historic versions, see the [changelog](https://qutip.readthedocs.io/en/stable/changelog.html) section in the documentation.
-
-
-The pre-release of QuTiP 5.0 is available on PyPI and can be installed using pip:
-
-```bash
-pip install --pre qutip
-```
-
-This version breaks compatibility with QuTiP 4.7 in many small ways.
-Please see the [changelog](https://github.com/qutip/qutip/blob/master/doc/changelog.rst) for a list of changes, new features and deprecations.
-This version should be fully working. If you find any bugs, confusing documentation or missing features, please create a GitHub issue.
 
 
 Documentation

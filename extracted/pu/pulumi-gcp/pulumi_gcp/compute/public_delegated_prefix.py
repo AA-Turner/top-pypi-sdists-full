@@ -24,12 +24,13 @@ class PublicDelegatedPrefixArgs:
                  ip_cidr_range: pulumi.Input[_builtins.str],
                  parent_prefix: pulumi.Input[_builtins.str],
                  region: pulumi.Input[_builtins.str],
-                 allocatable_prefix_length: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_live_migration: Optional[pulumi.Input[_builtins.bool]] = None,
-                 mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 allocatable_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_live_migration: pulumi.Input[Optional[_builtins.bool]] = None,
+                 mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a PublicDelegatedPrefix resource.
 
@@ -37,6 +38,12 @@ class PublicDelegatedPrefixArgs:
         :param pulumi.Input[_builtins.str] parent_prefix: The URL of parent prefix. Either PublicAdvertisedPrefix or PublicDelegatedPrefix.
         :param pulumi.Input[_builtins.str] region: A region where the prefix will reside.
         :param pulumi.Input[_builtins.int] allocatable_prefix_length: The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.bool] is_live_migration: If true, the prefix will be live migrated.
         :param pulumi.Input[_builtins.str] mode: Specifies the mode of this IPv6 PDP. MODE must be one of:
@@ -59,6 +66,8 @@ class PublicDelegatedPrefixArgs:
         pulumi.set(__self__, "region", region)
         if allocatable_prefix_length is not None:
             pulumi.set(__self__, "allocatable_prefix_length", allocatable_prefix_length)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if is_live_migration is not None:
@@ -108,43 +117,60 @@ class PublicDelegatedPrefixArgs:
 
     @_builtins.property
     @pulumi.getter(name="allocatablePrefixLength")
-    def allocatable_prefix_length(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def allocatable_prefix_length(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
         """
         return pulumi.get(self, "allocatable_prefix_length")
 
     @allocatable_prefix_length.setter
-    def allocatable_prefix_length(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def allocatable_prefix_length(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "allocatable_prefix_length", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="isLiveMigration")
-    def is_live_migration(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_live_migration(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, the prefix will be live migrated.
         """
         return pulumi.get(self, "is_live_migration")
 
     @is_live_migration.setter
-    def is_live_migration(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_live_migration(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_live_migration", value)
 
     @_builtins.property
     @pulumi.getter
-    def mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the mode of this IPv6 PDP. MODE must be one of:
         * DELEGATION
@@ -156,12 +182,12 @@ class PublicDelegatedPrefixArgs:
         return pulumi.get(self, "mode")
 
     @mode.setter
-    def mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. The name must be 1-63 characters long, and
         comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -173,12 +199,12 @@ class PublicDelegatedPrefixArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -186,30 +212,37 @@ class PublicDelegatedPrefixArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _PublicDelegatedPrefixState:
     def __init__(__self__, *,
-                 allocatable_prefix_length: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_enhanced_ipv4_allocation: Optional[pulumi.Input[_builtins.bool]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_live_migration: Optional[pulumi.Input[_builtins.bool]] = None,
-                 mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 public_delegated_sub_prefixs: Optional[pulumi.Input[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None):
+                 allocatable_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_enhanced_ipv4_allocation: pulumi.Input[Optional[_builtins.bool]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_live_migration: pulumi.Input[Optional[_builtins.bool]] = None,
+                 mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 public_delegated_sub_prefixs: pulumi.Input[Optional[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PublicDelegatedPrefix resources.
 
         :param pulumi.Input[_builtins.int] allocatable_prefix_length: The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.bool] enable_enhanced_ipv4_allocation: (Output)
                Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
@@ -248,6 +281,8 @@ class _PublicDelegatedPrefixState:
         """
         if allocatable_prefix_length is not None:
             pulumi.set(__self__, "allocatable_prefix_length", allocatable_prefix_length)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if enable_enhanced_ipv4_allocation is not None:
@@ -275,31 +310,48 @@ class _PublicDelegatedPrefixState:
 
     @_builtins.property
     @pulumi.getter(name="allocatablePrefixLength")
-    def allocatable_prefix_length(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def allocatable_prefix_length(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
         """
         return pulumi.get(self, "allocatable_prefix_length")
 
     @allocatable_prefix_length.setter
-    def allocatable_prefix_length(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def allocatable_prefix_length(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "allocatable_prefix_length", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="enableEnhancedIpv4Allocation")
-    def enable_enhanced_ipv4_allocation(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_enhanced_ipv4_allocation(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         (Output)
         Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
@@ -308,24 +360,24 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "enable_enhanced_ipv4_allocation")
 
     @enable_enhanced_ipv4_allocation.setter
-    def enable_enhanced_ipv4_allocation(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_enhanced_ipv4_allocation(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_enhanced_ipv4_allocation", value)
 
     @_builtins.property
     @pulumi.getter(name="ipCidrRange")
-    def ip_cidr_range(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ip_cidr_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IP address range, in CIDR format, represented by this public delegated prefix.
         """
         return pulumi.get(self, "ip_cidr_range")
 
     @ip_cidr_range.setter
-    def ip_cidr_range(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ip_cidr_range(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_cidr_range", value)
 
     @_builtins.property
     @pulumi.getter(name="ipv6AccessType")
-    def ipv6_access_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ipv6_access_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         The internet access type for IPv6 Public Delegated Prefixes. Inherited
@@ -339,24 +391,24 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "ipv6_access_type")
 
     @ipv6_access_type.setter
-    def ipv6_access_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ipv6_access_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ipv6_access_type", value)
 
     @_builtins.property
     @pulumi.getter(name="isLiveMigration")
-    def is_live_migration(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def is_live_migration(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, the prefix will be live migrated.
         """
         return pulumi.get(self, "is_live_migration")
 
     @is_live_migration.setter
-    def is_live_migration(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def is_live_migration(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "is_live_migration", value)
 
     @_builtins.property
     @pulumi.getter
-    def mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the mode of this IPv6 PDP. MODE must be one of:
         * DELEGATION
@@ -368,12 +420,12 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "mode")
 
     @mode.setter
-    def mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. The name must be 1-63 characters long, and
         comply with RFC1035. Specifically, the name must be 1-63 characters
@@ -385,24 +437,24 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="parentPrefix")
-    def parent_prefix(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent_prefix(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URL of parent prefix. Either PublicAdvertisedPrefix or PublicDelegatedPrefix.
         """
         return pulumi.get(self, "parent_prefix")
 
     @parent_prefix.setter
-    def parent_prefix(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent_prefix(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent_prefix", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -410,12 +462,12 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="publicDelegatedSubPrefixs")
-    def public_delegated_sub_prefixs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]]:
+    def public_delegated_sub_prefixs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]]:
         """
         List of sub public delegated fixes for BYO IP functionality.
         Each item in this array represents a sub prefix that can be
@@ -425,31 +477,31 @@ class _PublicDelegatedPrefixState:
         return pulumi.get(self, "public_delegated_sub_prefixs")
 
     @public_delegated_sub_prefixs.setter
-    def public_delegated_sub_prefixs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]]):
+    def public_delegated_sub_prefixs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs']]]]):
         pulumi.set(self, "public_delegated_sub_prefixs", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A region where the prefix will reside.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
 
@@ -459,15 +511,16 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allocatable_prefix_length: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_live_migration: Optional[pulumi.Input[_builtins.bool]] = None,
-                 mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 allocatable_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_live_migration: pulumi.Input[Optional[_builtins.bool]] = None,
+                 mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a PublicDelegatedPrefix for use with bring your own IP addresses (BYOIP).
@@ -603,6 +656,12 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] allocatable_prefix_length: The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The IP address range, in CIDR format, represented by this public delegated prefix.
         :param pulumi.Input[_builtins.bool] is_live_migration: If true, the prefix will be live migrated.
@@ -775,15 +834,16 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allocatable_prefix_length: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-                 is_live_migration: Optional[pulumi.Input[_builtins.bool]] = None,
-                 mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 allocatable_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 is_live_migration: pulumi.Input[Optional[_builtins.bool]] = None,
+                 mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -794,6 +854,7 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
             __props__ = PublicDelegatedPrefixArgs.__new__(PublicDelegatedPrefixArgs)
 
             __props__.__dict__["allocatable_prefix_length"] = allocatable_prefix_length
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if ip_cidr_range is None and not opts.urn:
                 raise TypeError("Missing required property 'ip_cidr_range'")
@@ -822,19 +883,20 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allocatable_prefix_length: Optional[pulumi.Input[_builtins.int]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_enhanced_ipv4_allocation: Optional[pulumi.Input[_builtins.bool]] = None,
-            ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
-            ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
-            is_live_migration: Optional[pulumi.Input[_builtins.bool]] = None,
-            mode: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent_prefix: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            public_delegated_sub_prefixs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs', 'PublicDelegatedPrefixPublicDelegatedSubPrefixArgsDict']]]]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None) -> 'PublicDelegatedPrefix':
+            allocatable_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_enhanced_ipv4_allocation: pulumi.Input[Optional[_builtins.bool]] = None,
+            ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+            ipv6_access_type: pulumi.Input[Optional[_builtins.str]] = None,
+            is_live_migration: pulumi.Input[Optional[_builtins.bool]] = None,
+            mode: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            public_delegated_sub_prefixs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PublicDelegatedPrefixPublicDelegatedSubPrefixArgs', 'PublicDelegatedPrefixPublicDelegatedSubPrefixArgsDict']]]]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None) -> 'PublicDelegatedPrefix':
         """
         Get an existing PublicDelegatedPrefix resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -843,6 +905,12 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] allocatable_prefix_length: The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.bool] enable_enhanced_ipv4_allocation: (Output)
                Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
@@ -884,6 +952,7 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
         __props__ = _PublicDelegatedPrefixState.__new__(_PublicDelegatedPrefixState)
 
         __props__.__dict__["allocatable_prefix_length"] = allocatable_prefix_length
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["enable_enhanced_ipv4_allocation"] = enable_enhanced_ipv4_allocation
         __props__.__dict__["ip_cidr_range"] = ip_cidr_range
@@ -905,6 +974,19 @@ class PublicDelegatedPrefix(pulumi.CustomResource):
         The allocatable prefix length supported by this public delegated prefix. This field is optional and cannot be set for prefixes in DELEGATION mode. It cannot be set for IPv4 prefixes either, and it always defaults to 32.
         """
         return pulumi.get(self, "allocatable_prefix_length")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

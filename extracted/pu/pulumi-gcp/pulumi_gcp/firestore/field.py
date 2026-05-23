@@ -23,16 +23,23 @@ class FieldArgs:
     def __init__(__self__, *,
                  collection: pulumi.Input[_builtins.str],
                  field: pulumi.Input[_builtins.str],
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 index_config: Optional[pulumi.Input['FieldIndexConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl_config: Optional[pulumi.Input['FieldTtlConfigArgs']] = None):
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 index_config: pulumi.Input[Optional['FieldIndexConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl_config: pulumi.Input[Optional['FieldTtlConfigArgs']] = None):
         """
         The set of arguments for constructing a Field resource.
 
         :param pulumi.Input[_builtins.str] collection: The id of the collection group to configure.
         :param pulumi.Input[_builtins.str] field: The id of the field to configure.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['FieldIndexConfigArgs'] index_config: The single field index configuration for this field.
                Creating an index configuration for this field will override any inherited configuration with the
                indexes specified. Configuring the index configuration with an empty block disables all indexes on
@@ -47,6 +54,8 @@ class FieldArgs:
         pulumi.set(__self__, "field", field)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if index_config is not None:
             pulumi.set(__self__, "index_config", index_config)
         if project is not None:
@@ -80,19 +89,36 @@ class FieldArgs:
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="indexConfig")
-    def index_config(self) -> Optional[pulumi.Input['FieldIndexConfigArgs']]:
+    def index_config(self) -> pulumi.Input[Optional['FieldIndexConfigArgs']]:
         """
         The single field index configuration for this field.
         Creating an index configuration for this field will override any inherited configuration with the
@@ -103,12 +129,12 @@ class FieldArgs:
         return pulumi.get(self, "index_config")
 
     @index_config.setter
-    def index_config(self, value: Optional[pulumi.Input['FieldIndexConfigArgs']]):
+    def index_config(self, value: pulumi.Input[Optional['FieldIndexConfigArgs']]):
         pulumi.set(self, "index_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -116,12 +142,12 @@ class FieldArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="ttlConfig")
-    def ttl_config(self) -> Optional[pulumi.Input['FieldTtlConfigArgs']]:
+    def ttl_config(self) -> pulumi.Input[Optional['FieldTtlConfigArgs']]:
         """
         The TTL configuration for this Field. If set to an empty block (i.e. `ttl_config {}`), a TTL policy is configured based on the field. If unset, a TTL policy is not configured (or will be disabled upon updating the resource).
         Structure is documented below.
@@ -129,25 +155,32 @@ class FieldArgs:
         return pulumi.get(self, "ttl_config")
 
     @ttl_config.setter
-    def ttl_config(self, value: Optional[pulumi.Input['FieldTtlConfigArgs']]):
+    def ttl_config(self, value: pulumi.Input[Optional['FieldTtlConfigArgs']]):
         pulumi.set(self, "ttl_config", value)
 
 
 @pulumi.input_type
 class _FieldState:
     def __init__(__self__, *,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 field: Optional[pulumi.Input[_builtins.str]] = None,
-                 index_config: Optional[pulumi.Input['FieldIndexConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl_config: Optional[pulumi.Input['FieldTtlConfigArgs']] = None):
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 field: pulumi.Input[Optional[_builtins.str]] = None,
+                 index_config: pulumi.Input[Optional['FieldIndexConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl_config: pulumi.Input[Optional['FieldTtlConfigArgs']] = None):
         """
         Input properties used for looking up and filtering Field resources.
 
         :param pulumi.Input[_builtins.str] collection: The id of the collection group to configure.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] field: The id of the field to configure.
         :param pulumi.Input['FieldIndexConfigArgs'] index_config: The single field index configuration for this field.
                Creating an index configuration for this field will override any inherited configuration with the
@@ -165,6 +198,8 @@ class _FieldState:
             pulumi.set(__self__, "collection", collection)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if field is not None:
             pulumi.set(__self__, "field", field)
         if index_config is not None:
@@ -178,43 +213,60 @@ class _FieldState:
 
     @_builtins.property
     @pulumi.getter
-    def collection(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The id of the collection group to configure.
         """
         return pulumi.get(self, "collection")
 
     @collection.setter
-    def collection(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection", value)
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def field(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def field(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The id of the field to configure.
         """
         return pulumi.get(self, "field")
 
     @field.setter
-    def field(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def field(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "field", value)
 
     @_builtins.property
     @pulumi.getter(name="indexConfig")
-    def index_config(self) -> Optional[pulumi.Input['FieldIndexConfigArgs']]:
+    def index_config(self) -> pulumi.Input[Optional['FieldIndexConfigArgs']]:
         """
         The single field index configuration for this field.
         Creating an index configuration for this field will override any inherited configuration with the
@@ -225,12 +277,12 @@ class _FieldState:
         return pulumi.get(self, "index_config")
 
     @index_config.setter
-    def index_config(self, value: Optional[pulumi.Input['FieldIndexConfigArgs']]):
+    def index_config(self, value: pulumi.Input[Optional['FieldIndexConfigArgs']]):
         pulumi.set(self, "index_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this field. Format:
         `projects/{{project}}/databases/{{database}}/collectionGroups/{{collection}}/fields/{{field}}`
@@ -238,12 +290,12 @@ class _FieldState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -251,12 +303,12 @@ class _FieldState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="ttlConfig")
-    def ttl_config(self) -> Optional[pulumi.Input['FieldTtlConfigArgs']]:
+    def ttl_config(self) -> pulumi.Input[Optional['FieldTtlConfigArgs']]:
         """
         The TTL configuration for this Field. If set to an empty block (i.e. `ttl_config {}`), a TTL policy is configured based on the field. If unset, a TTL policy is not configured (or will be disabled upon updating the resource).
         Structure is documented below.
@@ -264,7 +316,7 @@ class _FieldState:
         return pulumi.get(self, "ttl_config")
 
     @ttl_config.setter
-    def ttl_config(self, value: Optional[pulumi.Input['FieldTtlConfigArgs']]):
+    def ttl_config(self, value: pulumi.Input[Optional['FieldTtlConfigArgs']]):
         pulumi.set(self, "ttl_config", value)
 
 
@@ -274,12 +326,13 @@ class Field(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 field: Optional[pulumi.Input[_builtins.str]] = None,
-                 index_config: Optional[pulumi.Input[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl_config: Optional[pulumi.Input[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None,
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 field: pulumi.Input[Optional[_builtins.str]] = None,
+                 index_config: pulumi.Input[Optional[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl_config: pulumi.Input[Optional[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None,
                  __props__=None):
         """
         Represents a single field in the database.
@@ -315,7 +368,7 @@ class Field(pulumi.CustomResource):
         basic = gcp.firestore.Field("basic",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__34599",
+            collection="chatrooms__49547",
             field="basic",
             index_config={
                 "indexes": [
@@ -366,7 +419,7 @@ class Field(pulumi.CustomResource):
         match_override = gcp.firestore.Field("match_override",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__79513",
+            collection="chatrooms__48675",
             field="field_with_same_configuration_as_ancestor",
             index_config={
                 "indexes": [
@@ -398,7 +451,7 @@ class Field(pulumi.CustomResource):
         wildcard = gcp.firestore.Field("wildcard",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__55500",
+            collection="chatrooms__42702",
             field="*",
             index_config={
                 "indexes": [
@@ -430,6 +483,12 @@ class Field(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] collection: The id of the collection group to configure.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] field: The id of the field to configure.
         :param pulumi.Input[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']] index_config: The single field index configuration for this field.
                Creating an index configuration for this field will override any inherited configuration with the
@@ -481,7 +540,7 @@ class Field(pulumi.CustomResource):
         basic = gcp.firestore.Field("basic",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__34599",
+            collection="chatrooms__49547",
             field="basic",
             index_config={
                 "indexes": [
@@ -532,7 +591,7 @@ class Field(pulumi.CustomResource):
         match_override = gcp.firestore.Field("match_override",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__79513",
+            collection="chatrooms__48675",
             field="field_with_same_configuration_as_ancestor",
             index_config={
                 "indexes": [
@@ -564,7 +623,7 @@ class Field(pulumi.CustomResource):
         wildcard = gcp.firestore.Field("wildcard",
             project="my-project-name",
             database=database.name,
-            collection="chatrooms__55500",
+            collection="chatrooms__42702",
             field="*",
             index_config={
                 "indexes": [
@@ -607,12 +666,13 @@ class Field(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 field: Optional[pulumi.Input[_builtins.str]] = None,
-                 index_config: Optional[pulumi.Input[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl_config: Optional[pulumi.Input[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None,
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 field: pulumi.Input[Optional[_builtins.str]] = None,
+                 index_config: pulumi.Input[Optional[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl_config: pulumi.Input[Optional[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -626,6 +686,7 @@ class Field(pulumi.CustomResource):
                 raise TypeError("Missing required property 'collection'")
             __props__.__dict__["collection"] = collection
             __props__.__dict__["database"] = database
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if field is None and not opts.urn:
                 raise TypeError("Missing required property 'field'")
             __props__.__dict__["field"] = field
@@ -643,13 +704,14 @@ class Field(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            collection: Optional[pulumi.Input[_builtins.str]] = None,
-            database: Optional[pulumi.Input[_builtins.str]] = None,
-            field: Optional[pulumi.Input[_builtins.str]] = None,
-            index_config: Optional[pulumi.Input[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            ttl_config: Optional[pulumi.Input[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None) -> 'Field':
+            collection: pulumi.Input[Optional[_builtins.str]] = None,
+            database: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            field: pulumi.Input[Optional[_builtins.str]] = None,
+            index_config: pulumi.Input[Optional[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            ttl_config: pulumi.Input[Optional[Union['FieldTtlConfigArgs', 'FieldTtlConfigArgsDict']]] = None) -> 'Field':
         """
         Get an existing Field resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -659,6 +721,12 @@ class Field(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] collection: The id of the collection group to configure.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] field: The id of the field to configure.
         :param pulumi.Input[Union['FieldIndexConfigArgs', 'FieldIndexConfigArgsDict']] index_config: The single field index configuration for this field.
                Creating an index configuration for this field will override any inherited configuration with the
@@ -678,6 +746,7 @@ class Field(pulumi.CustomResource):
 
         __props__.__dict__["collection"] = collection
         __props__.__dict__["database"] = database
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["field"] = field
         __props__.__dict__["index_config"] = index_config
         __props__.__dict__["name"] = name
@@ -700,6 +769,19 @@ class Field(pulumi.CustomResource):
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

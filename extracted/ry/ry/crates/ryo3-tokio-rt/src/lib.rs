@@ -1,5 +1,4 @@
 //! tokio-runtime + python
-
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
@@ -64,8 +63,6 @@ pub fn get_ry_tokio_runtime<'r>() -> RyRuntime<'r> {
     RyRuntime(get_tokio_runtime())
 }
 
-/// possible future helper functions? (`on_tokio`/`on_tokio_py`)
-///
 /// Executes the given future on the tokio runtime
 ///
 /// **Note**: This ONLY maps the tokio join errors to `pyo3::PyErr`
@@ -90,6 +87,25 @@ where
     T: Send + 'static,
 {
     get_ry_tokio_runtime().py_spawn(fut).await?
+}
+// use pyo3::coroutine::CancelHandle;
+/// Execute future w/ tokio rt and listen for cancellation via the provided
+/// `pyo3::coroutine::CancelHandle`.
+#[cfg(feature = "experimental-async")]
+#[inline]
+pub async fn on_tokio_py_cancel<F, T>(
+    fut: F,
+    mut cancel: ::pyo3::coroutine::CancelHandle,
+) -> pyo3::PyResult<T>
+where
+    F: Future<Output = pyo3::PyResult<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    use pyo3::exceptions::asyncio::CancelledError;
+    tokio::select! {
+        res = on_tokio_py(fut) => res,
+        _ = cancel.cancelled() => Err(CancelledError::new_err("Operation was cancelled")),
+    }
 }
 
 // ==========================================================================

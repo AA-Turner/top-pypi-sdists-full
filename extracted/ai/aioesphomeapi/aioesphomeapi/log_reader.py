@@ -7,11 +7,14 @@ import contextlib
 from datetime import datetime
 import logging
 import sys
+from typing import TYPE_CHECKING
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .client import APIClient
 from .log_parser import parse_log_message
 from .log_runner import async_run
+
+if TYPE_CHECKING:
+    from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 
 
 async def main(argv: list[str]) -> None:
@@ -55,13 +58,13 @@ async def main(argv: list[str]) -> None:
     cli = APIClient(
         args.address,
         args.port,
-        args.password or "",
+        password=args.password,
         noise_psk=args.noise_psk,
         keepalive=10,
     )
 
     def on_log(msg: SubscribeLogsResponse) -> None:
-        time_ = datetime.now()
+        time_ = datetime.now().astimezone()
         message: bytes = msg.message
         text = message.decode("utf8", "backslashreplace")
         nanoseconds = time_.microsecond // 1000

@@ -29,7 +29,9 @@ __all__ = (
     "DetailStatusType",
     "FeatureStatusType",
     "FineGrainedActionType",
+    "ListPerformanceAnalysisReportRecommendationsPaginatorName",
     "PIServiceName",
+    "PaginatorName",
     "PeriodAlignmentType",
     "RegionName",
     "ResourceServiceName",
@@ -54,6 +56,9 @@ FeatureStatusType = Literal[
 ]
 FineGrainedActionType = Literal[
     "DescribeDimensionKeys", "GetDimensionKeyDetails", "GetResourceMetrics"
+]
+ListPerformanceAnalysisReportRecommendationsPaginatorName = Literal[
+    "list_performance_analysis_report_recommendations"
 ]
 PeriodAlignmentType = Literal["END_TIME", "START_TIME"]
 ServiceTypeType = Literal["DOCDB", "RDS"]
@@ -488,6 +493,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_performance_analysis_report_recommendations"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

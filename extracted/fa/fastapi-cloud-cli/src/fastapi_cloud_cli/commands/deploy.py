@@ -108,14 +108,18 @@ def _should_exclude_entry(path: Path) -> bool:
     return False
 
 
-def archive(path: Path, tar_path: Path) -> Path:
-    logger.debug("Starting archive creation for path: %s", path)
-    files = rignore.walk(
+def _rignore_walk(path: Path) -> rignore.Walker:
+    return rignore.walk(
         path,
         should_exclude_entry=_should_exclude_entry,
         additional_ignore_paths=[".fastapicloudignore"],
         ignore_hidden=False,
     )
+
+
+def archive(path: Path, tar_path: Path) -> Path:
+    logger.debug("Starting archive creation for path: %s", path)
+    files = _rignore_walk(path)
 
     logger.debug("Archive will be created at: %s", tar_path)
 
@@ -132,6 +136,20 @@ def archive(path: Path, tar_path: Path) -> Path:
 
     logger.debug("Archive created successfully with %s files", file_count)
     return tar_path
+
+
+def _get_large_files(path: Path, threshold_mb: int) -> list[tuple[Path, int]]:
+    threshold_bytes = threshold_mb * 1024 * 1024
+    large_files = []
+    files = _rignore_walk(path)
+    for filename in files:
+        if filename.is_dir():
+            continue
+        file_size = filename.stat().st_size
+        if file_size > threshold_bytes:
+            large_files.append((filename.relative_to(path), file_size))
+
+    return sorted(large_files, key=lambda x: x[1], reverse=True)
 
 
 class Team(BaseModel):
@@ -263,8 +281,8 @@ def _upload_deployment(
     logger.debug("Upload notification sent successfully")
 
 
-def _get_app(client: APIClient, app_slug: str) -> AppResponse | None:
-    response = client.get(f"/apps/{app_slug}")
+def _get_app(client: APIClient, app_id: str) -> AppResponse | None:
+    response = client.get(f"/apps/{app_id}")
 
     if response.status_code == 404:
         return None
@@ -378,10 +396,14 @@ def _configure_app(
     initial_directory = selected_app.directory if selected_app else ""
 
     directory_input = toolkit.input(
-        title="Path to the directory containing your app (e.g. src, backend):",
+        title=(
+            "Directory where your app's pyproject.toml file lives (e.g. src, backend):"
+        ),
         tag="dir",
         value=initial_directory or "",
-        placeholder="[italic]Leave empty if it's the current directory[/italic]",
+        placeholder=(
+            "[italic]Leave empty if pyproject.toml is in the current directory[/italic]"
+        ),
         validator=TypeAdapter(AppDirectory),
     )
 
@@ -665,7 +687,10 @@ def deploy(
     path: Annotated[
         Path | None,
         typer.Argument(
-            help="A path to the folder containing the app you want to deploy"
+            help=(
+                "Path to the directory with your app's pyproject.toml "
+                "(defaults to current directory)"
+            )
         ),
     ] = None,
     skip_wait: Annotated[
@@ -679,6 +704,14 @@ def deploy(
             envvar="FASTAPI_CLOUD_APP_ID",
         ),
     ] = None,
+    large_file_threshold: Annotated[
+        int,
+        typer.Option(
+            help="File size threshold in MB for warning about large files",
+            min=1,
+            envvar="FASTAPI_CLOUD_LARGE_FILE_THRESHOLD",
+        ),
+    ] = 10,  # 10 MB
 ) -> Any:
     """
     Deploy a [bold]FastAPI[/bold] app to FastAPI Cloud. 🚀
@@ -786,7 +819,7 @@ def deploy(
             with toolkit.progress("Checking app...", transient=True) as progress:
                 with client.handle_http_errors(progress):
                     logger.debug("Checking app with ID: %s", target_app_id)
-                    app = _get_app(client=client, app_slug=target_app_id)
+                    app = _get_app(client=client, app_id=target_app_id)
 
                 if not app:
                     logger.debug("App not found in API")
@@ -804,10 +837,32 @@ def deploy(
                     )
                 raise typer.Exit(1)
 
+            large_files = _get_large_files(
+                path_to_deploy, threshold_mb=large_file_threshold
+            )
+            if large_files:
+                toolkit.print(
+                    f"⚠️  Some uploaded files are larger than {large_file_threshold} MB ⚖️ :",
+                    tag="warning",
+                )
+                for fname, fsize in large_files[:3]:
+                    fsize_mb = fsize // (1024 * 1024)
+                    toolkit.print(f" • {fname} [yellow]({fsize_mb} MB)[/yellow]")
+                is_more = len(large_files) > 3
+                if is_more:
+                    toolkit.print(f" [dim]...and {len(large_files) - 3} more[/dim]")
+
+                large_files_docs_url = "https://fastapicloud.com/docs/fastapi-cloud-cli/deploy/#large-files-warning"
+                toolkit.print(
+                    f"Read more: [link={large_files_docs_url}]{large_files_docs_url}[/link]",
+                    tag="tip",
+                )
+                toolkit.print_line()
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 logger.debug("Creating archive for deployment")
                 archive_path = Path(temp_dir) / "archive.tar"
-                archive(path or Path.cwd(), archive_path)
+                archive(path_to_deploy, archive_path)
 
                 with (
                     toolkit.progress(

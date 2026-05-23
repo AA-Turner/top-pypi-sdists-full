@@ -23,16 +23,17 @@ class InstanceArgs:
     def __init__(__self__, *,
                  config: pulumi.Input[_builtins.str],
                  display_name: pulumi.Input[_builtins.str],
-                 autoscaling_config: Optional[pulumi.Input['InstanceAutoscalingConfigArgs']] = None,
-                 default_backup_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 num_nodes: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 autoscaling_config: pulumi.Input[Optional['InstanceAutoscalingConfigArgs']] = None,
+                 default_backup_schedule_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 num_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Instance resource.
 
@@ -55,6 +56,12 @@ class InstanceArgs:
                Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
                if unset or NONE, no default backup schedule will be created for new databases within the instance.
                Possible values are: `NONE`, `AUTOMATIC`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] edition: The edition selected for this instance. Different editions provide different capabilities at different price points.
                Possible values are: `EDITION_UNSPECIFIED`, `STANDARD`, `ENTERPRISE`, `ENTERPRISE_PLUS`.
         :param pulumi.Input[_builtins.bool] force_destroy: When deleting a spanner instance, this boolean option will delete all backups of this instance.
@@ -85,6 +92,8 @@ class InstanceArgs:
             pulumi.set(__self__, "autoscaling_config", autoscaling_config)
         if default_backup_schedule_type is not None:
             pulumi.set(__self__, "default_backup_schedule_type", default_backup_schedule_type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if edition is not None:
             pulumi.set(__self__, "edition", edition)
         if force_destroy is not None:
@@ -134,7 +143,7 @@ class InstanceArgs:
 
     @_builtins.property
     @pulumi.getter(name="autoscalingConfig")
-    def autoscaling_config(self) -> Optional[pulumi.Input['InstanceAutoscalingConfigArgs']]:
+    def autoscaling_config(self) -> pulumi.Input[Optional['InstanceAutoscalingConfigArgs']]:
         """
         The autoscaling configuration. Autoscaling is enabled if this field is set.
         Exactly one of either num_nodes, processing_units or autoscaling_config must be
@@ -147,12 +156,12 @@ class InstanceArgs:
         return pulumi.get(self, "autoscaling_config")
 
     @autoscaling_config.setter
-    def autoscaling_config(self, value: Optional[pulumi.Input['InstanceAutoscalingConfigArgs']]):
+    def autoscaling_config(self, value: pulumi.Input[Optional['InstanceAutoscalingConfigArgs']]):
         pulumi.set(self, "autoscaling_config", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultBackupScheduleType")
-    def default_backup_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_backup_schedule_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Controls the default backup behavior for new databases within the instance.
         Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
@@ -162,12 +171,29 @@ class InstanceArgs:
         return pulumi.get(self, "default_backup_schedule_type")
 
     @default_backup_schedule_type.setter
-    def default_backup_schedule_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_backup_schedule_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_backup_schedule_type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def edition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def edition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The edition selected for this instance. Different editions provide different capabilities at different price points.
         Possible values are: `EDITION_UNSPECIFIED`, `STANDARD`, `ENTERPRISE`, `ENTERPRISE_PLUS`.
@@ -175,12 +201,12 @@ class InstanceArgs:
         return pulumi.get(self, "edition")
 
     @edition.setter
-    def edition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def edition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "edition", value)
 
     @_builtins.property
     @pulumi.getter(name="forceDestroy")
-    def force_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def force_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         When deleting a spanner instance, this boolean option will delete all backups of this instance.
         This must be set to true if you created a backup manually in the console.
@@ -188,12 +214,12 @@ class InstanceArgs:
         return pulumi.get(self, "force_destroy")
 
     @force_destroy.setter
-    def force_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def force_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "force_destroy", value)
 
     @_builtins.property
     @pulumi.getter(name="instanceType")
-    def instance_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of this instance. The type can be used to distinguish product variants, that can affect aspects like:
         usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances.
@@ -203,12 +229,12 @@ class InstanceArgs:
         return pulumi.get(self, "instance_type")
 
     @instance_type.setter
-    def instance_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         An object containing a list of "key": value pairs.
         Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
@@ -219,12 +245,12 @@ class InstanceArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the instance, which cannot be changed after
         the instance is created. The name must be between 6 and 30 characters
@@ -234,12 +260,12 @@ class InstanceArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="numNodes")
-    def num_nodes(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def num_nodes(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or
         autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
@@ -247,12 +273,12 @@ class InstanceArgs:
         return pulumi.get(self, "num_nodes")
 
     @num_nodes.setter
-    def num_nodes(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def num_nodes(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "num_nodes", value)
 
     @_builtins.property
     @pulumi.getter(name="processingUnits")
-    def processing_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def processing_units(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of processing units allocated to this instance. Exactly one of either num_nodes,
         processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
@@ -260,12 +286,12 @@ class InstanceArgs:
         return pulumi.get(self, "processing_units")
 
     @processing_units.setter
-    def processing_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def processing_units(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "processing_units", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -273,28 +299,29 @@ class InstanceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _InstanceState:
     def __init__(__self__, *,
-                 autoscaling_config: Optional[pulumi.Input['InstanceAutoscalingConfigArgs']] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_backup_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 num_nodes: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 autoscaling_config: pulumi.Input[Optional['InstanceAutoscalingConfigArgs']] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_backup_schedule_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 num_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Instance resources.
 
@@ -315,6 +342,12 @@ class _InstanceState:
                Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
                if unset or NONE, no default backup schedule will be created for new databases within the instance.
                Possible values are: `NONE`, `AUTOMATIC`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance as it appears in UIs. Must be
                unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] edition: The edition selected for this instance. Different editions provide different capabilities at different price points.
@@ -351,6 +384,8 @@ class _InstanceState:
             pulumi.set(__self__, "config", config)
         if default_backup_schedule_type is not None:
             pulumi.set(__self__, "default_backup_schedule_type", default_backup_schedule_type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if edition is not None:
@@ -378,7 +413,7 @@ class _InstanceState:
 
     @_builtins.property
     @pulumi.getter(name="autoscalingConfig")
-    def autoscaling_config(self) -> Optional[pulumi.Input['InstanceAutoscalingConfigArgs']]:
+    def autoscaling_config(self) -> pulumi.Input[Optional['InstanceAutoscalingConfigArgs']]:
         """
         The autoscaling configuration. Autoscaling is enabled if this field is set.
         Exactly one of either num_nodes, processing_units or autoscaling_config must be
@@ -391,12 +426,12 @@ class _InstanceState:
         return pulumi.get(self, "autoscaling_config")
 
     @autoscaling_config.setter
-    def autoscaling_config(self, value: Optional[pulumi.Input['InstanceAutoscalingConfigArgs']]):
+    def autoscaling_config(self, value: pulumi.Input[Optional['InstanceAutoscalingConfigArgs']]):
         pulumi.set(self, "autoscaling_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance's configuration (similar but not
         quite the same as a region) which defines the geographic placement and
@@ -408,12 +443,12 @@ class _InstanceState:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultBackupScheduleType")
-    def default_backup_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_backup_schedule_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Controls the default backup behavior for new databases within the instance.
         Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
@@ -423,12 +458,29 @@ class _InstanceState:
         return pulumi.get(self, "default_backup_schedule_type")
 
     @default_backup_schedule_type.setter
-    def default_backup_schedule_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_backup_schedule_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_backup_schedule_type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The descriptive name for this instance as it appears in UIs. Must be
         unique per project and between 4 and 30 characters in length.
@@ -436,12 +488,12 @@ class _InstanceState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def edition(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def edition(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The edition selected for this instance. Different editions provide different capabilities at different price points.
         Possible values are: `EDITION_UNSPECIFIED`, `STANDARD`, `ENTERPRISE`, `ENTERPRISE_PLUS`.
@@ -449,24 +501,24 @@ class _InstanceState:
         return pulumi.get(self, "edition")
 
     @edition.setter
-    def edition(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def edition(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "edition", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="forceDestroy")
-    def force_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def force_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         When deleting a spanner instance, this boolean option will delete all backups of this instance.
         This must be set to true if you created a backup manually in the console.
@@ -474,12 +526,12 @@ class _InstanceState:
         return pulumi.get(self, "force_destroy")
 
     @force_destroy.setter
-    def force_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def force_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "force_destroy", value)
 
     @_builtins.property
     @pulumi.getter(name="instanceType")
-    def instance_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of this instance. The type can be used to distinguish product variants, that can affect aspects like:
         usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances.
@@ -489,12 +541,12 @@ class _InstanceState:
         return pulumi.get(self, "instance_type")
 
     @instance_type.setter
-    def instance_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         An object containing a list of "key": value pairs.
         Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
@@ -505,12 +557,12 @@ class _InstanceState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the instance, which cannot be changed after
         the instance is created. The name must be between 6 and 30 characters
@@ -520,12 +572,12 @@ class _InstanceState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="numNodes")
-    def num_nodes(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def num_nodes(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or
         autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
@@ -533,12 +585,12 @@ class _InstanceState:
         return pulumi.get(self, "num_nodes")
 
     @num_nodes.setter
-    def num_nodes(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def num_nodes(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "num_nodes", value)
 
     @_builtins.property
     @pulumi.getter(name="processingUnits")
-    def processing_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def processing_units(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of processing units allocated to this instance. Exactly one of either num_nodes,
         processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
@@ -546,12 +598,12 @@ class _InstanceState:
         return pulumi.get(self, "processing_units")
 
     @processing_units.setter
-    def processing_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def processing_units(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "processing_units", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -559,12 +611,12 @@ class _InstanceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -572,19 +624,19 @@ class _InstanceState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Instance status: `CREATING` or `READY`.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -594,18 +646,19 @@ class Instance(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 autoscaling_config: Optional[pulumi.Input[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_backup_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 num_nodes: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 autoscaling_config: pulumi.Input[Optional[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_backup_schedule_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 num_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An isolated set of Cloud Spanner resources on which databases can be
@@ -700,6 +753,12 @@ class Instance(pulumi.CustomResource):
                Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
                if unset or NONE, no default backup schedule will be created for new databases within the instance.
                Possible values are: `NONE`, `AUTOMATIC`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance as it appears in UIs. Must be
                unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] edition: The edition selected for this instance. Different editions provide different capabilities at different price points.
@@ -821,18 +880,19 @@ class Instance(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 autoscaling_config: Optional[pulumi.Input[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 default_backup_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 edition: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 instance_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 num_nodes: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 autoscaling_config: pulumi.Input[Optional[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 default_backup_schedule_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 edition: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 instance_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 num_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -847,6 +907,7 @@ class Instance(pulumi.CustomResource):
                 raise TypeError("Missing required property 'config'")
             __props__.__dict__["config"] = config
             __props__.__dict__["default_backup_schedule_type"] = default_backup_schedule_type
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -873,21 +934,22 @@ class Instance(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            autoscaling_config: Optional[pulumi.Input[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
-            config: Optional[pulumi.Input[_builtins.str]] = None,
-            default_backup_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            edition: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-            instance_type: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            num_nodes: Optional[pulumi.Input[_builtins.int]] = None,
-            processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'Instance':
+            autoscaling_config: pulumi.Input[Optional[Union['InstanceAutoscalingConfigArgs', 'InstanceAutoscalingConfigArgsDict']]] = None,
+            config: pulumi.Input[Optional[_builtins.str]] = None,
+            default_backup_schedule_type: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            edition: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            instance_type: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            num_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+            processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'Instance':
         """
         Get an existing Instance resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -912,6 +974,12 @@ class Instance(pulumi.CustomResource):
                Note that `AUTOMATIC` is not permitted for free instances, as backups and backup schedules are not allowed for free instances.
                if unset or NONE, no default backup schedule will be created for new databases within the instance.
                Possible values are: `NONE`, `AUTOMATIC`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance as it appears in UIs. Must be
                unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] edition: The edition selected for this instance. Different editions provide different capabilities at different price points.
@@ -949,6 +1017,7 @@ class Instance(pulumi.CustomResource):
         __props__.__dict__["autoscaling_config"] = autoscaling_config
         __props__.__dict__["config"] = config
         __props__.__dict__["default_backup_schedule_type"] = default_backup_schedule_type
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["edition"] = edition
         __props__.__dict__["effective_labels"] = effective_labels
@@ -1000,6 +1069,19 @@ class Instance(pulumi.CustomResource):
         Possible values are: `NONE`, `AUTOMATIC`.
         """
         return pulumi.get(self, "default_backup_schedule_type")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: AMQPStorm
-Version: 3.0
+Version: 3.1
 Summary: Thread-safe Python3 RabbitMQ Client & Management library.
-Home-page: https://amqpstorm.readthedocs.io/
-Author: Erik Olof Gunnar Andersson
-Author-email: amqpstorm@eandersson.net
+Author-email: Erik Olof Gunnar Andersson <amqpstorm@eandersson.net>
 License: MIT License
+Project-URL: Homepage, https://amqpstorm.readthedocs.io/
+Project-URL: Documentation, https://amqpstorm.readthedocs.io/
+Project-URL: Repository, https://github.com/eandersson/amqpstorm
+Project-URL: Changelog, https://github.com/eandersson/amqpstorm/blob/main/CHANGELOG.rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -24,21 +26,17 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pamqp<5.0,>=4.0.0
 Provides-Extra: management
 Requires-Dist: requests>2; extra == "management"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: typing
+Requires-Dist: mypy; extra == "typing"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 AMQPStorm
 =========

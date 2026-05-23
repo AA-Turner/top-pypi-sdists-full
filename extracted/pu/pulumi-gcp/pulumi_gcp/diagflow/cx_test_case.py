@@ -22,15 +22,22 @@ __all__ = ['CxTestCaseArgs', 'CxTestCase']
 class CxTestCaseArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
-                 notes: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 test_case_conversation_turns: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]] = None,
-                 test_config: Optional[pulumi.Input['CxTestCaseTestConfigArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 notes: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 test_case_conversation_turns: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]] = None,
+                 test_config: pulumi.Input[Optional['CxTestCaseTestConfigArgs']] = None):
         """
         The set of arguments for constructing a CxTestCase resource.
 
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] notes: Additional freeform notes about the test case. Limit of 400 characters.
         :param pulumi.Input[_builtins.str] parent: The agent to create the test case for.
                Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -42,6 +49,8 @@ class CxTestCaseArgs:
                Structure is documented below.
         """
         pulumi.set(__self__, "display_name", display_name)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if notes is not None:
             pulumi.set(__self__, "notes", notes)
         if parent is not None:
@@ -66,20 +75,37 @@ class CxTestCaseArgs:
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def notes(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notes(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Additional freeform notes about the test case. Limit of 400 characters.
         """
         return pulumi.get(self, "notes")
 
     @notes.setter
-    def notes(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notes(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notes", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create the test case for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -87,12 +113,12 @@ class CxTestCaseArgs:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Tags are short descriptions that users may apply to test cases for organizational and filtering purposes.
         Each tag should start with "#" and has a limit of 30 characters
@@ -100,12 +126,12 @@ class CxTestCaseArgs:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter(name="testCaseConversationTurns")
-    def test_case_conversation_turns(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]:
+    def test_case_conversation_turns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]:
         """
         The conversation turns uttered when the test case was created, in chronological order. These include the canonical set of agent utterances that should occur when the agent is working properly.
         Structure is documented below.
@@ -113,12 +139,12 @@ class CxTestCaseArgs:
         return pulumi.get(self, "test_case_conversation_turns")
 
     @test_case_conversation_turns.setter
-    def test_case_conversation_turns(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]):
+    def test_case_conversation_turns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]):
         pulumi.set(self, "test_case_conversation_turns", value)
 
     @_builtins.property
     @pulumi.getter(name="testConfig")
-    def test_config(self) -> Optional[pulumi.Input['CxTestCaseTestConfigArgs']]:
+    def test_config(self) -> pulumi.Input[Optional['CxTestCaseTestConfigArgs']]:
         """
         Config for the test case.
         Structure is documented below.
@@ -126,26 +152,33 @@ class CxTestCaseArgs:
         return pulumi.get(self, "test_config")
 
     @test_config.setter
-    def test_config(self, value: Optional[pulumi.Input['CxTestCaseTestConfigArgs']]):
+    def test_config(self, value: pulumi.Input[Optional['CxTestCaseTestConfigArgs']]):
         pulumi.set(self, "test_config", value)
 
 
 @pulumi.input_type
 class _CxTestCaseState:
     def __init__(__self__, *,
-                 creation_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 last_test_results: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notes: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 test_case_conversation_turns: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]] = None,
-                 test_config: Optional[pulumi.Input['CxTestCaseTestConfigArgs']] = None):
+                 creation_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 last_test_results: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notes: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 test_case_conversation_turns: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]] = None,
+                 test_config: pulumi.Input[Optional['CxTestCaseTestConfigArgs']] = None):
         """
         Input properties used for looking up and filtering CxTestCase resources.
 
         :param pulumi.Input[_builtins.str] creation_time: When the test was created. A timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters.
         :param pulumi.Input[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]] last_test_results: The latest test result.
                Structure is documented below.
@@ -163,6 +196,8 @@ class _CxTestCaseState:
         """
         if creation_time is not None:
             pulumi.set(__self__, "creation_time", creation_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if last_test_results is not None:
@@ -182,31 +217,48 @@ class _CxTestCaseState:
 
     @_builtins.property
     @pulumi.getter(name="creationTime")
-    def creation_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         When the test was created. A timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_time")
 
     @creation_time.setter
-    def creation_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable name of the test case, unique within the agent. Limit of 200 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="lastTestResults")
-    def last_test_results(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]]:
+    def last_test_results(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]]:
         """
         The latest test result.
         Structure is documented below.
@@ -214,12 +266,12 @@ class _CxTestCaseState:
         return pulumi.get(self, "last_test_results")
 
     @last_test_results.setter
-    def last_test_results(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]]):
+    def last_test_results(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseLastTestResultArgs']]]]):
         pulumi.set(self, "last_test_results", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the page.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/flows/<Flow ID>/pages/<Page ID>.
@@ -227,24 +279,24 @@ class _CxTestCaseState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def notes(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def notes(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Additional freeform notes about the test case. Limit of 400 characters.
         """
         return pulumi.get(self, "notes")
 
     @notes.setter
-    def notes(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def notes(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "notes", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create the test case for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -252,12 +304,12 @@ class _CxTestCaseState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Tags are short descriptions that users may apply to test cases for organizational and filtering purposes.
         Each tag should start with "#" and has a limit of 30 characters
@@ -265,12 +317,12 @@ class _CxTestCaseState:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter(name="testCaseConversationTurns")
-    def test_case_conversation_turns(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]:
+    def test_case_conversation_turns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]:
         """
         The conversation turns uttered when the test case was created, in chronological order. These include the canonical set of agent utterances that should occur when the agent is working properly.
         Structure is documented below.
@@ -278,12 +330,12 @@ class _CxTestCaseState:
         return pulumi.get(self, "test_case_conversation_turns")
 
     @test_case_conversation_turns.setter
-    def test_case_conversation_turns(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]):
+    def test_case_conversation_turns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CxTestCaseTestCaseConversationTurnArgs']]]]):
         pulumi.set(self, "test_case_conversation_turns", value)
 
     @_builtins.property
     @pulumi.getter(name="testConfig")
-    def test_config(self) -> Optional[pulumi.Input['CxTestCaseTestConfigArgs']]:
+    def test_config(self) -> pulumi.Input[Optional['CxTestCaseTestConfigArgs']]:
         """
         Config for the test case.
         Structure is documented below.
@@ -291,7 +343,7 @@ class _CxTestCaseState:
         return pulumi.get(self, "test_config")
 
     @test_config.setter
-    def test_config(self, value: Optional[pulumi.Input['CxTestCaseTestConfigArgs']]):
+    def test_config(self, value: pulumi.Input[Optional['CxTestCaseTestConfigArgs']]):
         pulumi.set(self, "test_config", value)
 
 
@@ -301,12 +353,13 @@ class CxTestCase(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notes: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 test_case_conversation_turns: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
-                 test_config: Optional[pulumi.Input[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notes: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 test_case_conversation_turns: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
+                 test_config: pulumi.Input[Optional[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None,
                  __props__=None):
         """
         You can use the built-in test feature to uncover bugs and prevent regressions. A test execution verifies that agent responses have not changed for end-user inputs defined in the test case.
@@ -465,6 +518,12 @@ class CxTestCase(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters.
         :param pulumi.Input[_builtins.str] notes: Additional freeform notes about the test case. Limit of 400 characters.
         :param pulumi.Input[_builtins.str] parent: The agent to create the test case for.
@@ -652,12 +711,13 @@ class CxTestCase(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 notes: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 test_case_conversation_turns: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
-                 test_config: Optional[pulumi.Input[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 notes: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 test_case_conversation_turns: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
+                 test_config: pulumi.Input[Optional[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -667,6 +727,7 @@ class CxTestCase(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = CxTestCaseArgs.__new__(CxTestCaseArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -688,15 +749,16 @@ class CxTestCase(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            creation_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            last_test_results: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxTestCaseLastTestResultArgs', 'CxTestCaseLastTestResultArgsDict']]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            notes: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            test_case_conversation_turns: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
-            test_config: Optional[pulumi.Input[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None) -> 'CxTestCase':
+            creation_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            last_test_results: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxTestCaseLastTestResultArgs', 'CxTestCaseLastTestResultArgsDict']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            notes: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            test_case_conversation_turns: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CxTestCaseTestCaseConversationTurnArgs', 'CxTestCaseTestCaseConversationTurnArgsDict']]]]] = None,
+            test_config: pulumi.Input[Optional[Union['CxTestCaseTestConfigArgs', 'CxTestCaseTestConfigArgsDict']]] = None) -> 'CxTestCase':
         """
         Get an existing CxTestCase resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -705,6 +767,12 @@ class CxTestCase(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] creation_time: When the test was created. A timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the test case, unique within the agent. Limit of 200 characters.
         :param pulumi.Input[Sequence[pulumi.Input[Union['CxTestCaseLastTestResultArgs', 'CxTestCaseLastTestResultArgsDict']]]] last_test_results: The latest test result.
                Structure is documented below.
@@ -725,6 +793,7 @@ class CxTestCase(pulumi.CustomResource):
         __props__ = _CxTestCaseState.__new__(_CxTestCaseState)
 
         __props__.__dict__["creation_time"] = creation_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["last_test_results"] = last_test_results
         __props__.__dict__["name"] = name
@@ -742,6 +811,19 @@ class CxTestCase(pulumi.CustomResource):
         When the test was created. A timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

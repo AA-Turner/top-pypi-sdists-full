@@ -23,18 +23,19 @@ class RegionalSecretArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
                  secret_id: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 customer_managed_encryption: Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rotation: Optional[pulumi.Input['RegionalSecretRotationArgs']] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 topics: Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_aliases: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 version_destroy_ttl: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 customer_managed_encryption: pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rotation: pulumi.Input[Optional['RegionalSecretRotationArgs']] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_aliases: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 version_destroy_ttl: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RegionalSecret resource.
 
@@ -55,6 +56,12 @@ class RegionalSecretArgs:
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs'] customer_managed_encryption: The customer-managed encryption configuration of the regional secret.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
                When the field is set to true in Terraform state, a `pulumi up`
                or `terraform destroy` that would delete the federation will fail.
@@ -106,6 +113,8 @@ class RegionalSecretArgs:
             pulumi.set(__self__, "annotations", annotations)
         if customer_managed_encryption is not None:
             pulumi.set(__self__, "customer_managed_encryption", customer_managed_encryption)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if expire_time is not None:
@@ -153,7 +162,7 @@ class RegionalSecretArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Custom metadata about the regional secret.
         Annotations are distinct from various forms of labels. Annotations exist to allow
@@ -172,12 +181,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="customerManagedEncryption")
-    def customer_managed_encryption(self) -> Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']]:
+    def customer_managed_encryption(self) -> pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']]:
         """
         The customer-managed encryption configuration of the regional secret.
         Structure is documented below.
@@ -185,12 +194,29 @@ class RegionalSecretArgs:
         return pulumi.get(self, "customer_managed_encryption")
 
     @customer_managed_encryption.setter
-    def customer_managed_encryption(self, value: Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']]):
+    def customer_managed_encryption(self, value: pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']]):
         pulumi.set(self, "customer_managed_encryption", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
         When the field is set to true in Terraform state, a `pulumi up`
@@ -199,12 +225,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="expireTime")
-    def expire_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expire_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp in UTC when the regional secret is scheduled to expire. This is always provided on
         output, regardless of what was sent on input. A timestamp in RFC3339 UTC "Zulu" format, with
@@ -214,12 +240,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "expire_time")
 
     @expire_time.setter
-    def expire_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expire_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expire_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels assigned to this regional secret.
         Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes,
@@ -236,12 +262,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -249,12 +275,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def rotation(self) -> Optional[pulumi.Input['RegionalSecretRotationArgs']]:
+    def rotation(self) -> pulumi.Input[Optional['RegionalSecretRotationArgs']]:
         """
         The rotation time and period for a regional secret. At `next_rotation_time`, Secret Manager
         will send a Pub/Sub notification to the topics configured on the Secret. `topics` must be
@@ -264,12 +290,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "rotation")
 
     @rotation.setter
-    def rotation(self, value: Optional[pulumi.Input['RegionalSecretRotationArgs']]):
+    def rotation(self, value: pulumi.Input[Optional['RegionalSecretRotationArgs']]):
         pulumi.set(self, "rotation", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A map of resource manager tags.
         Resource manager tag keys and values have the same definition as resource manager tags.
@@ -278,12 +304,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter
-    def topics(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]:
+    def topics(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]:
         """
         A list of up to 10 Pub/Sub topics to which messages are published when control plane
         operations are called on the regional secret or its versions.
@@ -292,12 +318,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "topics")
 
     @topics.setter
-    def topics(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]):
+    def topics(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]):
         pulumi.set(self, "topics", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL for the regional secret. A duration in seconds with up to nine fractional digits,
         terminated by 's'. Example: "3.5s". Only one of `ttl` or `expire_time` can be provided.
@@ -305,12 +331,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
     @_builtins.property
     @pulumi.getter(name="versionAliases")
-    def version_aliases(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def version_aliases(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Mapping from version alias to version name.
         A version alias is a string with a maximum length of 63 characters and can contain
@@ -323,12 +349,12 @@ class RegionalSecretArgs:
         return pulumi.get(self, "version_aliases")
 
     @version_aliases.setter
-    def version_aliases(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def version_aliases(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "version_aliases", value)
 
     @_builtins.property
     @pulumi.getter(name="versionDestroyTtl")
-    def version_destroy_ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version_destroy_ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Secret Version TTL after destruction request.
         This is a part of the delayed delete feature on Secret Version.
@@ -339,32 +365,33 @@ class RegionalSecretArgs:
         return pulumi.get(self, "version_destroy_ttl")
 
     @version_destroy_ttl.setter
-    def version_destroy_ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version_destroy_ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version_destroy_ttl", value)
 
 
 @pulumi.input_type
 class _RegionalSecretState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 customer_managed_encryption: Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 rotation: Optional[pulumi.Input['RegionalSecretRotationArgs']] = None,
-                 secret_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 topics: Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_aliases: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 version_destroy_ttl: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 customer_managed_encryption: pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 rotation: pulumi.Input[Optional['RegionalSecretRotationArgs']] = None,
+                 secret_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_aliases: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 version_destroy_ttl: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RegionalSecret resources.
 
@@ -384,6 +411,12 @@ class _RegionalSecretState:
         :param pulumi.Input[_builtins.str] create_time: The time at which the regional secret was created.
         :param pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs'] customer_managed_encryption: The customer-managed encryption configuration of the regional secret.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
                When the field is set to true in Terraform state, a `pulumi up`
                or `terraform destroy` that would delete the federation will fail.
@@ -443,6 +476,8 @@ class _RegionalSecretState:
             pulumi.set(__self__, "create_time", create_time)
         if customer_managed_encryption is not None:
             pulumi.set(__self__, "customer_managed_encryption", customer_managed_encryption)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if effective_annotations is not None:
@@ -478,7 +513,7 @@ class _RegionalSecretState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Custom metadata about the regional secret.
         Annotations are distinct from various forms of labels. Annotations exist to allow
@@ -497,24 +532,24 @@ class _RegionalSecretState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time at which the regional secret was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="customerManagedEncryption")
-    def customer_managed_encryption(self) -> Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']]:
+    def customer_managed_encryption(self) -> pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']]:
         """
         The customer-managed encryption configuration of the regional secret.
         Structure is documented below.
@@ -522,12 +557,29 @@ class _RegionalSecretState:
         return pulumi.get(self, "customer_managed_encryption")
 
     @customer_managed_encryption.setter
-    def customer_managed_encryption(self, value: Optional[pulumi.Input['RegionalSecretCustomerManagedEncryptionArgs']]):
+    def customer_managed_encryption(self, value: pulumi.Input[Optional['RegionalSecretCustomerManagedEncryptionArgs']]):
         pulumi.set(self, "customer_managed_encryption", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
         When the field is set to true in Terraform state, a `pulumi up`
@@ -536,36 +588,36 @@ class _RegionalSecretState:
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="expireTime")
-    def expire_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expire_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp in UTC when the regional secret is scheduled to expire. This is always provided on
         output, regardless of what was sent on input. A timestamp in RFC3339 UTC "Zulu" format, with
@@ -575,12 +627,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "expire_time")
 
     @expire_time.setter
-    def expire_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expire_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expire_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The labels assigned to this regional secret.
         Label keys must be between 1 and 63 characters long, have a UTF-8 encoding of maximum 128 bytes,
@@ -597,24 +649,24 @@ class _RegionalSecretState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the regional secret. eg us-central1
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the regional secret. Format:
         `projects/{{project}}/locations/{{location}}/secrets/{{secret_id}}`
@@ -622,12 +674,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -635,12 +687,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -648,12 +700,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def rotation(self) -> Optional[pulumi.Input['RegionalSecretRotationArgs']]:
+    def rotation(self) -> pulumi.Input[Optional['RegionalSecretRotationArgs']]:
         """
         The rotation time and period for a regional secret. At `next_rotation_time`, Secret Manager
         will send a Pub/Sub notification to the topics configured on the Secret. `topics` must be
@@ -663,24 +715,24 @@ class _RegionalSecretState:
         return pulumi.get(self, "rotation")
 
     @rotation.setter
-    def rotation(self, value: Optional[pulumi.Input['RegionalSecretRotationArgs']]):
+    def rotation(self, value: pulumi.Input[Optional['RegionalSecretRotationArgs']]):
         pulumi.set(self, "rotation", value)
 
     @_builtins.property
     @pulumi.getter(name="secretId")
-    def secret_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def secret_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This must be unique within the project.
         """
         return pulumi.get(self, "secret_id")
 
     @secret_id.setter
-    def secret_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def secret_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "secret_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A map of resource manager tags.
         Resource manager tag keys and values have the same definition as resource manager tags.
@@ -689,12 +741,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter
-    def topics(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]:
+    def topics(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]:
         """
         A list of up to 10 Pub/Sub topics to which messages are published when control plane
         operations are called on the regional secret or its versions.
@@ -703,12 +755,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "topics")
 
     @topics.setter
-    def topics(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]):
+    def topics(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RegionalSecretTopicArgs']]]]):
         pulumi.set(self, "topics", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL for the regional secret. A duration in seconds with up to nine fractional digits,
         terminated by 's'. Example: "3.5s". Only one of `ttl` or `expire_time` can be provided.
@@ -716,12 +768,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
     @_builtins.property
     @pulumi.getter(name="versionAliases")
-    def version_aliases(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def version_aliases(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Mapping from version alias to version name.
         A version alias is a string with a maximum length of 63 characters and can contain
@@ -734,12 +786,12 @@ class _RegionalSecretState:
         return pulumi.get(self, "version_aliases")
 
     @version_aliases.setter
-    def version_aliases(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def version_aliases(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "version_aliases", value)
 
     @_builtins.property
     @pulumi.getter(name="versionDestroyTtl")
-    def version_destroy_ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version_destroy_ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Secret Version TTL after destruction request.
         This is a part of the delayed delete feature on Secret Version.
@@ -750,7 +802,7 @@ class _RegionalSecretState:
         return pulumi.get(self, "version_destroy_ttl")
 
     @version_destroy_ttl.setter
-    def version_destroy_ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version_destroy_ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version_destroy_ttl", value)
 
 
@@ -760,20 +812,21 @@ class RegionalSecret(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 customer_managed_encryption: Optional[pulumi.Input[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rotation: Optional[pulumi.Input[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
-                 secret_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 topics: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_aliases: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 version_destroy_ttl: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 customer_managed_encryption: pulumi.Input[Optional[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rotation: pulumi.Input[Optional[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
+                 secret_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_aliases: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 version_destroy_ttl: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Regional Secret is a logical secret whose value and versions can be created and accessed within a region only.
@@ -940,6 +993,12 @@ class RegionalSecret(pulumi.CustomResource):
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']] customer_managed_encryption: The customer-managed encryption configuration of the regional secret.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
                When the field is set to true in Terraform state, a `pulumi up`
                or `terraform destroy` that would delete the federation will fail.
@@ -1156,20 +1215,21 @@ class RegionalSecret(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 customer_managed_encryption: Optional[pulumi.Input[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rotation: Optional[pulumi.Input[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
-                 secret_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 topics: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 version_aliases: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 version_destroy_ttl: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 customer_managed_encryption: pulumi.Input[Optional[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rotation: pulumi.Input[Optional[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
+                 secret_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_aliases: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 version_destroy_ttl: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1181,6 +1241,7 @@ class RegionalSecret(pulumi.CustomResource):
 
             __props__.__dict__["annotations"] = annotations
             __props__.__dict__["customer_managed_encryption"] = customer_managed_encryption
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             __props__.__dict__["expire_time"] = expire_time
             __props__.__dict__["labels"] = labels
@@ -1214,25 +1275,26 @@ class RegionalSecret(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            customer_managed_encryption: Optional[pulumi.Input[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.bool]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            rotation: Optional[pulumi.Input[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
-            secret_id: Optional[pulumi.Input[_builtins.str]] = None,
-            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            topics: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
-            ttl: Optional[pulumi.Input[_builtins.str]] = None,
-            version_aliases: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            version_destroy_ttl: Optional[pulumi.Input[_builtins.str]] = None) -> 'RegionalSecret':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_managed_encryption: pulumi.Input[Optional[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            rotation: pulumi.Input[Optional[Union['RegionalSecretRotationArgs', 'RegionalSecretRotationArgsDict']]] = None,
+            secret_id: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            topics: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RegionalSecretTopicArgs', 'RegionalSecretTopicArgsDict']]]]] = None,
+            ttl: pulumi.Input[Optional[_builtins.str]] = None,
+            version_aliases: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            version_destroy_ttl: pulumi.Input[Optional[_builtins.str]] = None) -> 'RegionalSecret':
         """
         Get an existing RegionalSecret resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1256,6 +1318,12 @@ class RegionalSecret(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: The time at which the regional secret was created.
         :param pulumi.Input[Union['RegionalSecretCustomerManagedEncryptionArgs', 'RegionalSecretCustomerManagedEncryptionArgsDict']] customer_managed_encryption: The customer-managed encryption configuration of the regional secret.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] deletion_protection: Whether Terraform will be prevented from destroying the regional secret. Defaults to false.
                When the field is set to true in Terraform state, a `pulumi up`
                or `terraform destroy` that would delete the federation will fail.
@@ -1316,6 +1384,7 @@ class RegionalSecret(pulumi.CustomResource):
         __props__.__dict__["annotations"] = annotations
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["customer_managed_encryption"] = customer_managed_encryption
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["effective_labels"] = effective_labels
@@ -1370,6 +1439,19 @@ class RegionalSecret(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "customer_managed_encryption")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

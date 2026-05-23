@@ -21,14 +21,15 @@ __all__ = ['PolicyArgs', 'Policy']
 @pulumi.input_type
 class PolicyArgs:
     def __init__(__self__, *,
-                 alternative_name_server_config: Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns64_config: Optional[pulumi.Input['PolicyDns64ConfigArgs']] = None,
-                 enable_inbound_forwarding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networks: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 alternative_name_server_config: pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns64_config: pulumi.Input[Optional['PolicyDns64ConfigArgs']] = None,
+                 enable_inbound_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Policy resource.
 
@@ -36,6 +37,12 @@ class PolicyArgs:
                When specified, all DNS queries are forwarded to a name server that you choose.
                Names such as .internal are not available when an alternative name server is specified.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description field. Defaults to 'Managed by Pulumi'.
         :param pulumi.Input['PolicyDns64ConfigArgs'] dns64_config: Configurations related to DNS64 for this Policy.
                Structure is documented below.
@@ -53,6 +60,8 @@ class PolicyArgs:
         """
         if alternative_name_server_config is not None:
             pulumi.set(__self__, "alternative_name_server_config", alternative_name_server_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dns64_config is not None:
@@ -70,7 +79,7 @@ class PolicyArgs:
 
     @_builtins.property
     @pulumi.getter(name="alternativeNameServerConfig")
-    def alternative_name_server_config(self) -> Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']]:
+    def alternative_name_server_config(self) -> pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']]:
         """
         Sets an alternative name server for the associated networks.
         When specified, all DNS queries are forwarded to a name server that you choose.
@@ -80,24 +89,41 @@ class PolicyArgs:
         return pulumi.get(self, "alternative_name_server_config")
 
     @alternative_name_server_config.setter
-    def alternative_name_server_config(self, value: Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']]):
+    def alternative_name_server_config(self, value: pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']]):
         pulumi.set(self, "alternative_name_server_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A textual description field. Defaults to 'Managed by Pulumi'.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="dns64Config")
-    def dns64_config(self) -> Optional[pulumi.Input['PolicyDns64ConfigArgs']]:
+    def dns64_config(self) -> pulumi.Input[Optional['PolicyDns64ConfigArgs']]:
         """
         Configurations related to DNS64 for this Policy.
         Structure is documented below.
@@ -105,12 +131,12 @@ class PolicyArgs:
         return pulumi.get(self, "dns64_config")
 
     @dns64_config.setter
-    def dns64_config(self, value: Optional[pulumi.Input['PolicyDns64ConfigArgs']]):
+    def dns64_config(self, value: pulumi.Input[Optional['PolicyDns64ConfigArgs']]):
         pulumi.set(self, "dns64_config", value)
 
     @_builtins.property
     @pulumi.getter(name="enableInboundForwarding")
-    def enable_inbound_forwarding(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_inbound_forwarding(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Allows networks bound to this policy to receive DNS queries sent
         by VMs or applications over VPN connections. When enabled, a
@@ -120,12 +146,12 @@ class PolicyArgs:
         return pulumi.get(self, "enable_inbound_forwarding")
 
     @enable_inbound_forwarding.setter
-    def enable_inbound_forwarding(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_inbound_forwarding(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_inbound_forwarding", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether logging is enabled for the networks bound to this policy.
         Defaults to no logging if not set.
@@ -133,24 +159,24 @@ class PolicyArgs:
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User assigned name for this policy.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def networks(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]]:
+    def networks(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]]:
         """
         List of network names specifying networks to which this policy is applied.
         Structure is documented below.
@@ -158,12 +184,12 @@ class PolicyArgs:
         return pulumi.get(self, "networks")
 
     @networks.setter
-    def networks(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]]):
+    def networks(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]]):
         pulumi.set(self, "networks", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -171,21 +197,22 @@ class PolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _PolicyState:
     def __init__(__self__, *,
-                 alternative_name_server_config: Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns64_config: Optional[pulumi.Input['PolicyDns64ConfigArgs']] = None,
-                 enable_inbound_forwarding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networks: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 alternative_name_server_config: pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns64_config: pulumi.Input[Optional['PolicyDns64ConfigArgs']] = None,
+                 enable_inbound_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Policy resources.
 
@@ -193,6 +220,12 @@ class _PolicyState:
                When specified, all DNS queries are forwarded to a name server that you choose.
                Names such as .internal are not available when an alternative name server is specified.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description field. Defaults to 'Managed by Pulumi'.
         :param pulumi.Input['PolicyDns64ConfigArgs'] dns64_config: Configurations related to DNS64 for this Policy.
                Structure is documented below.
@@ -210,6 +243,8 @@ class _PolicyState:
         """
         if alternative_name_server_config is not None:
             pulumi.set(__self__, "alternative_name_server_config", alternative_name_server_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if dns64_config is not None:
@@ -227,7 +262,7 @@ class _PolicyState:
 
     @_builtins.property
     @pulumi.getter(name="alternativeNameServerConfig")
-    def alternative_name_server_config(self) -> Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']]:
+    def alternative_name_server_config(self) -> pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']]:
         """
         Sets an alternative name server for the associated networks.
         When specified, all DNS queries are forwarded to a name server that you choose.
@@ -237,24 +272,41 @@ class _PolicyState:
         return pulumi.get(self, "alternative_name_server_config")
 
     @alternative_name_server_config.setter
-    def alternative_name_server_config(self, value: Optional[pulumi.Input['PolicyAlternativeNameServerConfigArgs']]):
+    def alternative_name_server_config(self, value: pulumi.Input[Optional['PolicyAlternativeNameServerConfigArgs']]):
         pulumi.set(self, "alternative_name_server_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A textual description field. Defaults to 'Managed by Pulumi'.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="dns64Config")
-    def dns64_config(self) -> Optional[pulumi.Input['PolicyDns64ConfigArgs']]:
+    def dns64_config(self) -> pulumi.Input[Optional['PolicyDns64ConfigArgs']]:
         """
         Configurations related to DNS64 for this Policy.
         Structure is documented below.
@@ -262,12 +314,12 @@ class _PolicyState:
         return pulumi.get(self, "dns64_config")
 
     @dns64_config.setter
-    def dns64_config(self, value: Optional[pulumi.Input['PolicyDns64ConfigArgs']]):
+    def dns64_config(self, value: pulumi.Input[Optional['PolicyDns64ConfigArgs']]):
         pulumi.set(self, "dns64_config", value)
 
     @_builtins.property
     @pulumi.getter(name="enableInboundForwarding")
-    def enable_inbound_forwarding(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_inbound_forwarding(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Allows networks bound to this policy to receive DNS queries sent
         by VMs or applications over VPN connections. When enabled, a
@@ -277,12 +329,12 @@ class _PolicyState:
         return pulumi.get(self, "enable_inbound_forwarding")
 
     @enable_inbound_forwarding.setter
-    def enable_inbound_forwarding(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_inbound_forwarding(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_inbound_forwarding", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether logging is enabled for the networks bound to this policy.
         Defaults to no logging if not set.
@@ -290,24 +342,24 @@ class _PolicyState:
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User assigned name for this policy.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def networks(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]]:
+    def networks(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]]:
         """
         List of network names specifying networks to which this policy is applied.
         Structure is documented below.
@@ -315,12 +367,12 @@ class _PolicyState:
         return pulumi.get(self, "networks")
 
     @networks.setter
-    def networks(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyNetworkArgs']]]]):
+    def networks(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyNetworkArgs']]]]):
         pulumi.set(self, "networks", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -328,7 +380,7 @@ class _PolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -338,14 +390,15 @@ class Policy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 alternative_name_server_config: Optional[pulumi.Input[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns64_config: Optional[pulumi.Input[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
-                 enable_inbound_forwarding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networks: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 alternative_name_server_config: pulumi.Input[Optional[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns64_config: pulumi.Input[Optional[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
+                 enable_inbound_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A policy is a collection of DNS rules applied to one or more Virtual
@@ -419,6 +472,12 @@ class Policy(pulumi.CustomResource):
                When specified, all DNS queries are forwarded to a name server that you choose.
                Names such as .internal are not available when an alternative name server is specified.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description field. Defaults to 'Managed by Pulumi'.
         :param pulumi.Input[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']] dns64_config: Configurations related to DNS64 for this Policy.
                Structure is documented below.
@@ -521,14 +580,15 @@ class Policy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 alternative_name_server_config: Optional[pulumi.Input[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 dns64_config: Optional[pulumi.Input[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
-                 enable_inbound_forwarding: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 networks: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 alternative_name_server_config: pulumi.Input[Optional[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 dns64_config: pulumi.Input[Optional[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
+                 enable_inbound_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -539,6 +599,7 @@ class Policy(pulumi.CustomResource):
             __props__ = PolicyArgs.__new__(PolicyArgs)
 
             __props__.__dict__["alternative_name_server_config"] = alternative_name_server_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["dns64_config"] = dns64_config
             __props__.__dict__["enable_inbound_forwarding"] = enable_inbound_forwarding
@@ -556,14 +617,15 @@ class Policy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            alternative_name_server_config: Optional[pulumi.Input[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            dns64_config: Optional[pulumi.Input[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
-            enable_inbound_forwarding: Optional[pulumi.Input[_builtins.bool]] = None,
-            enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            networks: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'Policy':
+            alternative_name_server_config: pulumi.Input[Optional[Union['PolicyAlternativeNameServerConfigArgs', 'PolicyAlternativeNameServerConfigArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            dns64_config: pulumi.Input[Optional[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']]] = None,
+            enable_inbound_forwarding: pulumi.Input[Optional[_builtins.bool]] = None,
+            enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            networks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyNetworkArgs', 'PolicyNetworkArgsDict']]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'Policy':
         """
         Get an existing Policy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -575,6 +637,12 @@ class Policy(pulumi.CustomResource):
                When specified, all DNS queries are forwarded to a name server that you choose.
                Names such as .internal are not available when an alternative name server is specified.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description field. Defaults to 'Managed by Pulumi'.
         :param pulumi.Input[Union['PolicyDns64ConfigArgs', 'PolicyDns64ConfigArgsDict']] dns64_config: Configurations related to DNS64 for this Policy.
                Structure is documented below.
@@ -595,6 +663,7 @@ class Policy(pulumi.CustomResource):
         __props__ = _PolicyState.__new__(_PolicyState)
 
         __props__.__dict__["alternative_name_server_config"] = alternative_name_server_config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["dns64_config"] = dns64_config
         __props__.__dict__["enable_inbound_forwarding"] = enable_inbound_forwarding
@@ -614,6 +683,19 @@ class Policy(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "alternative_name_server_config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

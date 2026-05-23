@@ -23,12 +23,13 @@ class BillingAccountSinkArgs:
     def __init__(__self__, *,
                  billing_account: pulumi.Input[_builtins.str],
                  destination: pulumi.Input[_builtins.str],
-                 bigquery_options: Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None):
+                 bigquery_options: pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a BillingAccountSink resource.
 
@@ -43,6 +44,12 @@ class BillingAccountSinkArgs:
                
                The writer associated with the sink must have access to write to the above resource.
         :param pulumi.Input['BillingAccountSinkBigqueryOptionsArgs'] bigquery_options: Options that affect sinks exporting data to BigQuery. Structure documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.bool] disabled: If set to True, then this sink is disabled and it does not export any log entries.
         :param pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]] exclusions: Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
@@ -55,6 +62,8 @@ class BillingAccountSinkArgs:
         pulumi.set(__self__, "destination", destination)
         if bigquery_options is not None:
             pulumi.set(__self__, "bigquery_options", bigquery_options)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -100,55 +109,72 @@ class BillingAccountSinkArgs:
 
     @_builtins.property
     @pulumi.getter(name="bigqueryOptions")
-    def bigquery_options(self) -> Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']]:
+    def bigquery_options(self) -> pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']]:
         """
         Options that affect sinks exporting data to BigQuery. Structure documented below.
         """
         return pulumi.get(self, "bigquery_options")
 
     @bigquery_options.setter
-    def bigquery_options(self, value: Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']]):
+    def bigquery_options(self, value: pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']]):
         pulumi.set(self, "bigquery_options", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this sink. The maximum length of the description is 8000 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this sink is disabled and it does not export any log entries.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def exclusions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]:
+    def exclusions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]:
         """
         Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
         """
         return pulumi.get(self, "exclusions")
 
     @exclusions.setter
-    def exclusions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]):
+    def exclusions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]):
         pulumi.set(self, "exclusions", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The filter to apply when exporting logs. Only log entries that match the filter are exported.
         See [Advanced Log Filters](https://cloud.google.com/logging/docs/view/advanced_filters) for information on how to
@@ -157,39 +183,46 @@ class BillingAccountSinkArgs:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the logging sink.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
 
 @pulumi.input_type
 class _BillingAccountSinkState:
     def __init__(__self__, *,
-                 bigquery_options: Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']] = None,
-                 billing_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 writer_identity: Optional[pulumi.Input[_builtins.str]] = None):
+                 bigquery_options: pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']] = None,
+                 billing_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 writer_identity: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BillingAccountSink resources.
 
         :param pulumi.Input['BillingAccountSinkBigqueryOptionsArgs'] bigquery_options: Options that affect sinks exporting data to BigQuery. Structure documented below.
         :param pulumi.Input[_builtins.str] billing_account: The billing account exported to the sink.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a
                Cloud Storage bucket, a PubSub topic, a BigQuery dataset or a Cloud Logging bucket. Examples:
@@ -213,6 +246,8 @@ class _BillingAccountSinkState:
             pulumi.set(__self__, "bigquery_options", bigquery_options)
         if billing_account is not None:
             pulumi.set(__self__, "billing_account", billing_account)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if destination is not None:
@@ -230,43 +265,60 @@ class _BillingAccountSinkState:
 
     @_builtins.property
     @pulumi.getter(name="bigqueryOptions")
-    def bigquery_options(self) -> Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']]:
+    def bigquery_options(self) -> pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']]:
         """
         Options that affect sinks exporting data to BigQuery. Structure documented below.
         """
         return pulumi.get(self, "bigquery_options")
 
     @bigquery_options.setter
-    def bigquery_options(self, value: Optional[pulumi.Input['BillingAccountSinkBigqueryOptionsArgs']]):
+    def bigquery_options(self, value: pulumi.Input[Optional['BillingAccountSinkBigqueryOptionsArgs']]):
         pulumi.set(self, "bigquery_options", value)
 
     @_builtins.property
     @pulumi.getter(name="billingAccount")
-    def billing_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def billing_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The billing account exported to the sink.
         """
         return pulumi.get(self, "billing_account")
 
     @billing_account.setter
-    def billing_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def billing_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "billing_account", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A description of this sink. The maximum length of the description is 8000 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def destination(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def destination(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The destination of the sink (or, in other words, where logs are written to). Can be a
         Cloud Storage bucket, a PubSub topic, a BigQuery dataset or a Cloud Logging bucket. Examples:
@@ -281,36 +333,36 @@ class _BillingAccountSinkState:
         return pulumi.get(self, "destination")
 
     @destination.setter
-    def destination(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def destination(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "destination", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to True, then this sink is disabled and it does not export any log entries.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter
-    def exclusions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]:
+    def exclusions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]:
         """
         Log entries that match any of the exclusion filters will not be exported. If a log entry is matched by both `filter` and one of `exclusions.filter`, it will not be exported.  Can be repeated multiple times for multiple exclusions. Structure is documented below.
         """
         return pulumi.get(self, "exclusions")
 
     @exclusions.setter
-    def exclusions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]):
+    def exclusions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BillingAccountSinkExclusionArgs']]]]):
         pulumi.set(self, "exclusions", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The filter to apply when exporting logs. Only log entries that match the filter are exported.
         See [Advanced Log Filters](https://cloud.google.com/logging/docs/view/advanced_filters) for information on how to
@@ -319,24 +371,24 @@ class _BillingAccountSinkState:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the logging sink.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="writerIdentity")
-    def writer_identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def writer_identity(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The identity associated with this sink. This identity must be granted write access to the
         configured `destination`.
@@ -344,7 +396,7 @@ class _BillingAccountSinkState:
         return pulumi.get(self, "writer_identity")
 
     @writer_identity.setter
-    def writer_identity(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def writer_identity(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "writer_identity", value)
 
 
@@ -354,14 +406,15 @@ class BillingAccountSink(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bigquery_options: Optional[pulumi.Input[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
-                 billing_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 bigquery_options: pulumi.Input[Optional[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
+                 billing_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         * [API documentation](https://cloud.google.com/logging/docs/reference/v2/rest/v2/billingAccounts.sinks)
@@ -410,6 +463,12 @@ class BillingAccountSink(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']] bigquery_options: Options that affect sinks exporting data to BigQuery. Structure documented below.
         :param pulumi.Input[_builtins.str] billing_account: The billing account exported to the sink.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a
                Cloud Storage bucket, a PubSub topic, a BigQuery dataset or a Cloud Logging bucket. Examples:
@@ -491,14 +550,15 @@ class BillingAccountSink(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bigquery_options: Optional[pulumi.Input[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
-                 billing_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
-                 filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 bigquery_options: pulumi.Input[Optional[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
+                 billing_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
+                 filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -512,6 +572,7 @@ class BillingAccountSink(pulumi.CustomResource):
             if billing_account is None and not opts.urn:
                 raise TypeError("Missing required property 'billing_account'")
             __props__.__dict__["billing_account"] = billing_account
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if destination is None and not opts.urn:
                 raise TypeError("Missing required property 'destination'")
@@ -531,15 +592,16 @@ class BillingAccountSink(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bigquery_options: Optional[pulumi.Input[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
-            billing_account: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            destination: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            exclusions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
-            filter: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            writer_identity: Optional[pulumi.Input[_builtins.str]] = None) -> 'BillingAccountSink':
+            bigquery_options: pulumi.Input[Optional[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']]] = None,
+            billing_account: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            destination: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            exclusions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BillingAccountSinkExclusionArgs', 'BillingAccountSinkExclusionArgsDict']]]]] = None,
+            filter: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            writer_identity: pulumi.Input[Optional[_builtins.str]] = None) -> 'BillingAccountSink':
         """
         Get an existing BillingAccountSink resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -549,6 +611,12 @@ class BillingAccountSink(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['BillingAccountSinkBigqueryOptionsArgs', 'BillingAccountSinkBigqueryOptionsArgsDict']] bigquery_options: Options that affect sinks exporting data to BigQuery. Structure documented below.
         :param pulumi.Input[_builtins.str] billing_account: The billing account exported to the sink.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A description of this sink. The maximum length of the description is 8000 characters.
         :param pulumi.Input[_builtins.str] destination: The destination of the sink (or, in other words, where logs are written to). Can be a
                Cloud Storage bucket, a PubSub topic, a BigQuery dataset or a Cloud Logging bucket. Examples:
@@ -574,6 +642,7 @@ class BillingAccountSink(pulumi.CustomResource):
 
         __props__.__dict__["bigquery_options"] = bigquery_options
         __props__.__dict__["billing_account"] = billing_account
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["destination"] = destination
         __props__.__dict__["disabled"] = disabled
@@ -598,6 +667,19 @@ class BillingAccountSink(pulumi.CustomResource):
         The billing account exported to the sink.
         """
         return pulumi.get(self, "billing_account")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

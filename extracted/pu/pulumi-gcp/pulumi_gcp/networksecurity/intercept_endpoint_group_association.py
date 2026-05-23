@@ -24,9 +24,10 @@ class InterceptEndpointGroupAssociationInitArgs:
                  intercept_endpoint_group: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  network: pulumi.Input[_builtins.str],
-                 intercept_endpoint_group_association_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group_association_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a InterceptEndpointGroupAssociation resource.
 
@@ -37,6 +38,12 @@ class InterceptEndpointGroupAssociationInitArgs:
         :param pulumi.Input[_builtins.str] network: The VPC network that is associated. for example:
                `projects/123456789/global/networks/my-network`.
                See https://google.aip.dev/124.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] intercept_endpoint_group_association_id: The ID to use for the new association, which will become the final
                component of the endpoint group's resource name. If not provided, the
                server will generate a unique ID.
@@ -49,6 +56,8 @@ class InterceptEndpointGroupAssociationInitArgs:
         pulumi.set(__self__, "intercept_endpoint_group", intercept_endpoint_group)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "network", network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if intercept_endpoint_group_association_id is not None:
             pulumi.set(__self__, "intercept_endpoint_group_association_id", intercept_endpoint_group_association_id)
         if labels is not None:
@@ -97,8 +106,25 @@ class InterceptEndpointGroupAssociationInitArgs:
         pulumi.set(self, "network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="interceptEndpointGroupAssociationId")
-    def intercept_endpoint_group_association_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def intercept_endpoint_group_association_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the new association, which will become the final
         component of the endpoint group's resource name. If not provided, the
@@ -107,12 +133,12 @@ class InterceptEndpointGroupAssociationInitArgs:
         return pulumi.get(self, "intercept_endpoint_group_association_id")
 
     @intercept_endpoint_group_association_id.setter
-    def intercept_endpoint_group_association_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def intercept_endpoint_group_association_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "intercept_endpoint_group_association_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels are key/value pairs that help to organize and filter resources.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -121,12 +147,12 @@ class InterceptEndpointGroupAssociationInitArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -134,33 +160,40 @@ class InterceptEndpointGroupAssociationInitArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _InterceptEndpointGroupAssociationState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 intercept_endpoint_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 intercept_endpoint_group_association_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 locations: Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]] = None,
-                 locations_details: Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 intercept_endpoint_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group_association_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 locations: pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]] = None,
+                 locations_details: pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering InterceptEndpointGroupAssociation resources.
 
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
                See https://google.aip.dev/148#timestamps.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] intercept_endpoint_group: The endpoint group that this association is connected to, for example:
                `projects/123456789/locations/global/interceptEndpointGroups/my-eg`.
@@ -205,6 +238,8 @@ class _InterceptEndpointGroupAssociationState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if intercept_endpoint_group is not None:
@@ -239,7 +274,7 @@ class _InterceptEndpointGroupAssociationState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was created.
         See https://google.aip.dev/148#timestamps.
@@ -247,24 +282,41 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="interceptEndpointGroup")
-    def intercept_endpoint_group(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def intercept_endpoint_group(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The endpoint group that this association is connected to, for example:
         `projects/123456789/locations/global/interceptEndpointGroups/my-eg`.
@@ -273,12 +325,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "intercept_endpoint_group")
 
     @intercept_endpoint_group.setter
-    def intercept_endpoint_group(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def intercept_endpoint_group(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "intercept_endpoint_group", value)
 
     @_builtins.property
     @pulumi.getter(name="interceptEndpointGroupAssociationId")
-    def intercept_endpoint_group_association_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def intercept_endpoint_group_association_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the new association, which will become the final
         component of the endpoint group's resource name. If not provided, the
@@ -287,12 +339,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "intercept_endpoint_group_association_id")
 
     @intercept_endpoint_group_association_id.setter
-    def intercept_endpoint_group_association_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def intercept_endpoint_group_association_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "intercept_endpoint_group_association_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Labels are key/value pairs that help to organize and filter resources.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -301,24 +353,24 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The cloud location of the association, currently restricted to `global`.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def locations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]]:
+    def locations(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]]:
         """
         The list of locations where the association is configured. This information
         is retrieved from the linked endpoint group.
@@ -327,13 +379,13 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "locations")
 
     @locations.setter
-    def locations(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]]):
+    def locations(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationArgs']]]]):
         pulumi.set(self, "locations", value)
 
     @_builtins.property
     @pulumi.getter(name="locationsDetails")
     @_utilities.deprecated("""`locationsDetails` is deprecated and will be removed in a future major release. Use `locations` instead.""")
-    def locations_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]]:
+    def locations_details(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]]:
         """
         (Deprecated)
         The list of locations where the association is present. This information
@@ -344,12 +396,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "locations_details")
 
     @locations_details.setter
-    def locations_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]]):
+    def locations_details(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InterceptEndpointGroupAssociationLocationsDetailArgs']]]]):
         pulumi.set(self, "locations_details", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of this endpoint group association, for example:
         `projects/123456789/locations/global/interceptEndpointGroupAssociations/my-eg-association`.
@@ -358,12 +410,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The VPC network that is associated. for example:
         `projects/123456789/global/networks/my-network`.
@@ -372,12 +424,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -385,12 +437,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -398,12 +450,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         The current state of the resource does not match the user's intended state,
         and the system is working to reconcile them. This part of the normal
@@ -413,12 +465,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Output)
         The current state of the association in this location.
@@ -430,12 +482,12 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was most recently updated.
         See https://google.aip.dev/148#timestamps.
@@ -443,7 +495,7 @@ class _InterceptEndpointGroupAssociationState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -453,12 +505,13 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 intercept_endpoint_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 intercept_endpoint_group_association_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group_association_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An endpoint group association represents a link between a network and an
@@ -520,6 +573,12 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] intercept_endpoint_group: The endpoint group that this association is connected to, for example:
                `projects/123456789/locations/global/interceptEndpointGroups/my-eg`.
                See https://google.aip.dev/124.
@@ -615,12 +674,13 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 intercept_endpoint_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 intercept_endpoint_group_association_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 intercept_endpoint_group_association_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -630,6 +690,7 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = InterceptEndpointGroupAssociationInitArgs.__new__(InterceptEndpointGroupAssociationInitArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if intercept_endpoint_group is None and not opts.urn:
                 raise TypeError("Missing required property 'intercept_endpoint_group'")
             __props__.__dict__["intercept_endpoint_group"] = intercept_endpoint_group
@@ -663,21 +724,22 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            intercept_endpoint_group: Optional[pulumi.Input[_builtins.str]] = None,
-            intercept_endpoint_group_association_id: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            locations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['InterceptEndpointGroupAssociationLocationArgs', 'InterceptEndpointGroupAssociationLocationArgsDict']]]]] = None,
-            locations_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['InterceptEndpointGroupAssociationLocationsDetailArgs', 'InterceptEndpointGroupAssociationLocationsDetailArgsDict']]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'InterceptEndpointGroupAssociation':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            intercept_endpoint_group: pulumi.Input[Optional[_builtins.str]] = None,
+            intercept_endpoint_group_association_id: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            locations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['InterceptEndpointGroupAssociationLocationArgs', 'InterceptEndpointGroupAssociationLocationArgsDict']]]]] = None,
+            locations_details: pulumi.Input[Optional[Sequence[pulumi.Input[Union['InterceptEndpointGroupAssociationLocationsDetailArgs', 'InterceptEndpointGroupAssociationLocationsDetailArgsDict']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'InterceptEndpointGroupAssociation':
         """
         Get an existing InterceptEndpointGroupAssociation resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -687,6 +749,12 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
                See https://google.aip.dev/148#timestamps.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] intercept_endpoint_group: The endpoint group that this association is connected to, for example:
                `projects/123456789/locations/global/interceptEndpointGroups/my-eg`.
@@ -734,6 +802,7 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
         __props__ = _InterceptEndpointGroupAssociationState.__new__(_InterceptEndpointGroupAssociationState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["intercept_endpoint_group"] = intercept_endpoint_group
         __props__.__dict__["intercept_endpoint_group_association_id"] = intercept_endpoint_group_association_id
@@ -758,6 +827,19 @@ class InterceptEndpointGroupAssociation(pulumi.CustomResource):
         See https://google.aip.dev/148#timestamps.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

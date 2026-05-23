@@ -29,8 +29,8 @@ include(CMakeDependentOption)
 
 # Define Manifold version
 set(MANIFOLD_VERSION_MAJOR 3)
-set(MANIFOLD_VERSION_MINOR 4)
-set(MANIFOLD_VERSION_PATCH 1)
+set(MANIFOLD_VERSION_MINOR 5)
+set(MANIFOLD_VERSION_PATCH 0)
 set(
   MANIFOLD_VERSION
   "${MANIFOLD_VERSION_MAJOR}.${MANIFOLD_VERSION_MINOR}.${MANIFOLD_VERSION_PATCH}"
@@ -38,9 +38,37 @@ set(
 
 # Primary user facing options
 option(MANIFOLD_CROSS_SECTION "Build CrossSection for 2D support" ON)
+set(
+  MANIFOLD_CROSS_SECTION_BACKEND
+  "clipper2"
+  CACHE STRING
+        "CrossSection backend to build: clipper2 or experimental boolean2"
+)
+set_property(
+  CACHE MANIFOLD_CROSS_SECTION_BACKEND
+  PROPERTY STRINGS clipper2 boolean2
+)
+mark_as_advanced(MANIFOLD_CROSS_SECTION_BACKEND)
+if(MANIFOLD_CROSS_SECTION)
+  if(
+    NOT MANIFOLD_CROSS_SECTION_BACKEND STREQUAL "clipper2"
+    AND NOT MANIFOLD_CROSS_SECTION_BACKEND STREQUAL "boolean2"
+  )
+    message(
+      FATAL_ERROR
+        "MANIFOLD_CROSS_SECTION_BACKEND must be 'clipper2' or 'boolean2'"
+    )
+  endif()
+endif()
 option(MANIFOLD_DEBUG "Enable debug tracing/timing" OFF)
 option(MANIFOLD_ASSERT "Enable assertions - requires MANIFOLD_DEBUG" OFF)
+option(MANIFOLD_TIMING "Enable Boolean3 phase timing without debug overhead" OFF)
 option(MANIFOLD_STRICT "Treat compile warnings as fatal build errors" OFF)
+option(
+  MANIFOLD_NO_IOSTREAM
+  "Strip iostream- and filesystem-using bits from the public API and tests; useful for freestanding/embedded builds. When ON, defines both MANIFOLD_NO_IOSTREAM and MANIFOLD_NO_FILESYSTEM."
+  OFF
+)
 option(
   MANIFOLD_DOWNLOADS
   "Allow Manifold build to download missing dependencies"
@@ -99,6 +127,19 @@ mark_as_advanced(TRACY_MEMORY_USAGE)
 mark_as_advanced(MANIFOLD_FUZZ)
 mark_as_advanced(ASSIMP_ENABLE)
 
+# MANIFOLD_NO_IOSTREAM strips iostream- and filesystem-using bits
+# from the public API and from the test files that use them.
+# Incompatible with options that emit diagnostic output via iostream:
+# MANIFOLD_DEBUG and MANIFOLD_TIMING (both use std::cout).
+# MANIFOLD_TEST=ON is supported — iostream-using TEST(...) blocks
+# in manifold_test/polygon_test/manifoldc_test are gated out under
+# the macro; the test executable still builds and runs the rest.
+if(MANIFOLD_NO_IOSTREAM AND (MANIFOLD_DEBUG OR MANIFOLD_TIMING))
+  message(FATAL_ERROR
+    "MANIFOLD_NO_IOSTREAM is incompatible with MANIFOLD_DEBUG / MANIFOLD_TIMING "
+    "(those options use std::cout for diagnostic output).")
+endif()
+
 # Always build position independent code for relocatability
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -151,6 +192,9 @@ endif()
 
 if(MSVC)
   list(APPEND MANIFOLD_FLAGS /DNOMINMAX /bigobj /fp:precise)
+  if(MANIFOLD_STRICT)
+    list(APPEND MANIFOLD_FLAGS /WX)
+  endif()
 else()
   list(
     APPEND
@@ -159,6 +203,7 @@ else()
     -Wno-unknown-warning-option
     -Wno-unused
     -Wno-shorten-64-to-32
+    -Wno-sign-compare
     -Wno-alloc-size-larger-than
   )
   if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -248,11 +293,6 @@ set_source_files_properties(
   PROPERTIES GENERATED TRUE
 )
 
-# If it's an EMSCRIPTEN build, we're done
-if(EMSCRIPTEN)
-  return()
-endif()
-
 # CMake exports
 configure_file(
   cmake/manifoldConfig.cmake.in
@@ -286,6 +326,8 @@ install(
 set(
   MANIFOLD_PUBLIC_HDRS
   common.h
+  math.h
+  mesh.h
   linalg.h
   manifold.h
   optional_assert.h
@@ -309,7 +351,7 @@ install(
 if(MANIFOLD_PAR)
   set(TEMPLATE_OPTIONAL_TBB "tbb")
 endif()
-if(MANIFOLD_CROSS_SECTION)
+if(MANIFOLD_CROSS_SECTION AND MANIFOLD_CROSS_SECTION_BACKEND STREQUAL "clipper2")
   set(TEMPLATE_OPTIONAL_CLIPPER "Clipper2")
 endif()
 configure_file(

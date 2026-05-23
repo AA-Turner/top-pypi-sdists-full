@@ -2,7 +2,7 @@ import operator
 
 import pytest
 from qutip import (
-    Qobj, QobjEvo, coefficient, qeye, sigmax, sigmaz, num, rand_stochastic,
+    Qobj, QobjEvo, coefficient, qeye, sigmax, sigmaz, num, destroy, rand_stochastic,
     rand_herm, rand_ket, liouvillian, basis, spre, spost, to_choi, expect,
     rand_ket, rand_dm, operator_to_vector, SESolver, MESolver, CoreOptions
 )
@@ -26,12 +26,12 @@ class Pseudo_qevo:
 
     def array(self):
         tlist = np.linspace(0, 10, 10001)
-        coeff = self.func(tlist, self.args)
+        coeff = self.func(tlist, **self.args)
         return ([self.cte, [self.qobj, coeff]], {}, tlist)
 
     def logarray(self):
         tlist = np.logspace(-3, 1, 10001)
-        coeff = self.func(tlist, self.args)
+        coeff = self.func(tlist, **self.args)
         return ([self.cte, [self.qobj, coeff]], {}, tlist)
 
     def func_coeff(self):
@@ -43,9 +43,9 @@ class Pseudo_qevo:
     def func_call(self):
         return (self.__call__, self.args)
 
-    def __call__(self, t, args={}):
+    def __call__(self, t, **args):
         args = args or self.args
-        return self.cte + self.qobj * self.func(t, args)
+        return self.cte + self.qobj * self.func(t, **args)
 
     def __getitem__(self, which):
         return getattr(self, which)()
@@ -60,12 +60,12 @@ args = {'w1': 1, "w2": 2}
 TESTTIMES = np.linspace(0.001, 1.0, 10)
 
 
-def _real(t, args):
-    return np.sin(t*args['w1'])
+def _real(t, w1, **kw):
+    return np.sin(t * w1)
 
 
-def _cplx(t, args):
-    return np.exp(1j*t*args['w2'])
+def _cplx(t, w2, **kw):
+    return np.exp(1j * t * w2)
 
 
 real_qevo = Pseudo_qevo(
@@ -189,7 +189,7 @@ def test_QobjEvo_repr():
                          ['func_coeff', 'string', 'array', 'logarray'])
 def test_product_coeff(pseudo_qevo, coeff_type):
     # test creation of QobjEvo with Qobj * Coefficient
-    # Skip pure func: QobjEvo(f(t, args) -> Qobj)
+    # Skip pure func: QobjEvo(f(t, **args) -> Qobj)
     base = pseudo_qevo[coeff_type]
     cte, [qobj, coeff] = base[0]
     args = base[1] if len(base) >= 2 else {}
@@ -331,8 +331,8 @@ def test_args(pseudo_qevo, args_coeff_type):
     args = {'w1': 3, "w2": 3}
 
     for t in TESTTIMES:
-        _assert_qobj_almost_eq(obj(t, args), pseudo_qevo(t, args))
-        _assert_qobj_almost_eq(obj(t, **args), pseudo_qevo(t, args))
+        _assert_qobj_almost_eq(obj(t, args), pseudo_qevo(t, **args))
+        _assert_qobj_almost_eq(obj(t, **args), pseudo_qevo(t, **args))
 
     # Did it modify original args
     _assert_qobjevo_equivalent(obj, pseudo_qevo)
@@ -340,13 +340,13 @@ def test_args(pseudo_qevo, args_coeff_type):
     obj.arguments(args)
     _assert_qobjevo_different(obj, pseudo_qevo)
     for t in TESTTIMES:
-        _assert_qobj_almost_eq(obj(t), pseudo_qevo(t, args))
+        _assert_qobj_almost_eq(obj(t), pseudo_qevo(t, **args))
 
     args = {'w1': 4, "w2": 4}
     obj.arguments(**args)
     _assert_qobjevo_different(obj, pseudo_qevo)
     for t in TESTTIMES:
-        _assert_qobj_almost_eq(obj(t), pseudo_qevo(t, args))
+        _assert_qobj_almost_eq(obj(t), pseudo_qevo(t, **args))
 
 
 def test_copy_side_effects(all_qevo):
@@ -407,18 +407,80 @@ def test_mul_vec(all_qevo):
 def test_matmul(all_qevo):
     "QobjEvo matmul oper"
     mat = np.random.rand(N, N) + 1 + 1j * np.random.rand(N, N)
+    matQobj = Qobj(mat)
     matDense = Qobj(mat).to(_data.Dense)
     matF = Qobj(np.asfortranarray(mat)).to(_data.Dense)
     matCSR = Qobj(mat).to(_data.CSR)
     op = all_qevo
     for t in TESTTIMES:
         Qo1 = op(t)
-        assert_allclose((Qo1 @ mat).full(),
+        assert_allclose((Qo1 @ matQobj).full(),
                         op.matmul(t, matF).full(), atol=1e-14)
-        assert_allclose((Qo1 @ mat).full(),
+        assert_allclose((Qo1 @ matQobj).full(),
                         op.matmul(t, matDense).full(), atol=1e-14)
-        assert_allclose((Qo1 @ mat).full(),
+        assert_allclose((Qo1 @ matQobj).full(),
                         op.matmul(t, matCSR).full(), atol=1e-14)
+
+
+def test_adjoint_rmatmul_data(all_qevo):
+    """
+    Test that QobjEvo.adjoint_rmatmul_data(t, state, out) correctly computes
+    state @ QobjEvo(t).dag() and accumulates into the output buffer.
+    """
+    mat = np.random.rand(N, N) + 1 + 1j * np.random.rand(N, N)
+    matDense = Qobj(mat).to(_data.Dense)
+    matF = Qobj(np.asfortranarray(mat)).to(_data.Dense)
+    op = all_qevo
+
+    for t in TESTTIMES:
+        Qo1 = op(t)
+        expected = (matDense @ Qo1.dag()).full()
+
+        # Test with Dense matrices (both C and Fortran order)
+        result_dense = Qobj(op.adjoint_rmatmul_data(t, matDense.data)).full()
+        assert_allclose(expected, result_dense, atol=1e-14)
+
+        result_f = Qobj(op.adjoint_rmatmul_data(t, matF.data)).full()
+        assert_allclose(expected, result_f, atol=1e-14)
+
+        # Test accumulation into output buffer
+        initial_out = np.random.rand(N, N) + 1j * np.random.rand(N, N)
+        out_buffer = Qobj(initial_out).to(_data.Dense)
+        expected_accum = Qobj(initial_out).full() + expected
+
+        result_data = op.adjoint_rmatmul_data(
+            t, matDense.data, out_buffer.data)
+        result = Qobj(result_data).full()
+        assert_allclose(expected_accum, result, atol=1e-14)
+
+
+def test_adjoint_rmatmul_data_mixed_representations():
+    """
+    Test adjoint_rmatmul_data with mixed data representations (Dia, CSR, Dense)
+    and time-dependent coefficients using non-hermitian operators.
+    """
+    # Mixed representation QobjEvo with non-hermitian time-dependent terms
+    H_dia = destroy(N)  # Non-hermitian annihilation operator
+    H_csr = Qobj((rand_dm(N, seed=42) + 1j * rand_dm(N, seed=41)).full()
+                 ).to('csr')  # Non-hermitian
+    H_dense = (rand_dm(N, seed=43) + 1j * rand_dm(N, seed=44)
+               ).to('dense')  # Non-hermitian
+
+    op = QobjEvo([
+        H_dia,
+        [H_csr, '0.1 * cos(t)'],
+        [H_dense, '0.05 * sin(2*t)'],
+    ])
+
+    mat = np.random.rand(N, N) + 1 + 1j * np.random.rand(N, N)
+    matDense = Qobj(mat).to(_data.Dense)
+
+    for t in TESTTIMES:
+        Qo1 = op(t)
+        expected = (matDense @ Qo1.dag()).full()
+
+        result = Qobj(op.adjoint_rmatmul_data(t, matDense.data)).full()
+        assert_allclose(expected, result, atol=1e-14)
 
 
 def test_expect_psi(all_qevo):
@@ -460,6 +522,10 @@ def test_convert(all_qevo, dtype):
     [[qeye(N), lambda t: t], [qeye(N), lambda t: t], [qeye(N), lambda t: t]],
     [[qeye(2), "t"], [sigmax(), "t"], [sigmaz(), "t"]],
     [[qeye(2), "t"], [sigmax(), "t"], [qeye(2), "2*t"], [sigmax(), "2*t"]],
+    [0 * sigmax(), [qeye(2), "t"]],
+    [[0 * sigmax(), "2 * t"], [qeye(2), "t"]],
+    [[qeye(2), "t"], [-qeye(2), "t"]],
+    [sigmax(), [qeye(2), "t"], [-qeye(2), "t"]],
 ])
 def test_compress(as_list):
     "QobjEvo compress"

@@ -322,7 +322,11 @@ def _truncate_for_prompt(spec: str, max_chars: int = 14000) -> str:
 
 def extract_features(spec: str, generate: GenerateFn, *, max_retries: int = 3) -> list[Feature]:
     """Get the feature list, retrying on malformed JSON, falling back to keywords."""
-    prompt = _FEATURES_PROMPT.format(spec=_truncate_for_prompt(spec, max_chars=14000))
+    # NOTE: Use str.replace() — NEVER .format(). The prompt template contains
+    # literal `{ Worker }` and `{ ... }` in code examples that .format() would
+    # misinterpret as named placeholders and raise KeyError(' Worker '), which
+    # silently kills the entire principal build pipeline.
+    prompt = _FEATURES_PROMPT.replace("{spec}", _truncate_for_prompt(spec, max_chars=14000))
     last_raw = ""
     for _ in range(max_retries):
         raw = generate(prompt)
@@ -340,7 +344,8 @@ def extract_features(spec: str, generate: GenerateFn, *, max_retries: int = 3) -
 
 def extract_stack(spec: str, generate: GenerateFn, *, max_retries: int = 3) -> StackProfile:
     """Get the stack profile, retrying on bad JSON, falling back to keyword detection."""
-    prompt = _STACK_PROMPT.format(spec=_truncate_for_prompt(spec))
+    # Use str.replace() not .format() — see extract_features() for why.
+    prompt = _STACK_PROMPT.replace("{spec}", _truncate_for_prompt(spec))
     for _ in range(max_retries):
         raw = generate(prompt)
         stack = parse_stack_json(raw)

@@ -587,11 +587,9 @@ class DoubleMLIRM(LinearScoreMixin, DoubleML):
         if self.score not in valid_score:
             raise ValueError("Invalid score " + self.score + ". " + "Valid score " + " or ".join(valid_score) + ".")
 
-        if self.n_rep != 1:
-            raise NotImplementedError("Only implemented for one repetition. " + f"Number of repetitions is {str(self.n_rep)}.")
-
         # define the orthogonal signal
-        orth_signal = self.psi_elements["psi_b"].reshape(-1)
+        orth_signal = np.squeeze(self.psi_elements["psi_b"], axis=2)
+
         # fit the best linear predictor
         model = DoubleMLBLP(orth_signal, basis=basis, is_gate=is_gate)
         model.fit(**kwargs)
@@ -619,7 +617,7 @@ class DoubleMLIRM(LinearScoreMixin, DoubleML):
         if not isinstance(groups, pd.DataFrame):
             raise TypeError(f"Groups must be of DataFrame type. Groups of type {str(type(groups))} was passed.")
 
-        if not all(groups.dtypes == bool) or all(groups.dtypes == int):
+        if not (all(groups.dtypes == bool) or all(groups.dtypes == int)):
             if groups.shape[1] == 1:
                 groups = pd.get_dummies(groups, prefix="Group", prefix_sep="_")
             else:

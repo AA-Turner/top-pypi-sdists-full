@@ -106,7 +106,7 @@ class IOTests(TestFramework):
         io = IO(connection.parameters, exceptions=connection.exceptions)
         io.socket = mock.Mock(name='socket', spec=socket.socket)
         io.socket.send.return_value = 0
-        io.write_to_socket(self.message)
+        io.write_to_socket(self.message.encode('utf-8'))
 
         self.assertRaisesRegex(
             AMQPConnectionError,
@@ -163,6 +163,46 @@ class IOTests(TestFramework):
         io = IO(connection.parameters)
         sock = io._ssl_wrap_socket(socket.socket())
         self.assertEqual(sock.context.verify_mode, ssl.CERT_OPTIONAL)
+
+    def test_io_ssl_defaults_are_secure(self):
+        connection = FakeConnection()
+        connection.parameters['ssl_options'] = {}
+
+        io = IO(connection.parameters)
+        sock = io._ssl_wrap_socket(socket.socket())
+        self.assertEqual(sock.context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(sock.context.check_hostname)
+
+    def test_io_set_ssl_verify_none_disables_hostname_check(self):
+        connection = FakeConnection()
+        connection.parameters['ssl_options'] = {
+            'verify_mode': 'none'
+        }
+
+        io = IO(connection.parameters)
+        sock = io._ssl_wrap_socket(socket.socket())
+        self.assertEqual(sock.context.verify_mode, ssl.CERT_NONE)
+        self.assertFalse(sock.context.check_hostname)
+
+    def test_io_set_ssl_check_hostname_explicit_false(self):
+        connection = FakeConnection()
+        connection.parameters['ssl_options'] = {
+            'check_hostname': False,
+        }
+
+        io = IO(connection.parameters)
+        sock = io._ssl_wrap_socket(socket.socket())
+        self.assertFalse(sock.context.check_hostname)
+
+    def test_io_set_ssl_check_hostname_string_true(self):
+        connection = FakeConnection()
+        connection.parameters['ssl_options'] = {
+            'check_hostname': 'true',
+        }
+
+        io = IO(connection.parameters)
+        sock = io._ssl_wrap_socket(socket.socket())
+        self.assertTrue(sock.context.check_hostname)
 
     def test_io_has_ipv6(self):
         restore_func = socket.getaddrinfo

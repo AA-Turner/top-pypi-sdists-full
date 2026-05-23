@@ -25,8 +25,14 @@
 //! - **CIRS** (Celestial Intermediate Reference System): IERS 2010 intermediate frame
 //! - **MOD** (Mean of Date): Precession-only frame
 
+mod dispatch;
+mod error;
 mod ierstable;
 mod qcirs2gcrs;
+
+pub use dispatch::{rotation, rotation_approx, transform_state, transform_state_approx};
+
+pub use error::{Error, Result};
 
 use crate::{TimeLike, TimeScale};
 use std::f64::consts::PI;
@@ -36,7 +42,6 @@ use crate::mathtypes::*;
 use super::earth_orientation_params;
 pub use qcirs2gcrs::qcirs2gcrs;
 pub use qcirs2gcrs::qcirs2gcrs_dxdy;
-
 
 ///
 /// Greenwich Mean Sidereal Time
@@ -134,10 +139,18 @@ pub fn earth_rotation_angle<T: TimeLike>(tm: &T) -> f64 {
 /// they will be set to zero, and a warning will be printed to stderr.
 ///
 pub fn qitrf2tirs<T: TimeLike>(tm: &T) -> Quaternion {
-    const ASEC2RAD: f64 = PI / 180.0 / 3600.0;
     // Get earth orientation parameters or set them all to zero if not available
     // (function will print warning to stderr if not available)
     let eop = earth_orientation_params::get(tm).unwrap_or([0.0; 6]);
+    qitrf2tirs_with_eop(&eop, tm)
+}
+
+// Polar-motion quaternion (ITRF → TIRS) using pre-fetched EOP. Called
+// from hot paths (`qitrf2gcrf`, `itrf_to_gcrf_state`, `gcrf_to_itrf_state`)
+// where the caller already has the EOP lookup and we want to avoid a
+// second call.
+fn qitrf2tirs_with_eop<T: TimeLike>(eop: &[f64; 6], tm: &T) -> Quaternion {
+    const ASEC2RAD: f64 = PI / 180.0 / 3600.0;
     let xp = eop[1] * ASEC2RAD;
     let yp = eop[2] * ASEC2RAD;
     let t_tt = (tm.as_mjd_with_scale(TimeScale::TT) - 51544.5) / 36525.0;
@@ -242,7 +255,9 @@ pub fn qmod2gcrf<T: TimeLike>(tm: &T) -> Quaternion {
             ),
             2004.191903,
         );
-    Quaternion::rotz(-zeta * ASEC2RAD) * Quaternion::roty(theta * ASEC2RAD) * Quaternion::rotz(-z * ASEC2RAD)
+    Quaternion::rotz(-zeta * ASEC2RAD)
+        * Quaternion::roty(theta * ASEC2RAD)
+        * Quaternion::rotz(-z * ASEC2RAD)
 }
 
 ///
@@ -411,16 +426,7 @@ pub fn qitrf2gcrf<T: TimeLike>(tm: &T) -> Quaternion {
     // to terrestrial intermediate reference frame
     let eop = earth_orientation_params::get(tm).unwrap_or([0.0; 6]);
 
-    // Compute this here instead of using function above, so that
-    // we only have to get earth orientation parameters once
-    let w = {
-        const ASEC2RAD: f64 = PI / 180.0 / 3600.0;
-        let xp = eop[1] * ASEC2RAD;
-        let yp = eop[2] * ASEC2RAD;
-        let t_tt = (tm.as_mjd_with_scale(TimeScale::TT) - 51544.5) / 36525.0;
-        let sp = -47.0e-6 * ASEC2RAD * t_tt;
-        Quaternion::rotz(sp) * Quaternion::roty(-xp) * Quaternion::rotx(-yp)
-    };
+    let w = qitrf2tirs_with_eop(&eop, tm);
     let r = qtirs2cirs(tm);
     let q = qcirs2gcrs_dxdy(tm, Some((eop[4], eop[5])));
     q * r * w
@@ -682,16 +688,7 @@ pub fn itrf_to_gcrf_state<T: TimeLike>(
     // correction stay consistent.
     let eop = crate::earth_orientation_params::get(time).unwrap_or([0.0; 6]);
 
-    // ITRF → TIRS via polar motion. Same construction as the inline
-    // `w` in `qitrf2gcrf` to avoid a second EOP lookup.
-    let q_itrf_to_tirs = {
-        const ASEC2RAD: f64 = PI / 180.0 / 3600.0;
-        let xp = eop[1] * ASEC2RAD;
-        let yp = eop[2] * ASEC2RAD;
-        let t_tt = (time.as_mjd_with_scale(TimeScale::TT) - 51544.5) / 36525.0;
-        let sp = -47.0e-6 * ASEC2RAD * t_tt;
-        Quaternion::rotz(sp) * Quaternion::roty(-xp) * Quaternion::rotx(-yp)
-    };
+    let q_itrf_to_tirs = qitrf2tirs_with_eop(&eop, time);
 
     // Rotate state into TIRS.
     let pos_tirs = q_itrf_to_tirs * *pos_itrf;
@@ -703,8 +700,7 @@ pub fn itrf_to_gcrf_state<T: TimeLike>(
     let vel_tirs_swept = vel_tirs + omega_tirs.cross(&pos_tirs);
 
     // TIRS → CIRS → GCRF via the full IERS 2010 chain.
-    let q_tirs_to_gcrf =
-        qcirs2gcrs_dxdy(time, Some((eop[4], eop[5]))) * qtirs2cirs(time);
+    let q_tirs_to_gcrf = qcirs2gcrs_dxdy(time, Some((eop[4], eop[5]))) * qtirs2cirs(time);
 
     let pos_gcrf = q_tirs_to_gcrf * pos_tirs;
     let vel_gcrf = q_tirs_to_gcrf * vel_tirs_swept;
@@ -772,15 +768,7 @@ pub fn gcrf_to_itrf_state<T: TimeLike>(
     let omega_tirs: Vector3 = numeris::vector![0.0, 0.0, crate::consts::OMEGA_EARTH];
     let vel_tirs = vel_tirs_swept - omega_tirs.cross(&pos_tirs);
 
-    // TIRS → ITRF via inverse polar motion.
-    let q_tirs_to_itrf = {
-        const ASEC2RAD: f64 = PI / 180.0 / 3600.0;
-        let xp = eop[1] * ASEC2RAD;
-        let yp = eop[2] * ASEC2RAD;
-        let t_tt = (time.as_mjd_with_scale(TimeScale::TT) - 51544.5) / 36525.0;
-        let sp = -47.0e-6 * ASEC2RAD * t_tt;
-        (Quaternion::rotz(sp) * Quaternion::roty(-xp) * Quaternion::rotx(-yp)).conjugate()
-    };
+    let q_tirs_to_itrf = qitrf2tirs_with_eop(&eop, time).conjugate();
 
     let pos_itrf = q_tirs_to_itrf * pos_tirs;
     let vel_itrf = q_tirs_to_itrf * vel_tirs;
@@ -832,27 +820,16 @@ pub fn gcrf_to_itrf_state_approx<T: TimeLike>(
 /// frames (ITRF, TIRS, CIRS, TEME, EME2000, ICRF). Those frames require
 /// a time argument for their rotation to GCRF and are handled by the
 /// dedicated quaternion helpers ([`qteme2gcrf`], [`qitrf2gcrf`], etc.).
-pub fn to_gcrf(
-    frame: crate::Frame,
-    pos_gcrf: &Vector3,
-    vel_gcrf: &Vector3,
-) -> anyhow::Result<Matrix3> {
+pub fn to_gcrf(frame: crate::Frame, pos_gcrf: &Vector3, vel_gcrf: &Vector3) -> Result<Matrix3> {
     use crate::Frame;
     match frame {
         Frame::GCRF => Ok(Matrix3::eye()),
         Frame::LVLH => Ok(lvlh_to_gcrf(pos_gcrf, vel_gcrf)),
         Frame::RTN => Ok(rtn_to_gcrf(pos_gcrf, vel_gcrf)),
         Frame::NTW => Ok(ntw_to_gcrf(pos_gcrf, vel_gcrf)),
-        Frame::ITRF
-        | Frame::TIRS
-        | Frame::CIRS
-        | Frame::TEME
-        | Frame::EME2000
-        | Frame::ICRF => anyhow::bail!(
-            "to_gcrf: frame {} is not a satellite-local orbital frame; use the \
-             time-based quaternion helpers (qitrf2gcrf, qteme2gcrf, etc.) instead",
-            frame
-        ),
+        Frame::ITRF | Frame::TIRS | Frame::CIRS | Frame::TEME | Frame::EME2000 | Frame::ICRF => {
+            Err(Error::UnsupportedFrame { frame })
+        }
     }
 }
 
@@ -861,11 +838,7 @@ pub fn to_gcrf(
 ///
 /// Transpose of [`to_gcrf`]. See that function's doc for supported
 /// frames and error conditions.
-pub fn from_gcrf(
-    frame: crate::Frame,
-    pos_gcrf: &Vector3,
-    vel_gcrf: &Vector3,
-) -> anyhow::Result<Matrix3> {
+pub fn from_gcrf(frame: crate::Frame, pos_gcrf: &Vector3, vel_gcrf: &Vector3) -> Result<Matrix3> {
     Ok(to_gcrf(frame, pos_gcrf, vel_gcrf)?.transpose())
 }
 
@@ -987,10 +960,8 @@ mod tests {
     fn test_vallado_3_14_state_single_call() {
         let tm = Instant::from_datetime(2004, 4, 6, 7, 51, 28.386009).unwrap();
         // Vallado 3-14 input state (km, km/s — scale to SI below).
-        let pos_itrf_km: Vector3 =
-            numeris::vector![-1033.4793830, 7901.2952754, 6380.3565958];
-        let vel_itrf_kms: Vector3 =
-            numeris::vector![-3.225636520, -2.872451450, 5.531924446];
+        let pos_itrf_km: Vector3 = numeris::vector![-1033.4793830, 7901.2952754, 6380.3565958];
+        let vel_itrf_kms: Vector3 = numeris::vector![-3.225636520, -2.872451450, 5.531924446];
         let pos_itrf = pos_itrf_km * 1.0e3;
         let vel_itrf = vel_itrf_kms * 1.0e3;
 
@@ -1010,15 +981,18 @@ mod tests {
         // to sub-mm/s.
         assert!(
             (vel_gcrf_kms[0] - (-4.7432196)).abs() < 1.0e-6,
-            "v_x = {}", vel_gcrf_kms[0]
+            "v_x = {}",
+            vel_gcrf_kms[0]
         );
         assert!(
             (vel_gcrf_kms[1] - 0.7905366).abs() < 1.0e-6,
-            "v_y = {}", vel_gcrf_kms[1]
+            "v_y = {}",
+            vel_gcrf_kms[1]
         );
         assert!(
             (vel_gcrf_kms[2] - 5.5337561).abs() < 1.0e-6,
-            "v_z = {}", vel_gcrf_kms[2]
+            "v_z = {}",
+            vel_gcrf_kms[2]
         );
 
         // Round-trip: GCRF → ITRF → GCRF recovers the original to
@@ -1044,8 +1018,16 @@ mod tests {
 
         let pos_err = (pos_gcrf - pos_back).norm();
         let vel_err = (vel_gcrf - vel_back).norm();
-        assert!(pos_err < 1.0e-6, "position round-trip error = {} m", pos_err);
-        assert!(vel_err < 1.0e-9, "velocity round-trip error = {} m/s", vel_err);
+        assert!(
+            pos_err < 1.0e-6,
+            "position round-trip error = {} m",
+            pos_err
+        );
+        assert!(
+            vel_err < 1.0e-9,
+            "velocity round-trip error = {} m/s",
+            vel_err
+        );
     }
 
     /// Geostationary sanity check: a satellite that is stationary in ITRF
@@ -1057,7 +1039,7 @@ mod tests {
     fn test_itrf_gcrf_state_geo() {
         let t = crate::Instant::from_datetime(2024, 6, 1, 0, 0, 0.0).unwrap();
         let geo_r: f64 = 42_164.17e3; // m
-        // Parked on equator at 0° longitude in ITRF, stationary
+                                      // Parked on equator at 0° longitude in ITRF, stationary
         let pos_itrf: Vector3 = numeris::vector![geo_r, 0.0, 0.0];
         let vel_itrf: Vector3 = numeris::vector![0.0, 0.0, 0.0];
 
@@ -1095,8 +1077,7 @@ mod tests {
         let vel_itrf_zero: Vector3 = numeris::vector![0.0, 0.0, 0.0];
 
         // Correct state transform
-        let (_pos_gcrf, vel_gcrf_correct) =
-            itrf_to_gcrf_state(&pos_itrf, &vel_itrf_zero, &t);
+        let (_pos_gcrf, vel_gcrf_correct) = itrf_to_gcrf_state(&pos_itrf, &vel_itrf_zero, &t);
 
         // Naive transform: just rotate the (zero) velocity with the quaternion
         let q = qitrf2gcrf_approx(&t);
@@ -1137,8 +1118,16 @@ mod tests {
 
         let pos_err = (pos_gcrf - pos_back).norm();
         let vel_err = (vel_gcrf - vel_back).norm();
-        assert!(pos_err < 1.0e-6, "position round-trip error = {} m", pos_err);
-        assert!(vel_err < 1.0e-9, "velocity round-trip error = {} m/s", vel_err);
+        assert!(
+            pos_err < 1.0e-6,
+            "position round-trip error = {} m",
+            pos_err
+        );
+        assert!(
+            vel_err < 1.0e-9,
+            "velocity round-trip error = {} m/s",
+            vel_err
+        );
     }
 
     /// Approximate transform should agree with the full IERS 2010 reduction
@@ -1158,9 +1147,17 @@ mod tests {
         let vel_diff = (v_full - v_approx).norm();
 
         // 1 arcsec at ~1 Earth radius ≈ 50 m; allow 100 m of headroom.
-        assert!(pos_diff < 100.0, "approx vs full position diff = {} m", pos_diff);
+        assert!(
+            pos_diff < 100.0,
+            "approx vs full position diff = {} m",
+            pos_diff
+        );
         // Earth rotation takes ~470 m/s / Earth-radius; at 1 arcsec this
         // scales to well under 1 m/s.
-        assert!(vel_diff < 1.0, "approx vs full velocity diff = {} m/s", vel_diff);
+        assert!(
+            vel_diff < 1.0,
+            "approx vs full velocity diff = {} m/s",
+            vel_diff
+        );
     }
 }

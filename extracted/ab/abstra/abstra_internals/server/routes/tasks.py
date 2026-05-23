@@ -14,27 +14,34 @@ def get_editor_bp(main_controller: MainController) -> flask.Blueprint:
         if flask.request.json is None:
             flask.abort(400)
         req = DataRequest.from_dict(flask.request.json)
-        tasks, total = controller.list_all_tasks(req)
+        result = controller.list_tasks(
+            stage_ids=req.filter.stage,
+            status=req.filter.status,
+            start_date=req.filter.start_date,
+            end_date=req.filter.end_date,
+            limit=req.limit,
+            offset=req.offset,
+        )
         return {
-            "tasks": [task.dump() for task in tasks],
-            "totalCount": total,
+            "tasks": [task.dump() for task in result["tasks"]],
+            "totalCount": result["total"],
         }
 
     @bp.get("/<stage_id>")
     @editor_usage
     def _get_tasks(stage_id: str):
-        tasks = controller.list_tasks_sent_to_stage(stage_id)
+        result = controller.list_tasks(stage_ids=[stage_id], direction="sent_to")
         return {
-            "tasks": [task.dump() for task in tasks],
-            "totalCount": len(tasks),
+            "tasks": [task.dump() for task in result["tasks"]],
+            "totalCount": result["total"],
         }
 
     @bp.get("/<stage_id>/sent")
     def _get_sent_tasks(stage_id: str):
-        tasks = controller.list_tasks_sent_by_stage(stage_id)
+        result = controller.list_tasks(stage_ids=[stage_id], direction="sent_by")
         return {
-            "tasks": [task.dump() for task in tasks],
-            "totalCount": len(tasks),
+            "tasks": [task.dump() for task in result["tasks"]],
+            "totalCount": result["total"],
         }
 
     @bp.put("/<task_id>/status")

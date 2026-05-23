@@ -532,7 +532,7 @@ class Client:
         )
 
         if exit_code:
-            raise Exception(self.get_task_logs(task_arn))  # pyright: ignore[reportCallIssue]  # ty: ignore[missing-argument]
+            raise Exception(self.get_task_logs(task_arn))  # ty: ignore[missing-argument]
 
         return True
 

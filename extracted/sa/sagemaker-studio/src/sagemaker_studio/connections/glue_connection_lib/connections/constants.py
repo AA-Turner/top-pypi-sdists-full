@@ -17,8 +17,26 @@ JDBC_CONNECTION_TYPES = {
 
 # Connection type mappings for connector type determination
 CONNECTOR_TYPE: Dict[str, List[str]] = {
-    "jdbc": ["sqlserver", "postgresql", "oracle", "redshift", "mysql", "saphana", "teradata"],
-    "spark": ["snowflake", "mongodb", "documentdb", "dynamodb", "bigquery", "azuresql"],
+    "jdbc": [
+        "sqlserver",
+        "postgresql",
+        "oracle",
+        "redshift",
+        "mysql",
+        "saphana",
+        "teradata",
+    ],
+    "spark": [
+        "snowflake",
+        "mongodb",
+        "documentdb",
+        "dynamodb",
+        "bigquery",
+        "azuresql",
+    ],
+    "irc": [
+        "workdayicebergrestcatalog",
+    ],
 }
 
 # Database type constants

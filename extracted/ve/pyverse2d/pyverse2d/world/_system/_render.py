@@ -54,18 +54,18 @@ class RenderSystem(System):
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.animation.update")
     def update(self, world: World, dt: float):
-        """Actualisation du pilotage
+        """Actualisation du rendu
 
         Args:
             world: monde courant
             dt: delta-time
         """
         for entity in world.query(Transform, TrailRenderer):
-            tc: TrailRenderer = entity.get(TrailRenderer)
-            tr: Transform = entity.get(Transform)
+            tc: TrailRenderer = entity.trail_renderer
+            tr: Transform = entity.transform
             if tc.is_visible():
                 tc._tick(dt)
-                tc._push(tr.x, tr.y)
+                tc._push(tr.x + tc.offset.x, tr.y + tc.offset.y)
 
     @profile_section("world.animation.draw")
     def draw(self, world: World, pipeline: Pipeline):
@@ -90,21 +90,21 @@ class RenderSystem(System):
         # Affichage des renderers
         for entity in world.query(Transform):
             eid = entity.id
-            tr: Transform = entity.get(Transform)
+            tr: Transform = entity.transform
 
-            if entity.has(ShapeRenderer):
+            if entity.shape_renderer is not None:
                 active_shapes.add(eid)
                 self._sync_shape(entity, tr, pipeline)
 
-            if entity.has(SpriteRenderer):
+            if entity.sprite_renderer is not None:
                 active_sprites.add(eid)
                 self._sync_sprite(entity, tr, pipeline)
 
-            if entity.has(TextRenderer):
+            if entity.text_renderer is not None:
                 active_labels.add(eid)
                 self._sync_text(entity, tr, pipeline)
 
-            if entity.has(TrailRenderer):
+            if entity.trail_renderer is not None:
                 active_trails.add(eid)
                 self._sync_trail(entity, tr, pipeline)
 
@@ -135,7 +135,7 @@ class RenderSystem(System):
             pipeline: ``Pipeline``de rendu courant
         """
         # Raccourcis
-        sr: ShapeRenderer = entity.get(ShapeRenderer)
+        sr: ShapeRenderer = entity.shape_renderer
         eid = entity.id
 
         # Invisible
@@ -198,7 +198,7 @@ class RenderSystem(System):
             pipeline: ``Pipeline``de rendu courant
         """
         # Raccourcis
-        sr: SpriteRenderer = entity.get(SpriteRenderer)
+        sr: SpriteRenderer = entity.sprite_renderer
         eid = entity.id
 
         # Invisible
@@ -248,7 +248,7 @@ class RenderSystem(System):
             pipeline: ``Pipeline``de rendu courant
         """
         # Raccourcis
-        tc: TextRenderer = entity.get(TextRenderer)
+        tc: TextRenderer = entity.text_renderer
         eid = entity.id
 
         # Invisible
@@ -295,6 +295,7 @@ class RenderSystem(System):
             self._labels[eid].visible = True
 
     # ======================================== _sync_trail ========================================
+   # ======================================== SYNC TRAIL ========================================
     def _sync_trail(self, entity: Entity, tr: Transform, pipeline: Pipeline) -> None:
         """Crée ou met à jour le renderer de trail de l'entité
 
@@ -303,40 +304,52 @@ class RenderSystem(System):
             tr: ``Transform`` de l'entité
             pipeline: ``Pipeline`` de rendu courant
         """
-        tc: TrailRenderer = entity.get(TrailRenderer)
+        tc: TrailRenderer = entity.trail_renderer
         eid = entity.id
 
+        # Invisible
         if not tc.is_visible():
             if eid in self._trails:
                 self._trails[eid].visible = False
             return
 
-        # Recréation si le mode image a changé
-        existing = self._trails.get(eid)
-        if existing is not None and existing.textured != (tc.image is not None):
-            existing.delete()
-            del self._trails[eid]
+        # Calcul du z-order
+        z = tc.z * 3 + _ORDER_TRAIL
 
+        # Construction du renderer
         if eid not in self._trails:
             self._trails[eid] = PygletTrailRenderer(
-                max_points=TrailRenderer._MAX_POINTS,
-                image=tc.image,
+                max_points = tc.max_points,
+                image = tc.image,
+                tiling=tc.tiling,
+                tile_size=tc.tile_size,
+                color = tc.color,
+                opacity = tc.opacity,
+                width = tc.width,
+                duration = tc.duration,
+                width_easing = tc.width_easing,
+                opacity_easing= tc.opacity_easing,
+                z = z,
+                pipeline = pipeline,
             )
             entity.on_kill(self._make_clear_trail_func(eid))
 
-        renderer = self._trails[eid]
-        renderer.visible = True
-        renderer.update(
-            points=tc.points,
-            width=tc.width,
-            duration=tc.duration,
-            color=tc.color,
-            opacity=tc.opacity,
-            width_easing=tc.width_easing,
-            smooth=tc.smooth,
-            pipeline=pipeline,
-        )
-        renderer.draw(pipeline, tc.color)
+        # Actualisation du renderer
+        else:
+            self._trails[eid].update(
+                tc.points,
+                image = tc.image,
+                tiling=tc.tiling,
+                tile_size=tc.tile_size,
+                color = tc.color,
+                opacity = tc.opacity,
+                width = tc.width,
+                duration = tc.duration,
+                width_easing = tc.width_easing,
+                opacity_easing= tc.opacity_easing,
+                z = z,
+            )
+            self._trails[eid].visible = True
 
     # ======================================== INTERNALS ========================================
     def _make_clear_geometry_func(self, eid: int) -> Callable[[], None]:

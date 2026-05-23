@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.13.5
+Version: 1.13.6
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -21,21 +21,15 @@ Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.15,>=3.10
 Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
-Requires-Dist: antlr4-python3-runtime
+Requires-Dist: antlr4-python3-runtime<4.14
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.5
-Requires-Dist: dagster-shared==1.13.5
+Requires-Dist: dagster-pipes==1.13.6
+Requires-Dist: dagster-shared==1.13.6
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
@@ -86,7 +80,7 @@ Requires-Dist: types-tabulate; extra == 'pyright'
 Requires-Dist: types-toml; extra == 'pyright'
 Requires-Dist: types-tzlocal; extra == 'pyright'
 Provides-Extra: ruff
-Requires-Dist: ruff==0.15.0; extra == 'ruff'
+Requires-Dist: ruff==0.15.13; extra == 'ruff'
 Provides-Extra: test
 Requires-Dist: docker; extra == 'test'
 Requires-Dist: fsspec<2024.5.0; extra == 'test'
@@ -105,7 +99,7 @@ Requires-Dist: pytest-xdist==3.6.1; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'
 Requires-Dist: rapidfuzz; extra == 'test'
 Requires-Dist: responses<=0.23.1; extra == 'test'
-Requires-Dist: ruff==0.15.0; extra == 'test'
+Requires-Dist: ruff==0.15.13; extra == 'test'
 Requires-Dist: syrupy>=4.0.0; extra == 'test'
 Requires-Dist: tox-uv>=1.16; extra == 'test'
 Requires-Dist: tox>=4.22; extra == 'test'
@@ -117,7 +111,7 @@ Requires-Dist: tomlkit; extra == 'test-components'
 Provides-Extra: ty
 Requires-Dist: boto3-stubs[essential]; extra == 'ty'
 Requires-Dist: pandas-stubs; extra == 'ty'
-Requires-Dist: ty==0.0.35; extra == 'ty'
+Requires-Dist: ty==0.0.37; extra == 'ty'
 Requires-Dist: types-backports; extra == 'ty'
 Requires-Dist: types-certifi; extra == 'ty'
 Requires-Dist: types-chardet; extra == 'ty'

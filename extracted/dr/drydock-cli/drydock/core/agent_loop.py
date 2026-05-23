@@ -332,6 +332,18 @@ class AgentLoop:
         accepted, even though it won't appear in `self.messages` until
         the drain runs. Without this, debugging "did my queued message
         land?" requires waiting for the next turn boundary.
+
+        ALSO writes the message to messages.jsonl with role="user" so
+        external watchers (test_harness_runner, stress harness, replay
+        tooling) that count user-message-increase to confirm prompt
+        delivery actually see the message. Observed 2026-05-22 in
+        gauntlet iter 135: while drydock was still working on L5
+        (dashboard) the runner typed L6 (sqlite) and L7 (3 bugs)
+        prompts. Both went through queue_user_injection → invisible
+        to the watcher → runner moved on without the model having
+        seen them. L6 and L7 were reported FAIL despite no model
+        attempt. The log-only path doesn't update messages.jsonl;
+        this fix does.
         """
         cleaned = (text or "").strip()
         if cleaned:
@@ -344,6 +356,30 @@ class AgentLoop:
                 })
             except Exception as _e:  # noqa: BLE001 — never block queueing on logger failure
                 logger.debug("[injection] session log_event failed: %s", _e)
+            # Persist a visible user-row to messages.jsonl so watchers
+            # see the message arrived. The model's self.messages is
+            # NOT modified here — the drain will fold the text into
+            # the next turn as a system note (which IS what enters
+            # self.messages). Asymmetry between persisted log and
+            # in-memory state is fine; the persisted log is for
+            # external observers + replay, the in-memory state is
+            # for the LLM call.
+            try:
+                if (self.session_logger.session_dir
+                        and self.session_logger.session_dir.is_dir()):
+                    import json as _json
+                    import uuid as _uuid
+                    mfile = self.session_logger.session_dir / "messages.jsonl"
+                    row = {
+                        "role": "user",
+                        "content": cleaned,
+                        "message_id": str(_uuid.uuid4()),
+                        "queued_while_busy": True,
+                    }
+                    with mfile.open("a", encoding="utf-8") as f:
+                        f.write(_json.dumps(row) + "\n")
+            except Exception as _e:  # noqa: BLE001
+                logger.debug("[injection] messages.jsonl append failed: %s", _e)
 
     def _drain_user_injections(self) -> None:
         """Pull any queued user messages into the current turn's context.
@@ -351,18 +387,46 @@ class AgentLoop:
         Folds them onto the last tool result via the same safe path as
         `_inject_system_note` — never appends a fresh user-after-tool
         message, which vLLM/Mistral reject.
+
+        2026-05-22: when MULTIPLE injections are queued (test_harness
+        and gauntlet runners type each level prompt back-to-back while
+        drydock is finishing the prior level), the old code emitted
+        ONE system note per message with "fold this into the current
+        task; do not start over." That's wrong — each typed message
+        IS a new task, not an addendum to the current one. Result: the
+        model tried to merge L4/L5/L6 into L3's response and confused
+        itself. Now combine all queued messages into a single note
+        that presents them as a SEQUENCE of new tasks to address in
+        order, with the most recent FIRST (since that's likely the
+        user's current intent).
         """
         if not self._pending_user_injections:
             return
         # Snapshot + clear so a concurrent queue append doesn't double-fire.
         injections = self._pending_user_injections
         self._pending_user_injections = []
-        for text in injections:
+        if len(injections) == 1:
             note = (
-                f"USER (typed while you were working — fold this into "
-                f"the current task; do not start over):\n{text}"
+                f"USER (typed while you were working):\n{injections[0]}\n\n"
+                f"Finish your current step's clean wrap-up, then address "
+                f"this new request."
             )
-            self._inject_system_note(note)
+        else:
+            # Newest first, since later prompts usually supersede earlier
+            # context. Number them so the model can refer back.
+            numbered = "\n".join(
+                f"  ({i+1}) {text}"
+                for i, text in enumerate(reversed(injections))
+            )
+            note = (
+                f"USER queued {len(injections)} new request(s) while you "
+                f"were working — newest first:\n{numbered}\n\n"
+                f"Finish the current step's clean wrap-up, then address "
+                f"request (1). If (2)+ are clearly superseded by (1), "
+                f"acknowledge but skip them. If they are independent, "
+                f"address them in order after (1)."
+            )
+        self._inject_system_note(note)
 
     def set_tool_permission(
         self, tool_name: str, permission: ToolPermission, save_permanently: bool = False
@@ -2529,6 +2593,14 @@ class AgentLoop:
                 continue
             if "[…truncated " in content and "bytes…]" in content:
                 continue
+            # Retrieve tool results carry GraphRAG cookbook context — the
+            # whole point of the injection is that the model sees the
+            # full chunk while writing code. Auto-prefetch caps each at
+            # ~2KB so 5 retrieves = 10KB context, manageable. Truncating
+            # them defeats the injection: model gets the heading + footer
+            # of the chunk but loses the actionable middle.
+            if getattr(msg, "name", None) == "retrieve":
+                continue
             head = content[:HEAD_BYTES]
             tail = content[-TAIL_BYTES:]
             removed = len(content) - HEAD_BYTES - TAIL_BYTES
@@ -2669,7 +2741,39 @@ class AgentLoop:
         if len(cleaned2) != len(self.messages):
             self.messages.reset(cleaned2)
 
-        # Fix 3: If last message is assistant, add a user "Continue." prompt.
+        # Fix 3 (NEW 2026-05-22): drop ORPHAN tool results — tool
+        # messages whose tool_call_id doesn't match any prior
+        # assistant.tool_calls entry. These cause API 400 errors that
+        # the model can't recover from on its own — operator reported
+        # 2026-05-22: "something would create an invalid API call,
+        # only way to get past it was a /clear." Fix 2 only removes
+        # orphans adjacent to a dropped empty-assistant; this catches
+        # them anywhere.
+        cleaned3: list[LLMMessage] = []
+        # Collect all known tool_call ids from assistant turns first.
+        known_ids: set[str] = set()
+        for msg in self.messages:
+            if msg.role == Role.assistant and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    if getattr(tc, "id", None):
+                        known_ids.add(tc.id)
+        dropped_orphans = 0
+        for msg in self.messages:
+            if msg.role == Role.tool:
+                tcid = getattr(msg, "tool_call_id", None)
+                if tcid and tcid not in known_ids:
+                    dropped_orphans += 1
+                    continue
+            cleaned3.append(msg)
+        if dropped_orphans:
+            logger.warning(
+                "[sanitize] dropped %d orphan tool result(s) with stale "
+                "tool_call_id (no matching assistant.tool_calls entry)",
+                dropped_orphans,
+            )
+            self.messages.reset(cleaned3)
+
+        # Fix 4: If last message is assistant, add a user "Continue." prompt.
         # The auto-Continue exists so Gemma 4 keeps executing multi-step plans
         # without stopping prematurely at an intermediate text response. For
         # stress runs against prompts that don't need tool calls (pure
@@ -4298,6 +4402,24 @@ or replace freely; future sessions will respect your edits._
             pass
 
         agents_md = cwd / "AGENTS.md"
+        # Detect a project test layout (tests/ + pytest.ini) so we
+        # can tell the model the right pytest invocation up front.
+        # Observed 2026-05-22 in P2-S2: model ran `pytest`, got
+        # ModuleNotFoundError, then `export PYTHONPATH=. && pytest`
+        # worked. That re-run trips the bash loop-breaker for any
+        # case where the model retries pytest 5+ times. Telling it
+        # the right command in AGENTS.md eliminates the loop.
+        has_tests = (cwd / "tests").is_dir()
+        has_pytest_ini = (cwd / "pytest.ini").is_file() or (cwd / "pyproject.toml").is_file()
+        pytest_hint = ""
+        if has_tests and has_pytest_ini:
+            pytest_hint = (
+                "\n## Running tests\n"
+                "This project isn't pip-installed, so plain `pytest` will\n"
+                "raise `ModuleNotFoundError`. Use one of:\n"
+                "  PYTHONPATH=. pytest -q\n"
+                "  python3 -m pytest -q\n"
+            )
         if existing_pkg:
             content = (
                 "# Project Instructions\n\n"
@@ -4316,6 +4438,7 @@ or replace freely; future sessions will respect your edits._
                 "- Match the project's existing style and patterns\n"
                 "- NEVER ask 'should I proceed' — JUST DO IT\n"
                 "- When tests pass, stop. Don't keep editing.\n"
+                + pytest_hint
             )
         else:
             content = (

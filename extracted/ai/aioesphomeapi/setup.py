@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """aioesphomeapi setup script."""
 
 import contextlib
@@ -43,7 +42,7 @@ with (here / "README.rst").open(encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "45.0.4"
+VERSION = "45.1.0"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -107,16 +106,16 @@ def cythonize_if_available(setup_kwargs: dict[str, Any]) -> None:
         from Cython.Build import cythonize  # noqa: PLC0415
 
         setup_kwargs.update(
-            dict(
-                ext_modules=cythonize(
+            {
+                "ext_modules": cythonize(
                     EXTENSIONS,
                     compiler_directives={
                         "language_level": "3",  # Python 3
                         "freethreading_compatible": True,  # PEP 703
                     },
                 ),
-                cmdclass=dict(build_ext=OptionalBuildExt),
-            )
+                "cmdclass": {"build_ext": OptionalBuildExt},
+            }
         )
     except Exception:
         if os.environ.get("REQUIRE_CYTHON"):

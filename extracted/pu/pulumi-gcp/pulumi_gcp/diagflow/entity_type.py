@@ -23,9 +23,10 @@ class EntityTypeArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
                  kind: pulumi.Input[_builtins.str],
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a EntityType resource.
 
@@ -36,6 +37,12 @@ class EntityTypeArgs:
                types can contain references to other entity types (with or without aliases).
                * KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values.
                Possible values are: `KIND_MAP`, `KIND_LIST`, `KIND_REGEXP`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]] entities: The collection of entity entries associated with the entity type.
                Structure is documented below.
@@ -44,6 +51,8 @@ class EntityTypeArgs:
         """
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "kind", kind)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if enable_fuzzy_extraction is not None:
             pulumi.set(__self__, "enable_fuzzy_extraction", enable_fuzzy_extraction)
         if entities is not None:
@@ -81,20 +90,37 @@ class EntityTypeArgs:
         pulumi.set(self, "kind", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="enableFuzzyExtraction")
-    def enable_fuzzy_extraction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_fuzzy_extraction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Enables fuzzy entity extraction during classification.
         """
         return pulumi.get(self, "enable_fuzzy_extraction")
 
     @enable_fuzzy_extraction.setter
-    def enable_fuzzy_extraction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_fuzzy_extraction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_fuzzy_extraction", value)
 
     @_builtins.property
     @pulumi.getter
-    def entities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]:
+    def entities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]:
         """
         The collection of entity entries associated with the entity type.
         Structure is documented below.
@@ -102,12 +128,12 @@ class EntityTypeArgs:
         return pulumi.get(self, "entities")
 
     @entities.setter
-    def entities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]):
+    def entities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]):
         pulumi.set(self, "entities", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -115,22 +141,29 @@ class EntityTypeArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _EntityTypeState:
     def __init__(__self__, *,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EntityType resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this entity type to be displayed on the console.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]] entities: The collection of entity entries associated with the entity type.
@@ -146,6 +179,8 @@ class _EntityTypeState:
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if enable_fuzzy_extraction is not None:
@@ -160,32 +195,49 @@ class _EntityTypeState:
             pulumi.set(__self__, "project", project)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this entity type to be displayed on the console.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enableFuzzyExtraction")
-    def enable_fuzzy_extraction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_fuzzy_extraction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Enables fuzzy entity extraction during classification.
         """
         return pulumi.get(self, "enable_fuzzy_extraction")
 
     @enable_fuzzy_extraction.setter
-    def enable_fuzzy_extraction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_fuzzy_extraction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_fuzzy_extraction", value)
 
     @_builtins.property
     @pulumi.getter
-    def entities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]:
+    def entities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]:
         """
         The collection of entity entries associated with the entity type.
         Structure is documented below.
@@ -193,12 +245,12 @@ class _EntityTypeState:
         return pulumi.get(self, "entities")
 
     @entities.setter
-    def entities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]):
+    def entities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['EntityTypeEntityArgs']]]]):
         pulumi.set(self, "entities", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates the kind of entity type.
         * KIND_MAP: Map entity types allow mapping of a group of synonyms to a reference value.
@@ -210,12 +262,12 @@ class _EntityTypeState:
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the entity type.
         Format: projects/<Project ID>/agent/entityTypes/<Entity type ID>.
@@ -223,12 +275,12 @@ class _EntityTypeState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -236,7 +288,7 @@ class _EntityTypeState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -246,11 +298,12 @@ class EntityType(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents an entity type. Entity types serve as a tool for extracting parameter values from natural language queries.
@@ -310,6 +363,12 @@ class EntityType(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this entity type to be displayed on the console.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]] entities: The collection of entity entries associated with the entity type.
@@ -400,11 +459,12 @@ class EntityType(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -414,6 +474,7 @@ class EntityType(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = EntityTypeArgs.__new__(EntityTypeArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -434,12 +495,13 @@ class EntityType(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_fuzzy_extraction: Optional[pulumi.Input[_builtins.bool]] = None,
-            entities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
-            kind: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'EntityType':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_fuzzy_extraction: pulumi.Input[Optional[_builtins.bool]] = None,
+            entities: pulumi.Input[Optional[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]]] = None,
+            kind: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'EntityType':
         """
         Get an existing EntityType resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -447,6 +509,12 @@ class EntityType(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The name of this entity type to be displayed on the console.
         :param pulumi.Input[_builtins.bool] enable_fuzzy_extraction: Enables fuzzy entity extraction during classification.
         :param pulumi.Input[Sequence[pulumi.Input[Union['EntityTypeEntityArgs', 'EntityTypeEntityArgsDict']]]] entities: The collection of entity entries associated with the entity type.
@@ -466,6 +534,7 @@ class EntityType(pulumi.CustomResource):
 
         __props__ = _EntityTypeState.__new__(_EntityTypeState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enable_fuzzy_extraction"] = enable_fuzzy_extraction
         __props__.__dict__["entities"] = entities
@@ -473,6 +542,19 @@ class EntityType(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         return EntityType(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

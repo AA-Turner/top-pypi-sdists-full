@@ -25,10 +25,11 @@ class RecommendationEngineArgs:
                  display_name: pulumi.Input[_builtins.str],
                  engine_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 common_config: Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 media_recommendation_engine_config: Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 common_config: pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 media_recommendation_engine_config: pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a RecommendationEngine resource.
 
@@ -39,6 +40,12 @@ class RecommendationEngineArgs:
                only be one of "global", "us" and "eu".
         :param pulumi.Input['RecommendationEngineCommonConfigArgs'] common_config: Common config spec that specifies the metadata of the engine.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
                Default value is `GENERIC`.
                Possible values are: `GENERIC`, `MEDIA`.
@@ -54,6 +61,8 @@ class RecommendationEngineArgs:
         pulumi.set(__self__, "location", location)
         if common_config is not None:
             pulumi.set(__self__, "common_config", common_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if industry_vertical is not None:
             pulumi.set(__self__, "industry_vertical", industry_vertical)
         if media_recommendation_engine_config is not None:
@@ -112,7 +121,7 @@ class RecommendationEngineArgs:
 
     @_builtins.property
     @pulumi.getter(name="commonConfig")
-    def common_config(self) -> Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']]:
+    def common_config(self) -> pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']]:
         """
         Common config spec that specifies the metadata of the engine.
         Structure is documented below.
@@ -120,12 +129,29 @@ class RecommendationEngineArgs:
         return pulumi.get(self, "common_config")
 
     @common_config.setter
-    def common_config(self, value: Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']]):
+    def common_config(self, value: pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']]):
         pulumi.set(self, "common_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="industryVertical")
-    def industry_vertical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def industry_vertical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
         Default value is `GENERIC`.
@@ -134,12 +160,12 @@ class RecommendationEngineArgs:
         return pulumi.get(self, "industry_vertical")
 
     @industry_vertical.setter
-    def industry_vertical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def industry_vertical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "industry_vertical", value)
 
     @_builtins.property
     @pulumi.getter(name="mediaRecommendationEngineConfig")
-    def media_recommendation_engine_config(self) -> Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']]:
+    def media_recommendation_engine_config(self) -> pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']]:
         """
         Configurations for a Media Recommendation Engine. Only applicable on the data stores
         with SOLUTION_TYPE_RECOMMENDATION solution type and MEDIA industry vertical.
@@ -148,12 +174,12 @@ class RecommendationEngineArgs:
         return pulumi.get(self, "media_recommendation_engine_config")
 
     @media_recommendation_engine_config.setter
-    def media_recommendation_engine_config(self, value: Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']]):
+    def media_recommendation_engine_config(self, value: pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']]):
         pulumi.set(self, "media_recommendation_engine_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -161,24 +187,25 @@ class RecommendationEngineArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _RecommendationEngineState:
     def __init__(__self__, *,
-                 common_config: Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 media_recommendation_engine_config: Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 common_config: pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 media_recommendation_engine_config: pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RecommendationEngine resources.
 
@@ -186,6 +213,12 @@ class _RecommendationEngineState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp the Engine was created at.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: Unique ID to use for Recommendation Engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
@@ -209,6 +242,8 @@ class _RecommendationEngineState:
             pulumi.set(__self__, "create_time", create_time)
         if data_store_ids is not None:
             pulumi.set(__self__, "data_store_ids", data_store_ids)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if engine_id is not None:
@@ -228,7 +263,7 @@ class _RecommendationEngineState:
 
     @_builtins.property
     @pulumi.getter(name="commonConfig")
-    def common_config(self) -> Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']]:
+    def common_config(self) -> pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']]:
         """
         Common config spec that specifies the metadata of the engine.
         Structure is documented below.
@@ -236,60 +271,77 @@ class _RecommendationEngineState:
         return pulumi.get(self, "common_config")
 
     @common_config.setter
-    def common_config(self, value: Optional[pulumi.Input['RecommendationEngineCommonConfigArgs']]):
+    def common_config(self, value: pulumi.Input[Optional['RecommendationEngineCommonConfigArgs']]):
         pulumi.set(self, "common_config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp the Engine was created at.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataStoreIds")
-    def data_store_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def data_store_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
         """
         return pulumi.get(self, "data_store_ids")
 
     @data_store_ids.setter
-    def data_store_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def data_store_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "data_store_ids", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="engineId")
-    def engine_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def engine_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Unique ID to use for Recommendation Engine.
         """
         return pulumi.get(self, "engine_id")
 
     @engine_id.setter
-    def engine_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def engine_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "engine_id", value)
 
     @_builtins.property
     @pulumi.getter(name="industryVertical")
-    def industry_vertical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def industry_vertical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
         Default value is `GENERIC`.
@@ -298,12 +350,12 @@ class _RecommendationEngineState:
         return pulumi.get(self, "industry_vertical")
 
     @industry_vertical.setter
-    def industry_vertical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def industry_vertical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "industry_vertical", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the data store should reside. The value can
         only be one of "global", "us" and "eu".
@@ -311,12 +363,12 @@ class _RecommendationEngineState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="mediaRecommendationEngineConfig")
-    def media_recommendation_engine_config(self) -> Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']]:
+    def media_recommendation_engine_config(self) -> pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']]:
         """
         Configurations for a Media Recommendation Engine. Only applicable on the data stores
         with SOLUTION_TYPE_RECOMMENDATION solution type and MEDIA industry vertical.
@@ -325,12 +377,12 @@ class _RecommendationEngineState:
         return pulumi.get(self, "media_recommendation_engine_config")
 
     @media_recommendation_engine_config.setter
-    def media_recommendation_engine_config(self, value: Optional[pulumi.Input['RecommendationEngineMediaRecommendationEngineConfigArgs']]):
+    def media_recommendation_engine_config(self, value: pulumi.Input[Optional['RecommendationEngineMediaRecommendationEngineConfigArgs']]):
         pulumi.set(self, "media_recommendation_engine_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique full resource name of the recommendation engine. Values are of the format
         `projects/{project}/locations/{location}/collections/{collection}/engines/{engine_id}`.
@@ -339,12 +391,12 @@ class _RecommendationEngineState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -352,19 +404,19 @@ class _RecommendationEngineState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp the Engine was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -374,14 +426,15 @@ class RecommendationEngine(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 common_config: Optional[pulumi.Input[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 media_recommendation_engine_config: Optional[pulumi.Input[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 common_config: pulumi.Input[Optional[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 media_recommendation_engine_config: pulumi.Input[Optional[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Vertex AI Search recommendation apps.
@@ -477,6 +530,12 @@ class RecommendationEngine(pulumi.CustomResource):
         :param pulumi.Input[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']] common_config: Common config spec that specifies the metadata of the engine.
                Structure is documented below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: Unique ID to use for Recommendation Engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
@@ -600,14 +659,15 @@ class RecommendationEngine(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 common_config: Optional[pulumi.Input[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 media_recommendation_engine_config: Optional[pulumi.Input[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 common_config: pulumi.Input[Optional[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 media_recommendation_engine_config: pulumi.Input[Optional[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -621,6 +681,7 @@ class RecommendationEngine(pulumi.CustomResource):
             if data_store_ids is None and not opts.urn:
                 raise TypeError("Missing required property 'data_store_ids'")
             __props__.__dict__["data_store_ids"] = data_store_ids
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -646,17 +707,18 @@ class RecommendationEngine(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            common_config: Optional[pulumi.Input[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-            industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            media_recommendation_engine_config: Optional[pulumi.Input[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'RecommendationEngine':
+            common_config: pulumi.Input[Optional[Union['RecommendationEngineCommonConfigArgs', 'RecommendationEngineCommonConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+            industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            media_recommendation_engine_config: pulumi.Input[Optional[Union['RecommendationEngineMediaRecommendationEngineConfigArgs', 'RecommendationEngineMediaRecommendationEngineConfigArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'RecommendationEngine':
         """
         Get an existing RecommendationEngine resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -668,6 +730,12 @@ class RecommendationEngine(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp the Engine was created at.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: Unique ID to use for Recommendation Engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
@@ -692,6 +760,7 @@ class RecommendationEngine(pulumi.CustomResource):
         __props__.__dict__["common_config"] = common_config
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["data_store_ids"] = data_store_ids
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["engine_id"] = engine_id
         __props__.__dict__["industry_vertical"] = industry_vertical
@@ -726,6 +795,19 @@ class RecommendationEngine(pulumi.CustomResource):
         The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
         """
         return pulumi.get(self, "data_store_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

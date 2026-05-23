@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import CancelledError
-from collections.abc import Callable
 from dataclasses import astuple, dataclass
 import enum
 from functools import lru_cache, partial
@@ -14,7 +13,6 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import aiohappyeyeballs
 from async_interrupt import interrupt
-from google.protobuf import message
 from google.protobuf.json_format import MessageToDict
 
 import aioesphomeapi.host_resolver as hr
@@ -60,7 +58,13 @@ from .model import APIVersion, message_types_to_names
 from .posix_tz import DSTRule as DSTRuleParsed, DSTRuleType, parse_posix_tz
 from .timezone import get_timezone
 from .util import asyncio_timeout
-from .zeroconf import ZeroconfManager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
+
+    from .zeroconf import ZeroconfManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -249,12 +253,12 @@ _handle_complex_message = handle_complex_message
 
 
 class APIConnection:
-    """This class represents _one_ connection to a remote native API device.
+    """Represent _one_ connection to a remote native API device.
 
     An instance of this class may only be used once, for every new connection
     a new instance should be established.
 
-    This class should only be created from APIClient and should not be used directly.
+    Only created from APIClient — do not instantiate directly.
     """
 
     __slots__ = (
@@ -340,7 +344,7 @@ class APIConnection:
         if self._frame_helper is not None:
             self._frame_helper.set_log_name(name)
 
-    def _cleanup(self) -> None:
+    def _cleanup(self) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Clean up all resources that have been allocated.
 
         Safe to call multiple times.
@@ -434,12 +438,10 @@ class APIConnection:
 
         if sock is None:
             if isinstance(last_exception, TimeoutError):
-                raise TimeoutAPIError(
-                    f"Timeout while connecting to {addrs}"
-                ) from last_exception
-            raise SocketAPIError(
-                f"Error connecting to {addrs}: {last_exception}"
-            ) from last_exception
+                msg = f"Timeout while connecting to {addrs}"
+                raise TimeoutAPIError(msg) from last_exception
+            msg = f"Error connecting to {addrs}: {last_exception}"
+            raise SocketAPIError(msg) from last_exception
 
         self._socket = sock
         sock.setblocking(False)
@@ -528,11 +530,11 @@ class APIConnection:
         try:
             await self._frame_helper.ready_future
         except TimeoutError as err:
-            raise TimeoutAPIError(
-                f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
-            ) from err
+            msg = f"Handshake timed out after {HANDSHAKE_TIMEOUT}s"
+            raise TimeoutAPIError(msg) from err
         except OSError as err:
-            raise HandshakeAPIError(f"Handshake failed: {err}") from err
+            msg = f"Handshake failed: {err}"
+            raise HandshakeAPIError(msg) from err
         finally:
             handshake_handle.cancel()
         self._set_connection_state(CONNECTION_STATE_HANDSHAKE_COMPLETE)
@@ -583,7 +585,8 @@ class APIConnection:
                 self.log_name,
                 api_version.major,
             )
-            raise APIConnectionError(f"Incompatible API version ({api_version}).")
+            msg = f"Incompatible API version ({api_version})."
+            raise APIConnectionError(msg)
 
         self.api_version = api_version
         expected_name = self._params.expected_name
@@ -595,9 +598,12 @@ class APIConnection:
         if received_name_raw := resp.name:
             received_name = safe_label_str(received_name_raw, MAX_NAME_LEN)
             if expected_name is not None and received_name_raw != expected_name:
-                raise BadNameAPIError(
+                msg = (
                     f"Expected '{expected_name}' but server sent "
-                    f"a different name: '{received_name}'",
+                    f"a different name: '{received_name}'"
+                )
+                raise BadNameAPIError(
+                    msg,
                     received_name,
                 )
 
@@ -670,9 +676,8 @@ class APIConnection:
         and prepares the connection for the next step.
         """
         if self.connection_state is not CONNECTION_STATE_INITIALIZED:
-            raise RuntimeError(
-                "Connection can only be used once, connection is not in init state"
-            )
+            msg = "Connection can only be used once, connection is not in init state"
+            raise RuntimeError(msg)
 
         self._resolve_host_future = self._loop.create_future()
         try:
@@ -684,7 +689,7 @@ class APIConnection:
                     self._params.port,
                     self._params.zeroconf_manager,
                 )
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -708,9 +713,8 @@ class APIConnection:
         does not initialize the frame helper or send the hello message.
         """
         if self.connection_state is not CONNECTION_STATE_HOST_RESOLVED:
-            raise RuntimeError(
-                "Connection must be in HOST_RESOLVED state to start connection"
-            )
+            msg = "Connection must be in HOST_RESOLVED state to start connection"
+            raise RuntimeError(msg)
 
         self._start_connect_future = self._loop.create_future()
         try:
@@ -718,7 +722,7 @@ class APIConnection:
                 self._start_connect_future, ConnectionInterruptedError, None
             ):
                 await self._connect_socket_connect(self._addrs_info)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -804,16 +808,15 @@ class APIConnection:
         than starts the keep alive process.
         """
         if self.connection_state is not CONNECTION_STATE_SOCKET_OPENED:
-            raise RuntimeError(
-                "Connection must be in SOCKET_OPENED state to finish connection"
-            )
+            msg = "Connection must be in SOCKET_OPENED state to finish connection"
+            raise RuntimeError(msg)
         self._finish_connect_future = self._loop.create_future()
         try:
             async with interrupt(
                 self._finish_connect_future, ConnectionInterruptedError, None
             ):
                 await self._do_finish_connect(login)
-        except (Exception, CancelledError) as ex:
+        except (Exception, CancelledError) as ex:  # noqa: BLE001
             # Clean up the connection; re-raise the original CancelledError
             # if the task is actually being cancelled so TaskGroup /
             # asyncio.timeout semantics are preserved.
@@ -852,9 +855,8 @@ class APIConnection:
     def send_messages(self, msgs: tuple[message.Message, ...]) -> None:
         """Send a protobuf message to the remote."""
         if not self._handshake_complete:
-            raise ConnectionNotEstablishedAPIError(
-                f"Connection isn't established yet ({self.connection_state})"
-            )
+            error_msg = f"Connection isn't established yet ({self.connection_state})"
+            raise ConnectionNotEstablishedAPIError(error_msg)
 
         packets: list[tuple[int, bytes]] = [
             (msg_type[0], msg_type[1](msg))
@@ -975,9 +977,8 @@ class APIConnection:
         except TimeoutError as err:
             timeout_expired = True
             response_names = message_types_to_names(msg_types)
-            raise TimeoutAPIError(
-                f"Timeout waiting for {response_names} after {timeout}s"
-            ) from err
+            msg = f"Timeout waiting for {response_names} after {timeout}s"
+            raise TimeoutAPIError(msg) from err
         finally:
             if not timeout_expired:
                 timeout_handle.cancel()
@@ -1038,7 +1039,7 @@ class APIConnection:
         if self._fatal_exception is None:
             self._fatal_exception = err
 
-    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:
+    def process_packet(self, msg_type_proto: _int, data: _bytes) -> None:  # noqa: C901  # Cython-hot path; see CLAUDE.md "Cython gotchas"
         """Process an incoming packet."""
         # This method is HOT and extremely performance critical
         # since its called for every incoming packet. Take
@@ -1215,7 +1216,7 @@ class APIConnection:
         self._cleanup()
 
     def force_disconnect(self) -> None:
-        """Forcefully disconnect from the API."""
+        """Disconnect from the API immediately, without graceful shutdown."""
         self._expected_disconnect = True
         if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully

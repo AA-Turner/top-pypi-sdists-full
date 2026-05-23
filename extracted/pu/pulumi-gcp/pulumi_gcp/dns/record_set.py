@@ -24,10 +24,11 @@ class RecordSetArgs:
                  managed_zone: pulumi.Input[_builtins.str],
                  name: pulumi.Input[_builtins.str],
                  type: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 routing_policy: Optional[pulumi.Input['RecordSetRoutingPolicyArgs']] = None,
-                 rrdatas: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.int]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 routing_policy: pulumi.Input[Optional['RecordSetRoutingPolicyArgs']] = None,
+                 rrdatas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The set of arguments for constructing a RecordSet resource.
 
@@ -37,6 +38,12 @@ class RecordSetArgs:
         :param pulumi.Input[_builtins.str] type: The DNS record set type.
                
                - - -
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
                is not provided, the provider project is used.
         :param pulumi.Input['RecordSetRoutingPolicyArgs'] routing_policy: The configuration for steering traffic based on query.
@@ -49,6 +56,8 @@ class RecordSetArgs:
         pulumi.set(__self__, "managed_zone", managed_zone)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "type", type)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if routing_policy is not None:
@@ -98,8 +107,25 @@ class RecordSetArgs:
         pulumi.set(self, "type", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs. If it
         is not provided, the provider project is used.
@@ -107,12 +133,12 @@ class RecordSetArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="routingPolicy")
-    def routing_policy(self) -> Optional[pulumi.Input['RecordSetRoutingPolicyArgs']]:
+    def routing_policy(self) -> pulumi.Input[Optional['RecordSetRoutingPolicyArgs']]:
         """
         The configuration for steering traffic based on query.
         Now you can specify either Weighted Round Robin(WRR) type or Geolocation(GEO) type.
@@ -121,12 +147,12 @@ class RecordSetArgs:
         return pulumi.get(self, "routing_policy")
 
     @routing_policy.setter
-    def routing_policy(self, value: Optional[pulumi.Input['RecordSetRoutingPolicyArgs']]):
+    def routing_policy(self, value: pulumi.Input[Optional['RecordSetRoutingPolicyArgs']]):
         pulumi.set(self, "routing_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def rrdatas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def rrdatas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The string data for the records in this record set
         whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding `\\"` if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add `\\" \\"` inside the Terraform configuration string (e.g. `"first255characters\\" \\"morecharacters"`).
@@ -134,35 +160,42 @@ class RecordSetArgs:
         return pulumi.get(self, "rrdatas")
 
     @rrdatas.setter
-    def rrdatas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def rrdatas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "rrdatas", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The time-to-live of this record set (seconds).
         """
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "ttl", value)
 
 
 @pulumi.input_type
 class _RecordSetState:
     def __init__(__self__, *,
-                 managed_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 routing_policy: Optional[pulumi.Input['RecordSetRoutingPolicyArgs']] = None,
-                 rrdatas: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.int]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 managed_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 routing_policy: pulumi.Input[Optional['RecordSetRoutingPolicyArgs']] = None,
+                 rrdatas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.int]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RecordSet resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] managed_zone: The name of the zone in which this record set will
                reside.
         :param pulumi.Input[_builtins.str] name: The DNS name this record set will apply to.
@@ -178,6 +211,8 @@ class _RecordSetState:
                
                - - -
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if managed_zone is not None:
             pulumi.set(__self__, "managed_zone", managed_zone)
         if name is not None:
@@ -194,8 +229,25 @@ class _RecordSetState:
             pulumi.set(__self__, "type", type)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="managedZone")
-    def managed_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def managed_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the zone in which this record set will
         reside.
@@ -203,24 +255,24 @@ class _RecordSetState:
         return pulumi.get(self, "managed_zone")
 
     @managed_zone.setter
-    def managed_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def managed_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "managed_zone", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The DNS name this record set will apply to.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs. If it
         is not provided, the provider project is used.
@@ -228,12 +280,12 @@ class _RecordSetState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="routingPolicy")
-    def routing_policy(self) -> Optional[pulumi.Input['RecordSetRoutingPolicyArgs']]:
+    def routing_policy(self) -> pulumi.Input[Optional['RecordSetRoutingPolicyArgs']]:
         """
         The configuration for steering traffic based on query.
         Now you can specify either Weighted Round Robin(WRR) type or Geolocation(GEO) type.
@@ -242,12 +294,12 @@ class _RecordSetState:
         return pulumi.get(self, "routing_policy")
 
     @routing_policy.setter
-    def routing_policy(self, value: Optional[pulumi.Input['RecordSetRoutingPolicyArgs']]):
+    def routing_policy(self, value: pulumi.Input[Optional['RecordSetRoutingPolicyArgs']]):
         pulumi.set(self, "routing_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def rrdatas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def rrdatas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The string data for the records in this record set
         whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding `\\"` if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add `\\" \\"` inside the Terraform configuration string (e.g. `"first255characters\\" \\"morecharacters"`).
@@ -255,24 +307,24 @@ class _RecordSetState:
         return pulumi.get(self, "rrdatas")
 
     @rrdatas.setter
-    def rrdatas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def rrdatas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "rrdatas", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The time-to-live of this record set (seconds).
         """
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "ttl", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The DNS record set type.
 
@@ -281,7 +333,7 @@ class _RecordSetState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
@@ -291,13 +343,14 @@ class RecordSet(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 managed_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 routing_policy: Optional[pulumi.Input[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
-                 rrdatas: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.int]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 managed_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 routing_policy: pulumi.Input[Optional[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
+                 rrdatas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.int]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Manages a set of DNS records within Google Cloud DNS. For more information see [the official documentation](https://cloud.google.com/dns/docs/records/) and
@@ -558,6 +611,12 @@ class RecordSet(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] managed_zone: The name of the zone in which this record set will
                reside.
         :param pulumi.Input[_builtins.str] name: The DNS name this record set will apply to.
@@ -851,13 +910,14 @@ class RecordSet(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 managed_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 routing_policy: Optional[pulumi.Input[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
-                 rrdatas: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.int]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 managed_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 routing_policy: pulumi.Input[Optional[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
+                 rrdatas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.int]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -867,6 +927,7 @@ class RecordSet(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = RecordSetArgs.__new__(RecordSetArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if managed_zone is None and not opts.urn:
                 raise TypeError("Missing required property 'managed_zone'")
             __props__.__dict__["managed_zone"] = managed_zone
@@ -890,13 +951,14 @@ class RecordSet(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            managed_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            routing_policy: Optional[pulumi.Input[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
-            rrdatas: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            ttl: Optional[pulumi.Input[_builtins.int]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None) -> 'RecordSet':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            managed_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            routing_policy: pulumi.Input[Optional[Union['RecordSetRoutingPolicyArgs', 'RecordSetRoutingPolicyArgsDict']]] = None,
+            rrdatas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            ttl: pulumi.Input[Optional[_builtins.int]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None) -> 'RecordSet':
         """
         Get an existing RecordSet resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -904,6 +966,12 @@ class RecordSet(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] managed_zone: The name of the zone in which this record set will
                reside.
         :param pulumi.Input[_builtins.str] name: The DNS name this record set will apply to.
@@ -923,6 +991,7 @@ class RecordSet(pulumi.CustomResource):
 
         __props__ = _RecordSetState.__new__(_RecordSetState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["managed_zone"] = managed_zone
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
@@ -931,6 +1000,19 @@ class RecordSet(pulumi.CustomResource):
         __props__.__dict__["ttl"] = ttl
         __props__.__dict__["type"] = type
         return RecordSet(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="managedZone")

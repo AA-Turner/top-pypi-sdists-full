@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
 from asyncio import timeout as asyncio_timeout
-from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from struct import Struct
 from typing import TYPE_CHECKING, cast
@@ -23,7 +21,12 @@ from ..const import (
     MEDIUM_MIN_CONN_INTERVAL,
     ConnectParams,
 )
-from ..scanner import HaScanner
+
+if TYPE_CHECKING:
+    import socket
+    from collections.abc import AsyncIterator, Callable
+
+    from ..scanner import HaScanner
 
 _LOGGER = logging.getLogger(__name__)
 _int = int
@@ -89,7 +92,7 @@ class BluetoothMGMTProtocol:
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle connection made."""
         _set_future_if_not_done(self.connection_made_future)
-        self.transport = cast(asyncio.Transport, transport)
+        self.transport = cast("asyncio.Transport", transport)
 
     def _write_to_socket(self, data: bytes) -> None:
         """
@@ -113,8 +116,8 @@ class BluetoothMGMTProtocol:
                     "Bluetooth mgmt socket returned 0 for %d bytes (kernel bug fix)",
                     len(data),
                 )
-        except Exception as exc:
-            _LOGGER.error("Failed to write to mgmt socket: %s", exc)
+        except Exception:
+            _LOGGER.exception("Failed to write to mgmt socket")
             raise
 
     @asynccontextmanager
@@ -180,7 +183,7 @@ class BluetoothMGMTProtocol:
         # since Cython will stop at any '\0' character if we don't
         self._buffer = cstr[end_of_frame_pos : self._buffer_len + end_of_frame_pos]
 
-    def data_received(self, data: _bytes) -> None:
+    def data_received(self, data: _bytes) -> None:  # noqa: C901
         """Handle data received."""
         self._add_to_buffer(data)
         while self._buffer_len >= 6:
@@ -357,7 +360,7 @@ class MGMTBluetoothCtl:
             btmgmt_socket.close(self.sock)
             raise
         _LOGGER.debug("Bluetooth management socket connection established")
-        self.protocol = cast(BluetoothMGMTProtocol, protocol)
+        self.protocol = cast("BluetoothMGMTProtocol", protocol)
         self._on_connection_lost_future = loop.create_future()
 
     def _has_mgmt_capabilities_from_status(self, status: int) -> bool:
@@ -412,8 +415,7 @@ class MGMTBluetoothCtl:
             return await self._do_mgmt_op_get_connections(header)
         except (TimeoutError, OSError) as ex:
             _LOGGER.debug(
-                "MGMT capability check failed: %s - "
-                "likely missing NET_ADMIN/NET_RAW",
+                "MGMT capability check failed: %s - likely missing NET_ADMIN/NET_RAW",
                 ex,
             )
             return False
@@ -445,9 +447,8 @@ class MGMTBluetoothCtl:
             if self.protocol and self.protocol.transport:
                 self.protocol.transport.close()
             btmgmt_socket.close(self.sock)
-            raise PermissionError(
-                "Missing NET_ADMIN/NET_RAW capabilities for Bluetooth management"
-            )
+            msg = "Missing NET_ADMIN/NET_RAW capabilities for Bluetooth management"
+            raise PermissionError(msg)
 
         self._reconnect_task = asyncio.create_task(self.reconnect_task())
 
@@ -482,22 +483,22 @@ class MGMTBluetoothCtl:
             _LOGGER.error("Invalid MAC address: %s", address)
             return False
 
-        # Build command structure
+        # Build command structure (C definitions from BlueZ mgmt-api.txt):
         # struct mgmt_cp_load_conn_param {
         #     uint16_t param_count;
         #     struct mgmt_conn_param params[0];
-        # }
+        # };
         # struct mgmt_conn_param {
         #     struct mgmt_addr_info addr;
         #     uint16_t min_interval;
         #     uint16_t max_interval;
         #     uint16_t latency;
         #     uint16_t timeout;
-        # }
+        # };
         # struct mgmt_addr_info {
         #     bdaddr_t bdaddr;
         #     uint8_t type;
-        # }
+        # };
 
         # Get the appropriate connection parameters based on the enum
         if params is ConnectParams.FAST:
@@ -538,10 +539,11 @@ class MGMTBluetoothCtl:
                 latency,
                 timeout,
             )
-            return True
         except Exception:
             _LOGGER.exception("Failed to load conn params")
             return False
+        else:
+            return True
 
     def load_conn_params_explicit(
         self,
@@ -607,7 +609,8 @@ class MGMTBluetoothCtl:
                 latency,
                 timeout,
             )
-            return True
         except Exception:
             _LOGGER.exception("Failed to load conn params")
             return False
+        else:
+            return True

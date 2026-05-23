@@ -5,6 +5,8 @@ This implementation uses non-blocking I/O and proper frame synchronization
 that works well on Linux but may have issues on Windows.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import queue
@@ -14,7 +16,10 @@ import threading
 import time
 from typing import Optional
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

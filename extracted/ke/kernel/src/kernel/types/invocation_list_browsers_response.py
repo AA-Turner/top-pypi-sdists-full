@@ -1,14 +1,14 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 from .profile import Profile
 from .._models import BaseModel
 from .browser_usage import BrowserUsage
 from .browser_pool_ref import BrowserPoolRef
-from .browser_persistence import BrowserPersistence
 from .shared.browser_viewport import BrowserViewport
+from .browsers.browser_telemetry_config import BrowserTelemetryConfig
 
 __all__ = ["InvocationListBrowsersResponse", "Browser"]
 
@@ -44,6 +44,13 @@ class Browser(BaseModel):
     Only available for non-headless browsers.
     """
 
+    chrome_policy: Optional[Dict[str, object]] = None
+    """
+    Custom Chrome enterprise policy overrides that were applied to this browser
+    session, if any. Echoed back for verification. Keys are Chrome enterprise policy
+    names.
+    """
+
     deleted_at: Optional[datetime] = None
     """When the browser session was soft-deleted. Only present for deleted sessions."""
 
@@ -56,9 +63,6 @@ class Browser(BaseModel):
     kiosk_mode: Optional[bool] = None
     """Whether the browser session is running in kiosk mode."""
 
-    persistence: Optional[BrowserPersistence] = None
-    """DEPRECATED: Use timeout_seconds (up to 72 hours) and Profiles instead."""
-
     pool: Optional[BrowserPoolRef] = None
     """Browser pool this session was acquired from, if any."""
 
@@ -69,7 +73,16 @@ class Browser(BaseModel):
     """ID of the proxy associated with this browser session, if any."""
 
     start_url: Optional[str] = None
-    """Start URL requested for the session, if provided."""
+    """URL the session was asked to navigate to on creation, if any.
+
+    Recorded for debugging. Navigation is fire-and-forget — the URL is dispatched to
+    the browser without waiting for it to load, and any errors (DNS failure, bad
+    status, timeout) are silently dropped. Captures what was requested, not what the
+    browser actually loaded.
+    """
+
+    telemetry: Optional[BrowserTelemetryConfig] = None
+    """Active telemetry configuration for the session, if any."""
 
     usage: Optional[BrowserUsage] = None
     """Session usage metrics."""

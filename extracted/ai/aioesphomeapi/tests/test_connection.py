@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 import logging
 import socket
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 
-from google.protobuf import message
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from google.protobuf import message
 
 from aioesphomeapi import APIClient
 from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
@@ -287,7 +290,7 @@ async def test_requires_encryption_propagates(conn: APIConnection):
         loop.call_soon(conn._frame_helper.ready_future.set_result, None)
         conn.connection_state = ConnectionState.CONNECTED
 
-        with pytest.raises(RequiresEncryptionAPIError):
+        with pytest.raises(RequiresEncryptionAPIError):  # noqa: PT012
             task = asyncio.create_task(conn._connect_hello_login(login=True))
             await asyncio.sleep(0)
             mock_data_received(protocol, b"\x01\x00\x00")
@@ -376,7 +379,8 @@ async def test_start_connection_cannot_increase_recv_buffer(
         if args[0] == socket.SOL_SOCKET and args[1] == socket.SO_RCVBUF:
             size = args[2]
             tried_sizes.append(size)
-            raise OSError("Socket error")
+            msg = "Socket error"
+            raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -429,7 +433,8 @@ async def test_start_connection_can_only_increase_buffer_size_to_262144(
             size = args[2]
             tried_sizes.append(size)
             if size != 262144:
-                raise OSError("Socket error")
+                msg = "Socket error"
+                raise OSError(msg)
 
     mock_socket: socket.socket = create_autospec(
         socket.socket, spec_set=True, instance=True
@@ -620,7 +625,7 @@ async def test_plaintext_connection_fails_handshake(
         **kwargs,
     ) -> tuple[asyncio.Transport, APIPlaintextFrameHelperHandshakeException]:
         protocol: APIPlaintextFrameHelperHandshakeException = create_func()
-        protocol._transport = cast(asyncio.Transport, transport)
+        protocol._transport = cast("asyncio.Transport", transport)
         protocol._writelines = transport.writelines
         protocol.ready_future.set_exception(exception)
         connected.set()
@@ -664,7 +669,7 @@ async def test_plaintext_connection_fails_handshake(
         connect_task = asyncio.create_task(connect(conn, login=False))
         await connected.wait()
 
-    with (
+    with (  # noqa: PT012
         pytest.raises(raised_exception),
     ):
         await asyncio.sleep(0)

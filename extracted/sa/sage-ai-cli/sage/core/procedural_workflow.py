@@ -1468,12 +1468,15 @@ def _detect_repetition(responses: list[str], current: str) -> bool:
     """Detect if the model is stuck in a loop producing identical responses."""
     if not responses:
         return False
-    # Check if current response matches any of the last 2 responses
-    current_stripped = current.strip()[:500]  # Compare first 500 chars
-    for prev in responses[-2:]:
-        if prev.strip()[:500] == current_stripped:
-            return True
-    return False
+    # Require 3 consecutive matches on 2000 chars before flagging a loop so
+    # minor differences (attempt numbers, line numbers) don't trigger early.
+    current_stripped = current.strip()[:2000]
+    if len(responses) < 3:
+        return False
+    for prev in responses[-3:]:
+        if prev.strip()[:2000] != current_stripped:
+            return False
+    return True
 
 
 # =============================================================================
@@ -2669,7 +2672,7 @@ class FailureLoopDetector:
     When a failure loop is detected, it forces a hard stop.
     """
 
-    def __init__(self, max_identical_errors: int = 3, max_similar_responses: int = 3):
+    def __init__(self, max_identical_errors: int = 7, max_similar_responses: int = 7):
         self.error_history: list[str] = []
         self.response_hashes: list[str] = []
         self.validation_failures: list[str] = []

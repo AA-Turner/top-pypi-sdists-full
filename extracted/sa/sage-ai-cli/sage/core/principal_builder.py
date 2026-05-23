@@ -396,9 +396,12 @@ def build_project_principal(
             enable_heal=enable_heal, heal_rounds=heal_rounds,
         )
     except Exception as exc:
-        # If we have a snapshot and the build failed with a connectivity/quota
-        # error (not a normal BuildIncomplete), restore the project to its
-        # pre-build state so the user doesn't lose existing files.
+        # CRITICAL: do NOT restore the snapshot on connectivity errors mid-build.
+        # The old behavior wiped out hours of LLM-generated work whenever the
+        # cloud API hiccupped (which is often). Instead, KEEP partial progress
+        # so the user can re-run and fill in missing files. The pre-build
+        # snapshot is still available at .sage/pre_build_snapshot.tar.gz if
+        # the user explicitly wants to roll back.
         _connectivity_errors = (
             "Server disconnected", "RemoteProtocolError", "ReadError",
             "ConnectError", "All providers failed", "quota", "disconnected",
@@ -406,13 +409,24 @@ def build_project_principal(
         )
         is_connectivity = any(e.lower() in str(exc).lower() for e in _connectivity_errors)
         if _snapshot and is_connectivity and not isinstance(exc, BuildIncomplete):
-            log(
-                f"[snapshot] Build failed due to connectivity error ({type(exc).__name__}). "
-                "Restoring your project to its pre-build state..."
-            )
-            _restore_snapshot(_snapshot, out_dir, log)
-            log("[snapshot] Your original files have been restored. "
-                "Please retry the build when connectivity is stable.")
+            # Count files written during this build so we can tell the user
+            # what they have to keep working with.
+            try:
+                _generated = [
+                    p for p in out_dir.rglob("*")
+                    if p.is_file()
+                    and ".sage" not in p.parts
+                    and "__pycache__" not in p.parts
+                    and "node_modules" not in p.parts
+                ]
+                log(
+                    f"[snapshot] Build hit connectivity error ({type(exc).__name__}) "
+                    f"but {len(_generated)} files are on disk — KEEPING them. "
+                    "Re-run sage to fill in missing files. To roll back manually: "
+                    "tar -xzf .sage/pre_build_snapshot.tar.gz"
+                )
+            except Exception:
+                pass
         raise
 
 
@@ -583,16 +597,28 @@ def _build_project_principal_inner(
     all_slots = _sort_for_generation(all_slots)
 
     # Skip slots with deterministic templates (they're already written or
-    # have a fixed body)
+    # have a fixed body). Also skip files that already exist on disk —
+    # this enables RESUME: if a previous run wrote some files but hit an
+    # API error, re-running fills in only the missing files instead of
+    # regenerating everything.
     to_generate: list[FileSlot] = []
+    _skipped_existing = 0
     for slot in all_slots:
+        target_path = out_dir / slot.path
         if slot.template is not None:
-            target = out_dir / slot.path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(slot.template, encoding="utf-8")
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if not target_path.exists():
+                target_path.write_text(slot.template, encoding="utf-8")
+            continue
+        # RESUME: if the file already has substantial content, skip regeneration.
+        # Empty/stub files (< 50 bytes) get regenerated; real files are kept.
+        if target_path.exists() and target_path.stat().st_size > 50:
+            _skipped_existing += 1
             continue
         to_generate.append(slot)
 
+    if _skipped_existing:
+        log(f"      resume: skipping {_skipped_existing} files already on disk")
     log(f"      total: {len(to_generate)} files require LLM generation")
 
     # ── 7. LLM generation in topological order ──
@@ -620,57 +646,104 @@ def _build_project_principal_inner(
     (sage_dir / "PROJECT_BRIEF.md").write_text(brief, encoding="utf-8")
 
     review_scores: dict[str, float] = {}
-    sibling_excerpts_by_feature: dict[str | None, list[str]] = {}
-    validation_failures: list[dict] = []  # files that failed validation after 3 attempts
+    validation_failures: list[dict] = []
     is_rn = plan.stack.frontend == "react-native-web"
 
-    for idx, slot in enumerate(to_generate, start=1):
-        feature_key = slot.feature
-        siblings_so_far = sibling_excerpts_by_feature.get(feature_key, [])
-        excerpts = _read_sibling_context(out_dir, siblings_so_far)
+    # ── PARALLEL FILE GENERATION ────────────────────────────────────────
+    # Group slots by feature, then run features in parallel (max 6 at a time
+    # to avoid cloud-backend rate limits). Within a feature, slots run
+    # sequentially so siblings can see each other's content for cohesion.
+    #
+    # Sequential time for 200 files × 90s each = 5 hours.
+    # Parallel time for 25 features (8 files each) at 6-way concurrency
+    # = ~5 batches × 8 files × 90s ≈ 60 minutes — ~5x speedup.
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from collections import defaultdict
+    import threading
 
-        # Pre-write validation: LLM output is parsed + checked for undefined
-        # names + truncation + framework collisions BEFORE we touch disk.
-        # On failure, validated_generate retries up to 3 times with the
-        # specific defects fed back into the prompt.
-        is_rn_file = is_rn and slot.path.startswith("frontend/")
-        content, vresult = _generate_one_file(
-            slot,
-            task=brief,
-            tree=tree,
-            stack_label=stack_label,
-            sibling_excerpts=excerpts,
-            generate=generate,
-            is_rn_frontend=is_rn_file,
-            log=log,
-        )
+    slots_by_feature: dict[str | None, list[FileSlot]] = defaultdict(list)
+    for slot in to_generate:
+        slots_by_feature[slot.feature].append(slot)
 
-        target = out_dir / slot.path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        sibling_excerpts_by_feature.setdefault(feature_key, []).append(slot.path)
+    _log_lock = threading.Lock()
+    _completed = [0]
+    _total = len(to_generate)
 
-        if not vresult.ok:
-            validation_failures.append(
-                {"path": slot.path, "errors": vresult.errors}
-            )
+    def _safe_log(msg: str) -> None:
+        with _log_lock:
+            log(msg)
 
-        if idx % 10 == 0 or idx == len(to_generate):
-            log(f"      [{idx}/{len(to_generate)}] {slot.path}")
+    def _generate_feature_group(
+        feature_key: str | None, feature_slots: list[FileSlot]
+    ) -> tuple[list[str], list[dict], dict[str, float]]:
+        """Generate all files for one feature sequentially. Runs in a worker thread."""
+        siblings_so_far: list[str] = []
+        local_failures: list[dict] = []
+        local_reviews: dict[str, float] = {}
+        local_written: list[str] = []
+        for slot in feature_slots:
+            try:
+                excerpts = _read_sibling_context(out_dir, siblings_so_far)
+                is_rn_file = is_rn and slot.path.startswith("frontend/")
+                content, vresult = _generate_one_file(
+                    slot,
+                    task=brief,
+                    tree=tree,
+                    stack_label=stack_label,
+                    sibling_excerpts=excerpts,
+                    generate=generate,
+                    is_rn_frontend=is_rn_file,
+                    log=lambda m: None,
+                )
+                target = out_dir / slot.path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+                siblings_so_far.append(slot.path)
+                local_written.append(slot.path)
 
-        # ── Per-file review (optional, applies to non-test impl files) ──
-        if enable_review and not slot.is_test and slot.language in {"python", "typescript"}:
-            framework = plan.stack.backend or plan.stack.frontend or "generic"
-            result = review_and_repair(
-                target, slot.role, framework, generate,
-                sanitize=strip_code_fences,
-                threshold=review_threshold,
-                max_rounds=max_review_rounds,
-                log=lambda m: None,  # quiet inner log; we report aggregate below
-            )
-            review_scores[slot.path] = result.score
+                if not vresult.ok:
+                    local_failures.append({"path": slot.path, "errors": vresult.errors})
 
-    log(f"      generated {len(to_generate)} files, {len(review_scores)} reviewed")
+                # Per-file review
+                if enable_review and not slot.is_test and slot.language in {"python", "typescript"}:
+                    framework = plan.stack.backend or plan.stack.frontend or "generic"
+                    result = review_and_repair(
+                        target, slot.role, framework, generate,
+                        sanitize=strip_code_fences,
+                        threshold=review_threshold,
+                        max_rounds=max_review_rounds,
+                        log=lambda m: None,
+                    )
+                    local_reviews[slot.path] = result.score
+
+                with _log_lock:
+                    _completed[0] += 1
+                    if _completed[0] % 10 == 0 or _completed[0] == _total:
+                        log(f"      [{_completed[0]}/{_total}] {slot.path}")
+            except Exception as exc:  # noqa: BLE001
+                # Individual file failures shouldn't kill the whole build.
+                # Log and continue — heal loop will retry later.
+                _safe_log(f"      [warn] {slot.path} failed: {exc}")
+                local_failures.append({"path": slot.path, "errors": [str(exc)]})
+        return local_written, local_failures, local_reviews
+
+    # Run features in parallel — 3 concurrent (was 6, but cloud backend can't handle that).
+    # Each worker generates one feature's files SEQUENTIALLY (preserves sibling cohesion).
+    _MAX_CONCURRENT_FEATURES = 3
+    with ThreadPoolExecutor(max_workers=_MAX_CONCURRENT_FEATURES) as executor:
+        futures = {
+            executor.submit(_generate_feature_group, fkey, fslots): fkey
+            for fkey, fslots in slots_by_feature.items()
+        }
+        for fut in as_completed(futures):
+            try:
+                _, fails, reviews = fut.result()
+                validation_failures.extend(fails)
+                review_scores.update(reviews)
+            except Exception as exc:  # noqa: BLE001
+                _safe_log(f"      [warn] feature group failed: {exc}")
+
+    log(f"      generated {len(to_generate)} files, {len(review_scores)} reviewed (parallel)")
 
     # ── 7.4 Deterministic code-doctor pass (no LLM) ─────────────────────
     # Runs BEFORE the integrity pass. These doctors fix the systemic

@@ -23,21 +23,28 @@ class PolicyBasedRouteArgs:
     def __init__(__self__, *,
                  filter: pulumi.Input['PolicyBasedRouteFilterArgs'],
                  network: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 interconnect_attachment: Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_ilb_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_other_routes: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 virtual_machine: Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 interconnect_attachment: pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_ilb_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_other_routes: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 virtual_machine: pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']] = None):
         """
         The set of arguments for constructing a PolicyBasedRoute resource.
 
         :param pulumi.Input['PolicyBasedRouteFilterArgs'] filter: The filter to match L4 traffic.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] network: Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs'] interconnect_attachment: The interconnect attachments that this policy-based route applies to.
                Structure is documented below.
@@ -57,6 +64,8 @@ class PolicyBasedRouteArgs:
         """
         pulumi.set(__self__, "filter", filter)
         pulumi.set(__self__, "network", network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if interconnect_attachment is not None:
@@ -102,20 +111,37 @@ class PolicyBasedRouteArgs:
         pulumi.set(self, "network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="interconnectAttachment")
-    def interconnect_attachment(self) -> Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']]:
+    def interconnect_attachment(self) -> pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']]:
         """
         The interconnect attachments that this policy-based route applies to.
         Structure is documented below.
@@ -123,12 +149,12 @@ class PolicyBasedRouteArgs:
         return pulumi.get(self, "interconnect_attachment")
 
     @interconnect_attachment.setter
-    def interconnect_attachment(self, value: Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']]):
+    def interconnect_attachment(self, value: pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']]):
         pulumi.set(self, "interconnect_attachment", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels.
 
@@ -138,36 +164,36 @@ class PolicyBasedRouteArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the policy based route.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nextHopIlbIp")
-    def next_hop_ilb_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def next_hop_ilb_ip(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IP address of a global-access-enabled L4 ILB that is the next hop for matching packets.
         """
         return pulumi.get(self, "next_hop_ilb_ip")
 
     @next_hop_ilb_ip.setter
-    def next_hop_ilb_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def next_hop_ilb_ip(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "next_hop_ilb_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="nextHopOtherRoutes")
-    def next_hop_other_routes(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def next_hop_other_routes(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Other routes that will be referenced to determine the next hop of the packet.
         Possible values are: `DEFAULT_ROUTING`.
@@ -175,24 +201,24 @@ class PolicyBasedRouteArgs:
         return pulumi.get(self, "next_hop_other_routes")
 
     @next_hop_other_routes.setter
-    def next_hop_other_routes(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def next_hop_other_routes(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "next_hop_other_routes", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The priority of this policy-based route. Priority is used to break ties in cases where there are more than one matching policy-based routes found. In cases where multiple policy-based routes are matched, the one with the lowest-numbered priority value wins. The default value is 1000. The priority value must be from 1 to 65535, inclusive.
         """
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -200,12 +226,12 @@ class PolicyBasedRouteArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="virtualMachine")
-    def virtual_machine(self) -> Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']]:
+    def virtual_machine(self) -> pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']]:
         """
         VM instances to which this policy-based route applies to.
         Structure is documented below.
@@ -213,34 +239,41 @@ class PolicyBasedRouteArgs:
         return pulumi.get(self, "virtual_machine")
 
     @virtual_machine.setter
-    def virtual_machine(self, value: Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']]):
+    def virtual_machine(self, value: pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']]):
         pulumi.set(self, "virtual_machine", value)
 
 
 @pulumi.input_type
 class _PolicyBasedRouteState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 filter: Optional[pulumi.Input['PolicyBasedRouteFilterArgs']] = None,
-                 interconnect_attachment: Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_ilb_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_other_routes: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 virtual_machine: Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']] = None,
-                 warnings: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 filter: pulumi.Input[Optional['PolicyBasedRouteFilterArgs']] = None,
+                 interconnect_attachment: pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_ilb_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_other_routes: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 virtual_machine: pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']] = None,
+                 warnings: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]] = None):
         """
         Input properties used for looking up and filtering PolicyBasedRoute resources.
 
         :param pulumi.Input[_builtins.str] create_time: Time when the policy-based route was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input['PolicyBasedRouteFilterArgs'] filter: The filter to match L4 traffic.
@@ -270,6 +303,8 @@ class _PolicyBasedRouteState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -305,43 +340,60 @@ class _PolicyBasedRouteState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time when the policy-based route was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def filter(self) -> Optional[pulumi.Input['PolicyBasedRouteFilterArgs']]:
+    def filter(self) -> pulumi.Input[Optional['PolicyBasedRouteFilterArgs']]:
         """
         The filter to match L4 traffic.
         Structure is documented below.
@@ -349,12 +401,12 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "filter")
 
     @filter.setter
-    def filter(self, value: Optional[pulumi.Input['PolicyBasedRouteFilterArgs']]):
+    def filter(self, value: pulumi.Input[Optional['PolicyBasedRouteFilterArgs']]):
         pulumi.set(self, "filter", value)
 
     @_builtins.property
     @pulumi.getter(name="interconnectAttachment")
-    def interconnect_attachment(self) -> Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']]:
+    def interconnect_attachment(self) -> pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']]:
         """
         The interconnect attachments that this policy-based route applies to.
         Structure is documented below.
@@ -362,24 +414,24 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "interconnect_attachment")
 
     @interconnect_attachment.setter
-    def interconnect_attachment(self, value: Optional[pulumi.Input['PolicyBasedRouteInterconnectAttachmentArgs']]):
+    def interconnect_attachment(self, value: pulumi.Input[Optional['PolicyBasedRouteInterconnectAttachmentArgs']]):
         pulumi.set(self, "interconnect_attachment", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of this resource.
         """
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels.
 
@@ -389,48 +441,48 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the policy based route.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network.
         """
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter(name="nextHopIlbIp")
-    def next_hop_ilb_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def next_hop_ilb_ip(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IP address of a global-access-enabled L4 ILB that is the next hop for matching packets.
         """
         return pulumi.get(self, "next_hop_ilb_ip")
 
     @next_hop_ilb_ip.setter
-    def next_hop_ilb_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def next_hop_ilb_ip(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "next_hop_ilb_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="nextHopOtherRoutes")
-    def next_hop_other_routes(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def next_hop_other_routes(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Other routes that will be referenced to determine the next hop of the packet.
         Possible values are: `DEFAULT_ROUTING`.
@@ -438,24 +490,24 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "next_hop_other_routes")
 
     @next_hop_other_routes.setter
-    def next_hop_other_routes(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def next_hop_other_routes(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "next_hop_other_routes", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The priority of this policy-based route. Priority is used to break ties in cases where there are more than one matching policy-based routes found. In cases where multiple policy-based routes are matched, the one with the lowest-numbered priority value wins. The default value is 1000. The priority value must be from 1 to 65535, inclusive.
         """
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -463,12 +515,12 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -476,24 +528,24 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time when the policy-based route was created.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="virtualMachine")
-    def virtual_machine(self) -> Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']]:
+    def virtual_machine(self) -> pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']]:
         """
         VM instances to which this policy-based route applies to.
         Structure is documented below.
@@ -501,12 +553,12 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "virtual_machine")
 
     @virtual_machine.setter
-    def virtual_machine(self, value: Optional[pulumi.Input['PolicyBasedRouteVirtualMachineArgs']]):
+    def virtual_machine(self, value: pulumi.Input[Optional['PolicyBasedRouteVirtualMachineArgs']]):
         pulumi.set(self, "virtual_machine", value)
 
     @_builtins.property
     @pulumi.getter
-    def warnings(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]]:
+    def warnings(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]]:
         """
         If potential misconfigurations are detected for this route, this field will be populated with warning messages.
         Structure is documented below.
@@ -514,7 +566,7 @@ class _PolicyBasedRouteState:
         return pulumi.get(self, "warnings")
 
     @warnings.setter
-    def warnings(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]]):
+    def warnings(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyBasedRouteWarningArgs']]]]):
         pulumi.set(self, "warnings", value)
 
 
@@ -524,17 +576,18 @@ class PolicyBasedRoute(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filter: Optional[pulumi.Input[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
-                 interconnect_attachment: Optional[pulumi.Input[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_ilb_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_other_routes: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 virtual_machine: Optional[pulumi.Input[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_ilb_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_other_routes: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 virtual_machine: pulumi.Input[Optional[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
                  __props__=None):
         """
         Policy-based Routes are more powerful routes that route L4 network traffic based on not just destination IP, but also source IP, protocol and more. A Policy-based Route always take precedence when it conflicts with other types of routes.
@@ -616,6 +669,12 @@ class PolicyBasedRoute(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']] filter: The filter to match L4 traffic.
                Structure is documented below.
@@ -735,17 +794,18 @@ class PolicyBasedRoute(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 filter: Optional[pulumi.Input[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
-                 interconnect_attachment: Optional[pulumi.Input[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_ilb_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 next_hop_other_routes: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 virtual_machine: Optional[pulumi.Input[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
+                 interconnect_attachment: pulumi.Input[Optional[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_ilb_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 next_hop_other_routes: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 virtual_machine: pulumi.Input[Optional[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -755,6 +815,7 @@ class PolicyBasedRoute(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = PolicyBasedRouteArgs.__new__(PolicyBasedRouteArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if filter is None and not opts.urn:
                 raise TypeError("Missing required property 'filter'")
@@ -788,23 +849,24 @@ class PolicyBasedRoute(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            filter: Optional[pulumi.Input[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
-            interconnect_attachment: Optional[pulumi.Input[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
-            kind: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            next_hop_ilb_ip: Optional[pulumi.Input[_builtins.str]] = None,
-            next_hop_other_routes: Optional[pulumi.Input[_builtins.str]] = None,
-            priority: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            virtual_machine: Optional[pulumi.Input[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
-            warnings: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PolicyBasedRouteWarningArgs', 'PolicyBasedRouteWarningArgsDict']]]]] = None) -> 'PolicyBasedRoute':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            filter: pulumi.Input[Optional[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']]] = None,
+            interconnect_attachment: pulumi.Input[Optional[Union['PolicyBasedRouteInterconnectAttachmentArgs', 'PolicyBasedRouteInterconnectAttachmentArgsDict']]] = None,
+            kind: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            next_hop_ilb_ip: pulumi.Input[Optional[_builtins.str]] = None,
+            next_hop_other_routes: pulumi.Input[Optional[_builtins.str]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            virtual_machine: pulumi.Input[Optional[Union['PolicyBasedRouteVirtualMachineArgs', 'PolicyBasedRouteVirtualMachineArgsDict']]] = None,
+            warnings: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyBasedRouteWarningArgs', 'PolicyBasedRouteWarningArgsDict']]]]] = None) -> 'PolicyBasedRoute':
         """
         Get an existing PolicyBasedRoute resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -813,6 +875,12 @@ class PolicyBasedRoute(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Time when the policy-based route was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Union['PolicyBasedRouteFilterArgs', 'PolicyBasedRouteFilterArgsDict']] filter: The filter to match L4 traffic.
@@ -845,6 +913,7 @@ class PolicyBasedRoute(pulumi.CustomResource):
         __props__ = _PolicyBasedRouteState.__new__(_PolicyBasedRouteState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["filter"] = filter
@@ -870,6 +939,19 @@ class PolicyBasedRoute(pulumi.CustomResource):
         Time when the policy-based route was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

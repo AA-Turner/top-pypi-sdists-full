@@ -25,11 +25,11 @@ class DataTableArgs:
                  description: pulumi.Input[_builtins.str],
                  instance: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 column_infos: Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_time_to_live: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_info: Optional[pulumi.Input['DataTableScopeInfoArgs']] = None):
+                 column_infos: pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_time_to_live: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_info: pulumi.Input[Optional['DataTableScopeInfoArgs']] = None):
         """
         The set of arguments for constructing a DataTable resource.
 
@@ -46,7 +46,14 @@ class DataTableArgs:
         :param pulumi.Input[_builtins.str] deletion_policy: The policy governing the deletion of the data table.
                If set to `FORCE`, allows the deletion of the data table even if it contains rows.
                If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-               Possible values: DEFAULT, FORCE
+               
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", the command will behave as if set to "DEFAULT".
+               
+               Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] row_time_to_live: User-provided TTL of the data table.
@@ -122,7 +129,7 @@ class DataTableArgs:
 
     @_builtins.property
     @pulumi.getter(name="columnInfos")
-    def column_infos(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]:
+    def column_infos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]:
         """
         Details of all the columns in the table
         Structure is documented below.
@@ -130,27 +137,34 @@ class DataTableArgs:
         return pulumi.get(self, "column_infos")
 
     @column_infos.setter
-    def column_infos(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]):
+    def column_infos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]):
         pulumi.set(self, "column_infos", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The policy governing the deletion of the data table.
         If set to `FORCE`, allows the deletion of the data table even if it contains rows.
         If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-        Possible values: DEFAULT, FORCE
+
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", the command will behave as if set to "DEFAULT".
+
+        Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -158,24 +172,24 @@ class DataTableArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rowTimeToLive")
-    def row_time_to_live(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def row_time_to_live(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided TTL of the data table.
         """
         return pulumi.get(self, "row_time_to_live")
 
     @row_time_to_live.setter
-    def row_time_to_live(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def row_time_to_live(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "row_time_to_live", value)
 
     @_builtins.property
     @pulumi.getter(name="scopeInfo")
-    def scope_info(self) -> Optional[pulumi.Input['DataTableScopeInfoArgs']]:
+    def scope_info(self) -> pulumi.Input[Optional['DataTableScopeInfoArgs']]:
         """
         DataTableScopeInfo specifies the scope info of the data table.
         Structure is documented below.
@@ -183,32 +197,32 @@ class DataTableArgs:
         return pulumi.get(self, "scope_info")
 
     @scope_info.setter
-    def scope_info(self, value: Optional[pulumi.Input['DataTableScopeInfoArgs']]):
+    def scope_info(self, value: pulumi.Input[Optional['DataTableScopeInfoArgs']]):
         pulumi.set(self, "scope_info", value)
 
 
 @pulumi.input_type
 class _DataTableState:
     def __init__(__self__, *,
-                 approximate_row_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 column_infos: Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_table_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_table_uuid: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_time_to_live: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_time_to_live_update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_associations_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 rules: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 scope_info: Optional[pulumi.Input['DataTableScopeInfoArgs']] = None,
-                 update_source: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 approximate_row_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 column_infos: pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_table_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_table_uuid: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_time_to_live: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_time_to_live_update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_associations_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 rules: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 scope_info: pulumi.Input[Optional['DataTableScopeInfoArgs']] = None,
+                 update_source: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DataTable resources.
 
@@ -225,7 +239,14 @@ class _DataTableState:
         :param pulumi.Input[_builtins.str] deletion_policy: The policy governing the deletion of the data table.
                If set to `FORCE`, allows the deletion of the data table even if it contains rows.
                If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-               Possible values: DEFAULT, FORCE
+               
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", the command will behave as if set to "DEFAULT".
+               
+               Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         :param pulumi.Input[_builtins.str] description: A user-provided description of the data table.
         :param pulumi.Input[_builtins.str] display_name: The unique display name of the data table.
         :param pulumi.Input[_builtins.str] instance: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
@@ -291,19 +312,19 @@ class _DataTableState:
 
     @_builtins.property
     @pulumi.getter(name="approximateRowCount")
-    def approximate_row_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def approximate_row_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The count of rows in the data table.
         """
         return pulumi.get(self, "approximate_row_count")
 
     @approximate_row_count.setter
-    def approximate_row_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def approximate_row_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "approximate_row_count", value)
 
     @_builtins.property
     @pulumi.getter(name="columnInfos")
-    def column_infos(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]:
+    def column_infos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]:
         """
         Details of all the columns in the table
         Structure is documented below.
@@ -311,24 +332,24 @@ class _DataTableState:
         return pulumi.get(self, "column_infos")
 
     @column_infos.setter
-    def column_infos(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]):
+    def column_infos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataTableColumnInfoArgs']]]]):
         pulumi.set(self, "column_infos", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Table create time
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataTableId")
-    def data_table_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_table_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the data table. This is also the display name for
         the data table. It must satisfy the following requirements:
@@ -339,87 +360,94 @@ class _DataTableState:
         return pulumi.get(self, "data_table_id")
 
     @data_table_id.setter
-    def data_table_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_table_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_table_id", value)
 
     @_builtins.property
     @pulumi.getter(name="dataTableUuid")
-    def data_table_uuid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_table_uuid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Data table unique id
         """
         return pulumi.get(self, "data_table_uuid")
 
     @data_table_uuid.setter
-    def data_table_uuid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_table_uuid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_table_uuid", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The policy governing the deletion of the data table.
         If set to `FORCE`, allows the deletion of the data table even if it contains rows.
         If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-        Possible values: DEFAULT, FORCE
+
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", the command will behave as if set to "DEFAULT".
+
+        Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         """
         return pulumi.get(self, "deletion_policy")
 
     @deletion_policy.setter
-    def deletion_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A user-provided description of the data table.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique display name of the data table.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The resource name of the data table
         Format:
@@ -428,12 +456,12 @@ class _DataTableState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -441,48 +469,48 @@ class _DataTableState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rowTimeToLive")
-    def row_time_to_live(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def row_time_to_live(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided TTL of the data table.
         """
         return pulumi.get(self, "row_time_to_live")
 
     @row_time_to_live.setter
-    def row_time_to_live(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def row_time_to_live(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "row_time_to_live", value)
 
     @_builtins.property
     @pulumi.getter(name="rowTimeToLiveUpdateTime")
-    def row_time_to_live_update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def row_time_to_live_update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Last update time of the TTL of the data table.
         """
         return pulumi.get(self, "row_time_to_live_update_time")
 
     @row_time_to_live_update_time.setter
-    def row_time_to_live_update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def row_time_to_live_update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "row_time_to_live_update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="ruleAssociationsCount")
-    def rule_associations_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def rule_associations_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The count of rules using the data table.
         """
         return pulumi.get(self, "rule_associations_count")
 
     @rule_associations_count.setter
-    def rule_associations_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def rule_associations_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "rule_associations_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def rules(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The resource names for the associated Rules that use this
         data table. Format:
@@ -492,12 +520,12 @@ class _DataTableState:
         return pulumi.get(self, "rules")
 
     @rules.setter
-    def rules(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def rules(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "rules", value)
 
     @_builtins.property
     @pulumi.getter(name="scopeInfo")
-    def scope_info(self) -> Optional[pulumi.Input['DataTableScopeInfoArgs']]:
+    def scope_info(self) -> pulumi.Input[Optional['DataTableScopeInfoArgs']]:
         """
         DataTableScopeInfo specifies the scope info of the data table.
         Structure is documented below.
@@ -505,12 +533,12 @@ class _DataTableState:
         return pulumi.get(self, "scope_info")
 
     @scope_info.setter
-    def scope_info(self, value: Optional[pulumi.Input['DataTableScopeInfoArgs']]):
+    def scope_info(self, value: pulumi.Input[Optional['DataTableScopeInfoArgs']]):
         pulumi.set(self, "scope_info", value)
 
     @_builtins.property
     @pulumi.getter(name="updateSource")
-    def update_source(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_source(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Possible values:
         USER
@@ -520,19 +548,19 @@ class _DataTableState:
         return pulumi.get(self, "update_source")
 
     @update_source.setter
-    def update_source(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_source(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_source", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Table update time
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -542,15 +570,15 @@ class DataTable(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 column_infos: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
-                 data_table_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_time_to_live: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_info: Optional[pulumi.Input[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
+                 column_infos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
+                 data_table_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_time_to_live: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_info: pulumi.Input[Optional[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
                  __props__=None):
         """
         Represents a Chronicle Data Table, a multicolumn structure used to ingest your own data into Google SecOps.
@@ -663,7 +691,14 @@ class DataTable(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] deletion_policy: The policy governing the deletion of the data table.
                If set to `FORCE`, allows the deletion of the data table even if it contains rows.
                If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-               Possible values: DEFAULT, FORCE
+               
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", the command will behave as if set to "DEFAULT".
+               
+               Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         :param pulumi.Input[_builtins.str] description: A user-provided description of the data table.
         :param pulumi.Input[_builtins.str] instance: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         :param pulumi.Input[_builtins.str] location: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
@@ -793,15 +828,15 @@ class DataTable(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 column_infos: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
-                 data_table_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_time_to_live: Optional[pulumi.Input[_builtins.str]] = None,
-                 scope_info: Optional[pulumi.Input[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
+                 column_infos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
+                 data_table_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_time_to_live: pulumi.Input[Optional[_builtins.str]] = None,
+                 scope_info: pulumi.Input[Optional[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -848,25 +883,25 @@ class DataTable(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            approximate_row_count: Optional[pulumi.Input[_builtins.int]] = None,
-            column_infos: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_table_id: Optional[pulumi.Input[_builtins.str]] = None,
-            data_table_uuid: Optional[pulumi.Input[_builtins.str]] = None,
-            deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            row_time_to_live: Optional[pulumi.Input[_builtins.str]] = None,
-            row_time_to_live_update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            rule_associations_count: Optional[pulumi.Input[_builtins.int]] = None,
-            rules: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            scope_info: Optional[pulumi.Input[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
-            update_source: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'DataTable':
+            approximate_row_count: pulumi.Input[Optional[_builtins.int]] = None,
+            column_infos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataTableColumnInfoArgs', 'DataTableColumnInfoArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_table_id: pulumi.Input[Optional[_builtins.str]] = None,
+            data_table_uuid: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            row_time_to_live: pulumi.Input[Optional[_builtins.str]] = None,
+            row_time_to_live_update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            rule_associations_count: pulumi.Input[Optional[_builtins.int]] = None,
+            rules: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            scope_info: pulumi.Input[Optional[Union['DataTableScopeInfoArgs', 'DataTableScopeInfoArgsDict']]] = None,
+            update_source: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'DataTable':
         """
         Get an existing DataTable resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -887,7 +922,14 @@ class DataTable(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] deletion_policy: The policy governing the deletion of the data table.
                If set to `FORCE`, allows the deletion of the data table even if it contains rows.
                If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-               Possible values: DEFAULT, FORCE
+               
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", the command will behave as if set to "DEFAULT".
+               
+               Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         :param pulumi.Input[_builtins.str] description: A user-provided description of the data table.
         :param pulumi.Input[_builtins.str] display_name: The unique display name of the data table.
         :param pulumi.Input[_builtins.str] instance: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
@@ -984,12 +1026,19 @@ class DataTable(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
-    def deletion_policy(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
         """
         The policy governing the deletion of the data table.
         If set to `FORCE`, allows the deletion of the data table even if it contains rows.
         If set to `DEFAULT`,or if the field is omitted, the data table must be empty before it can be deleted.
-        Possible values: DEFAULT, FORCE
+
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", the command will behave as if set to "DEFAULT".
+
+        Possible values: DEFAULT, FORCE, PREVENT, ABANDON, DELETE
         """
         return pulumi.get(self, "deletion_policy")
 

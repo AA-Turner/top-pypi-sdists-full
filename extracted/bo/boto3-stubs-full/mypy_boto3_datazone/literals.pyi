@@ -214,6 +214,7 @@ ConnectionTypeType = Literal[
     "SQLSERVER",
     "TERADATA",
     "VERTICA",
+    "VPC",
     "WORKFLOWS_MWAA",
 ]
 DataAssetActivityStatusType = Literal[

@@ -18,8 +18,15 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
 
 
 @dataclass

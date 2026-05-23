@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-trino
-Version: 1.10.1
+Version: 1.10.2
 Summary: The trino adapter plugin for dbt (data build tool)
 Home-page: https://github.com/starburstdata/dbt-trino
 Author: Starburst Data

@@ -12,6 +12,7 @@ from biolib._internal.http_client import HttpClient
 from biolib._internal.job_storage import upload_module_input
 from biolib._internal.result.job_result import JobResult
 from biolib._internal.result.types import CloudJobDict, CloudJobStartedDict, JobDict
+from biolib._internal.tables import BioLibTable
 from biolib._internal.tree_utils import build_tree_from_files, build_tree_str
 from biolib._internal.utils import PathFilter, filter_lazy_loaded_files, open_browser_window_from_notebook
 from biolib._shared.system_exception_codes import SystemExceptionCodeMap, SystemExceptionCodes
@@ -27,7 +28,6 @@ from biolib.biolib_binary_format.stdout_and_stderr import StdoutAndStderr
 from biolib.biolib_binary_format.utils import InMemoryIndexableBuffer
 from biolib.biolib_errors import BioLibError, CloudJobFinishedError, WaitTimeoutError
 from biolib.biolib_logging import logger, logger_no_user_data
-from biolib.tables import BioLibTable
 from biolib.utils import IS_RUNNING_IN_NOTEBOOK
 
 

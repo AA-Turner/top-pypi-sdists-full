@@ -2,26 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Final, TypeVar
+from typing import TYPE_CHECKING, Any, Final, Self
 
-from bleak import BaseBleakClient
-from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak_retry_connector import NO_RSSI_VALUE
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from bleak import BaseBleakClient
+    from bleak.backends.device import BLEDevice
+
     from .base_scanner import BaseHaScanner
 
-_BluetoothServiceInfoSelfT = TypeVar(
-    "_BluetoothServiceInfoSelfT", bound="BluetoothServiceInfo"
-)
 
-_BluetoothServiceInfoBleakSelfT = TypeVar(
-    "_BluetoothServiceInfoBleakSelfT", bound="BluetoothServiceInfoBleak"
-)
 SOURCE_LOCAL: Final = "local"
 TUPLE_NEW: Final = tuple.__new__
 
@@ -99,6 +95,10 @@ class BluetoothScanningMode(Enum):
 
     PASSIVE = "passive"
     ACTIVE = "active"
+    # AUTO starts the scanner in PASSIVE and lets the manager promote it to
+    # ACTIVE on demand via BaseHaScanner.async_request_active_window — used
+    # for per-callback active windows and the periodic rediscovery sweep.
+    AUTO = "auto"
 
 
 class BluetoothServiceInfo:
@@ -135,11 +135,11 @@ class BluetoothServiceInfo:
 
     @classmethod
     def from_advertisement(
-        cls: type[_BluetoothServiceInfoSelfT],
+        cls,
         device: BLEDevice,
         advertisement_data: AdvertisementData,
         source: str,
-    ) -> _BluetoothServiceInfoSelfT:
+    ) -> Self:
         """Create a BluetoothServiceInfo from an advertisement."""
         return cls(
             advertisement_data.local_name or device.name or device.address,
@@ -154,9 +154,10 @@ class BluetoothServiceInfo:
     @property
     def manufacturer(self) -> str | None:
         """Convert manufacturer data to a string."""
-        from bleak.backends._manufacturers import (
-            MANUFACTURERS,  # pylint: disable=import-outside-toplevel
-        )
+        # MANUFACTURERS is a multi-kilobyte dict; lazy-load so the
+        # cost is only paid by the rare caller that asks for the
+        # manufacturer name (most don't).
+        from bleak.backends._manufacturers import MANUFACTURERS  # noqa: PLC0415
 
         for manufacturer in self.manufacturer_data:
             if manufacturer in MANUFACTURERS:
@@ -282,13 +283,13 @@ class BluetoothServiceInfoBleak(BluetoothServiceInfo):
 
     @classmethod
     def from_scan(
-        cls: type[_BluetoothServiceInfoBleakSelfT],
+        cls,
         source: str,
         device: BLEDevice,
         advertisement_data: AdvertisementData,
         monotonic_time: _float,
         connectable: bool,
-    ) -> _BluetoothServiceInfoBleakSelfT:
+    ) -> Self:
         """Create a BluetoothServiceInfoBleak from a scanner."""
         return cls(
             advertisement_data.local_name or device.name or device.address,
@@ -307,13 +308,13 @@ class BluetoothServiceInfoBleak(BluetoothServiceInfo):
 
     @classmethod
     def from_device_and_advertisement_data(
-        cls: type[_BluetoothServiceInfoBleakSelfT],
+        cls,
         device: BLEDevice,
         advertisement_data: AdvertisementData,
         source: str,
         time: _float,
         connectable: bool,
-    ) -> _BluetoothServiceInfoBleakSelfT:
+    ) -> Self:
         """Create a BluetoothServiceInfoBleak from a device and advertisement."""
         return cls(
             advertisement_data.local_name or device.name or device.address,

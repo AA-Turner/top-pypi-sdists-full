@@ -24,7 +24,8 @@ class DefaultObjectAccessControlArgs:
                  bucket: pulumi.Input[_builtins.str],
                  entity: pulumi.Input[_builtins.str],
                  role: pulumi.Input[_builtins.str],
-                 object: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 object: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DefaultObjectAccessControl resource.
 
@@ -40,11 +41,19 @@ class DefaultObjectAccessControlArgs:
                * allAuthenticatedUsers
         :param pulumi.Input[_builtins.str] role: The access permission for the entity.
                Possible values are: `OWNER`, `READER`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] object: The name of the object, if applied to an object.
         """
         pulumi.set(__self__, "bucket", bucket)
         pulumi.set(__self__, "entity", entity)
         pulumi.set(__self__, "role", role)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if object is not None:
             pulumi.set(__self__, "object", object)
 
@@ -94,34 +103,58 @@ class DefaultObjectAccessControlArgs:
         pulumi.set(self, "role", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def object(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def object(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the object, if applied to an object.
         """
         return pulumi.get(self, "object")
 
     @object.setter
-    def object(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def object(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "object", value)
 
 
 @pulumi.input_type
 class _DefaultObjectAccessControlState:
     def __init__(__self__, *,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain: Optional[pulumi.Input[_builtins.str]] = None,
-                 email: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 generation: Optional[pulumi.Input[_builtins.int]] = None,
-                 object: Optional[pulumi.Input[_builtins.str]] = None,
-                 project_teams: Optional[pulumi.Input[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]] = None,
-                 role: Optional[pulumi.Input[_builtins.str]] = None):
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain: pulumi.Input[Optional[_builtins.str]] = None,
+                 email: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 generation: pulumi.Input[Optional[_builtins.int]] = None,
+                 object: pulumi.Input[Optional[_builtins.str]] = None,
+                 project_teams: pulumi.Input[Optional[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]] = None,
+                 role: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DefaultObjectAccessControl resources.
 
         :param pulumi.Input[_builtins.str] bucket: The name of the bucket.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain: The domain associated with the entity.
         :param pulumi.Input[_builtins.str] email: The email address associated with the entity.
         :param pulumi.Input[_builtins.str] entity: The entity holding the permission, in one of the following forms:
@@ -143,6 +176,8 @@ class _DefaultObjectAccessControlState:
         """
         if bucket is not None:
             pulumi.set(__self__, "bucket", bucket)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if domain is not None:
             pulumi.set(__self__, "domain", domain)
         if email is not None:
@@ -162,43 +197,60 @@ class _DefaultObjectAccessControlState:
 
     @_builtins.property
     @pulumi.getter
-    def bucket(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bucket(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the bucket.
         """
         return pulumi.get(self, "bucket")
 
     @bucket.setter
-    def bucket(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bucket(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bucket", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def domain(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def domain(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The domain associated with the entity.
         """
         return pulumi.get(self, "domain")
 
     @domain.setter
-    def domain(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def domain(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "domain", value)
 
     @_builtins.property
     @pulumi.getter
-    def email(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The email address associated with the entity.
         """
         return pulumi.get(self, "email")
 
     @email.setter
-    def email(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "email", value)
 
     @_builtins.property
     @pulumi.getter
-    def entity(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entity(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The entity holding the permission, in one of the following forms:
         * user-{{userId}}
@@ -213,48 +265,48 @@ class _DefaultObjectAccessControlState:
         return pulumi.get(self, "entity")
 
     @entity.setter
-    def entity(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entity(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entity", value)
 
     @_builtins.property
     @pulumi.getter(name="entityId")
-    def entity_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def entity_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID for the entity
         """
         return pulumi.get(self, "entity_id")
 
     @entity_id.setter
-    def entity_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def entity_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "entity_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def generation(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def generation(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The content generation of the object, if applied to an object.
         """
         return pulumi.get(self, "generation")
 
     @generation.setter
-    def generation(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def generation(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "generation", value)
 
     @_builtins.property
     @pulumi.getter
-    def object(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def object(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the object, if applied to an object.
         """
         return pulumi.get(self, "object")
 
     @object.setter
-    def object(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def object(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "object", value)
 
     @_builtins.property
     @pulumi.getter(name="projectTeams")
-    def project_teams(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]]:
+    def project_teams(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]]:
         """
         The project team associated with the entity
         Structure is documented below.
@@ -262,12 +314,12 @@ class _DefaultObjectAccessControlState:
         return pulumi.get(self, "project_teams")
 
     @project_teams.setter
-    def project_teams(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]]):
+    def project_teams(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DefaultObjectAccessControlProjectTeamArgs']]]]):
         pulumi.set(self, "project_teams", value)
 
     @_builtins.property
     @pulumi.getter
-    def role(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def role(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The access permission for the entity.
         Possible values are: `OWNER`, `READER`.
@@ -275,7 +327,7 @@ class _DefaultObjectAccessControlState:
         return pulumi.get(self, "role")
 
     @role.setter
-    def role(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def role(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "role", value)
 
 
@@ -285,10 +337,11 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity: Optional[pulumi.Input[_builtins.str]] = None,
-                 object: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[_builtins.str]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity: pulumi.Input[Optional[_builtins.str]] = None,
+                 object: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The DefaultObjectAccessControls resources represent the Access Control
@@ -344,6 +397,12 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bucket: The name of the bucket.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] entity: The entity holding the permission, in one of the following forms:
                * user-{{userId}}
                * user-{{email}} (such as "user-liz@example.com")
@@ -429,10 +488,11 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
-                 entity: Optional[pulumi.Input[_builtins.str]] = None,
-                 object: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[_builtins.str]] = None,
+                 bucket: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity: pulumi.Input[Optional[_builtins.str]] = None,
+                 object: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -445,6 +505,7 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
             if bucket is None and not opts.urn:
                 raise TypeError("Missing required property 'bucket'")
             __props__.__dict__["bucket"] = bucket
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if entity is None and not opts.urn:
                 raise TypeError("Missing required property 'entity'")
             __props__.__dict__["entity"] = entity
@@ -467,15 +528,16 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            bucket: Optional[pulumi.Input[_builtins.str]] = None,
-            domain: Optional[pulumi.Input[_builtins.str]] = None,
-            email: Optional[pulumi.Input[_builtins.str]] = None,
-            entity: Optional[pulumi.Input[_builtins.str]] = None,
-            entity_id: Optional[pulumi.Input[_builtins.str]] = None,
-            generation: Optional[pulumi.Input[_builtins.int]] = None,
-            object: Optional[pulumi.Input[_builtins.str]] = None,
-            project_teams: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DefaultObjectAccessControlProjectTeamArgs', 'DefaultObjectAccessControlProjectTeamArgsDict']]]]] = None,
-            role: Optional[pulumi.Input[_builtins.str]] = None) -> 'DefaultObjectAccessControl':
+            bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            domain: pulumi.Input[Optional[_builtins.str]] = None,
+            email: pulumi.Input[Optional[_builtins.str]] = None,
+            entity: pulumi.Input[Optional[_builtins.str]] = None,
+            entity_id: pulumi.Input[Optional[_builtins.str]] = None,
+            generation: pulumi.Input[Optional[_builtins.int]] = None,
+            object: pulumi.Input[Optional[_builtins.str]] = None,
+            project_teams: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DefaultObjectAccessControlProjectTeamArgs', 'DefaultObjectAccessControlProjectTeamArgsDict']]]]] = None,
+            role: pulumi.Input[Optional[_builtins.str]] = None) -> 'DefaultObjectAccessControl':
         """
         Get an existing DefaultObjectAccessControl resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -484,6 +546,12 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bucket: The name of the bucket.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] domain: The domain associated with the entity.
         :param pulumi.Input[_builtins.str] email: The email address associated with the entity.
         :param pulumi.Input[_builtins.str] entity: The entity holding the permission, in one of the following forms:
@@ -508,6 +576,7 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
         __props__ = _DefaultObjectAccessControlState.__new__(_DefaultObjectAccessControlState)
 
         __props__.__dict__["bucket"] = bucket
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["domain"] = domain
         __props__.__dict__["email"] = email
         __props__.__dict__["entity"] = entity
@@ -525,6 +594,19 @@ class DefaultObjectAccessControl(pulumi.CustomResource):
         The name of the bucket.
         """
         return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

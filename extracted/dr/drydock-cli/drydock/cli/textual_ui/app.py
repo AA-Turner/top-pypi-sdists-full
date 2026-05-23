@@ -384,12 +384,32 @@ class DrydockApp(App):  # noqa: PLR0904
 
         chat_input_container = self.query_one(ChatInputContainer)
         chat_input_container.focus_input()
+        # TIMING: 2026-05-22 — test_harness msgs=1 cases have a 26s
+        # gap between Python startup done (0.19s) and first user
+        # message processed. Python is fast; the latency is in TUI
+        # on_mount. Each step gets a timer so the bottleneck is
+        # visible in drydock.log.
+        import time as _tt
+        _on_mount_t0 = _tt.perf_counter()
+
+        def _step(name: str, start: float) -> float:
+            now = _tt.perf_counter()
+            logger.warning("[TIMING:on_mount] %s=%.2fs", name, now - start)
+            return now
+
         await self._resolve_plan()
+        _t1 = _step("resolve_plan", _on_mount_t0)
         await self._show_dangerous_directory_warning()
+        _t2 = _step("show_dangerous_dir_warning", _t1)
         await self._resume_history_from_messages()
+        _t3 = _step("resume_history_from_messages", _t2)
         await self._check_and_show_whats_new()
+        _t4 = _step("check_whats_new", _t3)
         self._schedule_update_notification()
+        _t5 = _step("schedule_update_notification", _t4)
         self.agent_loop.emit_new_session_telemetry()
+        _t6 = _step("emit_new_session_telemetry", _t5)
+        _step("on_mount_TOTAL", _on_mount_t0)
 
         self.call_after_refresh(self._refresh_banner)
 

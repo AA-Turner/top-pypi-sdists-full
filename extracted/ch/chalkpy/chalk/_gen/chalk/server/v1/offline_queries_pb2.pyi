@@ -500,6 +500,78 @@ class GetOfflineQueryInfraSummaryResponse(_message.Message):
     pod_names: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, pod_names: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class GetOfflineQueryProfileSummaryRequest(_message.Message):
+    __slots__ = ("offline_query_id",)
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    def __init__(self, offline_query_id: _Optional[str] = ...) -> None: ...
+
+class OfflineQueryProfilePercentileStats(_message.Message):
+    __slots__ = ("p50", "p75", "p90", "p99", "p_max")
+    P50_FIELD_NUMBER: _ClassVar[int]
+    P75_FIELD_NUMBER: _ClassVar[int]
+    P90_FIELD_NUMBER: _ClassVar[int]
+    P99_FIELD_NUMBER: _ClassVar[int]
+    P_MAX_FIELD_NUMBER: _ClassVar[int]
+    p50: float
+    p75: float
+    p90: float
+    p99: float
+    p_max: float
+    def __init__(
+        self,
+        p50: _Optional[float] = ...,
+        p75: _Optional[float] = ...,
+        p90: _Optional[float] = ...,
+        p99: _Optional[float] = ...,
+        p_max: _Optional[float] = ...,
+    ) -> None: ...
+
+class OfflineQueryProfileSummaryRow(_message.Message):
+    __slots__ = ("source", "metric", "count", "stats")
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    METRIC_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    source: str
+    metric: str
+    count: int
+    stats: OfflineQueryProfilePercentileStats
+    def __init__(
+        self,
+        source: _Optional[str] = ...,
+        metric: _Optional[str] = ...,
+        count: _Optional[int] = ...,
+        stats: _Optional[_Union[OfflineQueryProfilePercentileStats, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetOfflineQueryProfileSummaryResponse(_message.Message):
+    __slots__ = ("operation_id", "status", "shard_count", "performance_shards", "pod_names", "rows", "warnings")
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    SHARD_COUNT_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    POD_NAMES_FIELD_NUMBER: _ClassVar[int]
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    status: OfflineQueryStatus
+    shard_count: int
+    performance_shards: int
+    pod_names: _containers.RepeatedScalarFieldContainer[str]
+    rows: _containers.RepeatedCompositeFieldContainer[OfflineQueryProfileSummaryRow]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        operation_id: _Optional[str] = ...,
+        status: _Optional[_Union[OfflineQueryStatus, str]] = ...,
+        shard_count: _Optional[int] = ...,
+        performance_shards: _Optional[int] = ...,
+        pod_names: _Optional[_Iterable[str]] = ...,
+        rows: _Optional[_Iterable[_Union[OfflineQueryProfileSummaryRow, _Mapping]]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
 class CreateOfflineQueryJobRequest(_message.Message):
     __slots__ = ("offline_query_request",)
     OFFLINE_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]

@@ -3,7 +3,7 @@ from public import public
 from flufl.bounce._scan import all_failures, scan_message
 
 
-__version__ = '5.0'
+__version__ = '5.0.1'
 
 
 public(

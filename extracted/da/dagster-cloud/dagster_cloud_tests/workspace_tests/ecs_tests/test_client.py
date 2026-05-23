@@ -883,9 +883,9 @@ def test_list_services(aws_mock, monkeypatch, caplog):
     # Create VPC, subnet, and security group for moto 5 compatibility
     ec2 = boto3.client("ec2")
     vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
-    vpc_id = vpc["Vpc"]["VpcId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    vpc_id = vpc["Vpc"]["VpcId"]
     subnet = ec2.create_subnet(VpcId=vpc_id, CidrBlock="10.0.1.0/24")
-    subnet_id = subnet["Subnet"]["SubnetId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    subnet_id = subnet["Subnet"]["SubnetId"]
     security_group = ec2.create_security_group(
         GroupName="test-sg", Description="Test security group", VpcId=vpc_id
     )
@@ -979,7 +979,7 @@ def test_delete_service_golden_path(aws_mock):
     # Create VPC for service discovery namespace (moto 5 requires a real VPC)
     ec2 = boto3.client("ec2")
     vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
-    vpc_id = vpc["Vpc"]["VpcId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    vpc_id = vpc["Vpc"]["VpcId"]
 
     ecs = boto3.client("ecs")
     service_discovery = boto3.client("servicediscovery")

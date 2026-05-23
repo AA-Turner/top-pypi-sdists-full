@@ -22,23 +22,30 @@ __all__ = ['TableArgs', 'Table']
 class TableArgs:
     def __init__(__self__, *,
                  instance_name: pulumi.Input[_builtins.str],
-                 automated_backup_policy: Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']] = None,
-                 change_stream_retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 column_families: Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_key_schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 split_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 automated_backup_policy: pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']] = None,
+                 change_stream_retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 column_families: pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_key_schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 split_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Table resource.
 
         :param pulumi.Input[_builtins.str] instance_name: The name of the Bigtable instance.
         :param pulumi.Input['TableAutomatedBackupPolicyArgs'] automated_backup_policy: Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-               
-               -----
         :param pulumi.Input[_builtins.str] change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         :param pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]] column_families: A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+               
+               -----
         :param pulumi.Input[_builtins.str] deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         :param pulumi.Input[_builtins.str] name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs. If it
@@ -60,6 +67,8 @@ class TableArgs:
             pulumi.set(__self__, "change_stream_retention", change_stream_retention)
         if column_families is not None:
             pulumi.set(__self__, "column_families", column_families)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if name is not None:
@@ -85,69 +94,86 @@ class TableArgs:
 
     @_builtins.property
     @pulumi.getter(name="automatedBackupPolicy")
-    def automated_backup_policy(self) -> Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']]:
+    def automated_backup_policy(self) -> pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']]:
         """
         Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-
-        -----
         """
         return pulumi.get(self, "automated_backup_policy")
 
     @automated_backup_policy.setter
-    def automated_backup_policy(self, value: Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']]):
+    def automated_backup_policy(self, value: pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']]):
         pulumi.set(self, "automated_backup_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="changeStreamRetention")
-    def change_stream_retention(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def change_stream_retention(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         """
         return pulumi.get(self, "change_stream_retention")
 
     @change_stream_retention.setter
-    def change_stream_retention(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def change_stream_retention(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "change_stream_retention", value)
 
     @_builtins.property
     @pulumi.getter(name="columnFamilies")
-    def column_families(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]:
+    def column_families(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]:
         """
         A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
         """
         return pulumi.get(self, "column_families")
 
     @column_families.setter
-    def column_families(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]):
+    def column_families(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]):
         pulumi.set(self, "column_families", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+
+        -----
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs. If it
         is not provided, the provider project is used.
@@ -155,12 +181,12 @@ class TableArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rowKeySchema")
-    def row_key_schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def row_key_schema(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the row key schema of a table. To create or update a table with a row key schema, specify this argument.
         					Note that in-place update is not supported, and any in-place modification to the schema will lead to failure.
@@ -172,12 +198,12 @@ class TableArgs:
         return pulumi.get(self, "row_key_schema")
 
     @row_key_schema.setter
-    def row_key_schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def row_key_schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "row_key_schema", value)
 
     @_builtins.property
     @pulumi.getter(name="splitKeys")
-    def split_keys(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def split_keys(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of predefined keys to split the table on.
         !> **Warning:** Modifying the `split_keys` of an existing table will cause the provider
@@ -186,30 +212,37 @@ class TableArgs:
         return pulumi.get(self, "split_keys")
 
     @split_keys.setter
-    def split_keys(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def split_keys(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "split_keys", value)
 
 
 @pulumi.input_type
 class _TableState:
     def __init__(__self__, *,
-                 automated_backup_policy: Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']] = None,
-                 change_stream_retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 column_families: Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_key_schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 split_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 automated_backup_policy: pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']] = None,
+                 change_stream_retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 column_families: pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_key_schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 split_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering Table resources.
 
         :param pulumi.Input['TableAutomatedBackupPolicyArgs'] automated_backup_policy: Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-               
-               -----
         :param pulumi.Input[_builtins.str] change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         :param pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]] column_families: A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+               
+               -----
         :param pulumi.Input[_builtins.str] deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         :param pulumi.Input[_builtins.str] instance_name: The name of the Bigtable instance.
         :param pulumi.Input[_builtins.str] name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
@@ -231,6 +264,8 @@ class _TableState:
             pulumi.set(__self__, "change_stream_retention", change_stream_retention)
         if column_families is not None:
             pulumi.set(__self__, "column_families", column_families)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if instance_name is not None:
@@ -246,81 +281,98 @@ class _TableState:
 
     @_builtins.property
     @pulumi.getter(name="automatedBackupPolicy")
-    def automated_backup_policy(self) -> Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']]:
+    def automated_backup_policy(self) -> pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']]:
         """
         Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-
-        -----
         """
         return pulumi.get(self, "automated_backup_policy")
 
     @automated_backup_policy.setter
-    def automated_backup_policy(self, value: Optional[pulumi.Input['TableAutomatedBackupPolicyArgs']]):
+    def automated_backup_policy(self, value: pulumi.Input[Optional['TableAutomatedBackupPolicyArgs']]):
         pulumi.set(self, "automated_backup_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="changeStreamRetention")
-    def change_stream_retention(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def change_stream_retention(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         """
         return pulumi.get(self, "change_stream_retention")
 
     @change_stream_retention.setter
-    def change_stream_retention(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def change_stream_retention(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "change_stream_retention", value)
 
     @_builtins.property
     @pulumi.getter(name="columnFamilies")
-    def column_families(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]:
+    def column_families(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]:
         """
         A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
         """
         return pulumi.get(self, "column_families")
 
     @column_families.setter
-    def column_families(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]):
+    def column_families(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TableColumnFamilyArgs']]]]):
         pulumi.set(self, "column_families", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+
+        -----
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deletionProtection")
-    def deletion_protection(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deletion_protection(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         """
         return pulumi.get(self, "deletion_protection")
 
     @deletion_protection.setter
-    def deletion_protection(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deletion_protection(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deletion_protection", value)
 
     @_builtins.property
     @pulumi.getter(name="instanceName")
-    def instance_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the Bigtable instance.
         """
         return pulumi.get(self, "instance_name")
 
     @instance_name.setter
-    def instance_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs. If it
         is not provided, the provider project is used.
@@ -328,12 +380,12 @@ class _TableState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rowKeySchema")
-    def row_key_schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def row_key_schema(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Defines the row key schema of a table. To create or update a table with a row key schema, specify this argument.
         					Note that in-place update is not supported, and any in-place modification to the schema will lead to failure.
@@ -345,12 +397,12 @@ class _TableState:
         return pulumi.get(self, "row_key_schema")
 
     @row_key_schema.setter
-    def row_key_schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def row_key_schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "row_key_schema", value)
 
     @_builtins.property
     @pulumi.getter(name="splitKeys")
-    def split_keys(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def split_keys(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of predefined keys to split the table on.
         !> **Warning:** Modifying the `split_keys` of an existing table will cause the provider
@@ -359,7 +411,7 @@ class _TableState:
         return pulumi.get(self, "split_keys")
 
     @split_keys.setter
-    def split_keys(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def split_keys(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "split_keys", value)
 
 
@@ -369,15 +421,16 @@ class Table(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 automated_backup_policy: Optional[pulumi.Input[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
-                 change_stream_retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 column_families: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_key_schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 split_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 automated_backup_policy: pulumi.Input[Optional[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
+                 change_stream_retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 column_families: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_key_schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 split_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         Creates a Google Cloud Bigtable table inside an instance. For more information see
@@ -460,10 +513,16 @@ class Table(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']] automated_backup_policy: Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-               
-               -----
         :param pulumi.Input[_builtins.str] change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         :param pulumi.Input[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]] column_families: A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+               
+               -----
         :param pulumi.Input[_builtins.str] deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         :param pulumi.Input[_builtins.str] instance_name: The name of the Bigtable instance.
         :param pulumi.Input[_builtins.str] name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
@@ -578,15 +637,16 @@ class Table(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 automated_backup_policy: Optional[pulumi.Input[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
-                 change_stream_retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 column_families: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
-                 deletion_protection: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 row_key_schema: Optional[pulumi.Input[_builtins.str]] = None,
-                 split_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 automated_backup_policy: pulumi.Input[Optional[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
+                 change_stream_retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 column_families: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_protection: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 row_key_schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 split_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -599,6 +659,7 @@ class Table(pulumi.CustomResource):
             __props__.__dict__["automated_backup_policy"] = automated_backup_policy
             __props__.__dict__["change_stream_retention"] = change_stream_retention
             __props__.__dict__["column_families"] = column_families
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deletion_protection"] = deletion_protection
             if instance_name is None and not opts.urn:
                 raise TypeError("Missing required property 'instance_name'")
@@ -617,15 +678,16 @@ class Table(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            automated_backup_policy: Optional[pulumi.Input[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
-            change_stream_retention: Optional[pulumi.Input[_builtins.str]] = None,
-            column_families: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
-            deletion_protection: Optional[pulumi.Input[_builtins.str]] = None,
-            instance_name: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            row_key_schema: Optional[pulumi.Input[_builtins.str]] = None,
-            split_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'Table':
+            automated_backup_policy: pulumi.Input[Optional[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']]] = None,
+            change_stream_retention: pulumi.Input[Optional[_builtins.str]] = None,
+            column_families: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_protection: pulumi.Input[Optional[_builtins.str]] = None,
+            instance_name: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            row_key_schema: pulumi.Input[Optional[_builtins.str]] = None,
+            split_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'Table':
         """
         Get an existing Table resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -634,10 +696,16 @@ class Table(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['TableAutomatedBackupPolicyArgs', 'TableAutomatedBackupPolicyArgsDict']] automated_backup_policy: Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-               
-               -----
         :param pulumi.Input[_builtins.str] change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days.
         :param pulumi.Input[Sequence[pulumi.Input[Union['TableColumnFamilyArgs', 'TableColumnFamilyArgsDict']]]] column_families: A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
+               
+               -----
         :param pulumi.Input[_builtins.str] deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, deletion protection will be set to UNPROTECTED.
         :param pulumi.Input[_builtins.str] instance_name: The name of the Bigtable instance.
         :param pulumi.Input[_builtins.str] name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
@@ -660,6 +728,7 @@ class Table(pulumi.CustomResource):
         __props__.__dict__["automated_backup_policy"] = automated_backup_policy
         __props__.__dict__["change_stream_retention"] = change_stream_retention
         __props__.__dict__["column_families"] = column_families
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deletion_protection"] = deletion_protection
         __props__.__dict__["instance_name"] = instance_name
         __props__.__dict__["name"] = name
@@ -673,8 +742,6 @@ class Table(pulumi.CustomResource):
     def automated_backup_policy(self) -> pulumi.Output['outputs.TableAutomatedBackupPolicy']:
         """
         Defines an automated backup policy for a table, specified by Retention Period and Frequency. To _create_ a table with automated backup disabled, either omit the automated_backup_policy argument, or set both Retention Period and Frequency properties to "0". To disable automated backup on an _existing_ table that has automated backup enabled, set _both_ Retention Period and Frequency properties to "0". When updating an existing table, to modify the Retention Period or Frequency properties of the resource's automated backup policy, set the respective property to a non-zero value. If the automated_backup_policy argument is not provided in the configuration on update, the resource's automated backup policy will _not_ be modified.
-
-        -----
         """
         return pulumi.get(self, "automated_backup_policy")
 
@@ -693,6 +760,21 @@ class Table(pulumi.CustomResource):
         A group of columns within a table which share a common configuration. This can be specified multiple times. Structure is documented below.
         """
         return pulumi.get(self, "column_families")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+
+        -----
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")

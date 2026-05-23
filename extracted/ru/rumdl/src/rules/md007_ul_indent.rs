@@ -48,6 +48,102 @@ impl MD007ULIndent {
         visual_col
     }
 
+    /// Pop list-stack entries that a content line at (`bq_depth`, `visual_indent`)
+    /// has closed. An open item still contains the line only when the line stays
+    /// in the item's blockquote context (or a deeper one) and begins at or past
+    /// the item's content column; otherwise the item has ended. Keeping the stack
+    /// accurate prevents a later list from being mistaken for a sublist of an item
+    /// that already closed (which would, e.g., wrongly extend the ordered-ancestor
+    /// exemption past a terminating paragraph, blockquote, or code block).
+    /// Visual indentation of a line measured in the same coordinate space the
+    /// stack uses for `content_col`: for a blockquoted line that is the width of
+    /// the leading whitespace *after* the `>` prefix(es); for any other line it is
+    /// the absolute `visual_indent`. Comparing a blockquoted line's absolute indent
+    /// (which counts the `>` markers) against a blockquote-relative content column
+    /// would otherwise treat in-quote content as if it had dedented out of the item.
+    /// Measure the line's indentation in the coordinate space of a blockquote at the
+    /// given nesting `depth`: strip exactly `depth` `>` markers (each with one optional
+    /// following space or tab) and return the leading whitespace of the remainder as
+    /// visual columns. At depth 0 this is the line's own visual indent.
+    ///
+    /// The remainder may itself begin with deeper `>` markers; the whitespace measured
+    /// is whatever precedes them, so an interrupting deeper quote reports the column at
+    /// which its `>` begins inside the shallower container. That lets a closed-item check
+    /// compare the line against an item using the item's own quote coordinate space,
+    /// avoiding any relative-vs-absolute mismatch.
+    fn indent_relative_to_depth(
+        ctx: &crate::lint_context::LintContext,
+        line_info: &crate::lint_context::LineInfo,
+        depth: usize,
+    ) -> usize {
+        if depth == 0 {
+            return line_info.visual_indent;
+        }
+        // The blockquote's pre-parsed `content` has its leading whitespace stripped,
+        // so it cannot report the in-quote indentation. Walk the `>` prefix(es) on the
+        // raw line (mirroring the list-item indent calculation) and measure the
+        // whitespace that follows, which is the indent inside the quote container.
+        let line_content = line_info.content(ctx.content);
+        let mut remaining = line_content;
+        let mut content_start = 0;
+        let mut stripped_levels = 0;
+        while stripped_levels < depth {
+            let trimmed = remaining.trim_start();
+            if !trimmed.starts_with('>') {
+                break;
+            }
+            content_start += remaining.len() - trimmed.len();
+            content_start += 1;
+            let after_gt = &trimmed[1..];
+            if let Some(stripped) = after_gt.strip_prefix(' ') {
+                content_start += 1;
+                remaining = stripped;
+            } else if let Some(stripped) = after_gt.strip_prefix('\t') {
+                content_start += 1;
+                remaining = stripped;
+            } else {
+                remaining = after_gt;
+            }
+            stripped_levels += 1;
+        }
+        let content_after_prefix = &line_content[content_start..];
+        let ws_chars = content_after_prefix
+            .chars()
+            .take_while(|c| *c == ' ' || *c == '\t')
+            .count();
+        Self::char_pos_to_visual_column(content_after_prefix, ws_chars)
+    }
+
+    fn terminate_closed_items(
+        ctx: &crate::lint_context::LintContext,
+        line_info: &crate::lint_context::LineInfo,
+        list_stack: &mut Vec<(usize, usize, bool, usize, usize, bool)>,
+        line_bq_depth: usize,
+    ) {
+        while let Some(&(_, _, _, content_col, item_bq_depth, _)) = list_stack.last() {
+            let closed = match item_bq_depth.cmp(&line_bq_depth) {
+                // The line has exited a deeper blockquote the item lived in.
+                std::cmp::Ordering::Greater => true,
+                // The line is in the same or a deeper blockquote than the item.
+                // Measure the line's indent in the item's own quote coordinate space
+                // and close the item when the line begins left of the item's content.
+                // For a same-depth line this is the in-container indent; for a deeper
+                // interrupting quote it is the column where that quote's `>` begins
+                // inside the item's container, so a `> > quote` left of the item's
+                // content (e.g. interrupting `> 1. ordered`) closes it, while a quote
+                // indented into the item's content keeps it open.
+                std::cmp::Ordering::Equal | std::cmp::Ordering::Less => {
+                    content_col > Self::indent_relative_to_depth(ctx, line_info, item_bq_depth)
+                }
+            };
+            if closed {
+                list_stack.pop();
+            } else {
+                break;
+            }
+        }
+    }
+
     /// Calculate expected indentation for a nested list item.
     ///
     /// This uses per-parent logic rather than document-wide style selection:
@@ -134,15 +230,25 @@ impl Rule for MD007ULIndent {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
-        let mut list_stack: Vec<(usize, usize, bool, usize, usize)> = Vec::new(); // Stack of (marker_visual_col, line_num, is_ordered, content_visual_col, blockquote_depth) for tracking nesting
+        let mut list_stack: Vec<(usize, usize, bool, usize, usize, bool)> = Vec::new(); // Stack of (marker_visual_col, line_num, is_ordered, content_visual_col, blockquote_depth, exempt) for tracking nesting. `exempt` marks an unordered item that inherited the ordered-ancestor MD007 exemption.
 
         for (line_idx, line_info) in ctx.lines.iter().enumerate() {
             // Skip if this line is in a code block, front matter, or mkdocstrings
-            if line_info.in_code_block
-                || line_info.in_front_matter
-                || line_info.in_mkdocstrings
-                || line_info.in_footnote_definition
-            {
+            let is_skipped_region = |info: &crate::lint_context::LineInfo| {
+                info.in_code_block || info.in_front_matter || info.in_mkdocstrings || info.in_footnote_definition
+            };
+            if is_skipped_region(line_info) {
+                // The opening line of such a region (e.g. an unindented code fence)
+                // breaks out of any open list just like a paragraph would, so the
+                // stale list stack must be cleared even though the region's lines
+                // are otherwise skipped. Interior lines (code contents, etc.) are
+                // immaterial: only act on the region's first non-blank line, using
+                // its indentation to decide which items it closed.
+                let region_start = line_idx == 0 || !is_skipped_region(&ctx.lines[line_idx - 1]);
+                if region_start && !line_info.is_blank {
+                    let bq_depth = line_info.blockquote.as_ref().map_or(0, |bq| bq.nesting_level);
+                    Self::terminate_closed_items(ctx, line_info, &mut list_stack, bq_depth);
+                }
                 continue;
             }
 
@@ -225,7 +331,7 @@ impl Rule for MD007ULIndent {
 
                 // Clean up stack - remove items at same or deeper indentation,
                 // but only consider items at the same blockquote depth
-                while let Some(&(indent, _, _, _, item_bq_depth)) = list_stack.last() {
+                while let Some(&(indent, _, _, _, item_bq_depth, _)) = list_stack.last() {
                     if item_bq_depth == bq_depth && indent >= visual_marker_for_nesting {
                         list_stack.pop();
                     } else if item_bq_depth > bq_depth {
@@ -236,15 +342,86 @@ impl Rule for MD007ULIndent {
                     }
                 }
 
+                // The loop above only reconciles items at the same (or deeper)
+                // blockquote depth. A list item that enters a deeper blockquote than an
+                // ancestor (e.g. `> > - item` after `> 1. ordered`, or `> - item` after
+                // a top-level `1. ordered`) starts a separate container when that quote
+                // begins left of the ancestor's content. Measured in the ancestor's own
+                // quote coordinate space, the deeper quote's marker is then to the left
+                // of the ancestor's content column, so the ancestor is closed. Pop it
+                // here, otherwise a closed ordered ancestor would linger and wrongly
+                // extend its exemption to a later, separately indented unordered list.
+                // A deeper quote indented into the ancestor's content is part of that
+                // item and keeps it open. Same-depth nesting and items already inside a
+                // blockquote are left to the loop above and the exemption check below.
+                while let Some(&(_, _, _, content_col, item_bq_depth, _)) = list_stack.last() {
+                    if item_bq_depth < bq_depth
+                        && content_col > Self::indent_relative_to_depth(ctx, line_info, item_bq_depth)
+                    {
+                        list_stack.pop();
+                    } else {
+                        break;
+                    }
+                }
+
                 // For ordered list items, just track them in the stack
                 if list_item.is_ordered {
                     // For ordered lists, we don't check indentation but we need to track for text-aligned children
                     // Use the actual positions since we don't enforce indentation for ordered lists
-                    list_stack.push((visual_marker_column, line_idx, true, visual_content_column, bq_depth));
+                    list_stack.push((
+                        visual_marker_column,
+                        line_idx,
+                        true,
+                        visual_content_column,
+                        bq_depth,
+                        false,
+                    ));
                     continue;
                 }
 
-                // At this point, we know this is an unordered list item
+                // At this point, we know this is an unordered list item.
+                //
+                // markdownlint applies MD007 to a sublist only if its parent lists
+                // are all also unordered. An unordered item that is genuinely nested
+                // under an ordered ancestor is therefore exempt from the indentation
+                // check, at any depth. Two conditions must both hold:
+                //
+                //   1. threshold: an ordered ancestor at this blockquote depth has its
+                //      content column at or left of this bullet's marker, so the bullet
+                //      is indented far enough to be that ordered item's sublist. A
+                //      bullet indented less than the ordered content column is a new
+                //      top-level list, which markdownlint still checks.
+                //   2. chain: the nearest same-depth ancestor is itself ordered, or is
+                //      an unordered item that already inherited the exemption. This
+                //      stops the exemption from leaking past a non-nested unordered
+                //      parent to its children. For `100. ordered` / `   - parent` /
+                //      `     - child`, the parent is left of the ordered content column
+                //      (not nested, not exempt), so the child resolves against the real
+                //      unordered layout and is still checked.
+                //
+                // The MkDocs flavor is excluded: it deliberately enforces
+                // Python-Markdown's stricter continuation indent under ordered parents
+                // (insufficient indent there is a real rendering bug, not a style nit).
+                let threshold_ok = list_stack
+                    .iter()
+                    .any(|item| item.4 == bq_depth && item.2 && item.3 <= visual_marker_column);
+                let chain_ok = list_stack
+                    .iter()
+                    .rev()
+                    .find(|item| item.4 == bq_depth)
+                    .is_some_and(|item| item.2 || item.5);
+                if ctx.flavor != crate::config::MarkdownFlavor::MkDocs && threshold_ok && chain_ok {
+                    list_stack.push((
+                        visual_marker_column,
+                        line_idx,
+                        false,
+                        visual_content_column,
+                        bq_depth,
+                        true,
+                    ));
+                    continue;
+                }
+
                 // Count only items at the same blockquote depth for nesting level
                 let nesting_level = list_stack.iter().filter(|item| item.4 == bq_depth).count();
 
@@ -253,7 +430,7 @@ impl Rule for MD007ULIndent {
                     .iter()
                     .rev()
                     .find(|item| item.4 == bq_depth)
-                    .map(|&(_, _, is_ordered, content_col, _)| (is_ordered, content_col));
+                    .map(|&(_, _, is_ordered, content_col, _, _)| (is_ordered, content_col));
 
                 // Calculate expected indent using per-parent logic
                 // When start_indented is true, only depth-0 items use the start_indent value.
@@ -280,7 +457,7 @@ impl Rule for MD007ULIndent {
                 // Under an ordered list item, Python-Markdown requires at least
                 // marker_column + 4 spaces for continuation content to be recognized.
                 if ctx.flavor == crate::config::MarkdownFlavor::MkDocs
-                    && let Some(&(parent_marker_col, _, true, _, _)) =
+                    && let Some(&(parent_marker_col, _, true, _, _, _)) =
                         list_stack.iter().rev().find(|item| item.4 == bq_depth && item.2)
                 {
                     expected_indent = expected_indent.max(parent_marker_col + 4);
@@ -303,11 +480,15 @@ impl Rule for MD007ULIndent {
                     false,
                     expected_content_visual_col,
                     bq_depth,
+                    false,
                 ));
 
-                // Skip first level check if start_indented is false
-                // BUT always check items with 1 space indent (insufficient for nesting)
-                if !self.config.start_indented && nesting_level == 0 && visual_marker_column != 1 {
+                // A top-level item (depth 0) is expected at column 0 when start_indented
+                // is false. Column 0 is already correct, so skip it; any other column
+                // (1, 2, or 3) is a misindented top-level list and must be flagged with
+                // "Expected 0". Four or more leading spaces form an indented code block,
+                // not a list, so such lines never reach here as list items.
+                if !self.config.start_indented && nesting_level == 0 && visual_marker_column == 0 {
                     continue;
                 }
 
@@ -378,6 +559,92 @@ impl Rule for MD007ULIndent {
                         fix,
                     });
                 }
+            } else if !line_info.is_blank {
+                // A non-blank, non-list content line that breaks out of the open
+                // list terminates every list item whose content begins to its
+                // right: an item's children must be indented past its content
+                // column, so a line indented less cannot belong to it. Popping
+                // these closed items keeps list_stack accurate, so a later list
+                // is not mistaken for a sublist of one that has already ended
+                // (e.g. a top-level paragraph closing an ordered list, after
+                // which a separately indented bullet is a new top-level list).
+                //
+                // A CommonMark lazy continuation line is the exception: plain
+                // paragraph text that immediately follows the item (no blank line
+                // between) continues the item's open paragraph and so keeps the
+                // list open. Constructs that interrupt a paragraph (ATX heading,
+                // thematic break, fenced code, HTML block, HTML comment, div block)
+                // end the list even without a blank line, matching markdownlint. A
+                // line beginning with
+                // a list marker is likewise not lazy paragraph text - it would start
+                // a new list item - so it must still terminate stale ancestors (e.g.
+                // a deeper bullet that pulldown-cmark treats as item content rather
+                // than a sublist).
+                //
+                // Blockquotes need container awareness: a continuation in the *same*
+                // quote (`> text` after `> 1. item`) is lazy, but newly entering a
+                // quote (`> text` after a non-quoted item) interrupts the paragraph
+                // and ends the list. So compare the previous line's quote depth, and
+                // examine the marker on the quote-stripped content.
+                let bq_depth = line_info.blockquote.as_ref().map_or(0, |bq| bq.nesting_level);
+                let prev_line = line_idx.checked_sub(1).map(|i| &ctx.lines[i]);
+                let prev_blank = prev_line.is_none_or(|p| p.is_blank);
+                let prev_bq_depth = prev_line
+                    .and_then(|p| p.blockquote.as_ref())
+                    .map_or(0, |bq| bq.nesting_level);
+                let same_container = prev_bq_depth == bq_depth;
+                let text = line_info
+                    .blockquote
+                    .as_ref()
+                    .map_or_else(|| line_info.content(ctx.content), |bq| bq.content.as_str());
+                let trimmed = text.trim_start();
+                let starts_like_list_marker = match trimmed.as_bytes().first() {
+                    Some(b'-' | b'*' | b'+') => {
+                        matches!(trimmed.as_bytes().get(1), Some(b' ' | b'\t'))
+                    }
+                    Some(c) if c.is_ascii_digit() => {
+                        // CommonMark allows at most 9 digits in an ordered list marker.
+                        // A longer digit run is not a marker, so the line can be lazy
+                        // paragraph text rather than a list-interrupting item.
+                        let after_digits = trimmed.trim_start_matches(|ch: char| ch.is_ascii_digit());
+                        let num_digits = trimmed.len() - after_digits.len();
+                        let mut rest = after_digits.chars();
+                        (1..=9).contains(&num_digits)
+                            && matches!(rest.next(), Some('.' | ')'))
+                            && matches!(rest.next(), Some(' ' | '\t') | None)
+                    }
+                    _ => false,
+                };
+                // Lazy continuation only extends an OPEN paragraph. The previous line
+                // must itself be paragraph text (or a list-item line whose paragraph the
+                // current line continues), not a closed block such as a fenced code
+                // block, heading, thematic break, HTML block/comment, or div marker.
+                // After such a block, an unindented line starts a new paragraph and
+                // closes the list instead of lazily continuing it.
+                let prev_is_open_paragraph = prev_line.is_some_and(|p| {
+                    !p.is_blank
+                        && !p.in_code_block
+                        && p.heading.is_none()
+                        && !p.is_horizontal_rule
+                        && !p.in_html_block
+                        && !p.in_html_comment
+                        && !p.is_div_marker
+                });
+                let is_lazy_paragraph_continuation = !prev_blank
+                    && prev_is_open_paragraph
+                    && same_container
+                    && !starts_like_list_marker
+                    && line_info.heading.is_none()
+                    && !line_info.is_horizontal_rule
+                    && !line_info.in_code_block
+                    && !line_info.in_html_block
+                    && !line_info.in_html_comment
+                    && !line_info.is_div_marker;
+                if is_lazy_paragraph_continuation {
+                    // Lazy continuation: the list stays open, leave the stack intact.
+                    continue;
+                }
+                Self::terminate_closed_items(ctx, line_info, &mut list_stack, bq_depth);
             }
         }
         Ok(warnings)
@@ -934,25 +1201,30 @@ tags:
     }
 
     #[test]
-    fn test_start_indented_false_allows_any_first_level() {
+    fn test_start_indented_false_flags_indented_first_level() {
         let rule = MD007ULIndent::default(); // start_indented is false by default
 
-        // When start_indented is false, first level items at any indentation are allowed
+        // When start_indented is false, a top-level item is expected at column 0. A
+        // top-level item indented 1-3 spaces is a misindented list and must be flagged
+        // with "Expected 0", matching markdownlint-cli2 (which reports Expected: 0;
+        // Actual: 3 here).
         let content = "   * Item 1"; // First level at 3 spaces
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
-            result.is_empty(),
-            "First level at any indentation should be allowed when start_indented is false"
+            result.iter().any(|w| w.line == 1 && w.message.contains("Expected 0")),
+            "a top-level item indented 3 spaces must be flagged with Expected 0, got: {result:?}"
         );
 
-        // Multiple first level items at different indentations should all be allowed
-        let content = "* Item 1\n  * Item 2\n    * Item 3"; // All at level 0 (different indents)
+        // A correctly nested list (0/2/4 spaces) produces no warnings: these are a
+        // top-level item and its properly indented descendants, not three first-level
+        // items.
+        let content = "* Item 1\n  * Item 2\n    * Item 3";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             result.is_empty(),
-            "All first-level items should be allowed at any indentation"
+            "a correctly nested 0/2/4-space list should produce no warnings, got: {result:?}"
         );
     }
 
@@ -1117,10 +1389,13 @@ tags:
         let content = "> \t* List item\n";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
-        // First-level list item at any indentation is allowed when start_indented=false (default)
+        // Inside the blockquote the bullet is indented away from column 0, so it is a
+        // misindented top-level list and is flagged with "Expected 0", matching
+        // markdownlint-cli2 (which flags Expected: 0). The reported actual column
+        // reflects rumdl's CommonMark tab-stop expansion rather than a raw char count.
         assert!(
-            result.is_empty(),
-            "First-level list item at any indentation is allowed when start_indented=false, got: {result:?}"
+            result.iter().any(|w| w.line == 1 && w.message.contains("Expected 0")),
+            "an indented blockquoted top-level item must be flagged with Expected 0, got: {result:?}"
         );
     }
 
@@ -1897,17 +2172,18 @@ items:
     }
 
     #[test]
-    fn test_standard_flavor_ordered_list_with_4_space_warns() {
-        // In Standard flavor, `1. text` expects 3-space indent (text-aligned).
-        // 4 spaces should trigger a warning.
+    fn test_standard_flavor_ordered_list_under_ordered_is_exempt() {
+        // markdownlint exempts unordered sublists of an ordered list from MD007
+        // ("applies only if parent lists are all also unordered"). A 4-space bullet
+        // under `1. text` (content column 3) is a genuine sublist, so it must not be
+        // flagged. Verified: markdownlint-cli2 reports 0 MD007 errors here.
         let rule = MD007ULIndent::default();
         let content = "1. text\n\n    - nested item";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
-        assert_eq!(
-            result.len(),
-            1,
-            "4-space indent under ordered list should warn in Standard flavor"
+        assert!(
+            result.is_empty(),
+            "unordered sublist of an ordered list must be exempt in Standard flavor, got: {result:?}"
         );
     }
 
@@ -2118,6 +2394,492 @@ items:
         assert!(
             result.is_empty(),
             "indent=2 under '1.' should accept fixed indent (2 spaces): {result:?}"
+        );
+    }
+
+    // Issue #638: MD007 must not fire on unordered items nested under an ordered
+    // list. markdownlint: "applies to a sublist only if its parent lists are all
+    // also unordered." Verified against markdownlint-cli2 v0.18.1 (0 MD007 errors).
+    const ISSUE_638_INPUT: &str = "# Title\n\n1. Some text\n   - Indented text\n     - more indented\n";
+
+    #[test]
+    fn test_issue_638_unordered_under_ordered_smart_default() {
+        let rule = MD007ULIndent::new(2);
+        let ctx = LintContext::new(ISSUE_638_INPUT, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "smart default: unordered items under an ordered list must not be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_unordered_under_ordered_indent_explicit() {
+        let config = MD007Config {
+            indent: crate::types::IndentSize::from_const(2),
+            start_indented: false,
+            start_indent: crate::types::IndentSize::from_const(2),
+            style: md007_config::IndentStyle::TextAligned,
+            style_explicit: false,
+            indent_explicit: true,
+        };
+        let rule = MD007ULIndent::from_config_struct(config);
+        let ctx = LintContext::new(ISSUE_638_INPUT, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "indent=2 explicit: unordered items under an ordered list must not be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_unordered_under_ordered_style_fixed() {
+        // The reporter's exact config: indent = 2, style = "fixed".
+        let config = MD007Config {
+            indent: crate::types::IndentSize::from_const(2),
+            start_indented: false,
+            start_indent: crate::types::IndentSize::from_const(2),
+            style: md007_config::IndentStyle::Fixed,
+            style_explicit: true,
+            indent_explicit: true,
+        };
+        let rule = MD007ULIndent::from_config_struct(config);
+        let ctx = LintContext::new(ISSUE_638_INPUT, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "style=fixed: unordered items under an ordered list must not be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_deeper_unordered_chain_under_ordered() {
+        // Every unordered item below the ordered ancestor is exempt, at any depth.
+        let rule = MD007ULIndent::new(2);
+        let content = "1. Ordered\n   - child\n      - grandchild\n         - great-grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "all unordered descendants of an ordered list are exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_pure_unordered_still_checked() {
+        // Guard: the exemption must not leak into pure unordered lists.
+        let rule = MD007ULIndent::new(2);
+        let content = "- Top\n   - three spaces (wrong, expected 2)\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            1,
+            "pure unordered nesting must still be checked, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_exemption_not_applied_after_list_terminated_by_paragraph() {
+        // A top-level paragraph terminates the ordered list. The later, separately
+        // indented unordered list is NOT a sublist of the (now-closed) ordered item, so
+        // the ordered-ancestor exemption must not apply: MD007 flags both the misindented
+        // top-level item and its child. Verified against markdownlint-cli2, which reports
+        // MD007 on the parent (Expected: 0; Actual: 3) and the child (Expected: 2;
+        // Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n\nparagraph\n\n   - parent\n      - child six\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            2,
+            "the new top-level list following a terminated ordered list is checked at both levels, got: {result:?}"
+        );
+        assert!(
+            result.iter().any(|w| w.line == 5 && w.message.contains("Expected 0")),
+            "the misindented top-level item must be flagged with Expected 0, got: {result:?}"
+        );
+        assert!(
+            result
+                .iter()
+                .any(|w| w.line == 6 && w.message.contains("Expected 2") && w.message.contains("found 6")),
+            "the misindented child must be flagged with Expected 2, found 6, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_lazy_continuation_does_not_terminate_ordered_list() {
+        // A non-indented paragraph line that immediately follows the ordered item
+        // (no blank line between) is a CommonMark lazy continuation of that item,
+        // so the ordered list stays open and its unordered sublist is exempt.
+        // markdownlint-cli2 reports 0 MD007 errors here; the stale-ancestor
+        // termination must not fire on a lazy continuation line.
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\nlazy continuation\n   - child\n     - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "lazy continuation must not terminate the ordered list; sublist stays exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_heading_interrupts_ordered_list_without_blank() {
+        // Unlike a lazy paragraph continuation, an ATX heading interrupts the open
+        // paragraph and therefore terminates the ordered list even without an
+        // intervening blank line. The following bullets are then a new top-level list,
+        // so both the misindented top item and its child are flagged. markdownlint-cli2
+        // reports MD007 on the top item (Expected: 0; Actual: 3) and the child
+        // (Expected: 2; Actual: 5).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n# heading\n   - child\n     - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            2,
+            "a heading terminates the ordered list, so the new top-level list and its child are both checked, got: {result:?}"
+        );
+        assert!(
+            result.iter().any(|w| w.line == 3 && w.message.contains("Expected 0")),
+            "the misindented top-level item must be flagged with Expected 0, got: {result:?}"
+        );
+        assert!(
+            result.iter().any(|w| w.line == 4 && w.message.contains("Expected 2")),
+            "the misindented child must be flagged with Expected 2, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_lazy_continuation_inside_blockquote_keeps_exemption() {
+        // Inside a blockquote, a plain continuation line in the same quote is a
+        // lazy paragraph continuation of the ordered item, so the list stays open
+        // and its sublist remains exempt. markdownlint-cli2 reports 0 MD007 errors;
+        // termination must operate in blockquote-content coordinates, not absolute.
+        let rule = MD007ULIndent::new(2);
+        let content = "> 1. ordered\n> continuation\n>\n>    - child\n>      - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "a lazy continuation within the same blockquote must keep the sublist exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_indented_fence_inside_blockquoted_ordered_item_keeps_exemption() {
+        // A fenced code block indented to the ordered item's content column, all
+        // within a blockquote, is part of that item. The list stays open and the
+        // sublist remains exempt. markdownlint-cli2 reports 0 MD007 errors; the
+        // skip-region termination must use blockquote-content-relative indent.
+        let rule = MD007ULIndent::new(2);
+        let content = "> 1. ordered\n>    ```\n>    code\n>    ```\n>    - child\n>      - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "an indented fence inside a blockquoted ordered item must keep the sublist exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_fenced_code_block_terminates_ordered_list() {
+        // A top-level fenced code block (its opening fence not indented into the
+        // item) terminates the ordered list. Because the rule skips code-block
+        // lines, the stale ordered ancestor must still be cleared so the exemption
+        // does not leak to a later list. markdownlint-cli2 flags the misindented
+        // child (Expected: 2; Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n```\ncode\n```\n\n   - parent\n      - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 7),
+            "a top-level fenced code block terminates the ordered list; the child must be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_fenced_code_block_inside_item_keeps_exemption() {
+        // A fenced code block indented into the ordered item's content column is
+        // part of that item, so the list stays open and the sublist remains exempt.
+        // markdownlint-cli2 reports 0 MD007 errors; termination must not over-fire
+        // on the code block's interior lines.
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n   ```\n   code\n   ```\n   - child\n     - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "a fenced code block nested inside the item must keep the sublist exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_blockquote_terminates_ordered_list() {
+        // A top-level blockquote interrupts the open paragraph and terminates the
+        // ordered list (it is not indented into the item's content). The later,
+        // separately indented unordered list is therefore NOT a sublist of the
+        // closed ordered item, so the ordered-ancestor exemption must not leak:
+        // the misindented child must still be flagged. markdownlint-cli2 reports
+        // MD007 on the child (Expected: 2; Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n> quote\n\n   - parent\n      - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 5),
+            "blockquote terminates the ordered list, so the child must still be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_blockquote_inside_item_keeps_exemption() {
+        // When the blockquote is indented into the ordered item's content column it
+        // is part of that item, so the list stays open and its unordered sublist
+        // remains exempt. markdownlint-cli2 reports 0 MD007 errors here; the
+        // termination must not over-fire on a blockquote nested inside the item.
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n   > quote inside item\n   - child\n     - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "a blockquote nested inside the item must keep the sublist exempt, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_exemption_requires_genuine_nesting_under_ordered() {
+        // A wide ordered marker ("100. ") has its content at column 5. An unordered
+        // bullet indented only 3 spaces is left of that content column, so it is NOT
+        // nested under the ordered item but a new top-level list. The ordered-ancestor
+        // exemption must not leak through this non-nested bullet to its child: with
+        // the ordered item no longer a genuine ancestor, the misindented child must
+        // still be checked. markdownlint-cli2 flags both the parent (Expected: 0) and
+        // the child (Expected: 2). The exemption must not suppress the child, and the
+        // fix must not flatten the child into a sibling of the parent.
+        let rule = MD007ULIndent::new(2);
+        let content = "100. ordered\n   - parent\n     - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 3),
+            "the child of a non-nested bullet must still be checked, not exempted; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_paragraph_after_fenced_code_closes_ordered_list() {
+        // A fenced code block inside an ordered item is not paragraph text, so an
+        // unindented line after the closing fence is NOT a lazy paragraph continuation:
+        // it closes the list. The later, separately indented bullet list is therefore a
+        // new top-level list, not a sublist of the ordered item, so the ordered-ancestor
+        // exemption must not leak: the misindented child must still be flagged.
+        // (markdownlint-cli2 also flags the parent with Expected: 0; rumdl does not flag
+        // indented top-level list items, a separate pre-existing limitation, so we assert
+        // only the child here - the part this fix governs.)
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n   ```\n   code\n   ```\nnot lazy text\n   - parent\n     - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 7),
+            "fenced code is not paragraph text, so the list closes and the nested child must still be checked, not exempted; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_overlong_ordered_marker_is_lazy_continuation() {
+        // CommonMark ordered list markers allow at most 9 digits. A run of 10+ digits
+        // (`1234567890.`) is not a valid marker, so the line is a lazy paragraph
+        // continuation of the open ordered item, which keeps the list open. The nested
+        // bullets remain a sublist under the ordered item and are exempt from MD007.
+        // markdownlint-cli2 reports no MD007 warnings here.
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n1234567890. this is continuation text\n   - child\n     - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "an overlong digit run is not a valid ordered marker, so the list stays open and the nested bullets are exempt; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_indented_top_level_list_item_is_flagged() {
+        // A top-level unordered list item indented 2 or 3 spaces is a misindented list
+        // (4+ spaces would be an indented code block, not a list). markdownlint-cli2
+        // flags the top item with "Expected: 0". rumdl must flag it too, not only its
+        // children. The default config has start_indented = false, so the expected
+        // indent for a depth-0 item is column 0.
+        let rule = MD007ULIndent::new(2);
+        for indent in 2..=3 {
+            let pad = " ".repeat(indent);
+            let content = format!("{pad}- parent\n{pad}  - child\n");
+            let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
+            let result = rule.check(&ctx).unwrap();
+            assert!(
+                result.iter().any(|w| w.line == 1),
+                "a top-level item indented {indent} spaces must be flagged (Expected 0); got: {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_indented_code_block_bullet_is_not_a_list_item() {
+        // Four or more leading spaces at the top level form an indented code block, not a
+        // list, so MD007 must not fire. Both rumdl and markdownlint-cli2 stay silent.
+        let rule = MD007ULIndent::new(2);
+        let content = "    - not a list, this is code\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "a 4-space-indented bullet is an indented code block, not a misindented list; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_tab_indent_expands_to_four_column_tabstop() {
+        // CommonMark expands a leading tab to the next 4-column tab stop when it helps
+        // define block structure. A single-tab-indented sublist therefore sits at visual
+        // column 4, which is an over-indent for depth 1 (expected 2). rumdl must report
+        // the expanded column (found 4), NOT a raw character count of 1. (markdownlint
+        // counts the tab as a single character and reports "Actual 1"; that is incorrect
+        // per the CommonMark tab-stop rule, so rumdl deliberately diverges here.)
+        let rule = MD007ULIndent::new(2);
+        let content = "- a\n\t- b\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        let warning = result
+            .iter()
+            .find(|w| w.line == 2)
+            .expect("a tab-indented sublist at column 4 is over-indented for depth 1 and must be flagged");
+        assert!(
+            warning.message.contains("found 4"),
+            "the tab must expand to the 4-column tab stop (found 4), not be counted as one character; got: {}",
+            warning.message
+        );
+    }
+
+    #[test]
+    fn test_tab_completing_two_space_indent_to_tabstop_is_accepted() {
+        // Two spaces advance to column 2; a following tab then advances to the next
+        // 4-column tab stop, landing the sublist marker at column 4 - exactly the
+        // expected indent for depth 2. With correct tab-stop math the line is well
+        // indented and must produce no warning. (markdownlint miscounts `  \t` as three
+        // characters and false-positives with "Actual 3"; rumdl correctly stays silent.)
+        let rule = MD007ULIndent::new(2);
+        let content = "- a\n  - b\n  \t- c\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "`  \\t` expands to column 4, the correct depth-2 indent, so no MD007 warning is expected; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_html_comment_terminates_ordered_list() {
+        // An HTML comment is a block construct that interrupts the open paragraph and
+        // terminates the ordered list, just like a heading or fenced code block. The
+        // later, separately indented unordered list is therefore not a sublist of the
+        // closed ordered item, so the ordered-ancestor exemption must not leak: the
+        // misindented child must still be flagged. markdownlint-cli2 reports MD007 on
+        // the child (Expected: 2; Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n<!-- comment -->\n\n   - parent\n      - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 5),
+            "an HTML comment terminates the ordered list, so the child must still be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_blockquoted_list_item_terminates_ordered_list() {
+        // A blockquoted list item that begins left of the ordered item's content
+        // column starts a new container and terminates the ordered list (the `>` is
+        // not indented into the item). The later, separately indented unordered list
+        // is therefore not a sublist of the closed ordered item, so the
+        // ordered-ancestor exemption must not leak: the misindented child must still
+        // be flagged. markdownlint-cli2 reports MD007 on the child
+        // (Expected: 2; Actual: 5).
+        let rule = MD007ULIndent::new(2);
+        let content = "1. ordered\n> - quote list\n\n   - parent\n     - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 5),
+            "a blockquoted list item terminates the ordered list, so the child must still be flagged, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_deeper_nested_quote_terminates_blockquoted_ordered_list() {
+        // A blockquoted ordered item (`> 1. ordered`) is interrupted by a deeper
+        // nested quote (`> > quote`). The inner `>` begins left of the ordered
+        // item's content column (in the item's own quote coordinate space), so it
+        // is a sibling block that closes the ordered list, not a continuation of
+        // it. The unordered list that follows inside the same depth-1 quote is
+        // therefore a fresh top-level list, not a sublist of the (closed) ordered
+        // item, so the ordered-ancestor exemption must NOT leak to it.
+        // markdownlint-cli2 (MD007 only) reports the parent (Expected: 0; Actual: 3)
+        // and the child (Expected: 2; Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "> 1. ordered\n> > quote\n>\n>    - parent\n>       - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 4),
+            "deeper nested quote closes the ordered list, so the misindented parent must be flagged, got: {result:?}"
+        );
+        assert!(
+            result.iter().any(|w| w.line == 5),
+            "the child of the fresh unordered list must be flagged, not exempted, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_deeper_quote_list_item_terminates_blockquoted_ordered_list() {
+        // Same leak as the deeper-nested-quote case, but the interrupting deeper
+        // quote is itself a list item (`> > - quote list`). Its marker begins left
+        // of the ordered item's content column (in the item's coordinate space), so
+        // it closes the ordered list. The unordered list that follows in the depth-1
+        // quote is therefore a fresh top-level list and must not inherit the
+        // ordered-ancestor exemption. markdownlint-cli2 reports the parent
+        // (Expected: 0; Actual: 3) and the child (Expected: 2; Actual: 6).
+        let rule = MD007ULIndent::new(2);
+        let content = "> 1. ordered\n> > - quote list\n>\n>    - parent\n>       - child\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.iter().any(|w| w.line == 4),
+            "a deeper-quote list item closes the ordered list, so the parent must be flagged, got: {result:?}"
+        );
+        assert!(
+            result.iter().any(|w| w.line == 5),
+            "the child of the fresh unordered list must be flagged, not exempted, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_issue_638_deeper_quote_indented_into_item_keeps_exemption() {
+        // When the deeper quote is indented to (or past) the ordered item's content
+        // column, the `> quote` is a child block of the item, so the ordered list
+        // stays open and its unordered sublist remains exempt. The termination must
+        // not over-fire. markdownlint-cli2 reports 0 MD007 errors here.
+        let rule = MD007ULIndent::new(2);
+        let content = "> 1. ordered\n>    > quote inside item\n>    - child\n>      - grandchild\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "a deeper quote indented into the item must keep the sublist exempt, got: {result:?}"
         );
     }
 

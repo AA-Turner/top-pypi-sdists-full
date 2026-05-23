@@ -121,11 +121,8 @@ def get_x509_authentication_database_user(project_id: Optional[_builtins.str] = 
         project_id=user.project_id,
         username=user.username,
         months_until_expiration=2)
-    test = pulumi.Output.all(
-        project_id=test_x509_authentication_database_user.project_id,
-        username=test_x509_authentication_database_user.username
-    ).apply(lambda resolved_outputs: mongodbatlas.get_x509_authentication_database_user_output(project_id=resolved_outputs['project_id'],
-        username=resolved_outputs['username']))
+    test = mongodbatlas.get_x509_authentication_database_user_output(project_id=test_x509_authentication_database_user.project_id,
+        username=test_x509_authentication_database_user.username)
     ```
 
     ### Example Usage: Save a customer-managed X.509 configuration for an Atlas project
@@ -171,8 +168,8 @@ def get_x509_authentication_database_user(project_id: Optional[_builtins.str] = 
         id=pulumi.get(__ret__, 'id'),
         project_id=pulumi.get(__ret__, 'project_id'),
         username=pulumi.get(__ret__, 'username'))
-def get_x509_authentication_database_user_output(project_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                                 username: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_x509_authentication_database_user_output(project_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                                 username: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                                  opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetX509AuthenticationDatabaseUserResult]:
     """
     `X509AuthenticationDatabaseUser` describes a X509 Authentication Database User. This represents a X509 Authentication Database User.
@@ -203,11 +200,8 @@ def get_x509_authentication_database_user_output(project_id: Optional[pulumi.Inp
         project_id=user.project_id,
         username=user.username,
         months_until_expiration=2)
-    test = pulumi.Output.all(
-        project_id=test_x509_authentication_database_user.project_id,
-        username=test_x509_authentication_database_user.username
-    ).apply(lambda resolved_outputs: mongodbatlas.get_x509_authentication_database_user_output(project_id=resolved_outputs['project_id'],
-        username=resolved_outputs['username']))
+    test = mongodbatlas.get_x509_authentication_database_user_output(project_id=test_x509_authentication_database_user.project_id,
+        username=test_x509_authentication_database_user.username)
     ```
 
     ### Example Usage: Save a customer-managed X.509 configuration for an Atlas project

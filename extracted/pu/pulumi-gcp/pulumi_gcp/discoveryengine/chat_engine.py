@@ -27,9 +27,10 @@ class ChatEngineArgs:
                  display_name: pulumi.Input[_builtins.str],
                  engine_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 common_config: Optional[pulumi.Input['ChatEngineCommonConfigArgs']] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 common_config: pulumi.Input[Optional['ChatEngineCommonConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ChatEngine resource.
 
@@ -42,6 +43,12 @@ class ChatEngineArgs:
         :param pulumi.Input[_builtins.str] location: Location.
         :param pulumi.Input['ChatEngineCommonConfigArgs'] common_config: Common config spec that specifies the metadata of the engine.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
                Default value is `GENERIC`.
                Possible values are: `GENERIC`.
@@ -56,6 +63,8 @@ class ChatEngineArgs:
         pulumi.set(__self__, "location", location)
         if common_config is not None:
             pulumi.set(__self__, "common_config", common_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if industry_vertical is not None:
             pulumi.set(__self__, "industry_vertical", industry_vertical)
         if project is not None:
@@ -136,7 +145,7 @@ class ChatEngineArgs:
 
     @_builtins.property
     @pulumi.getter(name="commonConfig")
-    def common_config(self) -> Optional[pulumi.Input['ChatEngineCommonConfigArgs']]:
+    def common_config(self) -> pulumi.Input[Optional['ChatEngineCommonConfigArgs']]:
         """
         Common config spec that specifies the metadata of the engine.
         Structure is documented below.
@@ -144,12 +153,29 @@ class ChatEngineArgs:
         return pulumi.get(self, "common_config")
 
     @common_config.setter
-    def common_config(self, value: Optional[pulumi.Input['ChatEngineCommonConfigArgs']]):
+    def common_config(self, value: pulumi.Input[Optional['ChatEngineCommonConfigArgs']]):
         pulumi.set(self, "common_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="industryVertical")
-    def industry_vertical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def industry_vertical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
         Default value is `GENERIC`.
@@ -158,12 +184,12 @@ class ChatEngineArgs:
         return pulumi.get(self, "industry_vertical")
 
     @industry_vertical.setter
-    def industry_vertical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def industry_vertical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "industry_vertical", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -171,26 +197,27 @@ class ChatEngineArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ChatEngineState:
     def __init__(__self__, *,
-                 chat_engine_config: Optional[pulumi.Input['ChatEngineChatEngineConfigArgs']] = None,
-                 chat_engine_metadatas: Optional[pulumi.Input[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 common_config: Optional[pulumi.Input['ChatEngineCommonConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 chat_engine_config: pulumi.Input[Optional['ChatEngineChatEngineConfigArgs']] = None,
+                 chat_engine_metadatas: pulumi.Input[Optional[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 common_config: pulumi.Input[Optional['ChatEngineCommonConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ChatEngine resources.
 
@@ -203,6 +230,12 @@ class _ChatEngineState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp the Engine was created at.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. Multiple DataStores in the same Collection can be associated here. All listed DataStores must be `SOLUTION_TYPE_CHAT`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: The ID to use for chat engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
@@ -229,6 +262,8 @@ class _ChatEngineState:
             pulumi.set(__self__, "create_time", create_time)
         if data_store_ids is not None:
             pulumi.set(__self__, "data_store_ids", data_store_ids)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if engine_id is not None:
@@ -246,7 +281,7 @@ class _ChatEngineState:
 
     @_builtins.property
     @pulumi.getter(name="chatEngineConfig")
-    def chat_engine_config(self) -> Optional[pulumi.Input['ChatEngineChatEngineConfigArgs']]:
+    def chat_engine_config(self) -> pulumi.Input[Optional['ChatEngineChatEngineConfigArgs']]:
         """
         Configurations for a chat Engine.
         Structure is documented below.
@@ -254,12 +289,12 @@ class _ChatEngineState:
         return pulumi.get(self, "chat_engine_config")
 
     @chat_engine_config.setter
-    def chat_engine_config(self, value: Optional[pulumi.Input['ChatEngineChatEngineConfigArgs']]):
+    def chat_engine_config(self, value: pulumi.Input[Optional['ChatEngineChatEngineConfigArgs']]):
         pulumi.set(self, "chat_engine_config", value)
 
     @_builtins.property
     @pulumi.getter(name="chatEngineMetadatas")
-    def chat_engine_metadatas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]]:
+    def chat_engine_metadatas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]]:
         """
         Additional information of the Chat Engine.
         Structure is documented below.
@@ -267,24 +302,24 @@ class _ChatEngineState:
         return pulumi.get(self, "chat_engine_metadatas")
 
     @chat_engine_metadatas.setter
-    def chat_engine_metadatas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]]):
+    def chat_engine_metadatas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ChatEngineChatEngineMetadataArgs']]]]):
         pulumi.set(self, "chat_engine_metadatas", value)
 
     @_builtins.property
     @pulumi.getter(name="collectionId")
-    def collection_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collection ID.
         """
         return pulumi.get(self, "collection_id")
 
     @collection_id.setter
-    def collection_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection_id", value)
 
     @_builtins.property
     @pulumi.getter(name="commonConfig")
-    def common_config(self) -> Optional[pulumi.Input['ChatEngineCommonConfigArgs']]:
+    def common_config(self) -> pulumi.Input[Optional['ChatEngineCommonConfigArgs']]:
         """
         Common config spec that specifies the metadata of the engine.
         Structure is documented below.
@@ -292,60 +327,77 @@ class _ChatEngineState:
         return pulumi.get(self, "common_config")
 
     @common_config.setter
-    def common_config(self, value: Optional[pulumi.Input['ChatEngineCommonConfigArgs']]):
+    def common_config(self, value: pulumi.Input[Optional['ChatEngineCommonConfigArgs']]):
         pulumi.set(self, "common_config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp the Engine was created at.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataStoreIds")
-    def data_store_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def data_store_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The data stores associated with this engine. Multiple DataStores in the same Collection can be associated here. All listed DataStores must be `SOLUTION_TYPE_CHAT`.
         """
         return pulumi.get(self, "data_store_ids")
 
     @data_store_ids.setter
-    def data_store_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def data_store_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "data_store_ids", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="engineId")
-    def engine_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def engine_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for chat engine.
         """
         return pulumi.get(self, "engine_id")
 
     @engine_id.setter
-    def engine_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def engine_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "engine_id", value)
 
     @_builtins.property
     @pulumi.getter(name="industryVertical")
-    def industry_vertical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def industry_vertical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
         Default value is `GENERIC`.
@@ -354,24 +406,24 @@ class _ChatEngineState:
         return pulumi.get(self, "industry_vertical")
 
     @industry_vertical.setter
-    def industry_vertical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def industry_vertical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "industry_vertical", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique full resource name of the chat engine. Values are of the format
         `projects/{project}/locations/{location}/collections/{collection_id}/engines/{engine_id}`.
@@ -381,12 +433,12 @@ class _ChatEngineState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -394,19 +446,19 @@ class _ChatEngineState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp the Engine was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -416,15 +468,16 @@ class ChatEngine(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 chat_engine_config: Optional[pulumi.Input[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 common_config: Optional[pulumi.Input[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 chat_engine_config: pulumi.Input[Optional[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 common_config: pulumi.Input[Optional[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Vertex chat and Conversation Engine Chat type
@@ -537,6 +590,12 @@ class ChatEngine(pulumi.CustomResource):
         :param pulumi.Input[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']] common_config: Common config spec that specifies the metadata of the engine.
                Structure is documented below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. Multiple DataStores in the same Collection can be associated here. All listed DataStores must be `SOLUTION_TYPE_CHAT`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: The ID to use for chat engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
@@ -670,15 +729,16 @@ class ChatEngine(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 chat_engine_config: Optional[pulumi.Input[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
-                 collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 common_config: Optional[pulumi.Input[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
-                 data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 chat_engine_config: pulumi.Input[Optional[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
+                 collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 common_config: pulumi.Input[Optional[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
+                 data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -698,6 +758,7 @@ class ChatEngine(pulumi.CustomResource):
             if data_store_ids is None and not opts.urn:
                 raise TypeError("Missing required property 'data_store_ids'")
             __props__.__dict__["data_store_ids"] = data_store_ids
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -723,19 +784,20 @@ class ChatEngine(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            chat_engine_config: Optional[pulumi.Input[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
-            chat_engine_metadatas: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ChatEngineChatEngineMetadataArgs', 'ChatEngineChatEngineMetadataArgsDict']]]]] = None,
-            collection_id: Optional[pulumi.Input[_builtins.str]] = None,
-            common_config: Optional[pulumi.Input[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_store_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            engine_id: Optional[pulumi.Input[_builtins.str]] = None,
-            industry_vertical: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'ChatEngine':
+            chat_engine_config: pulumi.Input[Optional[Union['ChatEngineChatEngineConfigArgs', 'ChatEngineChatEngineConfigArgsDict']]] = None,
+            chat_engine_metadatas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ChatEngineChatEngineMetadataArgs', 'ChatEngineChatEngineMetadataArgsDict']]]]] = None,
+            collection_id: pulumi.Input[Optional[_builtins.str]] = None,
+            common_config: pulumi.Input[Optional[Union['ChatEngineCommonConfigArgs', 'ChatEngineCommonConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_store_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            engine_id: pulumi.Input[Optional[_builtins.str]] = None,
+            industry_vertical: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'ChatEngine':
         """
         Get an existing ChatEngine resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -752,6 +814,12 @@ class ChatEngine(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Timestamp the Engine was created at.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_store_ids: The data stores associated with this engine. Multiple DataStores in the same Collection can be associated here. All listed DataStores must be `SOLUTION_TYPE_CHAT`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
         :param pulumi.Input[_builtins.str] engine_id: The ID to use for chat engine.
         :param pulumi.Input[_builtins.str] industry_vertical: The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
@@ -776,6 +844,7 @@ class ChatEngine(pulumi.CustomResource):
         __props__.__dict__["common_config"] = common_config
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["data_store_ids"] = data_store_ids
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["engine_id"] = engine_id
         __props__.__dict__["industry_vertical"] = industry_vertical
@@ -835,6 +904,19 @@ class ChatEngine(pulumi.CustomResource):
         The data stores associated with this engine. Multiple DataStores in the same Collection can be associated here. All listed DataStores must be `SOLUTION_TYPE_CHAT`.
         """
         return pulumi.get(self, "data_store_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

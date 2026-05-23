@@ -887,6 +887,9 @@ __all__ = (
     "UserProfileDetailsTypeDef",
     "UserProfileSummaryTypeDef",
     "UsernamePasswordTypeDef",
+    "VpcPropertiesInputTypeDef",
+    "VpcPropertiesOutputTypeDef",
+    "VpcPropertiesPatchTypeDef",
     "WorkflowsMwaaPropertiesInputTypeDef",
     "WorkflowsMwaaPropertiesOutputTypeDef",
 )
@@ -1242,6 +1245,12 @@ class SparkEmrPropertiesInputTypeDef(TypedDict):
     managedEndpointArn: NotRequired[str]
 
 
+class VpcPropertiesInputTypeDef(TypedDict):
+    vpcId: str
+    subnetIds: Sequence[str]
+    securityGroupId: NotRequired[str]
+
+
 class WorkflowsMwaaPropertiesInputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
 
@@ -1278,6 +1287,14 @@ class S3PropertiesOutputTypeDef(TypedDict):
     errorMessage: NotRequired[str]
 
 
+class VpcPropertiesOutputTypeDef(TypedDict):
+    vpcId: str
+    subnetIds: list[str]
+    status: ConnectionStatusType
+    securityGroupId: NotRequired[str]
+    glueConnectionNames: NotRequired[list[str]]
+
+
 class WorkflowsMwaaPropertiesOutputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
 
@@ -1309,6 +1326,12 @@ class SparkEmrPropertiesPatchTypeDef(TypedDict):
     runtimeRole: NotRequired[str]
     trustedCertificatesS3Uri: NotRequired[str]
     managedEndpointArn: NotRequired[str]
+
+
+class VpcPropertiesPatchTypeDef(TypedDict):
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    securityGroupId: NotRequired[str]
 
 
 class FormEntryInputTypeDef(TypedDict):
@@ -6794,6 +6817,7 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesOutputTypeDef]
     workflowsServerlessProperties: NotRequired[dict[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesOutputTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesOutputTypeDef]
 
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
@@ -6844,6 +6868,7 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
     lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesPatchTypeDef]
 
 
 class PolicyGrantMemberTypeDef(TypedDict):
@@ -7671,6 +7696,7 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesInputTypeDef]
     workflowsServerlessProperties: NotRequired[Mapping[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesInputTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesInputTypeDef]
 
 
 class CreateConnectionInputTypeDef(TypedDict):

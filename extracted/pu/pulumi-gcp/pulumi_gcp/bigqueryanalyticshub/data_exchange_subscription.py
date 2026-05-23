@@ -26,10 +26,11 @@ class DataExchangeSubscriptionArgs:
                  data_exchange_project: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  subscription_id: pulumi.Input[_builtins.str],
-                 destination_dataset: Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscriber_contact: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset: pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscriber_contact: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DataExchangeSubscription resource.
 
@@ -40,6 +41,12 @@ class DataExchangeSubscriptionArgs:
                This is the subscriber's desired location for the created resources.
                See https://cloud.google.com/bigquery/docs/locations for supported locations.
         :param pulumi.Input[_builtins.str] subscription_id: Name of the subscription to create.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs'] destination_dataset: BigQuery destination dataset to create for the subscriber.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -55,6 +62,8 @@ class DataExchangeSubscriptionArgs:
         pulumi.set(__self__, "data_exchange_project", data_exchange_project)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "subscription_id", subscription_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if destination_dataset is not None:
             pulumi.set(__self__, "destination_dataset", destination_dataset)
         if project is not None:
@@ -127,8 +136,25 @@ class DataExchangeSubscriptionArgs:
         pulumi.set(self, "subscription_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="destinationDataset")
-    def destination_dataset(self) -> Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']]:
+    def destination_dataset(self) -> pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']]:
         """
         BigQuery destination dataset to create for the subscriber.
         Structure is documented below.
@@ -136,12 +162,12 @@ class DataExchangeSubscriptionArgs:
         return pulumi.get(self, "destination_dataset")
 
     @destination_dataset.setter
-    def destination_dataset(self, value: Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']]):
+    def destination_dataset(self, value: pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']]):
         pulumi.set(self, "destination_dataset", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -149,12 +175,12 @@ class DataExchangeSubscriptionArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshPolicy")
-    def refresh_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def refresh_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Controls when the subscription is automatically refreshed by the provider.
         * `ON_READ`: Default value if not specified. The subscription will be refreshed every time Terraform performs a read operation (e.g., `pulumi preview`, `pulumi up`, `terraform refresh`). This ensures the state is always up-to-date.
@@ -164,45 +190,46 @@ class DataExchangeSubscriptionArgs:
         return pulumi.get(self, "refresh_policy")
 
     @refresh_policy.setter
-    def refresh_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def refresh_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "refresh_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="subscriberContact")
-    def subscriber_contact(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subscriber_contact(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Email of the subscriber.
         """
         return pulumi.get(self, "subscriber_contact")
 
     @subscriber_contact.setter
-    def subscriber_contact(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subscriber_contact(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subscriber_contact", value)
 
 
 @pulumi.input_type
 class _DataExchangeSubscriptionState:
     def __init__(__self__, *,
-                 creation_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_project: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset: Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']] = None,
-                 last_modify_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 linked_dataset_maps: Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]] = None,
-                 linked_resources: Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 log_linked_dataset_query_user_email: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization_display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscriber_contact: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 creation_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_project: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset: pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']] = None,
+                 last_modify_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 linked_dataset_maps: pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]] = None,
+                 linked_resources: pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 log_linked_dataset_query_user_email: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization_display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscriber_contact: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscription_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DataExchangeSubscription resources.
 
@@ -211,6 +238,12 @@ class _DataExchangeSubscriptionState:
         :param pulumi.Input[_builtins.str] data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
         :param pulumi.Input[_builtins.str] data_exchange_location: The name of the location of the Data Exchange.
         :param pulumi.Input[_builtins.str] data_exchange_project: The ID of the Google Cloud project where the Data Exchange is located.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs'] destination_dataset: BigQuery destination dataset to create for the subscriber.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] last_modify_time: Timestamp when the subscription was last modified.
@@ -248,6 +281,8 @@ class _DataExchangeSubscriptionState:
             pulumi.set(__self__, "data_exchange_location", data_exchange_location)
         if data_exchange_project is not None:
             pulumi.set(__self__, "data_exchange_project", data_exchange_project)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if destination_dataset is not None:
             pulumi.set(__self__, "destination_dataset", destination_dataset)
         if last_modify_time is not None:
@@ -281,67 +316,84 @@ class _DataExchangeSubscriptionState:
 
     @_builtins.property
     @pulumi.getter(name="creationTime")
-    def creation_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the subscription was created.
         """
         return pulumi.get(self, "creation_time")
 
     @creation_time.setter
-    def creation_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataExchange")
-    def data_exchange(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_exchange(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. Resource name of the source Data Exchange. e.g. projects/123/locations/us/dataExchanges/456
         """
         return pulumi.get(self, "data_exchange")
 
     @data_exchange.setter
-    def data_exchange(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_exchange(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_exchange", value)
 
     @_builtins.property
     @pulumi.getter(name="dataExchangeId")
-    def data_exchange_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_exchange_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
         """
         return pulumi.get(self, "data_exchange_id")
 
     @data_exchange_id.setter
-    def data_exchange_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_exchange_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_exchange_id", value)
 
     @_builtins.property
     @pulumi.getter(name="dataExchangeLocation")
-    def data_exchange_location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_exchange_location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the location of the Data Exchange.
         """
         return pulumi.get(self, "data_exchange_location")
 
     @data_exchange_location.setter
-    def data_exchange_location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_exchange_location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_exchange_location", value)
 
     @_builtins.property
     @pulumi.getter(name="dataExchangeProject")
-    def data_exchange_project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_exchange_project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Google Cloud project where the Data Exchange is located.
         """
         return pulumi.get(self, "data_exchange_project")
 
     @data_exchange_project.setter
-    def data_exchange_project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_exchange_project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_exchange_project", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="destinationDataset")
-    def destination_dataset(self) -> Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']]:
+    def destination_dataset(self) -> pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']]:
         """
         BigQuery destination dataset to create for the subscriber.
         Structure is documented below.
@@ -349,24 +401,24 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "destination_dataset")
 
     @destination_dataset.setter
-    def destination_dataset(self, value: Optional[pulumi.Input['DataExchangeSubscriptionDestinationDatasetArgs']]):
+    def destination_dataset(self, value: pulumi.Input[Optional['DataExchangeSubscriptionDestinationDatasetArgs']]):
         pulumi.set(self, "destination_dataset", value)
 
     @_builtins.property
     @pulumi.getter(name="lastModifyTime")
-    def last_modify_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_modify_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the subscription was last modified.
         """
         return pulumi.get(self, "last_modify_time")
 
     @last_modify_time.setter
-    def last_modify_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_modify_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_modify_time", value)
 
     @_builtins.property
     @pulumi.getter(name="linkedDatasetMaps")
-    def linked_dataset_maps(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]]:
+    def linked_dataset_maps(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]]:
         """
         Output only. Map of listing resource names to associated linked resource,
         e.g. projects/123/locations/us/dataExchanges/456/listings/789 > projects/123/datasets/my_dataset
@@ -376,12 +428,12 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "linked_dataset_maps")
 
     @linked_dataset_maps.setter
-    def linked_dataset_maps(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]]):
+    def linked_dataset_maps(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedDatasetMapArgs']]]]):
         pulumi.set(self, "linked_dataset_maps", value)
 
     @_builtins.property
     @pulumi.getter(name="linkedResources")
-    def linked_resources(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]]:
+    def linked_resources(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]]:
         """
         Output only. Linked resources created in the subscription. Only contains values if state = STATE_ACTIVE.
         Structure is documented below.
@@ -389,12 +441,12 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "linked_resources")
 
     @linked_resources.setter
-    def linked_resources(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]]):
+    def linked_resources(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataExchangeSubscriptionLinkedResourceArgs']]]]):
         pulumi.set(self, "linked_resources", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the Subscription (and its linked dataset) should reside.
         This is the subscriber's desired location for the created resources.
@@ -403,60 +455,60 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="logLinkedDatasetQueryUserEmail")
-    def log_linked_dataset_query_user_email(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def log_linked_dataset_query_user_email(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Output only. By default, false. If true, the Subscriber agreed to the email sharing mandate that is enabled for DataExchange/Listing.
         """
         return pulumi.get(self, "log_linked_dataset_query_user_email")
 
     @log_linked_dataset_query_user_email.setter
-    def log_linked_dataset_query_user_email(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def log_linked_dataset_query_user_email(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "log_linked_dataset_query_user_email", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the subscription. e.g. "projects/myproject/locations/us/subscriptions/123"
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="organizationDisplayName")
-    def organization_display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization_display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display name of the project of this subscription.
         """
         return pulumi.get(self, "organization_display_name")
 
     @organization_display_name.setter
-    def organization_display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization_display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization_display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="organizationId")
-    def organization_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Organization of the project this subscription belongs to.
         """
         return pulumi.get(self, "organization_id")
 
     @organization_id.setter
-    def organization_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -464,12 +516,12 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshPolicy")
-    def refresh_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def refresh_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Controls when the subscription is automatically refreshed by the provider.
         * `ON_READ`: Default value if not specified. The subscription will be refreshed every time Terraform performs a read operation (e.g., `pulumi preview`, `pulumi up`, `terraform refresh`). This ensures the state is always up-to-date.
@@ -479,55 +531,55 @@ class _DataExchangeSubscriptionState:
         return pulumi.get(self, "refresh_policy")
 
     @refresh_policy.setter
-    def refresh_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def refresh_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "refresh_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="resourceType")
-    def resource_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Listing shared asset type.
         """
         return pulumi.get(self, "resource_type")
 
     @resource_type.setter
-    def resource_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Current state of the subscription.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="subscriberContact")
-    def subscriber_contact(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subscriber_contact(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Email of the subscriber.
         """
         return pulumi.get(self, "subscriber_contact")
 
     @subscriber_contact.setter
-    def subscriber_contact(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subscriber_contact(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subscriber_contact", value)
 
     @_builtins.property
     @pulumi.getter(name="subscriptionId")
-    def subscription_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subscription_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the subscription to create.
         """
         return pulumi.get(self, "subscription_id")
 
     @subscription_id.setter
-    def subscription_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subscription_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subscription_id", value)
 
 
@@ -537,15 +589,16 @@ class DataExchangeSubscription(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_exchange_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_project: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset: Optional[pulumi.Input[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscriber_contact: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_exchange_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_project: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset: pulumi.Input[Optional[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscriber_contact: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscription_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Bigquery Analytics Hub Data Exchange subscription
@@ -665,6 +718,12 @@ class DataExchangeSubscription(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
         :param pulumi.Input[_builtins.str] data_exchange_location: The name of the location of the Data Exchange.
         :param pulumi.Input[_builtins.str] data_exchange_project: The ID of the Google Cloud project where the Data Exchange is located.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']] destination_dataset: BigQuery destination dataset to create for the subscriber.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] location: The geographic location where the Subscription (and its linked dataset) should reside.
@@ -813,15 +872,16 @@ class DataExchangeSubscription(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_exchange_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_location: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_exchange_project: Optional[pulumi.Input[_builtins.str]] = None,
-                 destination_dataset: Optional[pulumi.Input[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscriber_contact: Optional[pulumi.Input[_builtins.str]] = None,
-                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_exchange_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_location: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_exchange_project: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 destination_dataset: pulumi.Input[Optional[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscriber_contact: pulumi.Input[Optional[_builtins.str]] = None,
+                 subscription_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -840,6 +900,7 @@ class DataExchangeSubscription(pulumi.CustomResource):
             if data_exchange_project is None and not opts.urn:
                 raise TypeError("Missing required property 'data_exchange_project'")
             __props__.__dict__["data_exchange_project"] = data_exchange_project
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["destination_dataset"] = destination_dataset
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -871,26 +932,27 @@ class DataExchangeSubscription(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            creation_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_exchange: Optional[pulumi.Input[_builtins.str]] = None,
-            data_exchange_id: Optional[pulumi.Input[_builtins.str]] = None,
-            data_exchange_location: Optional[pulumi.Input[_builtins.str]] = None,
-            data_exchange_project: Optional[pulumi.Input[_builtins.str]] = None,
-            destination_dataset: Optional[pulumi.Input[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
-            last_modify_time: Optional[pulumi.Input[_builtins.str]] = None,
-            linked_dataset_maps: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataExchangeSubscriptionLinkedDatasetMapArgs', 'DataExchangeSubscriptionLinkedDatasetMapArgsDict']]]]] = None,
-            linked_resources: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataExchangeSubscriptionLinkedResourceArgs', 'DataExchangeSubscriptionLinkedResourceArgsDict']]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            log_linked_dataset_query_user_email: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization_display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization_id: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            refresh_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            resource_type: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            subscriber_contact: Optional[pulumi.Input[_builtins.str]] = None,
-            subscription_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'DataExchangeSubscription':
+            creation_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_exchange: pulumi.Input[Optional[_builtins.str]] = None,
+            data_exchange_id: pulumi.Input[Optional[_builtins.str]] = None,
+            data_exchange_location: pulumi.Input[Optional[_builtins.str]] = None,
+            data_exchange_project: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            destination_dataset: pulumi.Input[Optional[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']]] = None,
+            last_modify_time: pulumi.Input[Optional[_builtins.str]] = None,
+            linked_dataset_maps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataExchangeSubscriptionLinkedDatasetMapArgs', 'DataExchangeSubscriptionLinkedDatasetMapArgsDict']]]]] = None,
+            linked_resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataExchangeSubscriptionLinkedResourceArgs', 'DataExchangeSubscriptionLinkedResourceArgsDict']]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            log_linked_dataset_query_user_email: pulumi.Input[Optional[_builtins.bool]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization_display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization_id: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            refresh_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_type: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            subscriber_contact: pulumi.Input[Optional[_builtins.str]] = None,
+            subscription_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'DataExchangeSubscription':
         """
         Get an existing DataExchangeSubscription resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -903,6 +965,12 @@ class DataExchangeSubscription(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] data_exchange_id: The ID of the data exchange. Must contain only Unicode letters, numbers (0-9), underscores (_). Should not use characters that require URL-escaping, or characters outside of ASCII, spaces.
         :param pulumi.Input[_builtins.str] data_exchange_location: The name of the location of the Data Exchange.
         :param pulumi.Input[_builtins.str] data_exchange_project: The ID of the Google Cloud project where the Data Exchange is located.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['DataExchangeSubscriptionDestinationDatasetArgs', 'DataExchangeSubscriptionDestinationDatasetArgsDict']] destination_dataset: BigQuery destination dataset to create for the subscriber.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] last_modify_time: Timestamp when the subscription was last modified.
@@ -939,6 +1007,7 @@ class DataExchangeSubscription(pulumi.CustomResource):
         __props__.__dict__["data_exchange_id"] = data_exchange_id
         __props__.__dict__["data_exchange_location"] = data_exchange_location
         __props__.__dict__["data_exchange_project"] = data_exchange_project
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["destination_dataset"] = destination_dataset
         __props__.__dict__["last_modify_time"] = last_modify_time
         __props__.__dict__["linked_dataset_maps"] = linked_dataset_maps
@@ -995,6 +1064,19 @@ class DataExchangeSubscription(pulumi.CustomResource):
         The ID of the Google Cloud project where the Data Exchange is located.
         """
         return pulumi.get(self, "data_exchange_project")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="destinationDataset")

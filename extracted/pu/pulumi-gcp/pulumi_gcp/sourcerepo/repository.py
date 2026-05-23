@@ -21,14 +21,21 @@ __all__ = ['RepositoryArgs', 'Repository']
 @pulumi.input_type
 class RepositoryArgs:
     def __init__(__self__, *,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_configs: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]] = None):
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_configs: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]] = None):
         """
         The set of arguments for constructing a Repository resource.
 
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Resource name of the repository, of the form `{{repo}}`.
                The repo name may contain slashes. eg, `name/with/slash`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -39,6 +46,8 @@ class RepositoryArgs:
         """
         if create_ignore_already_exists is not None:
             pulumi.set(__self__, "create_ignore_already_exists", create_ignore_already_exists)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -48,19 +57,36 @@ class RepositoryArgs:
 
     @_builtins.property
     @pulumi.getter(name="createIgnoreAlreadyExists")
-    def create_ignore_already_exists(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def create_ignore_already_exists(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, skip repository creation if a repository with the same name already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
 
     @create_ignore_already_exists.setter
-    def create_ignore_already_exists(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def create_ignore_already_exists(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "create_ignore_already_exists", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource name of the repository, of the form `{{repo}}`.
         The repo name may contain slashes. eg, `name/with/slash`
@@ -68,12 +94,12 @@ class RepositoryArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -81,12 +107,12 @@ class RepositoryArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pubsubConfigs")
-    def pubsub_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]:
+    def pubsub_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]:
         """
         How this repository publishes a change in the repository through Cloud Pub/Sub.
         Keyed by the topic names.
@@ -95,23 +121,30 @@ class RepositoryArgs:
         return pulumi.get(self, "pubsub_configs")
 
     @pubsub_configs.setter
-    def pubsub_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]):
+    def pubsub_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]):
         pulumi.set(self, "pubsub_configs", value)
 
 
 @pulumi.input_type
 class _RepositoryState:
     def __init__(__self__, *,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_configs: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]] = None,
-                 size: Optional[pulumi.Input[_builtins.int]] = None,
-                 url: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_configs: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]] = None,
+                 size: pulumi.Input[Optional[_builtins.int]] = None,
+                 url: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Repository resources.
 
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Resource name of the repository, of the form `{{repo}}`.
                The repo name may contain slashes. eg, `name/with/slash`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -124,6 +157,8 @@ class _RepositoryState:
         """
         if create_ignore_already_exists is not None:
             pulumi.set(__self__, "create_ignore_already_exists", create_ignore_already_exists)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -137,19 +172,36 @@ class _RepositoryState:
 
     @_builtins.property
     @pulumi.getter(name="createIgnoreAlreadyExists")
-    def create_ignore_already_exists(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def create_ignore_already_exists(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to true, skip repository creation if a repository with the same name already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
 
     @create_ignore_already_exists.setter
-    def create_ignore_already_exists(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def create_ignore_already_exists(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "create_ignore_already_exists", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource name of the repository, of the form `{{repo}}`.
         The repo name may contain slashes. eg, `name/with/slash`
@@ -157,12 +209,12 @@ class _RepositoryState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -170,12 +222,12 @@ class _RepositoryState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pubsubConfigs")
-    def pubsub_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]:
+    def pubsub_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]:
         """
         How this repository publishes a change in the repository through Cloud Pub/Sub.
         Keyed by the topic names.
@@ -184,31 +236,31 @@ class _RepositoryState:
         return pulumi.get(self, "pubsub_configs")
 
     @pubsub_configs.setter
-    def pubsub_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]):
+    def pubsub_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RepositoryPubsubConfigArgs']]]]):
         pulumi.set(self, "pubsub_configs", value)
 
     @_builtins.property
     @pulumi.getter
-    def size(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def size(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The disk usage of the repo, in bytes.
         """
         return pulumi.get(self, "size")
 
     @size.setter
-    def size(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def size(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "size", value)
 
     @_builtins.property
     @pulumi.getter
-    def url(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def url(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         URL to clone the repository from Google Cloud Source Repositories.
         """
         return pulumi.get(self, "url")
 
     @url.setter
-    def url(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def url(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "url", value)
 
 
@@ -218,10 +270,11 @@ class Repository(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
                  __props__=None):
         """
         A repository (or repo) is a Git repository storing versioned source content.
@@ -279,6 +332,12 @@ class Repository(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Resource name of the repository, of the form `{{repo}}`.
                The repo name may contain slashes. eg, `name/with/slash`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -361,10 +420,11 @@ class Repository(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
+                 create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -375,6 +435,7 @@ class Repository(pulumi.CustomResource):
             __props__ = RepositoryArgs.__new__(RepositoryArgs)
 
             __props__.__dict__["create_ignore_already_exists"] = create_ignore_already_exists
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["name"] = name
             __props__.__dict__["project"] = project
             __props__.__dict__["pubsub_configs"] = pubsub_configs
@@ -390,12 +451,13 @@ class Repository(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_ignore_already_exists: Optional[pulumi.Input[_builtins.bool]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pubsub_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
-            size: Optional[pulumi.Input[_builtins.int]] = None,
-            url: Optional[pulumi.Input[_builtins.str]] = None) -> 'Repository':
+            create_ignore_already_exists: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pubsub_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RepositoryPubsubConfigArgs', 'RepositoryPubsubConfigArgsDict']]]]] = None,
+            size: pulumi.Input[Optional[_builtins.int]] = None,
+            url: pulumi.Input[Optional[_builtins.str]] = None) -> 'Repository':
         """
         Get an existing Repository resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -404,6 +466,12 @@ class Repository(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] create_ignore_already_exists: If set to true, skip repository creation if a repository with the same name already exists.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Resource name of the repository, of the form `{{repo}}`.
                The repo name may contain slashes. eg, `name/with/slash`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -419,6 +487,7 @@ class Repository(pulumi.CustomResource):
         __props__ = _RepositoryState.__new__(_RepositoryState)
 
         __props__.__dict__["create_ignore_already_exists"] = create_ignore_already_exists
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         __props__.__dict__["pubsub_configs"] = pubsub_configs
@@ -433,6 +502,19 @@ class Repository(pulumi.CustomResource):
         If set to true, skip repository creation if a repository with the same name already exists.
         """
         return pulumi.get(self, "create_ignore_already_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

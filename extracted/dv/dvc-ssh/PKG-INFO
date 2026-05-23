@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc-ssh
-Version: 4.2.2
+Version: 4.3.0
 Summary: ssh plugin for dvc
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -22,7 +23,7 @@ Requires-Dist: dvc
 Requires-Dist: sshfs[bcrypt]>=2023.4.1
 Provides-Extra: dev
 Requires-Dist: dvc-ssh[tests]; extra == "dev"
-Requires-Dist: mypy==1.18.2; extra == "dev"
+Requires-Dist: mypy==1.19.0; extra == "dev"
 Provides-Extra: gssapi
 Requires-Dist: sshfs[gssapi]>=2021.11.2; extra == "gssapi"
 Provides-Extra: tests

@@ -23,9 +23,10 @@ class EnvironmentApiRevisionDeploymentArgs:
                  environment: pulumi.Input[_builtins.str],
                  org_id: pulumi.Input[_builtins.str],
                  revision: pulumi.Input[_builtins.int],
-                 override: Optional[pulumi.Input[_builtins.bool]] = None,
-                 sequenced_rollout: Optional[pulumi.Input[_builtins.bool]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 override: pulumi.Input[Optional[_builtins.bool]] = None,
+                 sequenced_rollout: pulumi.Input[Optional[_builtins.bool]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a EnvironmentApiRevisionDeployment resource.
 
@@ -33,6 +34,12 @@ class EnvironmentApiRevisionDeploymentArgs:
         :param pulumi.Input[_builtins.str] environment: Apigee environment name.
         :param pulumi.Input[_builtins.str] org_id: Apigee organization ID.
         :param pulumi.Input[_builtins.int] revision: API proxy revision number to deploy.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] override: If true, replaces other deployed revisions of this proxy in the environment.
         :param pulumi.Input[_builtins.bool] sequenced_rollout: If true, enables sequenced rollout for safe traffic switching.
         :param pulumi.Input[_builtins.str] service_account: Optional service account the deployed proxy runs as.
@@ -41,6 +48,8 @@ class EnvironmentApiRevisionDeploymentArgs:
         pulumi.set(__self__, "environment", environment)
         pulumi.set(__self__, "org_id", org_id)
         pulumi.set(__self__, "revision", revision)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if override is not None:
             pulumi.set(__self__, "override", override)
         if sequenced_rollout is not None:
@@ -97,60 +106,84 @@ class EnvironmentApiRevisionDeploymentArgs:
         pulumi.set(self, "revision", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def override(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def override(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, replaces other deployed revisions of this proxy in the environment.
         """
         return pulumi.get(self, "override")
 
     @override.setter
-    def override(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def override(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "override", value)
 
     @_builtins.property
     @pulumi.getter(name="sequencedRollout")
-    def sequenced_rollout(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def sequenced_rollout(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, enables sequenced rollout for safe traffic switching.
         """
         return pulumi.get(self, "sequenced_rollout")
 
     @sequenced_rollout.setter
-    def sequenced_rollout(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def sequenced_rollout(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "sequenced_rollout", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional service account the deployed proxy runs as.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
 
 @pulumi.input_type
 class _EnvironmentApiRevisionDeploymentState:
     def __init__(__self__, *,
-                 api: Optional[pulumi.Input[_builtins.str]] = None,
-                 basepaths: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 deploy_start_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 override: Optional[pulumi.Input[_builtins.bool]] = None,
-                 revision: Optional[pulumi.Input[_builtins.int]] = None,
-                 sequenced_rollout: Optional[pulumi.Input[_builtins.bool]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 api: pulumi.Input[Optional[_builtins.str]] = None,
+                 basepaths: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deploy_start_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 override: pulumi.Input[Optional[_builtins.bool]] = None,
+                 revision: pulumi.Input[Optional[_builtins.int]] = None,
+                 sequenced_rollout: pulumi.Input[Optional[_builtins.bool]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EnvironmentApiRevisionDeployment resources.
 
         :param pulumi.Input[_builtins.str] api: Apigee API proxy name.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] basepaths: Basepaths associated with the deployed proxy.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deploy_start_time: RFC3339 timestamp when deployment started.
         :param pulumi.Input[_builtins.str] environment: Apigee environment name.
         :param pulumi.Input[_builtins.str] org_id: Apigee organization ID.
@@ -164,6 +197,8 @@ class _EnvironmentApiRevisionDeploymentState:
             pulumi.set(__self__, "api", api)
         if basepaths is not None:
             pulumi.set(__self__, "basepaths", basepaths)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deploy_start_time is not None:
             pulumi.set(__self__, "deploy_start_time", deploy_start_time)
         if environment is not None:
@@ -183,122 +218,139 @@ class _EnvironmentApiRevisionDeploymentState:
 
     @_builtins.property
     @pulumi.getter
-    def api(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Apigee API proxy name.
         """
         return pulumi.get(self, "api")
 
     @api.setter
-    def api(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api", value)
 
     @_builtins.property
     @pulumi.getter
-    def basepaths(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def basepaths(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Basepaths associated with the deployed proxy.
         """
         return pulumi.get(self, "basepaths")
 
     @basepaths.setter
-    def basepaths(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def basepaths(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "basepaths", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deployStartTime")
-    def deploy_start_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deploy_start_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         RFC3339 timestamp when deployment started.
         """
         return pulumi.get(self, "deploy_start_time")
 
     @deploy_start_time.setter
-    def deploy_start_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deploy_start_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deploy_start_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def environment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def environment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Apigee environment name.
         """
         return pulumi.get(self, "environment")
 
     @environment.setter
-    def environment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def environment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "environment", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Apigee organization ID.
         """
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def override(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def override(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, replaces other deployed revisions of this proxy in the environment.
         """
         return pulumi.get(self, "override")
 
     @override.setter
-    def override(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def override(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "override", value)
 
     @_builtins.property
     @pulumi.getter
-    def revision(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def revision(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         API proxy revision number to deploy.
         """
         return pulumi.get(self, "revision")
 
     @revision.setter
-    def revision(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def revision(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "revision", value)
 
     @_builtins.property
     @pulumi.getter(name="sequencedRollout")
-    def sequenced_rollout(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def sequenced_rollout(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, enables sequenced rollout for safe traffic switching.
         """
         return pulumi.get(self, "sequenced_rollout")
 
     @sequenced_rollout.setter
-    def sequenced_rollout(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def sequenced_rollout(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "sequenced_rollout", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional service account the deployed proxy runs as.
         """
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Deployment state reported by Apigee.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -308,13 +360,14 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api: Optional[pulumi.Input[_builtins.str]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 override: Optional[pulumi.Input[_builtins.bool]] = None,
-                 revision: Optional[pulumi.Input[_builtins.int]] = None,
-                 sequenced_rollout: Optional[pulumi.Input[_builtins.bool]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
+                 api: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 override: pulumi.Input[Optional[_builtins.bool]] = None,
+                 revision: pulumi.Input[Optional[_builtins.int]] = None,
+                 sequenced_rollout: pulumi.Input[Optional[_builtins.bool]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Deploys a specific Apigee API Proxy revision to a given Apigee environment.
@@ -362,6 +415,12 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api: Apigee API proxy name.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] environment: Apigee environment name.
         :param pulumi.Input[_builtins.str] org_id: Apigee organization ID.
         :param pulumi.Input[_builtins.bool] override: If true, replaces other deployed revisions of this proxy in the environment.
@@ -433,13 +492,14 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api: Optional[pulumi.Input[_builtins.str]] = None,
-                 environment: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 override: Optional[pulumi.Input[_builtins.bool]] = None,
-                 revision: Optional[pulumi.Input[_builtins.int]] = None,
-                 sequenced_rollout: Optional[pulumi.Input[_builtins.bool]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
+                 api: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 environment: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 override: pulumi.Input[Optional[_builtins.bool]] = None,
+                 revision: pulumi.Input[Optional[_builtins.int]] = None,
+                 sequenced_rollout: pulumi.Input[Optional[_builtins.bool]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -452,6 +512,7 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
             if api is None and not opts.urn:
                 raise TypeError("Missing required property 'api'")
             __props__.__dict__["api"] = api
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if environment is None and not opts.urn:
                 raise TypeError("Missing required property 'environment'")
             __props__.__dict__["environment"] = environment
@@ -477,16 +538,17 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            api: Optional[pulumi.Input[_builtins.str]] = None,
-            basepaths: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            deploy_start_time: Optional[pulumi.Input[_builtins.str]] = None,
-            environment: Optional[pulumi.Input[_builtins.str]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            override: Optional[pulumi.Input[_builtins.bool]] = None,
-            revision: Optional[pulumi.Input[_builtins.int]] = None,
-            sequenced_rollout: Optional[pulumi.Input[_builtins.bool]] = None,
-            service_account: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'EnvironmentApiRevisionDeployment':
+            api: pulumi.Input[Optional[_builtins.str]] = None,
+            basepaths: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deploy_start_time: pulumi.Input[Optional[_builtins.str]] = None,
+            environment: pulumi.Input[Optional[_builtins.str]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            override: pulumi.Input[Optional[_builtins.bool]] = None,
+            revision: pulumi.Input[Optional[_builtins.int]] = None,
+            sequenced_rollout: pulumi.Input[Optional[_builtins.bool]] = None,
+            service_account: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'EnvironmentApiRevisionDeployment':
         """
         Get an existing EnvironmentApiRevisionDeployment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -496,6 +558,12 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api: Apigee API proxy name.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] basepaths: Basepaths associated with the deployed proxy.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deploy_start_time: RFC3339 timestamp when deployment started.
         :param pulumi.Input[_builtins.str] environment: Apigee environment name.
         :param pulumi.Input[_builtins.str] org_id: Apigee organization ID.
@@ -511,6 +579,7 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
 
         __props__.__dict__["api"] = api
         __props__.__dict__["basepaths"] = basepaths
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deploy_start_time"] = deploy_start_time
         __props__.__dict__["environment"] = environment
         __props__.__dict__["org_id"] = org_id
@@ -536,6 +605,19 @@ class EnvironmentApiRevisionDeployment(pulumi.CustomResource):
         Basepaths associated with the deployed proxy.
         """
         return pulumi.get(self, "basepaths")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deployStartTime")

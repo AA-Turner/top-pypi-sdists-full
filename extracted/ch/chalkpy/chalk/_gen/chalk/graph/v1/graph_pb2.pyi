@@ -185,21 +185,24 @@ class Graph(_message.Message):
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
-    __slots__ = ("feature_sets", "feature_fields", "resolvers", "generated_sql_resolvers")
+    __slots__ = ("feature_sets", "feature_fields", "resolvers", "generated_sql_resolvers", "captured_global_values")
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FIELDS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     GENERATED_SQL_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    CAPTURED_GLOBAL_VALUES_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     feature_fields: _containers.RepeatedCompositeFieldContainer[FeatureType]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
     generated_sql_resolvers: _containers.RepeatedCompositeFieldContainer[SQLResolverInfo]
+    captured_global_values: _containers.RepeatedCompositeFieldContainer[CapturedGlobalValue]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
         feature_fields: _Optional[_Iterable[_Union[FeatureType, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[_Union[Resolver, _Mapping]]] = ...,
         generated_sql_resolvers: _Optional[_Iterable[_Union[SQLResolverInfo, _Mapping]]] = ...,
+        captured_global_values: _Optional[_Iterable[_Union[CapturedGlobalValue, _Mapping]]] = ...,
     ) -> None: ...
 
 class ModelReference(_message.Message):

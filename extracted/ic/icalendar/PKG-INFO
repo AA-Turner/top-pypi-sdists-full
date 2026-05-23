@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: icalendar
-Version: 7.1.1
+Version: 7.1.2
 Summary: RFC 5545 compatible parser and generator of iCalendar files
 Project-URL: Homepage, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Repository, https://github.com/collective/icalendar
-Project-URL: source_archive, https://github.com/collective/icalendar/archive/79ddc3e0d83250bbabf804b781a1778b8e3baee2.zip
+Project-URL: source_archive, https://github.com/collective/icalendar/archive/f5494e36780693f25259e3641fc660666b97a129.zip
 Project-URL: Issues, https://github.com/collective/icalendar/issues
 Project-URL: Documentation, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Changelog, https://icalendar.readthedocs.io/en/stable/changelog.html

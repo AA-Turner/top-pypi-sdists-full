@@ -130,6 +130,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     UpdateTelemetryDeploymentResponse,
     UploadSourceRequest,
     UploadSourceResponse,
+    ValidateNamedQueriesRequest,
+    ValidateNamedQueriesResponse,
 )
 from grpc import (
     Channel,
@@ -154,6 +156,10 @@ class BuilderServiceStub:
     IndexDeployment: UnaryUnaryMultiCallable[
         IndexDeploymentRequest,
         IndexDeploymentResponse,
+    ]
+    ValidateNamedQueries: UnaryUnaryMultiCallable[
+        ValidateNamedQueriesRequest,
+        ValidateNamedQueriesResponse,
     ]
     StartShadowBuildFromDeployment: UnaryUnaryMultiCallable[
         StartShadowBuildFromDeploymentRequest,
@@ -415,6 +421,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: IndexDeploymentRequest,
         context: ServicerContext,
     ) -> IndexDeploymentResponse: ...
+    @abstractmethod
+    def ValidateNamedQueries(
+        self,
+        request: ValidateNamedQueriesRequest,
+        context: ServicerContext,
+    ) -> ValidateNamedQueriesResponse: ...
     @abstractmethod
     def StartShadowBuildFromDeployment(
         self,

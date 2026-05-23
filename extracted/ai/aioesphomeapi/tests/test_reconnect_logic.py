@@ -4,6 +4,7 @@ import asyncio
 from functools import partial
 from ipaddress import ip_address
 import logging
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -23,9 +24,11 @@ from aioesphomeapi import (
     EncryptionPlaintextAPIError,
     RequiresEncryptionAPIError,
 )
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.client import APIClient
 from aioesphomeapi.core import APIConnectionCancelledError
+
+if TYPE_CHECKING:
+    from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.reconnect_logic import (
     MAXIMUM_BACKOFF_TRIES,
     ReconnectLogic,
@@ -56,6 +59,7 @@ def find_log_with_message(
 
     Returns:
         LogRecord if found, None otherwise
+
     """
     for record in caplog.records:
         if message_substring in record.message:
@@ -416,9 +420,35 @@ DNS_POINTER = DNSPointer(
             ReconnectLogicState.READY,
             "received mDNS record",
         ),
+        # RFC 6762 §16: mDNS labels are case-insensitive — a device
+        # advertising mixed-case labels must still trigger the fast reconnect.
+        (
+            DNSPointer(
+                "_esphomelib._tcp.local.",
+                _TYPE_PTR,
+                _CLASS_IN,
+                1000,
+                "MyDevice._esphomelib._tcp.local.",
+            ),
+            True,
+            ReconnectLogicState.READY,
+            "received mDNS record",
+        ),
+        (
+            DNSAddress(
+                "MYDEVICE.local.",
+                _TYPE_A,
+                _CLASS_IN,
+                1000,
+                ip_address("127.0.0.1").packed,
+            ),
+            True,
+            ReconnectLogicState.READY,
+            "received mDNS record",
+        ),
     ],
 )
-async def test_reconnect_zeroconf(
+async def test_reconnect_zeroconf(  # noqa: C901  # parametrized over many record shapes; branching is the matrix
     patchable_api_client: APIClient,
     caplog: pytest.LogCaptureFixture,
     record: DNSRecord,
@@ -461,7 +491,8 @@ async def test_reconnect_zeroconf(
         try:
             await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
         except TimeoutError as err:
-            raise APIConnectionError("Resolution timed out") from err
+            msg = "Resolution timed out"
+            raise APIConnectionError(msg) from err
         else:
             return  # Resolution succeeded
 
@@ -474,12 +505,12 @@ async def test_reconnect_zeroconf(
             connect_succeeded = True
             await asyncio.sleep(0)
         else:
-            raise APIConnectionError()
+            raise APIConnectionError
 
     async def controlled_finish_connection(*args, **kwargs):
         if connect_succeeded:
             return
-        raise APIConnectionError()
+        raise APIConnectionError
 
     # Set up mocks for the reconnection attempt
     with (

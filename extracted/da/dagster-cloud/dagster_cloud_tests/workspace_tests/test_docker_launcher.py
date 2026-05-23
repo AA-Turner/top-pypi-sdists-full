@@ -46,7 +46,7 @@ def _retry_on_docker_timeout(fn, *, max_attempts: int = 2, backoff_seconds: floa
             if attempt == max_attempts:
                 raise
             time.sleep(backoff_seconds)
-    raise last_exc  # type: ignore[misc]  # unreachable
+    raise last_exc  # type: ignore[misc]  # ty: ignore[invalid-raise]  # unreachable
 
 
 @pytest.fixture
@@ -191,7 +191,7 @@ def test_container_kwargs_stop_timeout():
         # Mock Container.start because the minimal scratch image has no executable
         with patch.object(docker.models.containers.Container, "start"):
             result = _retry_on_docker_timeout(
-                lambda: instance.user_code_launcher._start_new_server_spinup(  # pyright: ignore[reportAttributeAccessIssue]
+                lambda: instance.user_code_launcher._start_new_server_spinup(
                     deployment_name="foo",
                     location_name="bar",
                     desired_entry=UserCodeLauncherEntry(
@@ -213,4 +213,4 @@ def test_container_kwargs_stop_timeout():
             location_name="bar",
         )
 
-        instance.user_code_launcher._remove_server_handle(result.server_handle)  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._remove_server_handle(result.server_handle)

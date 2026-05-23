@@ -22,7 +22,11 @@ from ._types import (
     RequestOptions,
     not_given,
 )
-from ._utils import is_given, get_async_library
+from ._utils import (
+    is_given,
+    is_mapping_t,
+    get_async_library,
+)
 from ._compat import cached_property
 from ._version import __version__
 from ._response import (
@@ -53,7 +57,7 @@ if TYPE_CHECKING:
         voice_changer,
         pronunciation_dicts,
     )
-    from .resources.stt import SttResource, AsyncSttResource
+    from .resources.stt import STTResource, AsyncSTTResource
     from .resources.tts import TTSResource, AsyncTTSResource
     from .resources.voices import VoicesResource, AsyncVoicesResource
     from .resources.fine_tunes import FineTunesResource, AsyncFineTunesResource
@@ -125,6 +129,15 @@ class Cartesia(SyncAPIClient):
         if base_url is None:
             base_url = f"https://api.cartesia.ai"
 
+        custom_headers_env = os.environ.get("CARTESIA_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -167,10 +180,10 @@ class Cartesia(SyncAPIClient):
         return PronunciationDictsResource(self)
 
     @cached_property
-    def stt(self) -> SttResource:
-        from .resources.stt import SttResource
+    def stt(self) -> STTResource:
+        from .resources.stt import STTResource
 
-        return SttResource(self)
+        return STTResource(self)
 
     @cached_property
     def tts(self) -> TTSResource:
@@ -399,6 +412,15 @@ class AsyncCartesia(AsyncAPIClient):
         if base_url is None:
             base_url = f"https://api.cartesia.ai"
 
+        custom_headers_env = os.environ.get("CARTESIA_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -441,10 +463,10 @@ class AsyncCartesia(AsyncAPIClient):
         return AsyncPronunciationDictsResource(self)
 
     @cached_property
-    def stt(self) -> AsyncSttResource:
-        from .resources.stt import AsyncSttResource
+    def stt(self) -> AsyncSTTResource:
+        from .resources.stt import AsyncSTTResource
 
-        return AsyncSttResource(self)
+        return AsyncSTTResource(self)
 
     @cached_property
     def tts(self) -> AsyncTTSResource:
@@ -664,10 +686,10 @@ class CartesiaWithRawResponse:
         return PronunciationDictsResourceWithRawResponse(self._client.pronunciation_dicts)
 
     @cached_property
-    def stt(self) -> stt.SttResourceWithRawResponse:
-        from .resources.stt import SttResourceWithRawResponse
+    def stt(self) -> stt.STTResourceWithRawResponse:
+        from .resources.stt import STTResourceWithRawResponse
 
-        return SttResourceWithRawResponse(self._client.stt)
+        return STTResourceWithRawResponse(self._client.stt)
 
     @cached_property
     def tts(self) -> tts.TTSResourceWithRawResponse:
@@ -729,10 +751,10 @@ class AsyncCartesiaWithRawResponse:
         return AsyncPronunciationDictsResourceWithRawResponse(self._client.pronunciation_dicts)
 
     @cached_property
-    def stt(self) -> stt.AsyncSttResourceWithRawResponse:
-        from .resources.stt import AsyncSttResourceWithRawResponse
+    def stt(self) -> stt.AsyncSTTResourceWithRawResponse:
+        from .resources.stt import AsyncSTTResourceWithRawResponse
 
-        return AsyncSttResourceWithRawResponse(self._client.stt)
+        return AsyncSTTResourceWithRawResponse(self._client.stt)
 
     @cached_property
     def tts(self) -> tts.AsyncTTSResourceWithRawResponse:
@@ -794,10 +816,10 @@ class CartesiaWithStreamedResponse:
         return PronunciationDictsResourceWithStreamingResponse(self._client.pronunciation_dicts)
 
     @cached_property
-    def stt(self) -> stt.SttResourceWithStreamingResponse:
-        from .resources.stt import SttResourceWithStreamingResponse
+    def stt(self) -> stt.STTResourceWithStreamingResponse:
+        from .resources.stt import STTResourceWithStreamingResponse
 
-        return SttResourceWithStreamingResponse(self._client.stt)
+        return STTResourceWithStreamingResponse(self._client.stt)
 
     @cached_property
     def tts(self) -> tts.TTSResourceWithStreamingResponse:
@@ -859,10 +881,10 @@ class AsyncCartesiaWithStreamedResponse:
         return AsyncPronunciationDictsResourceWithStreamingResponse(self._client.pronunciation_dicts)
 
     @cached_property
-    def stt(self) -> stt.AsyncSttResourceWithStreamingResponse:
-        from .resources.stt import AsyncSttResourceWithStreamingResponse
+    def stt(self) -> stt.AsyncSTTResourceWithStreamingResponse:
+        from .resources.stt import AsyncSTTResourceWithStreamingResponse
 
-        return AsyncSttResourceWithStreamingResponse(self._client.stt)
+        return AsyncSTTResourceWithStreamingResponse(self._client.stt)
 
     @cached_property
     def tts(self) -> tts.AsyncTTSResourceWithStreamingResponse:

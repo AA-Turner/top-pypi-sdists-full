@@ -26,15 +26,16 @@ class NetworkFirewallPolicyRuleArgs:
                  firewall_policy: pulumi.Input[_builtins.str],
                  match: pulumi.Input['NetworkFirewallPolicyRuleMatchArgs'],
                  priority: pulumi.Input[_builtins.int],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_profile_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_secure_tags: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]] = None,
-                 target_service_accounts: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tls_inspect: Optional[pulumi.Input[_builtins.bool]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_profile_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_secure_tags: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]] = None,
+                 target_service_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tls_inspect: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a NetworkFirewallPolicyRule resource.
 
@@ -47,6 +48,12 @@ class NetworkFirewallPolicyRuleArgs:
         :param pulumi.Input[_builtins.int] priority: An integer indicating the priority of a rule in the list.
                The priority must be a positive value between 0 and 2147483647.
                Rules are evaluated from highest to lowest priority where 0 is the highest priority and 2147483647 is the lowest prority.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description for this resource.
         :param pulumi.Input[_builtins.bool] disabled: Denotes whether the firewall policy rule is disabled.
                When set to true, the firewall policy rule is not enforced and traffic behaves as if it did not exist.
@@ -74,6 +81,8 @@ class NetworkFirewallPolicyRuleArgs:
         pulumi.set(__self__, "firewall_policy", firewall_policy)
         pulumi.set(__self__, "match", match)
         pulumi.set(__self__, "priority", priority)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if disabled is not None:
@@ -158,20 +167,37 @@ class NetworkFirewallPolicyRuleArgs:
         pulumi.set(self, "priority", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description for this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Denotes whether the firewall policy rule is disabled.
         When set to true, the firewall policy rule is not enforced and traffic behaves as if it did not exist.
@@ -180,12 +206,12 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Denotes whether to enable logging for a particular rule.
         If logging is enabled, logs will be exported to the configured export destination in Stackdriver.
@@ -195,12 +221,12 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -208,24 +234,24 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="ruleName")
-    def rule_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def rule_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional name for the rule. This field is not a unique identifier and can be updated.
         """
         return pulumi.get(self, "rule_name")
 
     @rule_name.setter
-    def rule_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def rule_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "rule_name", value)
 
     @_builtins.property
     @pulumi.getter(name="securityProfileGroup")
-    def security_profile_group(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_profile_group(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A fully-qualified URL of a SecurityProfile resource instance.
         Example: https://networksecurity.googleapis.com/v1/projects/{project}/locations/{location}/securityProfileGroups/my-security-profile-group
@@ -234,12 +260,12 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "security_profile_group")
 
     @security_profile_group.setter
-    def security_profile_group(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_profile_group(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_profile_group", value)
 
     @_builtins.property
     @pulumi.getter(name="targetSecureTags")
-    def target_secure_tags(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]:
+    def target_secure_tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]:
         """
         A list of secure tags that controls which instances the firewall rule applies to.
         If targetSecureTag are specified, then the firewall rule applies only to instances in the VPC network that have one of those EFFECTIVE secure tags, if all the targetSecureTag are in INEFFECTIVE state, then this rule will be ignored.
@@ -249,24 +275,24 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "target_secure_tags")
 
     @target_secure_tags.setter
-    def target_secure_tags(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]):
+    def target_secure_tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]):
         pulumi.set(self, "target_secure_tags", value)
 
     @_builtins.property
     @pulumi.getter(name="targetServiceAccounts")
-    def target_service_accounts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def target_service_accounts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of service accounts indicating the sets of instances that are applied with this rule.
         """
         return pulumi.get(self, "target_service_accounts")
 
     @target_service_accounts.setter
-    def target_service_accounts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def target_service_accounts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "target_service_accounts", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsInspect")
-    def tls_inspect(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def tls_inspect(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Boolean flag indicating if the traffic should be TLS decrypted.
         Can be set only if action = 'apply_security_profile_group' and cannot be set for other actions.
@@ -274,35 +300,42 @@ class NetworkFirewallPolicyRuleArgs:
         return pulumi.get(self, "tls_inspect")
 
     @tls_inspect.setter
-    def tls_inspect(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def tls_inspect(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "tls_inspect", value)
 
 
 @pulumi.input_type
 class _NetworkFirewallPolicyRuleState:
     def __init__(__self__, *,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 direction: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 match: Optional[pulumi.Input['NetworkFirewallPolicyRuleMatchArgs']] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_tuple_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 security_profile_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_secure_tags: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]] = None,
-                 target_service_accounts: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tls_inspect: Optional[pulumi.Input[_builtins.bool]] = None):
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 direction: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 match: pulumi.Input[Optional['NetworkFirewallPolicyRuleMatchArgs']] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_tuple_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 security_profile_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_secure_tags: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]] = None,
+                 target_service_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tls_inspect: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering NetworkFirewallPolicyRule resources.
 
         :param pulumi.Input[_builtins.str] action: The Action to perform when the client connection triggers the rule. Valid actions are "allow", "deny", "goto_next" and "apply_security_profile_group".
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description for this resource.
         :param pulumi.Input[_builtins.str] direction: The direction in which this rule applies.
                Possible values are: `INGRESS`, `EGRESS`.
@@ -339,6 +372,8 @@ class _NetworkFirewallPolicyRuleState:
             pulumi.set(__self__, "action", action)
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if direction is not None:
@@ -372,43 +407,60 @@ class _NetworkFirewallPolicyRuleState:
 
     @_builtins.property
     @pulumi.getter
-    def action(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def action(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Action to perform when the client connection triggers the rule. Valid actions are "allow", "deny", "goto_next" and "apply_security_profile_group".
         """
         return pulumi.get(self, "action")
 
     @action.setter
-    def action(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def action(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "action", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description for this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def direction(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def direction(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The direction in which this rule applies.
         Possible values are: `INGRESS`, `EGRESS`.
@@ -416,12 +468,12 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "direction")
 
     @direction.setter
-    def direction(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def direction(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "direction", value)
 
     @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Denotes whether the firewall policy rule is disabled.
         When set to true, the firewall policy rule is not enforced and traffic behaves as if it did not exist.
@@ -430,12 +482,12 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Denotes whether to enable logging for a particular rule.
         If logging is enabled, logs will be exported to the configured export destination in Stackdriver.
@@ -445,36 +497,36 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter(name="firewallPolicy")
-    def firewall_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def firewall_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The firewall policy of the resource.
         """
         return pulumi.get(self, "firewall_policy")
 
     @firewall_policy.setter
-    def firewall_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def firewall_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "firewall_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Type of the resource. Always `compute#firewallPolicyRule` for firewall policy rules
         """
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
-    def match(self) -> Optional[pulumi.Input['NetworkFirewallPolicyRuleMatchArgs']]:
+    def match(self) -> pulumi.Input[Optional['NetworkFirewallPolicyRuleMatchArgs']]:
         """
         A match condition that incoming traffic is evaluated against. If it evaluates to true, the corresponding 'action' is enforced.
         Structure is documented below.
@@ -482,12 +534,12 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "match")
 
     @match.setter
-    def match(self, value: Optional[pulumi.Input['NetworkFirewallPolicyRuleMatchArgs']]):
+    def match(self, value: pulumi.Input[Optional['NetworkFirewallPolicyRuleMatchArgs']]):
         pulumi.set(self, "match", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         An integer indicating the priority of a rule in the list.
         The priority must be a positive value between 0 and 2147483647.
@@ -496,12 +548,12 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -509,36 +561,36 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="ruleName")
-    def rule_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def rule_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional name for the rule. This field is not a unique identifier and can be updated.
         """
         return pulumi.get(self, "rule_name")
 
     @rule_name.setter
-    def rule_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def rule_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "rule_name", value)
 
     @_builtins.property
     @pulumi.getter(name="ruleTupleCount")
-    def rule_tuple_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def rule_tuple_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Calculation of the complexity of a single firewall policy rule.
         """
         return pulumi.get(self, "rule_tuple_count")
 
     @rule_tuple_count.setter
-    def rule_tuple_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def rule_tuple_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "rule_tuple_count", value)
 
     @_builtins.property
     @pulumi.getter(name="securityProfileGroup")
-    def security_profile_group(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_profile_group(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A fully-qualified URL of a SecurityProfile resource instance.
         Example: https://networksecurity.googleapis.com/v1/projects/{project}/locations/{location}/securityProfileGroups/my-security-profile-group
@@ -547,12 +599,12 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "security_profile_group")
 
     @security_profile_group.setter
-    def security_profile_group(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_profile_group(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_profile_group", value)
 
     @_builtins.property
     @pulumi.getter(name="targetSecureTags")
-    def target_secure_tags(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]:
+    def target_secure_tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]:
         """
         A list of secure tags that controls which instances the firewall rule applies to.
         If targetSecureTag are specified, then the firewall rule applies only to instances in the VPC network that have one of those EFFECTIVE secure tags, if all the targetSecureTag are in INEFFECTIVE state, then this rule will be ignored.
@@ -562,24 +614,24 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "target_secure_tags")
 
     @target_secure_tags.setter
-    def target_secure_tags(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]):
+    def target_secure_tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['NetworkFirewallPolicyRuleTargetSecureTagArgs']]]]):
         pulumi.set(self, "target_secure_tags", value)
 
     @_builtins.property
     @pulumi.getter(name="targetServiceAccounts")
-    def target_service_accounts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def target_service_accounts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         A list of service accounts indicating the sets of instances that are applied with this rule.
         """
         return pulumi.get(self, "target_service_accounts")
 
     @target_service_accounts.setter
-    def target_service_accounts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def target_service_accounts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "target_service_accounts", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsInspect")
-    def tls_inspect(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def tls_inspect(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Boolean flag indicating if the traffic should be TLS decrypted.
         Can be set only if action = 'apply_security_profile_group' and cannot be set for other actions.
@@ -587,7 +639,7 @@ class _NetworkFirewallPolicyRuleState:
         return pulumi.get(self, "tls_inspect")
 
     @tls_inspect.setter
-    def tls_inspect(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def tls_inspect(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "tls_inspect", value)
 
 
@@ -597,20 +649,21 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 direction: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 match: Optional[pulumi.Input[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_profile_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_secure_tags: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
-                 target_service_accounts: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tls_inspect: Optional[pulumi.Input[_builtins.bool]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 direction: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 match: pulumi.Input[Optional[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_profile_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_secure_tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
+                 target_service_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tls_inspect: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         Represents a rule that describes one or more match conditions along with the action to be taken when traffic matches this condition (allow or deny).
@@ -809,6 +862,12 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] action: The Action to perform when the client connection triggers the rule. Valid actions are "allow", "deny", "goto_next" and "apply_security_profile_group".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description for this resource.
         :param pulumi.Input[_builtins.str] direction: The direction in which this rule applies.
                Possible values are: `INGRESS`, `EGRESS`.
@@ -1054,20 +1113,21 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 action: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 direction: Optional[pulumi.Input[_builtins.str]] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 match: Optional[pulumi.Input[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 rule_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_profile_group: Optional[pulumi.Input[_builtins.str]] = None,
-                 target_secure_tags: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
-                 target_service_accounts: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tls_inspect: Optional[pulumi.Input[_builtins.bool]] = None,
+                 action: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 direction: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 match: pulumi.Input[Optional[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 rule_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_profile_group: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_secure_tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
+                 target_service_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tls_inspect: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1080,6 +1140,7 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
             if action is None and not opts.urn:
                 raise TypeError("Missing required property 'action'")
             __props__.__dict__["action"] = action
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if direction is None and not opts.urn:
                 raise TypeError("Missing required property 'direction'")
@@ -1114,23 +1175,24 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            action: Optional[pulumi.Input[_builtins.str]] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            direction: Optional[pulumi.Input[_builtins.str]] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-            firewall_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            kind: Optional[pulumi.Input[_builtins.str]] = None,
-            match: Optional[pulumi.Input[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
-            priority: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            rule_name: Optional[pulumi.Input[_builtins.str]] = None,
-            rule_tuple_count: Optional[pulumi.Input[_builtins.int]] = None,
-            security_profile_group: Optional[pulumi.Input[_builtins.str]] = None,
-            target_secure_tags: Optional[pulumi.Input[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
-            target_service_accounts: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            tls_inspect: Optional[pulumi.Input[_builtins.bool]] = None) -> 'NetworkFirewallPolicyRule':
+            action: pulumi.Input[Optional[_builtins.str]] = None,
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            direction: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            firewall_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            kind: pulumi.Input[Optional[_builtins.str]] = None,
+            match: pulumi.Input[Optional[Union['NetworkFirewallPolicyRuleMatchArgs', 'NetworkFirewallPolicyRuleMatchArgsDict']]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            rule_name: pulumi.Input[Optional[_builtins.str]] = None,
+            rule_tuple_count: pulumi.Input[Optional[_builtins.int]] = None,
+            security_profile_group: pulumi.Input[Optional[_builtins.str]] = None,
+            target_secure_tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NetworkFirewallPolicyRuleTargetSecureTagArgs', 'NetworkFirewallPolicyRuleTargetSecureTagArgsDict']]]]] = None,
+            target_service_accounts: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            tls_inspect: pulumi.Input[Optional[_builtins.bool]] = None) -> 'NetworkFirewallPolicyRule':
         """
         Get an existing NetworkFirewallPolicyRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1140,6 +1202,12 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] action: The Action to perform when the client connection triggers the rule. Valid actions are "allow", "deny", "goto_next" and "apply_security_profile_group".
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description for this resource.
         :param pulumi.Input[_builtins.str] direction: The direction in which this rule applies.
                Possible values are: `INGRESS`, `EGRESS`.
@@ -1178,6 +1246,7 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
 
         __props__.__dict__["action"] = action
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["direction"] = direction
         __props__.__dict__["disabled"] = disabled
@@ -1210,6 +1279,19 @@ class NetworkFirewallPolicyRule(pulumi.CustomResource):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

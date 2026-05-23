@@ -22,15 +22,16 @@ class AgentArgs:
                  default_language_code: pulumi.Input[_builtins.str],
                  display_name: pulumi.Input[_builtins.str],
                  time_zone: pulumi.Input[_builtins.str],
-                 api_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 avatar_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 classification_threshold: Optional[pulumi.Input[_builtins.float]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 match_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 supported_language_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tier: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 avatar_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 classification_threshold: pulumi.Input[Optional[_builtins.float]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 match_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 supported_language_codes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tier: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Agent resource.
 
@@ -54,6 +55,12 @@ class AgentArgs:
                value, then a fallback intent will be triggered or, if there are no fallback intents defined, no intent will be
                triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the
                default of 0.3 is used.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.bool] enable_logging: Determines whether this agent should log conversation queries.
         :param pulumi.Input[_builtins.str] match_mode: Determines how intents are detected from user queries.
@@ -81,6 +88,8 @@ class AgentArgs:
             pulumi.set(__self__, "avatar_uri", avatar_uri)
         if classification_threshold is not None:
             pulumi.set(__self__, "classification_threshold", classification_threshold)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if enable_logging is not None:
@@ -134,7 +143,7 @@ class AgentArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         API version displayed in Dialogflow console. If not specified, V2 API is assumed. Clients are free to query
         different service endpoints for different API versions. However, bots connectors and webhook calls will follow
@@ -147,12 +156,12 @@ class AgentArgs:
         return pulumi.get(self, "api_version")
 
     @api_version.setter
-    def api_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api_version", value)
 
     @_builtins.property
     @pulumi.getter(name="avatarUri")
-    def avatar_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def avatar_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the agent's avatar, which are used throughout the Dialogflow console. When an image URL is entered
         into this field, the Dialogflow will save the image in the backend. The address of the backend image returned
@@ -161,12 +170,12 @@ class AgentArgs:
         return pulumi.get(self, "avatar_uri")
 
     @avatar_uri.setter
-    def avatar_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def avatar_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "avatar_uri", value)
 
     @_builtins.property
     @pulumi.getter(name="classificationThreshold")
-    def classification_threshold(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def classification_threshold(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         To filter out false positive results and still get variety in matched natural language inputs for your agent,
         you can tune the machine learning classification threshold. If the returned score value is less than the threshold
@@ -177,36 +186,53 @@ class AgentArgs:
         return pulumi.get(self, "classification_threshold")
 
     @classification_threshold.setter
-    def classification_threshold(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def classification_threshold(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "classification_threshold", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines whether this agent should log conversation queries.
         """
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter(name="matchMode")
-    def match_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def match_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Determines how intents are detected from user queries.
         * MATCH_MODE_HYBRID: Best for agents with a small number of examples in intents and/or wide use of templates
@@ -218,12 +244,12 @@ class AgentArgs:
         return pulumi.get(self, "match_mode")
 
     @match_mode.setter
-    def match_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def match_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "match_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -231,24 +257,24 @@ class AgentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="supportedLanguageCodes")
-    def supported_language_codes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def supported_language_codes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of all languages supported by this agent (except for the defaultLanguageCode).
         """
         return pulumi.get(self, "supported_language_codes")
 
     @supported_language_codes.setter
-    def supported_language_codes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def supported_language_codes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "supported_language_codes", value)
 
     @_builtins.property
     @pulumi.getter
-    def tier(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def tier(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent tier. If not specified, TIER_STANDARD is assumed.
         * TIER_STANDARD: Standard tier.
@@ -260,26 +286,27 @@ class AgentArgs:
         return pulumi.get(self, "tier")
 
     @tier.setter
-    def tier(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def tier(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "tier", value)
 
 
 @pulumi.input_type
 class _AgentState:
     def __init__(__self__, *,
-                 api_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 avatar_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 avatar_uri_backend: Optional[pulumi.Input[_builtins.str]] = None,
-                 classification_threshold: Optional[pulumi.Input[_builtins.float]] = None,
-                 default_language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 match_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 supported_language_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tier: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 avatar_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 avatar_uri_backend: pulumi.Input[Optional[_builtins.str]] = None,
+                 classification_threshold: pulumi.Input[Optional[_builtins.float]] = None,
+                 default_language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 match_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 supported_language_codes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tier: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Agent resources.
 
@@ -302,6 +329,12 @@ class _AgentState:
                default of 0.3 is used.
         :param pulumi.Input[_builtins.str] default_language_code: The default language of the agent as a language tag. [See Language Support](https://cloud.google.com/dialogflow/docs/reference/language)
                for a list of the currently supported language codes. This field cannot be updated after creation.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The name of this agent.
         :param pulumi.Input[_builtins.bool] enable_logging: Determines whether this agent should log conversation queries.
@@ -333,6 +366,8 @@ class _AgentState:
             pulumi.set(__self__, "classification_threshold", classification_threshold)
         if default_language_code is not None:
             pulumi.set(__self__, "default_language_code", default_language_code)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -352,7 +387,7 @@ class _AgentState:
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         API version displayed in Dialogflow console. If not specified, V2 API is assumed. Clients are free to query
         different service endpoints for different API versions. However, bots connectors and webhook calls will follow
@@ -365,12 +400,12 @@ class _AgentState:
         return pulumi.get(self, "api_version")
 
     @api_version.setter
-    def api_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api_version", value)
 
     @_builtins.property
     @pulumi.getter(name="avatarUri")
-    def avatar_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def avatar_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the agent's avatar, which are used throughout the Dialogflow console. When an image URL is entered
         into this field, the Dialogflow will save the image in the backend. The address of the backend image returned
@@ -379,12 +414,12 @@ class _AgentState:
         return pulumi.get(self, "avatar_uri")
 
     @avatar_uri.setter
-    def avatar_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def avatar_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "avatar_uri", value)
 
     @_builtins.property
     @pulumi.getter(name="avatarUriBackend")
-    def avatar_uri_backend(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def avatar_uri_backend(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the agent's avatar as returned from the API. Output only. To provide an image URL for the agent avatar,
         the [avatarUri] field can be used.
@@ -392,12 +427,12 @@ class _AgentState:
         return pulumi.get(self, "avatar_uri_backend")
 
     @avatar_uri_backend.setter
-    def avatar_uri_backend(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def avatar_uri_backend(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "avatar_uri_backend", value)
 
     @_builtins.property
     @pulumi.getter(name="classificationThreshold")
-    def classification_threshold(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def classification_threshold(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         To filter out false positive results and still get variety in matched natural language inputs for your agent,
         you can tune the machine learning classification threshold. If the returned score value is less than the threshold
@@ -408,12 +443,12 @@ class _AgentState:
         return pulumi.get(self, "classification_threshold")
 
     @classification_threshold.setter
-    def classification_threshold(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def classification_threshold(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "classification_threshold", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultLanguageCode")
-    def default_language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def default_language_code(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The default language of the agent as a language tag. [See Language Support](https://cloud.google.com/dialogflow/docs/reference/language)
         for a list of the currently supported language codes. This field cannot be updated after creation.
@@ -421,48 +456,65 @@ class _AgentState:
         return pulumi.get(self, "default_language_code")
 
     @default_language_code.setter
-    def default_language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def default_language_code(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "default_language_code", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this agent.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enableLogging")
-    def enable_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Determines whether this agent should log conversation queries.
         """
         return pulumi.get(self, "enable_logging")
 
     @enable_logging.setter
-    def enable_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_logging", value)
 
     @_builtins.property
     @pulumi.getter(name="matchMode")
-    def match_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def match_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Determines how intents are detected from user queries.
         * MATCH_MODE_HYBRID: Best for agents with a small number of examples in intents and/or wide use of templates
@@ -474,12 +526,12 @@ class _AgentState:
         return pulumi.get(self, "match_mode")
 
     @match_mode.setter
-    def match_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def match_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "match_mode", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -487,24 +539,24 @@ class _AgentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="supportedLanguageCodes")
-    def supported_language_codes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def supported_language_codes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The list of all languages supported by this agent (except for the defaultLanguageCode).
         """
         return pulumi.get(self, "supported_language_codes")
 
     @supported_language_codes.setter
-    def supported_language_codes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def supported_language_codes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "supported_language_codes", value)
 
     @_builtins.property
     @pulumi.getter
-    def tier(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def tier(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent tier. If not specified, TIER_STANDARD is assumed.
         * TIER_STANDARD: Standard tier.
@@ -516,12 +568,12 @@ class _AgentState:
         return pulumi.get(self, "tier")
 
     @tier.setter
-    def tier(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def tier(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "tier", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZone")
-    def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def time_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The time zone of this agent from the [time zone database](https://www.iana.org/time-zones), e.g., America/New_York,
         Europe/Paris.
@@ -529,7 +581,7 @@ class _AgentState:
         return pulumi.get(self, "time_zone")
 
     @time_zone.setter
-    def time_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def time_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "time_zone", value)
 
 
@@ -539,18 +591,19 @@ class Agent(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 avatar_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 classification_threshold: Optional[pulumi.Input[_builtins.float]] = None,
-                 default_language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 match_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 supported_language_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tier: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 avatar_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 classification_threshold: pulumi.Input[Optional[_builtins.float]] = None,
+                 default_language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 match_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 supported_language_codes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tier: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Dialogflow agent is a virtual agent that handles conversations with your end-users. It is a natural language
@@ -637,6 +690,12 @@ class Agent(pulumi.CustomResource):
                default of 0.3 is used.
         :param pulumi.Input[_builtins.str] default_language_code: The default language of the agent as a language tag. [See Language Support](https://cloud.google.com/dialogflow/docs/reference/language)
                for a list of the currently supported language codes. This field cannot be updated after creation.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The name of this agent.
         :param pulumi.Input[_builtins.bool] enable_logging: Determines whether this agent should log conversation queries.
@@ -745,18 +804,19 @@ class Agent(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 avatar_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 classification_threshold: Optional[pulumi.Input[_builtins.float]] = None,
-                 default_language_code: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 match_mode: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 supported_language_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tier: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 avatar_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 classification_threshold: pulumi.Input[Optional[_builtins.float]] = None,
+                 default_language_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 match_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 supported_language_codes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tier: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -772,6 +832,7 @@ class Agent(pulumi.CustomResource):
             if default_language_code is None and not opts.urn:
                 raise TypeError("Missing required property 'default_language_code'")
             __props__.__dict__["default_language_code"] = default_language_code
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -795,19 +856,20 @@ class Agent(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            api_version: Optional[pulumi.Input[_builtins.str]] = None,
-            avatar_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            avatar_uri_backend: Optional[pulumi.Input[_builtins.str]] = None,
-            classification_threshold: Optional[pulumi.Input[_builtins.float]] = None,
-            default_language_code: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-            match_mode: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            supported_language_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            tier: Optional[pulumi.Input[_builtins.str]] = None,
-            time_zone: Optional[pulumi.Input[_builtins.str]] = None) -> 'Agent':
+            api_version: pulumi.Input[Optional[_builtins.str]] = None,
+            avatar_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            avatar_uri_backend: pulumi.Input[Optional[_builtins.str]] = None,
+            classification_threshold: pulumi.Input[Optional[_builtins.float]] = None,
+            default_language_code: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            match_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            supported_language_codes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            tier: pulumi.Input[Optional[_builtins.str]] = None,
+            time_zone: pulumi.Input[Optional[_builtins.str]] = None) -> 'Agent':
         """
         Get an existing Agent resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -834,6 +896,12 @@ class Agent(pulumi.CustomResource):
                default of 0.3 is used.
         :param pulumi.Input[_builtins.str] default_language_code: The default language of the agent as a language tag. [See Language Support](https://cloud.google.com/dialogflow/docs/reference/language)
                for a list of the currently supported language codes. This field cannot be updated after creation.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of this agent. The maximum length is 500 characters. If exceeded, the request is rejected.
         :param pulumi.Input[_builtins.str] display_name: The name of this agent.
         :param pulumi.Input[_builtins.bool] enable_logging: Determines whether this agent should log conversation queries.
@@ -864,6 +932,7 @@ class Agent(pulumi.CustomResource):
         __props__.__dict__["avatar_uri_backend"] = avatar_uri_backend
         __props__.__dict__["classification_threshold"] = classification_threshold
         __props__.__dict__["default_language_code"] = default_language_code
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enable_logging"] = enable_logging
@@ -927,6 +996,19 @@ class Agent(pulumi.CustomResource):
         for a list of the currently supported language codes. This field cannot be updated after creation.
         """
         return pulumi.get(self, "default_language_code")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

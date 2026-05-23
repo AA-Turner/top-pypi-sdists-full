@@ -254,6 +254,8 @@ __all__ = (
     "UserConfigTypeDef",
     "UserMetadataTypeDef",
     "VerificationDetailsTypeDef",
+    "VerificationScriptEnvVarTypeDef",
+    "VerificationScriptTypeDef",
     "VerifyTargetDomainInputTypeDef",
     "VerifyTargetDomainOutputTypeDef",
     "VpcConfigOutputTypeDef",
@@ -845,6 +847,11 @@ class UpdateTargetDomainInputTypeDef(TypedDict):
     verificationMethod: DomainVerificationMethodType
 
 
+class VerificationScriptEnvVarTypeDef(TypedDict):
+    name: NotRequired[str]
+    value: NotRequired[str]
+
+
 class VerifyTargetDomainInputTypeDef(TypedDict):
     targetDomainId: str
 
@@ -1264,6 +1271,13 @@ class NetworkTrafficConfigTypeDef(TypedDict):
     customHeaders: NotRequired[Sequence[CustomHeaderTypeDef]]
 
 
+class VerificationScriptTypeDef(TypedDict):
+    scriptType: NotRequired[str]
+    scriptUrl: NotRequired[str]
+    instructions: NotRequired[str]
+    envVars: NotRequired[list[VerificationScriptEnvVarTypeDef]]
+
+
 class AgentSpaceTypeDef(TypedDict):
     agentSpaceId: str
     name: str
@@ -1347,30 +1361,6 @@ class TaskTypeDef(TypedDict):
     targetEndpoint: NotRequired[EndpointTypeDef]
     executionStatus: NotRequired[TaskExecutionStatusType]
     logsLocation: NotRequired[LogLocationTypeDef]
-    createdAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
-
-
-class FindingTypeDef(TypedDict):
-    findingId: str
-    agentSpaceId: str
-    pentestId: NotRequired[str]
-    pentestJobId: NotRequired[str]
-    codeReviewId: NotRequired[str]
-    codeReviewJobId: NotRequired[str]
-    taskId: NotRequired[str]
-    name: NotRequired[str]
-    description: NotRequired[str]
-    status: NotRequired[FindingStatusType]
-    riskType: NotRequired[str]
-    riskLevel: NotRequired[RiskLevelType]
-    riskScore: NotRequired[str]
-    reasoning: NotRequired[str]
-    confidence: NotRequired[ConfidenceLevelType]
-    attackScript: NotRequired[str]
-    codeRemediationTask: NotRequired[CodeRemediationTaskTypeDef]
-    lastUpdatedBy: NotRequired[str]
-    codeLocations: NotRequired[list[CodeLocationTypeDef]]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -1486,6 +1476,31 @@ class PentestJobTypeDef(TypedDict):
 NetworkTrafficConfigUnionTypeDef = Union[
     NetworkTrafficConfigTypeDef, NetworkTrafficConfigOutputTypeDef
 ]
+
+
+class FindingTypeDef(TypedDict):
+    findingId: str
+    agentSpaceId: str
+    pentestId: NotRequired[str]
+    pentestJobId: NotRequired[str]
+    codeReviewId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+    taskId: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    status: NotRequired[FindingStatusType]
+    riskType: NotRequired[str]
+    riskLevel: NotRequired[RiskLevelType]
+    riskScore: NotRequired[str]
+    reasoning: NotRequired[str]
+    confidence: NotRequired[ConfidenceLevelType]
+    attackScript: NotRequired[str]
+    codeRemediationTask: NotRequired[CodeRemediationTaskTypeDef]
+    lastUpdatedBy: NotRequired[str]
+    codeLocations: NotRequired[list[CodeLocationTypeDef]]
+    verificationScript: NotRequired[VerificationScriptTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
 
 
 class BatchGetAgentSpacesOutputTypeDef(TypedDict):
@@ -1607,12 +1622,6 @@ class BatchGetPentestJobTasksOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class BatchGetFindingsOutputTypeDef(TypedDict):
-    findings: list[FindingTypeDef]
-    notFound: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class UpdateIntegratedResourcesInputTypeDef(TypedDict):
     agentSpaceId: str
     integrationId: str
@@ -1639,6 +1648,12 @@ class ListMembershipsResponseTypeDef(TypedDict):
 
 class BatchGetPentestJobsOutputTypeDef(TypedDict):
     pentestJobs: list[PentestJobTypeDef]
+    notFound: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchGetFindingsOutputTypeDef(TypedDict):
+    findings: list[FindingTypeDef]
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 

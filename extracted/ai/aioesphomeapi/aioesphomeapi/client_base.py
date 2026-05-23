@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 import itertools
 import logging
 from typing import TYPE_CHECKING, Any
-
-from google.protobuf import message
 
 from ._frame_helper.base import (  # noqa: F401
     MAX_NAME_LEN,
@@ -54,6 +51,10 @@ from .util import build_log_name, create_eager_task
 from .zeroconf import ZeroconfInstanceType, ZeroconfManager
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from google.protobuf import message
+
     from .connection import APIConnection
 
 _LOGGER = logging.getLogger(__name__)
@@ -199,7 +200,7 @@ def on_bluetooth_device_connection_response(
     on_bluetooth_connection_state: Callable[[bool, int, int], None],
     msg: BluetoothDeviceConnectionResponse,
 ) -> None:
-    """Handle a BluetoothDeviceConnectionResponse message.""" ""
+    """Handle a BluetoothDeviceConnectionResponse message."""
     if address == msg.address:
         on_bluetooth_connection_state(msg.connected, msg.mtu, msg.error)
         # Resolve on ANY connection state since we do not want
@@ -237,7 +238,6 @@ def on_bluetooth_message_types(
         | BluetoothDeviceConnectionResponse
         | BluetoothGATTGetServicesResponse
         | BluetoothGATTGetServicesDoneResponse
-        | BluetoothGATTErrorResponse
     ),
 ) -> bool:
     """Filter Bluetooth messages of a specific type and address."""
@@ -298,7 +298,7 @@ class APIClientBase:
         self,
         address: str_,  # allow subclass str
         port: int,
-        password: str_ | None,
+        password: str_ | None = None,
         *,
         client_info: str_ = "aioesphomeapi",
         keepalive: float = KEEP_ALIVE_FREQUENCY,
@@ -451,10 +451,12 @@ class APIClientBase:
 
     def _get_connection(self) -> APIConnection:
         if self._connection is None:
-            raise APIConnectionError(f"Not connected to {self.log_name}!")
+            msg = f"Not connected to {self.log_name}!"
+            raise APIConnectionError(msg)
         if not self._connection.is_connected:
-            raise APIConnectionError(
+            msg = (
                 f"Authenticated connection not ready yet for {self.log_name}; "
                 f"current state is {self._connection.connection_state}!"
             )
+            raise APIConnectionError(msg)
         return self._connection

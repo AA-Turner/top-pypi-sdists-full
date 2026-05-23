@@ -243,10 +243,10 @@ def get_cloud_user_project_assignment(project_id: Optional[_builtins.str] = None
             "GROUP_OWNER",
             "GROUP_DATA_ACCESS_ADMIN",
         ])
-    example_username = example.username.apply(lambda username: mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
-        username=username))
-    example_user_id = example.user_id.apply(lambda user_id: mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
-        user_id=user_id))
+    example_username = mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
+        username=example.username)
+    example_user_id = mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
+        user_id=example.user_id)
     ```
 
 
@@ -277,9 +277,9 @@ def get_cloud_user_project_assignment(project_id: Optional[_builtins.str] = None
         roles=pulumi.get(__ret__, 'roles'),
         user_id=pulumi.get(__ret__, 'user_id'),
         username=pulumi.get(__ret__, 'username'))
-def get_cloud_user_project_assignment_output(project_id: Optional[pulumi.Input[_builtins.str]] = None,
-                                             user_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                             username: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_cloud_user_project_assignment_output(project_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                             user_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                             username: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                              opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetCloudUserProjectAssignmentResult]:
     """
     `CloudUserProjectAssignment` provides a Cloud User Project Assignment data source. The data source lets you retrieve a user assigned to a project.
@@ -303,10 +303,10 @@ def get_cloud_user_project_assignment_output(project_id: Optional[pulumi.Input[_
             "GROUP_OWNER",
             "GROUP_DATA_ACCESS_ADMIN",
         ])
-    example_username = example.username.apply(lambda username: mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
-        username=username))
-    example_user_id = example.user_id.apply(lambda user_id: mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
-        user_id=user_id))
+    example_username = mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
+        username=example.username)
+    example_user_id = mongodbatlas.get_cloud_user_project_assignment_output(project_id=project_id,
+        user_id=example.user_id)
     ```
 
 

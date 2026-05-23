@@ -25,7 +25,8 @@ class NotificationConfigArgs:
                  organization: pulumi.Input[_builtins.str],
                  pubsub_topic: pulumi.Input[_builtins.str],
                  streaming_config: pulumi.Input['NotificationConfigStreamingConfigArgs'],
-                 description: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NotificationConfig resource.
 
@@ -36,12 +37,20 @@ class NotificationConfigArgs:
                "projects/[project_id]/topics/[topic]".
         :param pulumi.Input['NotificationConfigStreamingConfigArgs'] streaming_config: The config for triggering streaming-based notifications.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the notification config (max of 1024 characters).
         """
         pulumi.set(__self__, "config_id", config_id)
         pulumi.set(__self__, "organization", organization)
         pulumi.set(__self__, "pubsub_topic", pubsub_topic)
         pulumi.set(__self__, "streaming_config", streaming_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
 
@@ -97,32 +106,56 @@ class NotificationConfigArgs:
         pulumi.set(self, "streaming_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the notification config (max of 1024 characters).
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
 
 @pulumi.input_type
 class _NotificationConfigState:
     def __init__(__self__, *,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
-                 streaming_config: Optional[pulumi.Input['NotificationConfigStreamingConfigArgs']] = None):
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_account: pulumi.Input[Optional[_builtins.str]] = None,
+                 streaming_config: pulumi.Input[Optional['NotificationConfigStreamingConfigArgs']] = None):
         """
         Input properties used for looking up and filtering NotificationConfig resources.
 
         :param pulumi.Input[_builtins.str] config_id: This must be unique within the organization.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the notification config (max of 1024 characters).
         :param pulumi.Input[_builtins.str] name: The resource name of this notification config, in the format
                `organizations/{{organization}}/notificationConfigs/{{config_id}}`.
@@ -137,6 +170,8 @@ class _NotificationConfigState:
         """
         if config_id is not None:
             pulumi.set(__self__, "config_id", config_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
@@ -152,31 +187,48 @@ class _NotificationConfigState:
 
     @_builtins.property
     @pulumi.getter(name="configId")
-    def config_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This must be unique within the organization.
         """
         return pulumi.get(self, "config_id")
 
     @config_id.setter
-    def config_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The description of the notification config (max of 1024 characters).
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of this notification config, in the format
         `organizations/{{organization}}/notificationConfigs/{{config_id}}`.
@@ -184,12 +236,12 @@ class _NotificationConfigState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def organization(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def organization(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The organization whose Cloud Security Command Center the Notification
         Config lives in.
@@ -197,12 +249,12 @@ class _NotificationConfigState:
         return pulumi.get(self, "organization")
 
     @organization.setter
-    def organization(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def organization(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "organization", value)
 
     @_builtins.property
     @pulumi.getter(name="pubsubTopic")
-    def pubsub_topic(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def pubsub_topic(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Pub/Sub topic to send notifications to. Its format is
         "projects/[project_id]/topics/[topic]".
@@ -210,12 +262,12 @@ class _NotificationConfigState:
         return pulumi.get(self, "pubsub_topic")
 
     @pubsub_topic.setter
-    def pubsub_topic(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def pubsub_topic(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pubsub_topic", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceAccount")
-    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def service_account(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The service account that needs "pubsub.topics.publish" permission to
         publish to the Pub/Sub topic.
@@ -223,12 +275,12 @@ class _NotificationConfigState:
         return pulumi.get(self, "service_account")
 
     @service_account.setter
-    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def service_account(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "service_account", value)
 
     @_builtins.property
     @pulumi.getter(name="streamingConfig")
-    def streaming_config(self) -> Optional[pulumi.Input['NotificationConfigStreamingConfigArgs']]:
+    def streaming_config(self) -> pulumi.Input[Optional['NotificationConfigStreamingConfigArgs']]:
         """
         The config for triggering streaming-based notifications.
         Structure is documented below.
@@ -236,7 +288,7 @@ class _NotificationConfigState:
         return pulumi.get(self, "streaming_config")
 
     @streaming_config.setter
-    def streaming_config(self, value: Optional[pulumi.Input['NotificationConfigStreamingConfigArgs']]):
+    def streaming_config(self, value: pulumi.Input[Optional['NotificationConfigStreamingConfigArgs']]):
         pulumi.set(self, "streaming_config", value)
 
 
@@ -246,11 +298,12 @@ class NotificationConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 streaming_config: Optional[pulumi.Input[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 streaming_config: pulumi.Input[Optional[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None,
                  __props__=None):
         """
         A Cloud Security Command Center (Cloud SCC) notification configs. A
@@ -302,6 +355,12 @@ class NotificationConfig(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] config_id: This must be unique within the organization.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the notification config (max of 1024 characters).
         :param pulumi.Input[_builtins.str] organization: The organization whose Cloud Security Command Center the Notification
                Config lives in.
@@ -378,11 +437,12 @@ class NotificationConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 config_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 organization: Optional[pulumi.Input[_builtins.str]] = None,
-                 pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-                 streaming_config: Optional[pulumi.Input[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None,
+                 config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 organization: pulumi.Input[Optional[_builtins.str]] = None,
+                 pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+                 streaming_config: pulumi.Input[Optional[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -395,6 +455,7 @@ class NotificationConfig(pulumi.CustomResource):
             if config_id is None and not opts.urn:
                 raise TypeError("Missing required property 'config_id'")
             __props__.__dict__["config_id"] = config_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if organization is None and not opts.urn:
                 raise TypeError("Missing required property 'organization'")
@@ -417,13 +478,14 @@ class NotificationConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            config_id: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            organization: Optional[pulumi.Input[_builtins.str]] = None,
-            pubsub_topic: Optional[pulumi.Input[_builtins.str]] = None,
-            service_account: Optional[pulumi.Input[_builtins.str]] = None,
-            streaming_config: Optional[pulumi.Input[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None) -> 'NotificationConfig':
+            config_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            organization: pulumi.Input[Optional[_builtins.str]] = None,
+            pubsub_topic: pulumi.Input[Optional[_builtins.str]] = None,
+            service_account: pulumi.Input[Optional[_builtins.str]] = None,
+            streaming_config: pulumi.Input[Optional[Union['NotificationConfigStreamingConfigArgs', 'NotificationConfigStreamingConfigArgsDict']]] = None) -> 'NotificationConfig':
         """
         Get an existing NotificationConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -432,6 +494,12 @@ class NotificationConfig(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] config_id: This must be unique within the organization.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: The description of the notification config (max of 1024 characters).
         :param pulumi.Input[_builtins.str] name: The resource name of this notification config, in the format
                `organizations/{{organization}}/notificationConfigs/{{config_id}}`.
@@ -449,6 +517,7 @@ class NotificationConfig(pulumi.CustomResource):
         __props__ = _NotificationConfigState.__new__(_NotificationConfigState)
 
         __props__.__dict__["config_id"] = config_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["name"] = name
         __props__.__dict__["organization"] = organization
@@ -464,6 +533,19 @@ class NotificationConfig(pulumi.CustomResource):
         This must be unique within the organization.
         """
         return pulumi.get(self, "config_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

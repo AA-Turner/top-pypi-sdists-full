@@ -2,12 +2,12 @@ use crate::frametransform;
 use crate::orbitprop;
 use crate::orbitprop::PropSettings;
 use crate::orbitprop::SatProperties;
-use crate::{Frame, Instant};
 use crate::TimeLike;
+use crate::{Frame, Instant};
 
 use crate::mathtypes::*;
 
-use anyhow::Result;
+use super::error::{Error, Result};
 
 type PVCovType = Matrix<6, 6>;
 
@@ -277,10 +277,7 @@ impl SatState {
             | Frame::CIRS
             | Frame::TEME
             | Frame::EME2000
-            | Frame::ICRF => anyhow::bail!(
-                "Unsupported frame for uncertainty: {}. Must be GCRF, LVLH, RIC, or NTW",
-                frame
-            ),
+            | Frame::ICRF => Err(Error::UnsupportedUncertaintyFrame { frame }),
         }
     }
 
@@ -545,10 +542,7 @@ impl std::fmt::Display for SatState {
             }
         }
         if !self.maneuvers.is_empty() {
-            s1.push_str(&format!(
-                "\n       Maneuvers: {}",
-                self.maneuvers.len()
-            ));
+            s1.push_str(&format!("\n       Maneuvers: {}", self.maneuvers.len()));
         }
         write!(f, "{}", s1)
     }
@@ -559,6 +553,11 @@ mod test {
     use super::*;
     use crate::consts;
     use crate::Duration;
+
+    // Tests use anyhow::Result so we can `?`-convert errors from
+    // Instant::from_datetime and similar APIs that aren't part of
+    // orbitprop::Error.
+    use anyhow::Result;
 
     #[test]
     fn test_qgcrf2lvlh() -> Result<()> {
@@ -596,8 +595,7 @@ mod test {
         satstate.set_pos_uncertainty(&numeris::vector![1.0, 1.0, 1.0], Frame::LVLH)?;
         satstate.set_vel_uncertainty(&numeris::vector![0.01, 0.02, 0.03], Frame::LVLH)?;
 
-        let state2 =
-            satstate.propagate(&(satstate.time + Duration::from_days(0.5)), None, None)?;
+        let state2 = satstate.propagate(&(satstate.time + Duration::from_days(0.5)), None, None)?;
 
         // Propagate back to original time
         let state0 = state2.propagate(&satstate.time, None, None)?;
@@ -605,13 +603,11 @@ mod test {
         // Check that propagating backwards in time results in the original state
         assert!((satstate.pos_gcrf() - state0.pos_gcrf()).norm() < 0.1);
         assert!((satstate.vel_gcrf() - state0.vel_gcrf()).norm() < 0.001);
-        let cov1 = match satstate.cov() {
-            StateCov::PVCov(v) => v,
-            StateCov::None => anyhow::bail!("cov is not none"),
+        let StateCov::PVCov(cov1) = satstate.cov() else {
+            panic!("expected covariance");
         };
-        let cov2 = match state0.cov() {
-            StateCov::PVCov(v) => v,
-            StateCov::None => anyhow::bail!("cov is not none"),
+        let StateCov::PVCov(cov2) = state0.cov() else {
+            panic!("expected covariance");
         };
         assert!((cov1 - cov2).norm_inf() < 0.001);
 
@@ -664,13 +660,11 @@ mod test {
         assert!((satstate.pos_gcrf() - state2.pos_gcrf()).norm() < 1e-15);
         assert!((satstate.vel_gcrf() - state2.vel_gcrf()).norm() < 1e-15);
 
-        let cov1 = match satstate.cov() {
-            StateCov::PVCov(v) => v,
-            StateCov::None => anyhow::bail!("cov is not none"),
+        let StateCov::PVCov(cov1) = satstate.cov() else {
+            panic!("expected covariance");
         };
-        let cov2 = match state2.cov() {
-            StateCov::PVCov(v) => v,
-            StateCov::None => anyhow::bail!("cov is not none"),
+        let StateCov::PVCov(cov2) = state2.cov() else {
+            panic!("expected covariance");
         };
         assert!((cov1 - cov2).norm_inf() < 1e-15);
 
@@ -925,16 +919,10 @@ mod test {
         // Place r along x̂ and velocity in the xy-plane rotated by (90° - γ)
         // from r (i.e., velocity leans "forward" of perpendicular by γ).
         let pos = numeris::vector![r_mag, 0.0, 0.0];
-        let vel = numeris::vector![
-            v_mag * gamma.sin(),
-            v_mag * gamma.cos(),
-            0.0
-        ];
+        let vel = numeris::vector![v_mag * gamma.sin(), v_mag * gamma.cos(), 0.0];
 
         // Sanity: dot product of r̂ and v̂ equals sin(γ) by construction
-        assert!(
-            (pos.normalize().dot(&vel.normalize()) - gamma.sin()).abs() < 1e-12
-        );
+        assert!((pos.normalize().dot(&vel.normalize()) - gamma.sin()).abs() < 1e-12);
 
         // Apply a 10 m/s "tangent" burn via NTW — should add exactly 10 m/s
         // to |v|.
@@ -995,16 +983,18 @@ mod test {
         sat.set_pos_uncertainty(&numeris::vector![100.0, 200.0, 50.0], Frame::LVLH)?;
         sat.set_vel_uncertainty(&numeris::vector![0.1, 0.2, 0.05], Frame::LVLH)?;
 
-        let cov = match sat.cov() {
-            StateCov::PVCov(m) => m,
-            StateCov::None => panic!("expected covariance"),
+        let StateCov::PVCov(cov) = sat.cov() else {
+            panic!("expected covariance");
         };
 
         // Both position and velocity blocks must be non-zero
         let pos_block = cov.block::<3, 3>(0, 0);
         let vel_block = cov.block::<3, 3>(3, 3);
         assert!(pos_block.norm_inf() > 1.0, "position block should be set");
-        assert!(vel_block.norm_inf() > 0.001, "velocity block should be preserved");
+        assert!(
+            vel_block.norm_inf() > 0.001,
+            "velocity block should be preserved"
+        );
 
         Ok(())
     }
@@ -1035,7 +1025,10 @@ mod test {
                     let expected = 100.0 + 400.0 + 900.0;
                     assert!(
                         (trace - expected).abs() / expected < 1e-12,
-                        "{:?}: trace {} expected {}", frame, trace, expected
+                        "{:?}: trace {} expected {}",
+                        frame,
+                        trace,
+                        expected
                     );
                 }
                 StateCov::None => panic!("{:?}: no covariance set", frame),
@@ -1063,10 +1056,7 @@ mod test {
             Frame::EME2000,
             Frame::ICRF,
         ] {
-            let res = sat.set_pos_uncertainty(
-                &numeris::vector![1.0, 1.0, 1.0],
-                bad_frame,
-            );
+            let res = sat.set_pos_uncertainty(&numeris::vector![1.0, 1.0, 1.0], bad_frame);
             assert!(res.is_err(), "{:?} should be rejected", bad_frame);
         }
     }
@@ -1165,7 +1155,10 @@ mod test {
         let sat_no_burn = sat.clone();
 
         // Tiny prograde burn at apogee — should raise perigee by ~2·(a/v)·Δv
-        sat.add_maneuver(ImpulsiveManeuver::prograde(t0 + Duration::from_seconds(1.0), 5.0));
+        sat.add_maneuver(ImpulsiveManeuver::prograde(
+            t0 + Duration::from_seconds(1.0),
+            5.0,
+        ));
 
         // Propagate to somewhere near perigee and measure min radius over
         // the next orbit

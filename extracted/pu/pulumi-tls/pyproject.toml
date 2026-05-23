@@ -5,7 +5,7 @@
   keywords = ["pulumi", "tls"]
   readme = "README.md"
   requires-python = ">=3.9"
-  version = "5.4.0"
+  version = "5.5.0"
   [project.license]
     text = "Apache-2.0"
   [project.urls]

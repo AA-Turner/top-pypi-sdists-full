@@ -8,7 +8,7 @@ name = "mergify_cli"
 # (`2026.4.23.1`); `mergify --version` from the Rust binary will
 # report the placeholder until Phase 6, when versioning becomes
 # Rust-native end-to-end.
-version = "2026.5.21.2"
+version = "2026.5.22.1"
 description = "Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload"
 authors = [{ name = "Mergify Team", email = "hello@mergify.com" }]
 requires-python = ">=3.13"
@@ -31,9 +31,9 @@ dependencies = [
     "jsonschema==4.26.0",
     "rich==15.0.0",
     "aiofiles==25.1.0",
-    "click==8.4.0",
-    "opentelemetry-exporter-otlp-proto-http==1.42.0",
-    "opentelemetry-sdk==1.42.0",
+    "click==8.4.1",
+    "opentelemetry-exporter-otlp-proto-http==1.42.1",
+    "opentelemetry-sdk==1.42.1",
     "tenacity==9.1.4",
     "pyyaml==6.0.3",
     "pydantic==2.13.4",
@@ -62,7 +62,7 @@ dev = [
     "types-jsonschema==4.26.0.20260518",
     "types-pyyaml==6.0.12.20260518",
     "anys==0.3.1",
-    "responses==0.26.0",
+    "responses==0.26.1",
 ]
 
 [build-system]

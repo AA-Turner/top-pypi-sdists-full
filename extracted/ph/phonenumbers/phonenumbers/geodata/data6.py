@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '494552':{'de': 'Leezen', 'en': 'Leezen'},
+ '494553':{'de': 'Geschendorf', 'en': 'Geschendorf'},
+ '494554':{'de': 'Wahlstedt', 'en': 'Wahlstedt'},
+ '494555':{'de': 'Seedorf bei Bad Segeberg', 'en': 'Seedorf bei Bad Segeberg'},
+ '494556':{'de': u('Ahrensb\u00f6k-Gnissau'), 'en': u('Ahrensb\u00f6k-Gnissau')},
+ '494557':{'de': 'Blunk', 'en': 'Blunk'},
+ '494558':{'de': 'Todesfelde', 'en': 'Todesfelde'},
  '494559':{'de': 'Wensin', 'en': 'Wensin'},
  '494561':{'de': 'Neustadt in Holstein', 'en': 'Neustadt in Holstein'},
  '494562':{'de': u('Gr\u00f6mitz'), 'en': u('Gr\u00f6mitz')},
@@ -10012,11 +10019,4 @@ data = {
  '55483591':{'en': 'Jacinto Machado - SC', 'pt': 'Jacinto Machado - SC'},
  '55483622':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
  '55483623':{'en': 'Capivari de Baixo - SC', 'pt': 'Capivari de Baixo - SC'},
- '55483624':{'en': 'Jaguaruna - SC', 'pt': 'Jaguaruna - SC'},
- '55483625':{'en': 'Treze de Maio - SC', 'pt': 'Treze de Maio - SC'},
- '55483626':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
- '55483631':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
- '55483632':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
- '55483641':{'en': 'Tijucas - SC', 'pt': 'Tijucas - SC'},
- '55483642':{'en': 'Gravatal - SC', 'pt': 'Gravatal - SC'},
 }

@@ -22,13 +22,17 @@ from complexipy import (
     _complexipy,
 )
 from complexipy._complexipy import FileComplexity
-
 from complexipy.types import (
     ColorTypes,
     OutputFormat,
     Sort,
 )
 from complexipy.utils.cache import remember_previous_functions
+from complexipy.utils.constants import (
+    DEFAULT_OUTPUT_FILENAMES,
+    LEGACY_OUTPUT_CONFIG_KEYS,
+    LEGACY_OUTPUT_FLAGS,
+)
 from complexipy.utils.csv import store_csv
 from complexipy.utils.diff import (
     DiffEntry,
@@ -54,11 +58,6 @@ from complexipy.utils.toml import (
     get_argument_value,
     get_arguments_value,
     get_complexipy_toml_config,
-)
-from complexipy.utils.constants import (
-    DEFAULT_OUTPUT_FILENAMES,
-    LEGACY_OUTPUT_CONFIG_KEYS,
-    LEGACY_OUTPUT_FLAGS,
 )
 
 app = typer.Typer(name="complexipy")
@@ -212,6 +211,14 @@ def main(
             "Useful for AI agents and scripting. CLI-only flag (not supported in TOML)."
         ),
     ),
+    suggest_refactors: Optional[bool] = typer.Option(
+        None,
+        "--suggest-refactors",
+        help=(
+            "Show deterministic refactor plans for displayed functions in rich output. "
+            "Ignored when --plain is used."
+        ),
+    ),
     check_script: Optional[bool] = typer.Option(
         None,
         "--check-script",
@@ -275,6 +282,8 @@ def main(
 
     if plain is None:
         plain = False
+    if suggest_refactors is None:
+        suggest_refactors = False
 
     if plain and quiet:
         raise typer.BadParameter("--plain and --quiet cannot be used together.")
@@ -285,7 +294,7 @@ def main(
     handle_console_settings(color, quiet, plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script
+        paths, quiet, exclude, check_script, INVOCATION_PATH
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
@@ -344,6 +353,7 @@ def main(
         quiet,
         plain,
         top,
+        suggest_refactors,
     )
 
     snapshot_result = handle_snapshot(
@@ -404,6 +414,7 @@ def handle_display(
     quiet: bool,
     plain: bool,
     top: Optional[int] = None,
+    suggest_refactors: bool = False,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
@@ -427,6 +438,7 @@ def handle_display(
         active_snapshot_map,
         plain,
         top,
+        suggest_refactors,
     )
     if not plain:
         if platform.system() == "Windows":

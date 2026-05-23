@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '3358243':{'en': 'Cazeres', 'fr': 'Cazeres'},
+ '3358244':{'en': 'Montauban', 'fr': 'Montauban'},
+ '3358245':{'en': 'Castres', 'fr': 'Castres'},
+ '3358246':{'en': 'Foix', 'fr': 'Foix'},
+ '3358247':{'en': 'Cahors', 'fr': 'Cahors'},
+ '3358248':{'en': 'Decazeville', 'fr': 'Decazeville'},
+ '3358249':{'en': 'Espalion', 'fr': 'Espalion'},
  '3358250':{'en': 'Villefranche-de-Rouergue', 'fr': 'Villefranche-de-Rouergue'},
  '3358251':{'en': 'Lannemezan', 'fr': 'Lannemezan'},
  '3358252':{'en': 'Toulouse', 'fr': 'Toulouse'},
@@ -10012,11 +10019,4 @@ data = {
  '494547':{'de': 'Gudow Lauenburg', 'en': 'Gudow Lauenburg'},
  '494550':{'de': u('B\u00fchnsdorf'), 'en': u('B\u00fchnsdorf')},
  '494551':{'de': 'Bad Segeberg', 'en': 'Bad Segeberg'},
- '494552':{'de': 'Leezen', 'en': 'Leezen'},
- '494553':{'de': 'Geschendorf', 'en': 'Geschendorf'},
- '494554':{'de': 'Wahlstedt', 'en': 'Wahlstedt'},
- '494555':{'de': 'Seedorf bei Bad Segeberg', 'en': 'Seedorf bei Bad Segeberg'},
- '494556':{'de': u('Ahrensb\u00f6k-Gnissau'), 'en': u('Ahrensb\u00f6k-Gnissau')},
- '494557':{'de': 'Blunk', 'en': 'Blunk'},
- '494558':{'de': 'Todesfelde', 'en': 'Todesfelde'},
 }

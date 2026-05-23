@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '61899303':{'en': 'Eneabba South'},
+ '618993039':{'en': 'Exmouth'},
+ '61899304':{'en': 'Leeman'},
+ '618993048':{'en': 'Geraldton'},
+ '618993049':{'en': 'Guranu'},
+ '61899305':{'en': 'Marchagee'},
+ '618993058':{'en': 'Gutha West'},
  '618993059':{'en': 'Howatharra'},
  '61899306':{'en': 'Three Springs'},
  '618993068':{'en': 'Kalbarri'},
@@ -10012,11 +10019,4 @@ data = {
  '861308258':{'en': 'Suqian, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5bbf\u8fc1\u5e02')},
  '861308259':{'en': 'Yancheng, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u76d0\u57ce\u5e02')},
  '861308260':{'en': 'Dongying, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u4e1c\u8425\u5e02')},
- '861308261':{'en': 'Dongying, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u4e1c\u8425\u5e02')},
- '861308262':{'en': 'Jining, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u6d4e\u5b81\u5e02')},
- '861308263':{'en': 'Jining, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u6d4e\u5b81\u5e02')},
- '861308264':{'en': 'Linyi, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u4e34\u6c82\u5e02')},
- '861308265':{'en': 'Linyi, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u4e34\u6c82\u5e02')},
- '861308266':{'en': 'Linyi, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u4e34\u6c82\u5e02')},
- '861308267':{'en': 'Weihai, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u5a01\u6d77\u5e02')},
 }

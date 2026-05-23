@@ -18,7 +18,11 @@ import comet_ml
 
 
 def go(experiment: comet_ml.Experiment, trial):
-    artifact = _setup_artifact(name=str(trial), directory=trial.checkpoint.dir_or_data)
+    log_checkpoint(experiment, name=str(trial), directory=trial.checkpoint.dir_or_data)
+
+
+def log_checkpoint(experiment: comet_ml.Experiment, name: str, directory: str):
+    artifact = _setup_artifact(name=name, directory=directory)
 
     experiment.log_artifact(artifact)
 

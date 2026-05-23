@@ -41,8 +41,8 @@ def get_editor_bp(controller: MainController):
         if data.get("position") and len(data["position"]) >= 2:
             position = (int(data["position"][0]), int(data["position"][1]))
 
-        page = controller.create_page_stage(
-            data["title"], data["file"], position, data.get("id")
+        page = controller.create_stage(
+            "page", data["title"], data["file"], position, data.get("id")
         )
         return page.editor_dto
 

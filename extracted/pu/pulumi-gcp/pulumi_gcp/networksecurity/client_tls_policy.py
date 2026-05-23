@@ -21,19 +21,26 @@ __all__ = ['ClientTlsPolicyArgs', 'ClientTlsPolicy']
 @pulumi.input_type
 class ClientTlsPolicyArgs:
     def __init__(__self__, *,
-                 client_certificate: Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_validation_cas: Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]] = None,
-                 sni: Optional[pulumi.Input[_builtins.str]] = None):
+                 client_certificate: pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_validation_cas: pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]] = None,
+                 sni: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ClientTlsPolicy resource.
 
         :param pulumi.Input['ClientTlsPolicyClientCertificateArgs'] client_certificate: Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the ClientTlsPolicy resource.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -49,6 +56,8 @@ class ClientTlsPolicyArgs:
         """
         if client_certificate is not None:
             pulumi.set(__self__, "client_certificate", client_certificate)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if labels is not None:
@@ -66,7 +75,7 @@ class ClientTlsPolicyArgs:
 
     @_builtins.property
     @pulumi.getter(name="clientCertificate")
-    def client_certificate(self) -> Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']]:
+    def client_certificate(self) -> pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']]:
         """
         Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
         Structure is documented below.
@@ -74,24 +83,41 @@ class ClientTlsPolicyArgs:
         return pulumi.get(self, "client_certificate")
 
     @client_certificate.setter
-    def client_certificate(self, value: Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']]):
+    def client_certificate(self, value: pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']]):
         pulumi.set(self, "client_certificate", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A free-text description of the resource. Max length 1024 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the ClientTlsPolicy resource.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -100,12 +126,12 @@ class ClientTlsPolicyArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the client tls policy.
         The default value is `global`.
@@ -113,24 +139,24 @@ class ClientTlsPolicyArgs:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the ClientTlsPolicy resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -138,12 +164,12 @@ class ClientTlsPolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="serverValidationCas")
-    def server_validation_cas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]:
+    def server_validation_cas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]:
         """
         Defines the mechanism to obtain the Certificate Authority certificate to validate the server certificate. If empty, client does not validate the server certificate.
         Structure is documented below.
@@ -151,43 +177,50 @@ class ClientTlsPolicyArgs:
         return pulumi.get(self, "server_validation_cas")
 
     @server_validation_cas.setter
-    def server_validation_cas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]):
+    def server_validation_cas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]):
         pulumi.set(self, "server_validation_cas", value)
 
     @_builtins.property
     @pulumi.getter
-    def sni(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def sni(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com".
         """
         return pulumi.get(self, "sni")
 
     @sni.setter
-    def sni(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def sni(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "sni", value)
 
 
 @pulumi.input_type
 class _ClientTlsPolicyState:
     def __init__(__self__, *,
-                 client_certificate: Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 server_validation_cas: Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]] = None,
-                 sni: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 client_certificate: pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 server_validation_cas: pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]] = None,
+                 sni: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ClientTlsPolicy resources.
 
         :param pulumi.Input['ClientTlsPolicyClientCertificateArgs'] client_certificate: Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Time the ClientTlsPolicy was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the ClientTlsPolicy resource.
@@ -209,6 +242,8 @@ class _ClientTlsPolicyState:
             pulumi.set(__self__, "client_certificate", client_certificate)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -232,7 +267,7 @@ class _ClientTlsPolicyState:
 
     @_builtins.property
     @pulumi.getter(name="clientCertificate")
-    def client_certificate(self) -> Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']]:
+    def client_certificate(self) -> pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']]:
         """
         Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
         Structure is documented below.
@@ -240,48 +275,65 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "client_certificate")
 
     @client_certificate.setter
-    def client_certificate(self, value: Optional[pulumi.Input['ClientTlsPolicyClientCertificateArgs']]):
+    def client_certificate(self, value: pulumi.Input[Optional['ClientTlsPolicyClientCertificateArgs']]):
         pulumi.set(self, "client_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the ClientTlsPolicy was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A free-text description of the resource. Max length 1024 characters.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Set of label tags associated with the ClientTlsPolicy resource.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -290,12 +342,12 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the client tls policy.
         The default value is `global`.
@@ -303,24 +355,24 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the ClientTlsPolicy resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -328,12 +380,12 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -341,12 +393,12 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="serverValidationCas")
-    def server_validation_cas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]:
+    def server_validation_cas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]:
         """
         Defines the mechanism to obtain the Certificate Authority certificate to validate the server certificate. If empty, client does not validate the server certificate.
         Structure is documented below.
@@ -354,31 +406,31 @@ class _ClientTlsPolicyState:
         return pulumi.get(self, "server_validation_cas")
 
     @server_validation_cas.setter
-    def server_validation_cas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]):
+    def server_validation_cas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ClientTlsPolicyServerValidationCaArgs']]]]):
         pulumi.set(self, "server_validation_cas", value)
 
     @_builtins.property
     @pulumi.getter
-    def sni(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def sni(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com".
         """
         return pulumi.get(self, "sni")
 
     @sni.setter
-    def sni(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def sni(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "sni", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the ClientTlsPolicy was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -388,14 +440,15 @@ class ClientTlsPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 client_certificate: Optional[pulumi.Input[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_validation_cas: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
-                 sni: Optional[pulumi.Input[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_validation_cas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
+                 sni: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         ClientTlsPolicy is a resource that specifies how a client should authenticate connections to backends of a service. This resource itself does not affect configuration unless it is attached to a backend service resource.
@@ -467,6 +520,12 @@ class ClientTlsPolicy(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']] client_certificate: Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the ClientTlsPolicy resource.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -567,14 +626,15 @@ class ClientTlsPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 client_certificate: Optional[pulumi.Input[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 server_validation_cas: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
-                 sni: Optional[pulumi.Input[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_validation_cas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
+                 sni: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -585,6 +645,7 @@ class ClientTlsPolicy(pulumi.CustomResource):
             __props__ = ClientTlsPolicyArgs.__new__(ClientTlsPolicyArgs)
 
             __props__.__dict__["client_certificate"] = client_certificate
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["labels"] = labels
             __props__.__dict__["location"] = location
@@ -608,18 +669,19 @@ class ClientTlsPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            client_certificate: Optional[pulumi.Input[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            server_validation_cas: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
-            sni: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'ClientTlsPolicy':
+            client_certificate: pulumi.Input[Optional[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            server_validation_cas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ClientTlsPolicyServerValidationCaArgs', 'ClientTlsPolicyServerValidationCaArgsDict']]]]] = None,
+            sni: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'ClientTlsPolicy':
         """
         Get an existing ClientTlsPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -630,6 +692,12 @@ class ClientTlsPolicy(pulumi.CustomResource):
         :param pulumi.Input[Union['ClientTlsPolicyClientCertificateArgs', 'ClientTlsPolicyClientCertificateArgsDict']] client_certificate: Defines a mechanism to provision client identity (public and private keys) for peer to peer authentication. The presence of this dictates mTLS.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Time the ClientTlsPolicy was created in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A free-text description of the resource. Max length 1024 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Set of label tags associated with the ClientTlsPolicy resource.
@@ -653,6 +721,7 @@ class ClientTlsPolicy(pulumi.CustomResource):
 
         __props__.__dict__["client_certificate"] = client_certificate
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
@@ -681,6 +750,19 @@ class ClientTlsPolicy(pulumi.CustomResource):
         Time the ClientTlsPolicy was created in UTC.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

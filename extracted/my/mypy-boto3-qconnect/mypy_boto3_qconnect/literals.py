@@ -43,12 +43,15 @@ __all__ = (
     "ExternalSourceType",
     "FilterFieldType",
     "FilterOperatorType",
+    "GuardrailActionType",
     "GuardrailContentFilterTypeType",
     "GuardrailContextualGroundingFilterTypeType",
     "GuardrailFilterStrengthType",
     "GuardrailManagedWordsTypeType",
     "GuardrailPiiEntityTypeType",
+    "GuardrailPolicyTypeType",
     "GuardrailSensitiveInformationActionType",
+    "GuardrailSourceType",
     "GuardrailTopicTypeType",
     "ImportJobStatusType",
     "ImportJobTypeType",
@@ -182,6 +185,7 @@ CrossRegionStatusType = Literal["GLOBAL", "NONE", "REGIONAL"]
 ExternalSourceType = Literal["AMAZON_CONNECT"]
 FilterFieldType = Literal["NAME"]
 FilterOperatorType = Literal["EQUALS"]
+GuardrailActionType = Literal["BLOCKED", "MASKED", "NONE"]
 GuardrailContentFilterTypeType = Literal[
     "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
 ]
@@ -221,7 +225,16 @@ GuardrailPiiEntityTypeType = Literal[
     "US_SOCIAL_SECURITY_NUMBER",
     "VEHICLE_IDENTIFICATION_NUMBER",
 ]
+GuardrailPolicyTypeType = Literal[
+    "CONTENT_FILTER",
+    "CONTEXTUAL_GROUNDING",
+    "SENSITIVE_INFORMATION_PII",
+    "SENSITIVE_INFORMATION_REGEX",
+    "TOPIC",
+    "WORD",
+]
 GuardrailSensitiveInformationActionType = Literal["ANONYMIZE", "BLOCK"]
+GuardrailSourceType = Literal["INPUT", "OUTPUT"]
 GuardrailTopicTypeType = Literal["DENY"]
 ImportJobStatusType = Literal[
     "COMPLETE", "DELETED", "DELETE_FAILED", "DELETE_IN_PROGRESS", "FAILED", "START_IN_PROGRESS"

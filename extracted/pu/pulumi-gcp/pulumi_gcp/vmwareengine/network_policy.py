@@ -24,11 +24,12 @@ class NetworkPolicyArgs:
                  edge_services_cidr: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  vmware_engine_network: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_ip: Optional[pulumi.Input['NetworkPolicyExternalIpArgs']] = None,
-                 internet_access: Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_ip: pulumi.Input[Optional['NetworkPolicyExternalIpArgs']] = None,
+                 internet_access: pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a NetworkPolicy resource.
 
@@ -41,6 +42,12 @@ class NetworkPolicyArgs:
         :param pulumi.Input[_builtins.str] vmware_engine_network: The relative resource name of the VMware Engine network. Specify the name in the following form:
                projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project}
                can either be a project number or a project ID.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network policy.
         :param pulumi.Input['NetworkPolicyExternalIpArgs'] external_ip: Network service that allows External IP addresses to be assigned to VMware workloads.
                This service can only be enabled when internetAccess is also enabled.
@@ -54,6 +61,8 @@ class NetworkPolicyArgs:
         pulumi.set(__self__, "edge_services_cidr", edge_services_cidr)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "vmware_engine_network", vmware_engine_network)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if external_ip is not None:
@@ -108,20 +117,37 @@ class NetworkPolicyArgs:
         pulumi.set(self, "vmware_engine_network", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description for this network policy.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="externalIp")
-    def external_ip(self) -> Optional[pulumi.Input['NetworkPolicyExternalIpArgs']]:
+    def external_ip(self) -> pulumi.Input[Optional['NetworkPolicyExternalIpArgs']]:
         """
         Network service that allows External IP addresses to be assigned to VMware workloads.
         This service can only be enabled when internetAccess is also enabled.
@@ -130,12 +156,12 @@ class NetworkPolicyArgs:
         return pulumi.get(self, "external_ip")
 
     @external_ip.setter
-    def external_ip(self, value: Optional[pulumi.Input['NetworkPolicyExternalIpArgs']]):
+    def external_ip(self, value: pulumi.Input[Optional['NetworkPolicyExternalIpArgs']]):
         pulumi.set(self, "external_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="internetAccess")
-    def internet_access(self) -> Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']]:
+    def internet_access(self) -> pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']]:
         """
         Network service that allows VMware workloads to access the internet.
         Structure is documented below.
@@ -143,24 +169,24 @@ class NetworkPolicyArgs:
         return pulumi.get(self, "internet_access")
 
     @internet_access.setter
-    def internet_access(self, value: Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']]):
+    def internet_access(self, value: pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']]):
         pulumi.set(self, "internet_access", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Network Policy.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -168,31 +194,38 @@ class NetworkPolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _NetworkPolicyState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 edge_services_cidr: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_ip: Optional[pulumi.Input['NetworkPolicyExternalIpArgs']] = None,
-                 internet_access: Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network_canonical: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 edge_services_cidr: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_ip: pulumi.Input[Optional['NetworkPolicyExternalIpArgs']] = None,
+                 internet_access: pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network_canonical: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering NetworkPolicy resources.
 
         :param pulumi.Input[_builtins.str] create_time: Creation time of this resource.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
                up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network policy.
         :param pulumi.Input[_builtins.str] edge_services_cidr: IP address range in CIDR notation used to create internet access and external IP access.
                An RFC 1918 CIDR block, with a "/26" prefix, is required. The range cannot overlap with any
@@ -220,6 +253,8 @@ class _NetworkPolicyState:
         """
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if edge_services_cidr is not None:
@@ -245,7 +280,7 @@ class _NetworkPolicyState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation time of this resource.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
@@ -254,24 +289,41 @@ class _NetworkPolicyState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided description for this network policy.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="edgeServicesCidr")
-    def edge_services_cidr(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def edge_services_cidr(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP address range in CIDR notation used to create internet access and external IP access.
         An RFC 1918 CIDR block, with a "/26" prefix, is required. The range cannot overlap with any
@@ -280,12 +332,12 @@ class _NetworkPolicyState:
         return pulumi.get(self, "edge_services_cidr")
 
     @edge_services_cidr.setter
-    def edge_services_cidr(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def edge_services_cidr(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "edge_services_cidr", value)
 
     @_builtins.property
     @pulumi.getter(name="externalIp")
-    def external_ip(self) -> Optional[pulumi.Input['NetworkPolicyExternalIpArgs']]:
+    def external_ip(self) -> pulumi.Input[Optional['NetworkPolicyExternalIpArgs']]:
         """
         Network service that allows External IP addresses to be assigned to VMware workloads.
         This service can only be enabled when internetAccess is also enabled.
@@ -294,12 +346,12 @@ class _NetworkPolicyState:
         return pulumi.get(self, "external_ip")
 
     @external_ip.setter
-    def external_ip(self, value: Optional[pulumi.Input['NetworkPolicyExternalIpArgs']]):
+    def external_ip(self, value: pulumi.Input[Optional['NetworkPolicyExternalIpArgs']]):
         pulumi.set(self, "external_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="internetAccess")
-    def internet_access(self) -> Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']]:
+    def internet_access(self) -> pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']]:
         """
         Network service that allows VMware workloads to access the internet.
         Structure is documented below.
@@ -307,12 +359,12 @@ class _NetworkPolicyState:
         return pulumi.get(self, "internet_access")
 
     @internet_access.setter
-    def internet_access(self, value: Optional[pulumi.Input['NetworkPolicyInternetAccessArgs']]):
+    def internet_access(self, value: pulumi.Input[Optional['NetworkPolicyInternetAccessArgs']]):
         pulumi.set(self, "internet_access", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the location (region) to create the new network policy in.
         Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names.
@@ -321,24 +373,24 @@ class _NetworkPolicyState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Network Policy.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -346,24 +398,24 @@ class _NetworkPolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         System-generated unique identifier for the resource.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Last updated time of this resource.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine
@@ -372,12 +424,12 @@ class _NetworkPolicyState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="vmwareEngineNetwork")
-    def vmware_engine_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vmware_engine_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the VMware Engine network. Specify the name in the following form:
         projects/{project}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId} where {project}
@@ -386,12 +438,12 @@ class _NetworkPolicyState:
         return pulumi.get(self, "vmware_engine_network")
 
     @vmware_engine_network.setter
-    def vmware_engine_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vmware_engine_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vmware_engine_network", value)
 
     @_builtins.property
     @pulumi.getter(name="vmwareEngineNetworkCanonical")
-    def vmware_engine_network_canonical(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def vmware_engine_network_canonical(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The canonical name of the VMware Engine network in the form:
         projects/{project_number}/locations/{location}/vmwareEngineNetworks/{vmwareEngineNetworkId}
@@ -399,7 +451,7 @@ class _NetworkPolicyState:
         return pulumi.get(self, "vmware_engine_network_canonical")
 
     @vmware_engine_network_canonical.setter
-    def vmware_engine_network_canonical(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def vmware_engine_network_canonical(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "vmware_engine_network_canonical", value)
 
 
@@ -409,14 +461,15 @@ class NetworkPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 edge_services_cidr: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_ip: Optional[pulumi.Input[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
-                 internet_access: Optional[pulumi.Input[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 edge_services_cidr: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_ip: pulumi.Input[Optional[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
+                 internet_access: pulumi.Input[Optional[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a network policy resource. Network policies are regional resources.
@@ -488,6 +541,12 @@ class NetworkPolicy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network policy.
         :param pulumi.Input[_builtins.str] edge_services_cidr: IP address range in CIDR notation used to create internet access and external IP access.
                An RFC 1918 CIDR block, with a "/26" prefix, is required. The range cannot overlap with any
@@ -596,14 +655,15 @@ class NetworkPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 edge_services_cidr: Optional[pulumi.Input[_builtins.str]] = None,
-                 external_ip: Optional[pulumi.Input[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
-                 internet_access: Optional[pulumi.Input[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 edge_services_cidr: pulumi.Input[Optional[_builtins.str]] = None,
+                 external_ip: pulumi.Input[Optional[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
+                 internet_access: pulumi.Input[Optional[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -613,6 +673,7 @@ class NetworkPolicy(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = NetworkPolicyArgs.__new__(NetworkPolicyArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if edge_services_cidr is None and not opts.urn:
                 raise TypeError("Missing required property 'edge_services_cidr'")
@@ -641,18 +702,19 @@ class NetworkPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            edge_services_cidr: Optional[pulumi.Input[_builtins.str]] = None,
-            external_ip: Optional[pulumi.Input[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
-            internet_access: Optional[pulumi.Input[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            vmware_engine_network: Optional[pulumi.Input[_builtins.str]] = None,
-            vmware_engine_network_canonical: Optional[pulumi.Input[_builtins.str]] = None) -> 'NetworkPolicy':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            edge_services_cidr: pulumi.Input[Optional[_builtins.str]] = None,
+            external_ip: pulumi.Input[Optional[Union['NetworkPolicyExternalIpArgs', 'NetworkPolicyExternalIpArgsDict']]] = None,
+            internet_access: pulumi.Input[Optional[Union['NetworkPolicyInternetAccessArgs', 'NetworkPolicyInternetAccessArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            vmware_engine_network: pulumi.Input[Optional[_builtins.str]] = None,
+            vmware_engine_network_canonical: pulumi.Input[Optional[_builtins.str]] = None) -> 'NetworkPolicy':
         """
         Get an existing NetworkPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -663,6 +725,12 @@ class NetworkPolicy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: Creation time of this resource.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and
                up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: User-provided description for this network policy.
         :param pulumi.Input[_builtins.str] edge_services_cidr: IP address range in CIDR notation used to create internet access and external IP access.
                An RFC 1918 CIDR block, with a "/26" prefix, is required. The range cannot overlap with any
@@ -693,6 +761,7 @@ class NetworkPolicy(pulumi.CustomResource):
         __props__ = _NetworkPolicyState.__new__(_NetworkPolicyState)
 
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["edge_services_cidr"] = edge_services_cidr
         __props__.__dict__["external_ip"] = external_ip
@@ -715,6 +784,19 @@ class NetworkPolicy(pulumi.CustomResource):
         up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

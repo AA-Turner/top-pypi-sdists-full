@@ -130,7 +130,7 @@ class TestAccessControlController(BaseTest):
     def test_list_access_controls_with_form(self):
         """Test list_access_controls includes forms."""
         # Create a form
-        form = self.controller.create_form("Test Form", "test_form.py")
+        form = self.controller.create_stage("form", "Test Form", "test_form.py")
 
         controls = self.controller.list_access_controls()
 
@@ -142,7 +142,7 @@ class TestAccessControlController(BaseTest):
 
     def test_list_access_controls_default_values(self):
         """Test that forms have default access control values."""
-        form = self.controller.create_form("New Form", "new_form.py")
+        form = self.controller.create_stage("form", "New Form", "new_form.py")
 
         controls = self.controller.list_access_controls()
         form_control = next((c for c in controls if c["id"] == form.id), None)
@@ -153,7 +153,7 @@ class TestAccessControlController(BaseTest):
 
     def test_update_access_control_make_public(self):
         """Test making a form public."""
-        form = self.controller.create_form("Public Form", "public_form.py")
+        form = self.controller.create_stage("form", "Public Form", "public_form.py")
 
         result = self.controller.update_access_control(
             id=form.id, is_public=True, required_roles=[]
@@ -167,7 +167,7 @@ class TestAccessControlController(BaseTest):
 
     def test_update_access_control_add_roles(self):
         """Test adding required roles to a form."""
-        form = self.controller.create_form("Role Form", "role_form.py")
+        form = self.controller.create_stage("form", "Role Form", "role_form.py")
         roles = ["admin", "manager"]
 
         self.controller.update_access_control(
@@ -192,7 +192,7 @@ class TestAccessControlController(BaseTest):
 
     def test_update_access_control_toggle_public_private(self):
         """Test toggling a form between public and private."""
-        form = self.controller.create_form("Toggle Form", "toggle_form.py")
+        form = self.controller.create_stage("form", "Toggle Form", "toggle_form.py")
 
         # Make public
         self.controller.update_access_control(
@@ -213,7 +213,9 @@ class TestAccessControlController(BaseTest):
 
     def test_update_access_control_returns_updated_config(self):
         """Test that update_access_control returns the updated configuration."""
-        form = self.controller.create_form("Return Test Form", "return_form.py")
+        form = self.controller.create_stage(
+            "form", "Return Test Form", "return_form.py"
+        )
 
         result = self.controller.update_access_control(
             id=form.id, is_public=True, required_roles=["viewer"]
@@ -230,7 +232,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_stage_title(self):
         """Test updating a stage's title."""
-        form = self.controller.create_form("Original Title", "form.py")
+        form = self.controller.create_stage("form", "Original Title", "form.py")
 
         self.controller.update_stage(form.id, {"title": "New Title"})
 
@@ -239,7 +241,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_stage_auto_start(self):
         """Test updating a form's auto_start property."""
-        form = self.controller.create_form("Auto Start Form", "auto_form.py")
+        form = self.controller.create_stage("form", "Auto Start Form", "auto_form.py")
 
         self.controller.update_stage(form.id, {"auto_start": True})
 
@@ -248,7 +250,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_form_path(self):
         """Test updating a form's URL path."""
-        form = self.controller.create_form("Path Form", "path_form.py")
+        form = self.controller.create_stage("form", "Path Form", "path_form.py")
 
         self.controller.update_stage(form.id, {"path": "new-custom-path"})
 
@@ -257,7 +259,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_form_messages(self):
         """Test updating form messages."""
-        form = self.controller.create_form("Message Form", "msg_form.py")
+        form = self.controller.create_stage("form", "Message Form", "msg_form.py")
 
         self.controller.update_stage(
             form.id,
@@ -275,7 +277,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_form_access_control(self):
         """Test updating form access control via update_stage."""
-        form = self.controller.create_form("AC Form", "ac_form.py")
+        form = self.controller.create_stage("form", "AC Form", "ac_form.py")
 
         self.controller.update_stage(
             form.id,
@@ -287,7 +289,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_job_schedule(self):
         """Test updating a job's cron schedule."""
-        job = self.controller.create_job("Scheduled Job", "job.py", "0 0 * * *")
+        job = self.controller.create_stage("job", "Scheduled Job", "job.py")
 
         self.controller.update_stage(job.id, {"schedule": "0 9 * * 1-5"})
 
@@ -296,7 +298,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_hook_enabled(self):
         """Test enabling/disabling a hook."""
-        hook = self.controller.create_hook("Test Hook", "hook.py")
+        hook = self.controller.create_stage("hook", "Test Hook", "hook.py")
 
         self.controller.update_stage(hook.id, {"enabled": False})
 
@@ -305,7 +307,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_stage_multiple_properties(self):
         """Test updating multiple stage properties at once."""
-        form = self.controller.create_form("Multi Form", "multi_form.py")
+        form = self.controller.create_stage("form", "Multi Form", "multi_form.py")
 
         self.controller.update_stage(
             form.id,
@@ -323,7 +325,7 @@ class TestUpdateStageController(BaseTest):
 
     def test_update_stage_returns_updated_stage(self):
         """Test that update_stage returns the updated stage."""
-        form = self.controller.create_form("Return Form", "return_stage.py")
+        form = self.controller.create_stage("form", "Return Form", "return_stage.py")
 
         result = self.controller.update_stage(form.id, {"title": "Updated Return Form"})
 
@@ -479,7 +481,7 @@ class TestProjectSettingsMCPTools(BaseTest):
     def test_call_update_access_control_tool(self):
         """Test calling update_access_control tool via MCP."""
         # Create a form first
-        form = self.controller.create_form("MCP Form", "mcp_form.py")
+        form = self.controller.create_stage("form", "MCP Form", "mcp_form.py")
 
         tool_call = {
             "jsonrpc": "2.0",
@@ -511,7 +513,7 @@ class TestProjectSettingsMCPTools(BaseTest):
         the tool call may return an error. The controller method itself works correctly
         as verified by TestUpdateStageController tests.
         """
-        form = self.controller.create_form("Stage Form", "stage_form.py")
+        form = self.controller.create_stage("form", "Stage Form", "stage_form.py")
 
         tool_call = {
             "jsonrpc": "2.0",
@@ -590,9 +592,9 @@ class TestEdgeCases(BaseTest):
 
     def test_list_access_controls_multiple_forms(self):
         """Test list_access_controls with multiple forms."""
-        form1 = self.controller.create_form("Form 1", "form1.py")
-        form2 = self.controller.create_form("Form 2", "form2.py")
-        form3 = self.controller.create_form("Form 3", "form3.py")
+        form1 = self.controller.create_stage("form", "Form 1", "form1.py")
+        form2 = self.controller.create_stage("form", "Form 2", "form2.py")
+        form3 = self.controller.create_stage("form", "Form 3", "form3.py")
 
         controls = self.controller.list_access_controls()
 
@@ -605,7 +607,7 @@ class TestEdgeCases(BaseTest):
 
     def test_update_access_control_with_multiple_roles(self):
         """Test setting multiple roles on access control."""
-        form = self.controller.create_form("Multi Role Form", "multi_role.py")
+        form = self.controller.create_stage("form", "Multi Role Form", "multi_role.py")
         roles = ["admin", "manager", "editor", "viewer"]
 
         self.controller.update_access_control(

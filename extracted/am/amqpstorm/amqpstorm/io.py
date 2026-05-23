@@ -1,4 +1,5 @@
 """AMQPStorm Connection.IO."""
+from __future__ import annotations
 
 import logging
 import select
@@ -7,48 +8,55 @@ import threading
 from errno import EAGAIN
 from errno import EINTR
 from errno import EWOULDBLOCK
+from typing import Any
+from typing import Callable
 
 from amqpstorm import compatibility
 from amqpstorm.base import MAX_FRAME_SIZE
 from amqpstorm.compatibility import ssl
 from amqpstorm.exception import AMQPConnectionError
 
-EMPTY_BUFFER = bytes()
+EMPTY_BUFFER = b''
 LOGGER = logging.getLogger(__name__)
 POLL_TIMEOUT = 1.0
+POLL_TIMEOUT_MS = int(POLL_TIMEOUT * 1000)
 
 
-class BasePoller(object):
-    def __init__(self, fileno, exceptions):
+class BasePoller:
+    def __init__(self, fileno: int, exceptions: list[Exception]) -> None:
         self._fileno = fileno
         self._exceptions = exceptions
 
     @property
-    def fileno(self):
+    def fileno(self) -> int:
         """Socket Fileno.
 
         :return:
         """
         return self._fileno
 
-    def close(self):
+    @property
+    def is_ready(self) -> bool:
+        raise NotImplementedError
+
+    def close(self) -> None:
         pass
 
 
 class SelectPoller(BasePoller):
-    """"Socket Read Poller using select.select."""
+    """Socket Read Poller using select.select."""
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """Is Socket Ready.
 
-        :rtype: tuple
+        :rtype: bool
         """
         try:
             ready, _, _ = select.select([self.fileno], [], [], POLL_TIMEOUT)
             return bool(ready)
-        except select.error as why:
-            if why.args[0] != EINTR:
+        except OSError as why:
+            if why.errno != EINTR:
                 self._exceptions.append(AMQPConnectionError(why))
         return False
 
@@ -56,28 +64,31 @@ class SelectPoller(BasePoller):
 class Poller(BasePoller):
     """Socket Read Poller using select.poll."""
 
-    def __init__(self, fileno, exceptions):
+    def __init__(self, fileno: int, exceptions: list[Exception]) -> None:
         super().__init__(fileno, exceptions)
-        self.poller = select.poll()
-        self.poller.register(self._fileno, select.POLLIN | select.POLLPRI)
+        self.poller = select.poll()  # type: ignore[attr-defined]
+        self.poller.register(
+            self._fileno,
+            select.POLLIN | select.POLLPRI,  # type: ignore[attr-defined]
+        )
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """Check if the socket is ready for reading.
 
         :rtype: bool
         """
         try:
-            events = self.poller.poll(POLL_TIMEOUT)
+            events = self.poller.poll(POLL_TIMEOUT_MS)
             for fd, event in events:
                 if fd == self.fileno:
                     return True
-        except select.error as why:
-            if why.args[0] != EINTR:
+        except OSError as why:
+            if why.errno != EINTR:
                 self._exceptions.append(AMQPConnectionError(why))
         return False
 
-    def close(self):
+    def close(self) -> None:
         """Unregister the file descriptor."""
         try:
             self.poller.unregister(self.fileno)
@@ -85,36 +96,38 @@ class Poller(BasePoller):
             pass
 
 
-class IO(object):
+class IO:
     """Internal Input/Output handler."""
 
-    def __init__(self, parameters, exceptions=None, on_read_impl=None):
-        self._exceptions = exceptions
+    def __init__(
+        self,
+        parameters: dict[str, Any],
+        exceptions: list[Exception] | None = None,
+        on_read_impl: Callable[[bytes], bytes] | None = None,
+    ) -> None:
+        self._exceptions: list[Exception] = (
+            exceptions if exceptions is not None else []
+        )
         self._wr_lock = threading.Lock()
         self._rd_lock = threading.Lock()
-        self._inbound_thread = None
+        self._inbound_thread: threading.Thread | None = None
         self._on_read_impl = on_read_impl
         self._running = threading.Event()
         self._parameters = parameters
-        self.data_in = EMPTY_BUFFER
-        self.poller = None
-        self.socket = None
-        self.use_ssl = self._parameters['ssl']
-        self.poller_type = self._parameters['poller']
+        self.data_in: bytes = EMPTY_BUFFER
+        self.poller: BasePoller | None = None
+        self.socket: socket.socket | None = None
+        self.use_ssl: bool = self._parameters['ssl']
+        self.poller_type: str = self._parameters['poller']
 
-    def close(self):
+    def close(self) -> None:
         """Close Socket.
 
         :return:
         """
-        self._wr_lock.acquire()
-        self._rd_lock.acquire()
-        try:
+        with self._wr_lock, self._rd_lock:
             self._running.clear()
             self._close_socket()
-        finally:
-            self._wr_lock.release()
-            self._rd_lock.release()
 
         if self._inbound_thread:
             self._inbound_thread.join(timeout=self._parameters['timeout'])
@@ -123,16 +136,14 @@ class IO(object):
         self.poller = None
         self._inbound_thread = None
 
-    def open(self):
+    def open(self) -> None:
         """Open Socket and establish a connection.
 
         :raises AMQPConnectionError: Raises if the connection
                                      encountered an error.
         :return:
         """
-        self._wr_lock.acquire()
-        self._rd_lock.acquire()
-        try:
+        with self._wr_lock, self._rd_lock:
             self.data_in = EMPTY_BUFFER
             self._running.set()
             sock_addresses = self._get_socket_addresses()
@@ -142,41 +153,36 @@ class IO(object):
             else:
                 self.poller = SelectPoller(self.socket.fileno(), self._exceptions)
             self._inbound_thread = self._create_inbound_thread()
-        finally:
-            self._wr_lock.release()
-            self._rd_lock.release()
 
-    def write_to_socket(self, frame_data):
+    def write_to_socket(self, frame_data: bytes) -> None:
         """Write data to the socket.
 
         :param str frame_data:
         :return:
         """
-        self._wr_lock.acquire()
-        try:
+        with self._wr_lock:
+            frame_data_view = memoryview(frame_data)
             total_bytes_written = 0
             bytes_to_send = len(frame_data)
             while total_bytes_written < bytes_to_send:
                 try:
                     if not self.socket:
-                        raise socket.error('connection/socket error')
+                        raise OSError('connection/socket error')
                     bytes_written = (
-                        self.socket.send(frame_data[total_bytes_written:])
+                        self.socket.send(frame_data_view[total_bytes_written:])
                     )
                     if bytes_written == 0:
-                        raise socket.error('connection/socket error')
+                        raise OSError('connection/socket error')
                     total_bytes_written += bytes_written
-                except socket.timeout:
+                except TimeoutError:
                     pass
-                except socket.error as why:
-                    if why.args[0] in (EWOULDBLOCK, EAGAIN):
+                except OSError as why:
+                    if why.errno in (EWOULDBLOCK, EAGAIN):
                         continue
                     self._exceptions.append(AMQPConnectionError(why))
                     return
-        finally:
-            self._wr_lock.release()
 
-    def _close_socket(self):
+    def _close_socket(self) -> None:
         """Shutdown and close the Socket.
 
         :return:
@@ -187,14 +193,14 @@ class IO(object):
             if self.poller:
                 self.poller.close()
             if self.use_ssl:
-                self.socket.unwrap()
+                self.socket.unwrap()  # type: ignore[attr-defined]
             self.socket.shutdown(socket.SHUT_RDWR)
-        except (OSError, socket.error, ValueError):
+        except (OSError, ValueError):
             pass
 
         self.socket.close()
 
-    def _get_socket_addresses(self):
+    def _get_socket_addresses(self) -> list[Any]:
         """Get Socket address information.
 
         :rtype: list
@@ -210,7 +216,7 @@ class IO(object):
             raise AMQPConnectionError(why)
         return addresses
 
-    def _find_address_and_connect(self, addresses):
+    def _find_address_and_connect(self, addresses: list[Any]) -> socket.socket:
         """Find and connect to the appropriate address.
 
         :param addresses:
@@ -225,18 +231,17 @@ class IO(object):
             sock = self._create_socket(socket_family=address[0])
             try:
                 sock.connect(address[4])
-            except (IOError, OSError) as why:
+            except OSError as why:
                 error_message = why.strerror
                 continue
             return sock
+        host = self._parameters['hostname']
+        port = self._parameters['port']
         raise AMQPConnectionError(
-            'Could not connect to %s:%d error: %s' % (
-                self._parameters['hostname'], self._parameters['port'],
-                error_message
-            )
+            f'Could not connect to {host}:{port} error: {error_message}'
         )
 
-    def _create_socket(self, socket_family):
+    def _create_socket(self, socket_family: int) -> socket.socket:
         """Create Socket.
 
         :param int socket_family:
@@ -252,7 +257,7 @@ class IO(object):
             sock = self._ssl_wrap_socket(sock)
         return sock
 
-    def _ssl_wrap_socket(self, sock):
+    def _ssl_wrap_socket(self, sock: socket.socket) -> Any:
         """Wrap SSLSocket around the Socket.
 
         :param socket.socket sock:
@@ -271,20 +276,31 @@ class IO(object):
             )
 
         context = ssl.create_default_context()
-        verify_mode = ssl_options.get('verify_mode', ssl_options.get('cert_reqs'))
-        context.check_hostname = str(ssl_options.get(
-            'check_hostname', 'False'
-        )).strip().lower() in ('true', '1', 'yes', 'y', 'on')
 
-        if isinstance(verify_mode, ssl.VerifyMode):
-            context.verify_mode = verify_mode
-        elif verify_mode:
-            if verify_mode.lower() == 'required':
-                context.verify_mode = ssl.CERT_REQUIRED
+        verify_mode = ssl_options.get('verify_mode', ssl_options.get('cert_reqs'))
+        if verify_mode is not None:
+            new_mode = None
+            if isinstance(verify_mode, ssl.VerifyMode):
+                new_mode = verify_mode
+            elif verify_mode.lower() == 'required':
+                new_mode = ssl.CERT_REQUIRED
             elif verify_mode.lower() == 'optional':
-                context.verify_mode = ssl.CERT_OPTIONAL
+                new_mode = ssl.CERT_OPTIONAL
             elif verify_mode.lower() == 'none':
-                context.verify_mode = ssl.CERT_NONE
+                new_mode = ssl.CERT_NONE
+            if new_mode is not None:
+                if new_mode == ssl.CERT_NONE:
+                    context.check_hostname = False
+                context.verify_mode = new_mode
+
+        check_hostname = ssl_options.get('check_hostname')
+        if check_hostname is not None:
+            if isinstance(check_hostname, bool):
+                context.check_hostname = check_hostname
+            else:
+                context.check_hostname = str(check_hostname).strip().lower() in (
+                    'true', '1', 'yes', 'y', 'on'
+                )
 
         context.load_default_certs()
         ca_certs = ssl_options.get('ca_certs', ssl_options.get('cafile'))
@@ -298,7 +314,7 @@ class IO(object):
         return context.wrap_socket(sock, do_handshake_on_connect=True,
                                    server_hostname=server_hostname)
 
-    def _create_inbound_thread(self):
+    def _create_inbound_thread(self) -> threading.Thread:
         """Internal Thread that handles all incoming traffic.
 
         :rtype: threading.Thread
@@ -309,17 +325,26 @@ class IO(object):
         inbound_thread.start()
         return inbound_thread
 
-    def _process_incoming_data(self):
+    def _process_incoming_data(self) -> None:
         """Retrieve and process any incoming data.
 
         :return:
         """
-        while self._running.is_set():
-            if self.poller.is_ready:
-                self.data_in += self._receive()
-                self.data_in = self._on_read_impl(self.data_in)
+        try:
+            while self._running.is_set():
+                if self.poller.is_ready:
+                    self.data_in += self._receive()
+                    self.data_in = self._on_read_impl(self.data_in)
+        except Exception as why:
+            self._exceptions.append(AMQPConnectionError(why))
+            if self._running.is_set():
+                LOGGER.warning(
+                    'Stopping inbound thread due to %s', why,
+                    exc_info=True,
+                )
+            self._running.clear()
 
-    def _receive(self):
+    def _receive(self) -> bytes:
         """Receive any incoming socket data.
 
             If an error is thrown, handle it and return an empty string.
@@ -330,36 +355,36 @@ class IO(object):
         data_in = EMPTY_BUFFER
         try:
             data_in = self._read_from_socket()
-            if len(data_in) == 0:
-                raise socket.error("connection closed by server")
-        except socket.timeout:
+            if not data_in:
+                raise OSError('connection closed by server')
+        except TimeoutError:
             pass
         except compatibility.SSLWantReadError:
             # NOTE(visobet): Retry if the non-blocking socket does not
             # have any meaningful data ready.
             pass
-        except (IOError, OSError, ValueError) as why:
-            if why.args[0] not in (EWOULDBLOCK, EAGAIN):
+        except OSError as why:
+            if why.errno not in (EWOULDBLOCK, EAGAIN):
                 self._exceptions.append(AMQPConnectionError(why))
                 if self._running.is_set():
                     LOGGER.warning(
-                        "Stopping inbound thread due to %s", why,
-                        exc_info=True
+                        'Stopping inbound thread due to %s', why,
+                        exc_info=True,
                     )
                 self._running.clear()
         return data_in
 
-    def _read_from_socket(self):
+    def _read_from_socket(self) -> bytes:
         """Read data from the socket.
 
         :rtype: bytes
         """
         if not self.use_ssl:
             if not self.socket:
-                raise socket.error('connection/socket error')
+                raise OSError('connection/socket error')
             return self.socket.recv(MAX_FRAME_SIZE)
 
         with self._rd_lock:
             if not self.socket:
-                raise socket.error('connection/socket error')
-            return self.socket.read(MAX_FRAME_SIZE)
+                raise OSError('connection/socket error')
+            return self.socket.read(MAX_FRAME_SIZE)  # type: ignore[attr-defined]

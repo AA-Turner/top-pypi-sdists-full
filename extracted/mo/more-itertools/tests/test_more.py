@@ -3,6 +3,7 @@ from __future__ import annotations
 import cmath
 import gc
 import platform
+import types
 import weakref
 
 from collections import Counter, deque
@@ -471,6 +472,14 @@ class PeekableTests(PeekableMixinTests, TestCase):
         actual = list(it)
         expected = [12, 11, 10, 0, 1, 2]
         self.assertEqual(actual, expected)
+
+    def test_class_getitem(self):
+        """peekable[T] should return a GenericAlias, matching the behaviour of
+        list[T], allowing use in generic type annotations at runtime."""
+        alias = mi.peekable[str]
+        self.assertIsInstance(alias, types.GenericAlias)
+        self.assertIs(alias.__origin__, mi.peekable)
+        self.assertEqual(alias.__args__, (str,))
 
 
 class ConsumerTests(TestCase):
@@ -3137,6 +3146,9 @@ class NumericRangeTests(TestCase):
             self.assertTrue(dumps(r))  # assert not empty
             self.assertEqual(r, loads(dumps(r)))
 
+    def test_empty_reversed(self):
+        self.assertEqual(list(reversed(mi.numeric_range(0))), [])
+
 
 class CountCycleTests(TestCase):
     def test_basic(self):
@@ -3612,6 +3624,23 @@ class SeekableTest(PeekableMixinTests, TestCase):
         self.assertEqual(next(s), '0')
         s.relative_seek(10)  # Lower bound
         self.assertEqual(list(s.elements()), [str(x) for x in range(5)])
+
+    def test_getitem(self):
+        s = mi.seekable(str(n) for n in range(10))
+        with self.assertRaises(IndexError):
+            s[0]
+        mi.take(3, s)
+        self.assertEqual(s[-1], '2')
+        self.assertEqual(s[0], '0')
+        self.assertEqual(s[2], '2')
+        with self.assertRaises(IndexError):
+            s[3]
+
+    def test_getitem_maxlen(self):
+        s = mi.seekable((str(n) for n in range(10)), maxlen=2)
+        mi.take(5, s)
+        self.assertEqual(s[-1], '4')
+        self.assertEqual(s[0], '3')
 
 
 class SequenceViewTests(TestCase):
@@ -6563,6 +6592,81 @@ class TestSerialize(TestCase):
             worker.join()
 
         self.assertEqual(result, limit * (limit - 1) // 2)
+
+    def test_serialize_generator_methods(self):
+        # A generator that yields and receives
+        def echo():
+            try:
+                while True:
+                    val = yield "ready"
+                    yield f"received {val}"
+            except ValueError:
+                yield "caught"
+
+        it = mi.serialize(echo())
+
+        # Test __next__
+        self.assertEqual(next(it), "ready")
+
+        # Test send()
+        self.assertEqual(it.send("hello"), "received hello")
+        self.assertEqual(next(it), "ready")
+
+        # Test throw()
+        self.assertEqual(it.throw(ValueError), "caught")
+
+        # Test close()
+        it.close()
+        with self.assertRaises(StopIteration):
+            next(it)
+
+    def test_serialize_methods_attribute_error(self):
+        # A standard iterator that does not have send/throw/close
+        # should raise AttributeError when called.
+        standard_it = mi.serialize([1, 2, 3])
+
+        with self.assertRaises(AttributeError):
+            standard_it.send("foo")
+
+        with self.assertRaises(AttributeError):
+            standard_it.throw(ValueError)
+
+        with self.assertRaises(AttributeError):
+            standard_it.close()
+
+    def test_serialize_generator_methods_locking(self):
+        # Verifies that generator methods also acquire the lock.
+        # We can test this by checking if the lock is held during the call.
+
+        class LockCheckingGenerator:
+            def __init__(self, lock):
+                self.lock = lock
+
+            def __iter__(self):
+                return self
+
+            def send(self, value):
+                if not self.lock.locked():
+                    raise RuntimeError("Lock not held during send()")
+                return value
+
+            def throw(self, *args):
+                if not self.lock.locked():
+                    raise RuntimeError("Lock not held during throw()")
+
+            def close(self):
+                if not self.lock.locked():
+                    raise RuntimeError("Lock not held during close()")
+
+        # Manually create the serialize object to inspect the lock
+        it = mi.serialize([])
+        mock_gen = LockCheckingGenerator(it._lock)
+        it._iterator = mock_gen
+
+        # These should not raise RuntimeError
+        it.send(1)
+        it.throw(ValueError)
+        it.close()
 
 
 class TestSynchronized(TestCase):

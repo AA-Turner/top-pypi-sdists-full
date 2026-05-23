@@ -27,7 +27,7 @@ class GetRegionNetworkEndpointGroupResult:
     """
     A collection of values returned by getRegionNetworkEndpointGroup.
     """
-    def __init__(__self__, app_engines=None, cloud_functions=None, cloud_runs=None, description=None, id=None, name=None, network=None, network_endpoint_type=None, project=None, psc_datas=None, psc_target_service=None, region=None, self_link=None, serverless_deployments=None, subnetwork=None):
+    def __init__(__self__, app_engines=None, cloud_functions=None, cloud_runs=None, deletion_policy=None, description=None, id=None, name=None, network=None, network_endpoint_type=None, project=None, psc_datas=None, psc_target_service=None, region=None, self_link=None, serverless_deployments=None, subnetwork=None):
         if app_engines and not isinstance(app_engines, list):
             raise TypeError("Expected argument 'app_engines' to be a list")
         pulumi.set(__self__, "app_engines", app_engines)
@@ -37,6 +37,9 @@ class GetRegionNetworkEndpointGroupResult:
         if cloud_runs and not isinstance(cloud_runs, list):
             raise TypeError("Expected argument 'cloud_runs' to be a list")
         pulumi.set(__self__, "cloud_runs", cloud_runs)
+        if deletion_policy and not isinstance(deletion_policy, str):
+            raise TypeError("Expected argument 'deletion_policy' to be a str")
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description and not isinstance(description, str):
             raise TypeError("Expected argument 'description' to be a str")
         pulumi.set(__self__, "description", description)
@@ -88,6 +91,11 @@ class GetRegionNetworkEndpointGroupResult:
     @pulumi.getter(name="cloudRuns")
     def cloud_runs(self) -> Sequence['outputs.GetRegionNetworkEndpointGroupCloudRunResult']:
         return pulumi.get(self, "cloud_runs")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter
@@ -177,6 +185,7 @@ class AwaitableGetRegionNetworkEndpointGroupResult(GetRegionNetworkEndpointGroup
             app_engines=self.app_engines,
             cloud_functions=self.cloud_functions,
             cloud_runs=self.cloud_runs,
+            deletion_policy=self.deletion_policy,
             description=self.description,
             id=self.id,
             name=self.name,
@@ -230,6 +239,7 @@ def get_region_network_endpoint_group(name: Optional[_builtins.str] = None,
         app_engines=pulumi.get(__ret__, 'app_engines'),
         cloud_functions=pulumi.get(__ret__, 'cloud_functions'),
         cloud_runs=pulumi.get(__ret__, 'cloud_runs'),
+        deletion_policy=pulumi.get(__ret__, 'deletion_policy'),
         description=pulumi.get(__ret__, 'description'),
         id=pulumi.get(__ret__, 'id'),
         name=pulumi.get(__ret__, 'name'),
@@ -242,10 +252,10 @@ def get_region_network_endpoint_group(name: Optional[_builtins.str] = None,
         self_link=pulumi.get(__ret__, 'self_link'),
         serverless_deployments=pulumi.get(__ret__, 'serverless_deployments'),
         subnetwork=pulumi.get(__ret__, 'subnetwork'))
-def get_region_network_endpoint_group_output(name: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                             project: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                             region: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                                             self_link: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_region_network_endpoint_group_output(name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                             project: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                             region: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                                             self_link: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                              opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetRegionNetworkEndpointGroupResult]:
     """
     Use this data source to access a Region Network Endpoint Group's attributes.
@@ -280,6 +290,7 @@ def get_region_network_endpoint_group_output(name: Optional[pulumi.Input[Optiona
         app_engines=pulumi.get(__response__, 'app_engines'),
         cloud_functions=pulumi.get(__response__, 'cloud_functions'),
         cloud_runs=pulumi.get(__response__, 'cloud_runs'),
+        deletion_policy=pulumi.get(__response__, 'deletion_policy'),
         description=pulumi.get(__response__, 'description'),
         id=pulumi.get(__response__, 'id'),
         name=pulumi.get(__response__, 'name'),

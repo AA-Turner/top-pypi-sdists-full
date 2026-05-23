@@ -26,7 +26,8 @@ class MembershipRbacRoleBindingArgs:
                  membership_rbac_role_binding_id: pulumi.Input[_builtins.str],
                  role: pulumi.Input['MembershipRbacRoleBindingRoleArgs'],
                  user: pulumi.Input[_builtins.str],
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a MembershipRbacRoleBinding resource.
 
@@ -39,6 +40,12 @@ class MembershipRbacRoleBindingArgs:
                is required). Updating one will unset the other automatically.
                user is the name of the user as seen by the kubernetes cluster, example
                "alice" or "alice@domain.tld"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
@@ -47,6 +54,8 @@ class MembershipRbacRoleBindingArgs:
         pulumi.set(__self__, "membership_rbac_role_binding_id", membership_rbac_role_binding_id)
         pulumi.set(__self__, "role", role)
         pulumi.set(__self__, "user", user)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
 
@@ -115,8 +124,25 @@ class MembershipRbacRoleBindingArgs:
         pulumi.set(self, "user", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -124,30 +150,37 @@ class MembershipRbacRoleBindingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _MembershipRbacRoleBindingState:
     def __init__(__self__, *,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input['MembershipRbacRoleBindingRoleArgs']] = None,
-                 states: Optional[pulumi.Input[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None):
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional['MembershipRbacRoleBindingRoleArgs']] = None,
+                 states: pulumi.Input[Optional[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MembershipRbacRoleBinding resources.
 
         :param pulumi.Input[_builtins.str] create_time: Time the RBAC Role Binding was created in UTC.
         :param pulumi.Input[_builtins.str] delete_time: Time the RBAC Role Binding was deleted in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: Location of the Membership
         :param pulumi.Input[_builtins.str] membership_id: Id of the membership
         :param pulumi.Input[_builtins.str] membership_rbac_role_binding_id: The client-provided identifier of the RBAC Role Binding.
@@ -169,6 +202,8 @@ class _MembershipRbacRoleBindingState:
             pulumi.set(__self__, "create_time", create_time)
         if delete_time is not None:
             pulumi.set(__self__, "delete_time", delete_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if membership_id is not None:
@@ -192,79 +227,96 @@ class _MembershipRbacRoleBindingState:
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was created in UTC.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="deleteTime")
-    def delete_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def delete_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was deleted in UTC.
         """
         return pulumi.get(self, "delete_time")
 
     @delete_time.setter
-    def delete_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def delete_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "delete_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location of the Membership
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="membershipId")
-    def membership_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def membership_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Id of the membership
         """
         return pulumi.get(self, "membership_id")
 
     @membership_id.setter
-    def membership_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def membership_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "membership_id", value)
 
     @_builtins.property
     @pulumi.getter(name="membershipRbacRoleBindingId")
-    def membership_rbac_role_binding_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def membership_rbac_role_binding_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client-provided identifier of the RBAC Role Binding.
         """
         return pulumi.get(self, "membership_rbac_role_binding_id")
 
     @membership_rbac_role_binding_id.setter
-    def membership_rbac_role_binding_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def membership_rbac_role_binding_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "membership_rbac_role_binding_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name for the RBAC Role Binding
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -272,12 +324,12 @@ class _MembershipRbacRoleBindingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def role(self) -> Optional[pulumi.Input['MembershipRbacRoleBindingRoleArgs']]:
+    def role(self) -> pulumi.Input[Optional['MembershipRbacRoleBindingRoleArgs']]:
         """
         Role to bind to the principal.
         Structure is documented below.
@@ -285,12 +337,12 @@ class _MembershipRbacRoleBindingState:
         return pulumi.get(self, "role")
 
     @role.setter
-    def role(self, value: Optional[pulumi.Input['MembershipRbacRoleBindingRoleArgs']]):
+    def role(self, value: pulumi.Input[Optional['MembershipRbacRoleBindingRoleArgs']]):
         pulumi.set(self, "role", value)
 
     @_builtins.property
     @pulumi.getter
-    def states(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]]:
+    def states(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]]:
         """
         State of the RBAC Role Binding resource.
         Structure is documented below.
@@ -298,36 +350,36 @@ class _MembershipRbacRoleBindingState:
         return pulumi.get(self, "states")
 
     @states.setter
-    def states(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]]):
+    def states(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['MembershipRbacRoleBindingStateArgs']]]]):
         pulumi.set(self, "states", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Google-generated UUID for this resource.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time the RBAC Role Binding was updated in UTC.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def user(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Principal that is be authorized in the cluster (at least of one the oneof
         is required). Updating one will unset the other automatically.
@@ -337,7 +389,7 @@ class _MembershipRbacRoleBindingState:
         return pulumi.get(self, "user")
 
     @user.setter
-    def user(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user", value)
 
 
@@ -347,12 +399,13 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         RBACRoleBinding represents a rbacrolebinding across the Fleet.
@@ -382,7 +435,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
             network="default",
             subnetwork="default")
         membership = gcp.gkehub.Membership("membership",
-            membership_id="tf-test-membership_42702",
+            membership_id="tf-test-membership_94690",
             endpoint={
                 "gke_cluster": {
                     "resource_link": primary.id.apply(lambda id: f"//container.googleapis.com/{id}"),
@@ -391,7 +444,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
             opts = pulumi.ResourceOptions(depends_on=[primary]))
         project = gcp.organizations.get_project()
         membership_rbac_role_binding = gcp.gkehub.MembershipRbacRoleBinding("membership_rbac_role_binding",
-            membership_rbac_role_binding_id="tf-test-membership-rbac-role-binding_37426",
+            membership_rbac_role_binding_id="tf-test-membership-rbac-role-binding_29947",
             membership_id=membership.membership_id,
             user=f"service-{project.number}@gcp-sa-anthossupport.iam.gserviceaccount.com",
             role={
@@ -420,6 +473,12 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: Location of the Membership
         :param pulumi.Input[_builtins.str] membership_id: Id of the membership
         :param pulumi.Input[_builtins.str] membership_rbac_role_binding_id: The client-provided identifier of the RBAC Role Binding.
@@ -466,7 +525,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
             network="default",
             subnetwork="default")
         membership = gcp.gkehub.Membership("membership",
-            membership_id="tf-test-membership_42702",
+            membership_id="tf-test-membership_94690",
             endpoint={
                 "gke_cluster": {
                     "resource_link": primary.id.apply(lambda id: f"//container.googleapis.com/{id}"),
@@ -475,7 +534,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
             opts = pulumi.ResourceOptions(depends_on=[primary]))
         project = gcp.organizations.get_project()
         membership_rbac_role_binding = gcp.gkehub.MembershipRbacRoleBinding("membership_rbac_role_binding",
-            membership_rbac_role_binding_id="tf-test-membership-rbac-role-binding_37426",
+            membership_rbac_role_binding_id="tf-test-membership-rbac-role-binding_29947",
             membership_id=membership.membership_id,
             user=f"service-{project.number}@gcp-sa-anthossupport.iam.gserviceaccount.com",
             role={
@@ -517,12 +576,13 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 membership_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 role: Optional[pulumi.Input[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
-                 user: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 membership_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 role: pulumi.Input[Optional[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
+                 user: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -532,6 +592,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = MembershipRbacRoleBindingArgs.__new__(MembershipRbacRoleBindingArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
@@ -564,18 +625,19 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            delete_time: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            membership_id: Optional[pulumi.Input[_builtins.str]] = None,
-            membership_rbac_role_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            role: Optional[pulumi.Input[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
-            states: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MembershipRbacRoleBindingStateArgs', 'MembershipRbacRoleBindingStateArgsDict']]]]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            user: Optional[pulumi.Input[_builtins.str]] = None) -> 'MembershipRbacRoleBinding':
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            delete_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            membership_id: pulumi.Input[Optional[_builtins.str]] = None,
+            membership_rbac_role_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            role: pulumi.Input[Optional[Union['MembershipRbacRoleBindingRoleArgs', 'MembershipRbacRoleBindingRoleArgsDict']]] = None,
+            states: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MembershipRbacRoleBindingStateArgs', 'MembershipRbacRoleBindingStateArgsDict']]]]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            user: pulumi.Input[Optional[_builtins.str]] = None) -> 'MembershipRbacRoleBinding':
         """
         Get an existing MembershipRbacRoleBinding resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -585,6 +647,12 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] create_time: Time the RBAC Role Binding was created in UTC.
         :param pulumi.Input[_builtins.str] delete_time: Time the RBAC Role Binding was deleted in UTC.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: Location of the Membership
         :param pulumi.Input[_builtins.str] membership_id: Id of the membership
         :param pulumi.Input[_builtins.str] membership_rbac_role_binding_id: The client-provided identifier of the RBAC Role Binding.
@@ -608,6 +676,7 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
 
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["delete_time"] = delete_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["location"] = location
         __props__.__dict__["membership_id"] = membership_id
         __props__.__dict__["membership_rbac_role_binding_id"] = membership_rbac_role_binding_id
@@ -635,6 +704,19 @@ class MembershipRbacRoleBinding(pulumi.CustomResource):
         Time the RBAC Role Binding was deleted in UTC.
         """
         return pulumi.get(self, "delete_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

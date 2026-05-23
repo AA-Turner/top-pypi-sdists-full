@@ -87,7 +87,7 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
         workflow_position = data.get("position", (0, 0))
         id = data.get("id", None)
-        form = controller.create_form(title, file, workflow_position, id)
+        form = controller.create_stage("form", title, file, workflow_position, id)
         return form.editor_dto
 
     @bp.put("/<path:id>")

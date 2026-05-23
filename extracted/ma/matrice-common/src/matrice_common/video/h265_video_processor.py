@@ -1,5 +1,7 @@
 """H.265 video encoder and decoder classes for both frame-wise and continuous stream processing."""
 
+from __future__ import annotations
+
 import logging
 import queue
 import subprocess
@@ -7,8 +9,15 @@ import threading
 import time
 from typing import Generator, Optional, Tuple
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

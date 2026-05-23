@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: benchmark-runner
-Version: 1.0.1001
+Version: 1.0.1002
 Summary: Benchmark Runner Tool
 Author-email: Red Hat <ebattat@redhat.com>
 License-Expression: Apache-2.0
@@ -33,6 +33,7 @@ Requires-Dist: prometheus-api-client==0.5.1
 Requires-Dist: pandas
 Requires-Dist: paramiko==3.4.0
 Requires-Dist: PyGitHub==1.55
+Requires-Dist: PySocks>=1.7.1
 Requires-Dist: PyYAML==6.0.1
 Requires-Dist: setuptools
 Requires-Dist: sphinx==5.0.0

@@ -1,4 +1,4 @@
-mod datadir;
+pub mod datadir;
 pub use datadir::data_found;
 pub use datadir::datadir;
 pub use datadir::set_datadir;
@@ -6,10 +6,12 @@ pub use datadir::set_datadir;
 #[cfg(test)]
 pub mod test;
 
-mod update_data;
+#[cfg(feature = "download")]
+pub mod update_data;
+#[cfg(feature = "download")]
 pub use update_data::update_datafiles;
 
-mod download;
+pub mod download;
 pub use download::download_file;
 pub use download::download_file_async;
 pub use download::download_if_not_exist;

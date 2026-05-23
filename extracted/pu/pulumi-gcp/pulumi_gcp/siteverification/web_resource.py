@@ -22,7 +22,8 @@ __all__ = ['WebResourceArgs', 'WebResource']
 class WebResourceArgs:
     def __init__(__self__, *,
                  site: pulumi.Input['WebResourceSiteArgs'],
-                 verification_method: pulumi.Input[_builtins.str]):
+                 verification_method: pulumi.Input[_builtins.str],
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WebResource resource.
 
@@ -31,9 +32,17 @@ class WebResourceArgs:
         :param pulumi.Input[_builtins.str] verification_method: The verification method for the Site Verification system to use to verify
                this site or domain.
                Possible values are: `ANALYTICS`, `DNS_CNAME`, `DNS_TXT`, `FILE`, `META`, `TAG_MANAGER`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         """
         pulumi.set(__self__, "site", site)
         pulumi.set(__self__, "verification_method", verification_method)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
 
     @_builtins.property
     @pulumi.getter
@@ -62,17 +71,41 @@ class WebResourceArgs:
     def verification_method(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "verification_method", value)
 
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
 
 @pulumi.input_type
 class _WebResourceState:
     def __init__(__self__, *,
-                 owners: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 site: Optional[pulumi.Input['WebResourceSiteArgs']] = None,
-                 verification_method: Optional[pulumi.Input[_builtins.str]] = None,
-                 web_resource_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 owners: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 site: pulumi.Input[Optional['WebResourceSiteArgs']] = None,
+                 verification_method: pulumi.Input[Optional[_builtins.str]] = None,
+                 web_resource_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WebResource resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] owners: The email addresses of all direct, verified owners of this exact property. Indirect owners —
                for example verified owners of the containing domain—are not included in this list.
         :param pulumi.Input['WebResourceSiteArgs'] site: Container for the address and type of a site for which a verification token will be verified.
@@ -82,6 +115,8 @@ class _WebResourceState:
                Possible values are: `ANALYTICS`, `DNS_CNAME`, `DNS_TXT`, `FILE`, `META`, `TAG_MANAGER`.
         :param pulumi.Input[_builtins.str] web_resource_id: The string used to identify this web resource.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if owners is not None:
             pulumi.set(__self__, "owners", owners)
         if site is not None:
@@ -92,8 +127,25 @@ class _WebResourceState:
             pulumi.set(__self__, "web_resource_id", web_resource_id)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def owners(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def owners(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The email addresses of all direct, verified owners of this exact property. Indirect owners —
         for example verified owners of the containing domain—are not included in this list.
@@ -101,12 +153,12 @@ class _WebResourceState:
         return pulumi.get(self, "owners")
 
     @owners.setter
-    def owners(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def owners(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "owners", value)
 
     @_builtins.property
     @pulumi.getter
-    def site(self) -> Optional[pulumi.Input['WebResourceSiteArgs']]:
+    def site(self) -> pulumi.Input[Optional['WebResourceSiteArgs']]:
         """
         Container for the address and type of a site for which a verification token will be verified.
         Structure is documented below.
@@ -114,12 +166,12 @@ class _WebResourceState:
         return pulumi.get(self, "site")
 
     @site.setter
-    def site(self, value: Optional[pulumi.Input['WebResourceSiteArgs']]):
+    def site(self, value: pulumi.Input[Optional['WebResourceSiteArgs']]):
         pulumi.set(self, "site", value)
 
     @_builtins.property
     @pulumi.getter(name="verificationMethod")
-    def verification_method(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def verification_method(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The verification method for the Site Verification system to use to verify
         this site or domain.
@@ -128,19 +180,19 @@ class _WebResourceState:
         return pulumi.get(self, "verification_method")
 
     @verification_method.setter
-    def verification_method(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def verification_method(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "verification_method", value)
 
     @_builtins.property
     @pulumi.getter(name="webResourceId")
-    def web_resource_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def web_resource_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The string used to identify this web resource.
         """
         return pulumi.get(self, "web_resource_id")
 
     @web_resource_id.setter
-    def web_resource_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def web_resource_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "web_resource_id", value)
 
 
@@ -150,8 +202,9 @@ class WebResource(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 site: Optional[pulumi.Input[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
-                 verification_method: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 site: pulumi.Input[Optional[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
+                 verification_method: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A web resource is a website or domain with verified ownership. Once your
@@ -213,6 +266,12 @@ class WebResource(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']] site: Container for the address and type of a site for which a verification token will be verified.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] verification_method: The verification method for the Site Verification system to use to verify
@@ -298,8 +357,9 @@ class WebResource(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 site: Optional[pulumi.Input[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
-                 verification_method: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 site: pulumi.Input[Optional[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
+                 verification_method: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -309,6 +369,7 @@ class WebResource(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = WebResourceArgs.__new__(WebResourceArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if site is None and not opts.urn:
                 raise TypeError("Missing required property 'site'")
             __props__.__dict__["site"] = site
@@ -327,10 +388,11 @@ class WebResource(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            owners: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            site: Optional[pulumi.Input[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
-            verification_method: Optional[pulumi.Input[_builtins.str]] = None,
-            web_resource_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WebResource':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            owners: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            site: pulumi.Input[Optional[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']]] = None,
+            verification_method: pulumi.Input[Optional[_builtins.str]] = None,
+            web_resource_id: pulumi.Input[Optional[_builtins.str]] = None) -> 'WebResource':
         """
         Get an existing WebResource resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -338,6 +400,12 @@ class WebResource(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] owners: The email addresses of all direct, verified owners of this exact property. Indirect owners —
                for example verified owners of the containing domain—are not included in this list.
         :param pulumi.Input[Union['WebResourceSiteArgs', 'WebResourceSiteArgsDict']] site: Container for the address and type of a site for which a verification token will be verified.
@@ -351,11 +419,25 @@ class WebResource(pulumi.CustomResource):
 
         __props__ = _WebResourceState.__new__(_WebResourceState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["owners"] = owners
         __props__.__dict__["site"] = site
         __props__.__dict__["verification_method"] = verification_method
         __props__.__dict__["web_resource_id"] = web_resource_id
         return WebResource(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

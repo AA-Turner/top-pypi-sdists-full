@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '55483624':{'en': 'Jaguaruna - SC', 'pt': 'Jaguaruna - SC'},
+ '55483625':{'en': 'Treze de Maio - SC', 'pt': 'Treze de Maio - SC'},
+ '55483626':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
+ '55483631':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
+ '55483632':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
+ '55483641':{'en': 'Tijucas - SC', 'pt': 'Tijucas - SC'},
+ '55483642':{'en': 'Gravatal - SC', 'pt': 'Gravatal - SC'},
  '55483643':{'en': u('Imaru\u00ed - SC'), 'pt': u('Imaru\u00ed - SC')},
  '55483644':{'en': 'Laguna - SC', 'pt': 'Laguna - SC'},
  '55483645':{'en': u('Armaz\u00e9m - SC'), 'pt': u('Armaz\u00e9m - SC')},
@@ -10012,11 +10019,4 @@ data = {
  '609454':{'en': 'Bukit Ibam'},
  '609455':{'en': 'Bukit Ibam'},
  '609456':{'en': 'Chini'},
- '609457':{'en': 'Chini'},
- '609458':{'en': 'Bukit Ibam'},
- '609460':{'en': 'Maran'},
- '609466':{'en': 'Maran'},
- '609467':{'en': 'Maran'},
- '609468':{'en': 'Maran'},
- '609470':{'en': 'Bukit Ibam'},
 }

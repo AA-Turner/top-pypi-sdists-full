@@ -2110,6 +2110,75 @@ class OfflineQueryInfo:
 
 
 @dataclasses.dataclass
+class OfflineQueryProfilePercentileStats:
+    p50: float
+    p75: float
+    p90: float
+    p99: float
+    p_max: float
+
+    @staticmethod
+    def from_proto(proto: Any) -> "OfflineQueryProfilePercentileStats":
+        return OfflineQueryProfilePercentileStats(
+            p50=proto.p50,
+            p75=proto.p75,
+            p90=proto.p90,
+            p99=proto.p99,
+            p_max=proto.p_max,
+        )
+
+
+@dataclasses.dataclass
+class OfflineQueryProfileSummaryRow:
+    source: str
+    metric: str
+    count: int
+    stats: Optional[OfflineQueryProfilePercentileStats] = None
+
+    @staticmethod
+    def from_proto(proto: Any) -> "OfflineQueryProfileSummaryRow":
+        return OfflineQueryProfileSummaryRow(
+            source=proto.source,
+            metric=proto.metric,
+            count=proto.count,
+            stats=(OfflineQueryProfilePercentileStats.from_proto(proto.stats) if proto.HasField("stats") else None),
+        )
+
+
+@dataclasses.dataclass
+class OfflineQueryProfileSummary:
+    operation_id: str
+    status: str
+    shard_count: int
+    performance_shards: int
+    pod_names: List[str]
+    rows: List[OfflineQueryProfileSummaryRow]
+    warnings: List[str]
+
+    @staticmethod
+    def from_proto(proto: Any) -> "OfflineQueryProfileSummary":
+        _status_map = {
+            0: "UNSPECIFIED",
+            1: "UNKNOWN",
+            2: "WORKING",
+            3: "FAILED",
+            4: "COMPLETED",
+            5: "CANCELED",
+            6: "QUEUED",
+        }
+
+        return OfflineQueryProfileSummary(
+            operation_id=proto.operation_id,
+            status=_status_map.get(proto.status, "UNKNOWN"),
+            shard_count=proto.shard_count,
+            performance_shards=proto.performance_shards,
+            pod_names=list(proto.pod_names),
+            rows=[OfflineQueryProfileSummaryRow.from_proto(row) for row in proto.rows],
+            warnings=list(proto.warnings),
+        )
+
+
+@dataclasses.dataclass
 class WorkflowExecutionInfo:
     """Metadata for a workflow execution backing a scheduled query run."""
 

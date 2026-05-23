@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LCPDelta"
-version = "2.1.27"
+version = "2.2.0"
 authors = [
   { name="LCP Delta", email="enact.helpdesk@lcp.uk.com" },
 ]
@@ -21,13 +21,18 @@ dependencies = [
     "numpy",
     "pandas",
     "requests",
-    "pysignalr",
+    "pysignalr>=1.3.2,<2",
     "matplotlib",
     "httpx",
     "tenacity"
 ]
 
 [project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-mock",
+    "pytest-asyncio",
+]
 dev = [
     "pre-commit",
     "ruff",
@@ -47,13 +52,16 @@ dev = [
 [tool.ruff]
 src = ["lcpdelta_python_package/src"]
 line-length = 120
-target-version = "2.1.27"
+target-version = "2.2.0"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["E402", "F401"]
 
 [tool.ruff.lint]
 select = ["FBT003", "RET504"]
+
+[tool.pytest.ini_options]
+testpaths = ["lcpdelta_python_package/tests/unit"]
 
 [tool.setuptools.packages.find]
 where = ["lcpdelta_python_package/src"]

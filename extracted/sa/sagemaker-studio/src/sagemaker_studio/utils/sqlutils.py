@@ -1,9 +1,11 @@
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, TypedDict, Union
 from uuid import uuid4
 
 import sagemaker_studio.utils.sql_handler as sql_handler
+from sagemaker_studio.connections.connection import SUPPORTED_IRC_GLUE_CONNECTION_TYPES, Connection
 from sagemaker_studio.connections.helper_factory import HelperFactory
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
@@ -55,7 +57,11 @@ def _make_cache_key(connection_id: Optional[str], connection_name: Optional[str]
 
 
 def _get_or_create_connection(
-    connection_id: Optional[str], connection_name: Optional[str], persist_session: bool, **kwargs
+    connection_id: Optional[str],
+    connection_name: Optional[str],
+    dz_conn: Connection,
+    persist_session: bool,
+    **kwargs,
 ) -> Optional[ManagedConnection]:
     """
     Get cached connection or create new one.
@@ -74,7 +80,7 @@ def _get_or_create_connection(
             return cached
 
     # Create new engine
-    engine = get_engine(connection_id, connection_name, **kwargs)
+    engine = _get_engine_from_connection(dz_conn, **kwargs)
 
     if not engine:
         return None
@@ -131,10 +137,17 @@ def sql(
         spark = _ensure_spark()
         return spark.sql(query)
 
+    resolved_dz_conn = _resolve_connection(connection_id, connection_name)
+    if resolved_dz_conn and resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+        spark = _ensure_spark()
+        return _execute_irc_connection_query(query, resolved_dz_conn)
+
     # adding args anyway as we will filter out necessary args to pass down based on engine type
     _apply_athena_context(query, kwargs)
 
-    cached = _get_or_create_connection(connection_id, connection_name, persist_session, **kwargs)
+    cached = _get_or_create_connection(
+        connection_id, connection_name, resolved_dz_conn, persist_session, **kwargs
+    )
 
     if cached:
         result = next(
@@ -200,10 +213,29 @@ def sql_stream(
             error_strategy,
         )
 
+    resolved_dz_conn = _resolve_connection(connection_id, connection_name)
+    if resolved_dz_conn and resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+        from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
+        from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+
+        spark = _ensure_spark()
+        statements = SparkTransformer.split_query(query)
+
+        def execute_stmt(stmt):
+            return _execute_irc_connection_query(stmt, resolved_dz_conn)
+
+        return SqlExecutor.execute_statements(
+            statements,
+            execute_stmt,
+            error_strategy,
+        )
+
     # adding args anyway as we will filter out necessary args to pass down based on engine type
     _apply_athena_context(query, kwargs)
 
-    cached = _get_or_create_connection(connection_id, connection_name, persist_session, **kwargs)
+    cached = _get_or_create_connection(
+        connection_id, connection_name, resolved_dz_conn, persist_session, **kwargs
+    )
 
     if cached:
         return _ensure_sql_executor().execute(
@@ -223,6 +255,27 @@ def sql_stream(
             lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
             error_strategy,
         )
+
+
+def _execute_irc_connection_query(query: str, resolved_dz_conn: Connection):
+    spark = _ensure_spark()
+    try:
+        df = spark.sql(query)
+        df.schema
+        return df
+    except Exception as e:
+        if (
+            resolved_dz_conn.type == "WORKDAYICEBERGRESTCATALOG"
+            and "org.apache.iceberg.exceptions.NotAuthorizedException" in str(e)
+        ):
+            spark_catalog_configs = resolved_dz_conn._spark_catalog_configs()
+            catalog_names = json.loads(spark_catalog_configs["SOURCE_CATALOG_LIST"])
+            for catalog_name in catalog_names:
+                access_token = spark_catalog_configs["ACCESS_TOKEN"]
+                spark.conf.set(f"spark.sql.catalog.{catalog_name}.token", access_token)
+            return spark.sql(query)
+        else:
+            raise
 
 
 def sql_stream_with_display(
@@ -338,6 +391,56 @@ def get_engine(
     connection_config = sql_helper.to_sql_config(connection, **kwargs)
 
     return sql_executor.create_engine(connection.type, connection_config)
+
+
+def _resolve_connection(connection_id: str, connection_name: str):
+    """Resolve a connection by name or id. Returns None if neither is provided."""
+    if not connection_name and not connection_id:
+        return None
+    project = _ensure_project()
+    if not project:
+        raise RuntimeError("Project is not initialized.")
+    if connection_name:
+        return project.connection(connection_name)
+    return project.connection(id=connection_id)
+
+
+def _get_engine_from_connection(conn: Connection, **kwargs):
+    """Create a SQL engine from an already-resolved connection. Returns None if conn is None."""
+    if conn is None:
+        return None
+
+    sql_executor = _ensure_sql_executor()
+
+    if conn.type not in sql_executor.get_supported_connection_types():
+        raise RuntimeError(
+            f"SQL is not supported for connection type {conn.type}. Supported types are {', '.join(sql_executor.get_supported_connection_types())}."
+        )
+
+    sql_helper = HelperFactory.get_sql_helper(conn.type)
+
+    # Pass credential provider that fetches fresh connection
+    def credential_provider():
+        """Fetch fresh credentials by re-fetching connection"""
+        creds = conn.connection_creds
+        expiry = creds.expiration
+
+        if not expiry:
+            # Default to 15 min from now if no expiry provided
+            expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        return {
+            "access_key_id": creds.access_key_id,
+            "secret_access_key": creds.secret_access_key,
+            "session_token": creds.session_token,
+            "expiration": expiry.isoformat(),
+        }
+
+    kwargs["credential_provider"] = credential_provider
+
+    connection_config = sql_helper.to_sql_config(conn, **kwargs)
+
+    return sql_executor.create_engine(conn.type, connection_config)
 
 
 def _apply_athena_context(query: str, kwargs: dict) -> None:

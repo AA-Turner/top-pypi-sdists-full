@@ -27,7 +27,7 @@ class GetAuthorityResult:
     """
     A collection of values returned by getAuthority.
     """
-    def __init__(__self__, access_urls=None, certificate_authority_id=None, configs=None, create_time=None, deletion_protection=None, desired_state=None, effective_labels=None, gcs_bucket=None, id=None, ignore_active_certificates_on_deletion=None, key_specs=None, labels=None, lifetime=None, location=None, name=None, pem_ca_certificate=None, pem_ca_certificates=None, pem_csr=None, pool=None, project=None, pulumi_labels=None, skip_grace_period=None, state=None, subordinate_configs=None, type=None, update_time=None, user_defined_access_urls=None):
+    def __init__(__self__, access_urls=None, certificate_authority_id=None, configs=None, create_time=None, deletion_policy=None, deletion_protection=None, desired_state=None, effective_labels=None, gcs_bucket=None, id=None, ignore_active_certificates_on_deletion=None, key_specs=None, labels=None, lifetime=None, location=None, name=None, pem_ca_certificate=None, pem_ca_certificates=None, pem_csr=None, pool=None, project=None, pulumi_labels=None, skip_grace_period=None, state=None, subordinate_configs=None, type=None, update_time=None, user_defined_access_urls=None):
         if access_urls and not isinstance(access_urls, list):
             raise TypeError("Expected argument 'access_urls' to be a list")
         pulumi.set(__self__, "access_urls", access_urls)
@@ -40,6 +40,9 @@ class GetAuthorityResult:
         if create_time and not isinstance(create_time, str):
             raise TypeError("Expected argument 'create_time' to be a str")
         pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy and not isinstance(deletion_policy, str):
+            raise TypeError("Expected argument 'deletion_policy' to be a str")
+        pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deletion_protection and not isinstance(deletion_protection, bool):
             raise TypeError("Expected argument 'deletion_protection' to be a bool")
         pulumi.set(__self__, "deletion_protection", deletion_protection)
@@ -129,6 +132,11 @@ class GetAuthorityResult:
     @pulumi.getter(name="createTime")
     def create_time(self) -> _builtins.str:
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> _builtins.str:
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deletionProtection")
@@ -262,6 +270,7 @@ class AwaitableGetAuthorityResult(GetAuthorityResult):
             certificate_authority_id=self.certificate_authority_id,
             configs=self.configs,
             create_time=self.create_time,
+            deletion_policy=self.deletion_policy,
             deletion_protection=self.deletion_protection,
             desired_state=self.desired_state,
             effective_labels=self.effective_labels,
@@ -329,6 +338,7 @@ def get_authority(certificate_authority_id: Optional[_builtins.str] = None,
         certificate_authority_id=pulumi.get(__ret__, 'certificate_authority_id'),
         configs=pulumi.get(__ret__, 'configs'),
         create_time=pulumi.get(__ret__, 'create_time'),
+        deletion_policy=pulumi.get(__ret__, 'deletion_policy'),
         deletion_protection=pulumi.get(__ret__, 'deletion_protection'),
         desired_state=pulumi.get(__ret__, 'desired_state'),
         effective_labels=pulumi.get(__ret__, 'effective_labels'),
@@ -352,10 +362,10 @@ def get_authority(certificate_authority_id: Optional[_builtins.str] = None,
         type=pulumi.get(__ret__, 'type'),
         update_time=pulumi.get(__ret__, 'update_time'),
         user_defined_access_urls=pulumi.get(__ret__, 'user_defined_access_urls'))
-def get_authority_output(certificate_authority_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                         location: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                         pool: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
-                         project: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+def get_authority_output(certificate_authority_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                         location: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                         pool: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                         project: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                          opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetAuthorityResult]:
     """
     Get info about a Google CAS Certificate Authority.
@@ -393,6 +403,7 @@ def get_authority_output(certificate_authority_id: Optional[pulumi.Input[Optiona
         certificate_authority_id=pulumi.get(__response__, 'certificate_authority_id'),
         configs=pulumi.get(__response__, 'configs'),
         create_time=pulumi.get(__response__, 'create_time'),
+        deletion_policy=pulumi.get(__response__, 'deletion_policy'),
         deletion_protection=pulumi.get(__response__, 'deletion_protection'),
         desired_state=pulumi.get(__response__, 'desired_state'),
         effective_labels=pulumi.get(__response__, 'effective_labels'),

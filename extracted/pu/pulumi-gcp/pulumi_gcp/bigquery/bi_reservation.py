@@ -22,13 +22,20 @@ __all__ = ['BiReservationArgs', 'BiReservation']
 class BiReservationArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
-                 preferred_tables: Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 size: Optional[pulumi.Input[_builtins.int]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 preferred_tables: pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 size: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The set of arguments for constructing a BiReservation resource.
 
         :param pulumi.Input[_builtins.str] location: LOCATION_DESCRIPTION
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]] preferred_tables: Preferred tables to use BI capacity for.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -36,6 +43,8 @@ class BiReservationArgs:
         :param pulumi.Input[_builtins.int] size: Size of a reservation, in bytes.
         """
         pulumi.set(__self__, "location", location)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if preferred_tables is not None:
             pulumi.set(__self__, "preferred_tables", preferred_tables)
         if project is not None:
@@ -56,8 +65,25 @@ class BiReservationArgs:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="preferredTables")
-    def preferred_tables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]:
+    def preferred_tables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]:
         """
         Preferred tables to use BI capacity for.
         Structure is documented below.
@@ -65,12 +91,12 @@ class BiReservationArgs:
         return pulumi.get(self, "preferred_tables")
 
     @preferred_tables.setter
-    def preferred_tables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]):
+    def preferred_tables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]):
         pulumi.set(self, "preferred_tables", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -78,34 +104,41 @@ class BiReservationArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def size(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def size(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Size of a reservation, in bytes.
         """
         return pulumi.get(self, "size")
 
     @size.setter
-    def size(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def size(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "size", value)
 
 
 @pulumi.input_type
 class _BiReservationState:
     def __init__(__self__, *,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 preferred_tables: Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 size: Optional[pulumi.Input[_builtins.int]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 preferred_tables: pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 size: pulumi.Input[Optional[_builtins.int]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BiReservation resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: LOCATION_DESCRIPTION
         :param pulumi.Input[_builtins.str] name: The resource name of the singleton BI reservation. Reservation names have the form `projects/{projectId}/locations/{locationId}/biReservation`.
         :param pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]] preferred_tables: Preferred tables to use BI capacity for.
@@ -116,6 +149,8 @@ class _BiReservationState:
         :param pulumi.Input[_builtins.str] update_time: The last update timestamp of a reservation.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if name is not None:
@@ -130,32 +165,49 @@ class _BiReservationState:
             pulumi.set(__self__, "update_time", update_time)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         LOCATION_DESCRIPTION
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the singleton BI reservation. Reservation names have the form `projects/{projectId}/locations/{locationId}/biReservation`.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="preferredTables")
-    def preferred_tables(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]:
+    def preferred_tables(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]:
         """
         Preferred tables to use BI capacity for.
         Structure is documented below.
@@ -163,12 +215,12 @@ class _BiReservationState:
         return pulumi.get(self, "preferred_tables")
 
     @preferred_tables.setter
-    def preferred_tables(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]):
+    def preferred_tables(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['BiReservationPreferredTableArgs']]]]):
         pulumi.set(self, "preferred_tables", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -176,24 +228,24 @@ class _BiReservationState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def size(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def size(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Size of a reservation, in bytes.
         """
         return pulumi.get(self, "size")
 
     @size.setter
-    def size(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def size(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "size", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The last update timestamp of a reservation.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
@@ -201,7 +253,7 @@ class _BiReservationState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -211,10 +263,11 @@ class BiReservation(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 preferred_tables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 size: Optional[pulumi.Input[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 preferred_tables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 size: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         """
         Represents a BI Reservation.
@@ -235,7 +288,7 @@ class BiReservation(pulumi.CustomResource):
 
         reservation = gcp.bigquery.BiReservation("reservation",
             location="us-west2",
-            size=3000000000)
+            size=int(3000000000))
         ```
 
         ## Import
@@ -257,6 +310,12 @@ class BiReservation(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: LOCATION_DESCRIPTION
         :param pulumi.Input[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]] preferred_tables: Preferred tables to use BI capacity for.
                Structure is documented below.
@@ -289,7 +348,7 @@ class BiReservation(pulumi.CustomResource):
 
         reservation = gcp.bigquery.BiReservation("reservation",
             location="us-west2",
-            size=3000000000)
+            size=int(3000000000))
         ```
 
         ## Import
@@ -324,10 +383,11 @@ class BiReservation(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 preferred_tables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 size: Optional[pulumi.Input[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 preferred_tables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 size: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -337,6 +397,7 @@ class BiReservation(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = BiReservationArgs.__new__(BiReservationArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
@@ -355,12 +416,13 @@ class BiReservation(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            preferred_tables: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            size: Optional[pulumi.Input[_builtins.int]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'BiReservation':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            preferred_tables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            size: pulumi.Input[Optional[_builtins.int]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'BiReservation':
         """
         Get an existing BiReservation resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -368,6 +430,12 @@ class BiReservation(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: LOCATION_DESCRIPTION
         :param pulumi.Input[_builtins.str] name: The resource name of the singleton BI reservation. Reservation names have the form `projects/{projectId}/locations/{locationId}/biReservation`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['BiReservationPreferredTableArgs', 'BiReservationPreferredTableArgsDict']]]] preferred_tables: Preferred tables to use BI capacity for.
@@ -382,6 +450,7 @@ class BiReservation(pulumi.CustomResource):
 
         __props__ = _BiReservationState.__new__(_BiReservationState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
         __props__.__dict__["preferred_tables"] = preferred_tables
@@ -389,6 +458,19 @@ class BiReservation(pulumi.CustomResource):
         __props__.__dict__["size"] = size
         __props__.__dict__["update_time"] = update_time
         return BiReservation(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

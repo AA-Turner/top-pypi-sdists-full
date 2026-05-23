@@ -11,6 +11,8 @@ Uses adaptive background model with:
 Memory footprint: ~100KB per camera at 0.4x scale (720p -> 288p grayscale)
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading
@@ -18,8 +20,15 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
 
 # Environment variable for sampling interval (Phase 4)
 FRAME_OPTIMIZER_SAMPLE_INTERVAL = int(os.getenv("FRAME_OPTIMIZER_SAMPLE_INTERVAL", "5"))

@@ -51,6 +51,11 @@ def _generate_zip_file() -> pathlib.Path:
 
     with zipfile.ZipFile(zip_path, "w") as zip_file:
         for file in FileSystemService.list_files(root_path, use_ignore=True):
+            # Always exclude .env from the bundle: `git check-ignore` returns
+            # "not ignored" for files already tracked, so relying on .gitignore
+            # alone leaks secrets when the user committed .env before ignoring it.
+            if file.name == ".env" and file.parent == root_path:
+                continue
             zip_file.write(file, file.relative_to(root_path))
 
     return zip_path

@@ -160,7 +160,7 @@ class SemanticChunker(BaseDocumentTransformer):
             return cast(
                 float,
                 np.percentile(distance_gradient, self.breakpoint_threshold_amount),
-            ), distance_gradient
+            ), cast(List[float], distance_gradient)
         else:
             raise ValueError(
                 f"Got unexpected `breakpoint_threshold_type`: "

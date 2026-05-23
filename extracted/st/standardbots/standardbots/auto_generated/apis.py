@@ -412,6 +412,48 @@ class Default:
                     503,
                     None
                 )
+    class Metrics:
+        def __init__(self, request_manager: RequestManager):
+            self._request_manager = request_manager
+
+
+        def get_prometheus_metrics(
+            self,
+        ) -> Response[
+            None,
+            None
+        ]:
+            """
+            Returns Node.js runtime metrics in Prometheus text exposition format. Scraped internally by Prometheus; no authentication required.
+            """
+            path = "/api/v1/metrics/prometheus"
+            try:
+                response = self._request_manager.request(
+                    "GET",
+                    path,
+                    headers=self._request_manager.json_headers(),
+                )
+                parsed = None
+
+                is_user_error = response.status >= 400 and response.status <= 500
+                is_unavailable = response.status == 503
+                if parsed is None and (is_user_error or is_unavailable):
+                    parsed = models.parse_error_response(json.loads(response.data))
+
+                return Response(
+                    parsed,
+                    response.status,
+                    response
+                )
+            except urllib3.exceptions.MaxRetryError:
+                return Response(
+                    models.ErrorResponse(
+                        error=models.ErrorEnum.InternalServerError,
+                        message="Connection Refused"
+                    ),
+                    503,
+                    None
+                )
     class Payload:
         def __init__(self, request_manager: RequestManager):
             self._request_manager = request_manager
@@ -1488,6 +1530,7 @@ class Default:
 
     calibration: Calibration
     equipment: Equipment
+    metrics: Metrics
     payload: Payload
     recorder: Recorder
     sensors: Sensors
@@ -1499,6 +1542,7 @@ class Default:
         self._request_manager = request_manager
         self.calibration = Default.Calibration(request_manager)
         self.equipment = Default.Equipment(request_manager)
+        self.metrics = Default.Metrics(request_manager)
         self.payload = Default.Payload(request_manager)
         self.recorder = Default.Recorder(request_manager)
         self.sensors = Default.Sensors(request_manager)

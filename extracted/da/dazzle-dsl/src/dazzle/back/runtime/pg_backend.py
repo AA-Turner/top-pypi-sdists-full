@@ -15,6 +15,7 @@ from psycopg import sql as pgsql
 
 from dazzle.back.runtime.query_builder import quote_identifier
 from dazzle.back.specs.entity import EntitySpec, FieldSpec, FieldType, ScalarType
+from dazzle.core.db_url import add_psycopg_driver, normalise_postgres_scheme
 
 logger = logging.getLogger(__name__)
 
@@ -203,13 +204,8 @@ class PostgresBackend:
     @property
     def _sa_url(self) -> str:
         """Return a SQLAlchemy-compatible URL using psycopg (v3) driver."""
-        url = self.database_url
         # Normalise Heroku-style postgres:// alias before adding driver suffix
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql://", 1)
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-        return url
+        return add_psycopg_driver(normalise_postgres_scheme(self.database_url))
 
     @contextmanager
     def connection(self) -> Iterator[Any]:
@@ -360,18 +356,25 @@ class PostgresBackend:
 
         return " ".join(parts)
 
-    def create_all_tables(self, entities: list[EntitySpec]) -> None:
+    def create_all_tables(
+        self,
+        entities: list[EntitySpec],
+        surfaces: list[Any] | None = None,
+    ) -> None:
         """Create tables for all entities in topological (FK-dependency) order.
 
         Uses SQLAlchemy MetaData.create_all() which internally sorts tables
         by foreign key dependencies, preventing errors when a table references
         another that hasn't been created yet.
+
+        When ``surfaces`` is provided, composite list-path indexes are
+        emitted alongside the base schema (#1202).
         """
         from sqlalchemy import create_engine
 
         from dazzle.back.runtime.sa_schema import build_metadata
 
-        metadata = build_metadata(entities)
+        metadata = build_metadata(entities, surfaces=surfaces)
         engine = create_engine(self._sa_url)
         try:
             metadata.create_all(engine, checkfirst=True)

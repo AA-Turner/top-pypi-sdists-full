@@ -184,6 +184,26 @@ class Geocif:
         )
         # Populated by _prepare_train_test_split when target_mode == region_anomaly.
         self._region_target_means: dict = {}
+        # Cache for region_anomaly "skipping ..." warning dedup — only log
+        # when the (country, crop, dropped-regions-set) changes.
+        self._last_region_anomaly_drop = None
+        # Per-region z-scored CID sibling features. Empty list = disabled.
+        # For each base name, every wide-format column "<base> <stage>" gets
+        # a companion "<base>_zreg <stage>" computed leak-safe per LOOCV fold.
+        # Closes the encoding gap when target_mode = region_anomaly puts y in
+        # anomaly space but X is still raw: the model now sees relative
+        # anomalies directly. Motivated by Somalia drought-year audit (May 2026)
+        # — see plan file replicated-sniffing-candle.md.
+        try:
+            import ast as _ast
+            _zreg_raw = self.parser.get(
+                "ML", "region_zscore_cids", fallback="[]"
+            )
+            self.region_zscore_cids = _ast.literal_eval(_zreg_raw)
+            if not isinstance(self.region_zscore_cids, list):
+                self.region_zscore_cids = []
+        except (ValueError, SyntaxError):
+            self.region_zscore_cids = []
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
         self.run_time_steps = self.parser.get("ML", "run_time_steps", fallback="latest")
         # "current" means use today's partial-season stage window for ALL
@@ -785,6 +805,7 @@ class Geocif:
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
         self._compute_yield_trend_feature()
+        self._compute_region_zscore_features()
         self._add_spatial_neighbor_features()
 
         if self.run_ml:
@@ -1029,6 +1050,7 @@ class Geocif:
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
             self._compute_yield_trend_feature()
+            self._compute_region_zscore_features()
             self._add_spatial_neighbor_features()
 
             if self.run_ml:
@@ -1106,6 +1128,7 @@ class Geocif:
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
             self._compute_yield_trend_feature()
+            self._compute_region_zscore_features()
             self._add_spatial_neighbor_features()
 
             if self.run_ml:
@@ -1437,11 +1460,17 @@ class Geocif:
             keep = counts[counts >= self.region_anomaly_min_years].index.tolist()
             dropped = sorted(set(counts.index) - set(keep))
             if dropped:
-                self.logger.warning(
-                    f"  region_anomaly: skipping {len(dropped)} region(s) "
-                    f"with < {self.region_anomaly_min_years} training rows: "
-                    f"{dropped[:10]}{'...' if len(dropped) > 10 else ''}"
-                )
+                # Dedup: only emit when the (country, crop, dropped-set)
+                # changes. Same skipped regions across all LOOCV folds for
+                # one crop → log once, not per fold.
+                cache_key = (self.country, self.crop, frozenset(dropped))
+                if getattr(self, "_last_region_anomaly_drop", None) != cache_key:
+                    self.logger.warning(
+                        f"  region_anomaly: skipping {len(dropped)} region(s) "
+                        f"with < {self.region_anomaly_min_years} training rows: "
+                        f"{dropped[:10]}{'...' if len(dropped) > 10 else ''}"
+                    )
+                    self._last_region_anomaly_drop = cache_key
             self._region_target_means = (
                 self.df_train[self.df_train[admin_col].isin(keep)]
                 .groupby(admin_col)[self.target]
@@ -1539,6 +1568,71 @@ class Geocif:
                 f"  Yield Trend [{region_name}]: "
                 f"slope={slope:.4f} t/ha/yr, n_used={n_used}, "
                 f"cp_used={cp_used}"
+            )
+
+    def _compute_region_zscore_features(self):
+        """Per-region z-scored sibling features for configured CID bases.
+
+        For each base in ``self.region_zscore_cids``, finds every wide-format
+        column starting with ``"<base> "`` (one per stage after the pivot
+        appends the stage suffix) and writes a companion
+        ``"<base>_zreg <stage>"`` column:
+
+            zreg = (raw − region_train_mean) / region_train_std    (clipped ±5)
+
+        Per-region stats use ``df_train`` rows only (leak-safe per LOOCV
+        fold). Regions / columns with std < 1e-9 or < 3 valid training rows
+        produce NaN (CatBoost / TabPFN handle NaN natively).
+
+        Closes the encoding gap when ``target_mode = region_anomaly`` puts y
+        in anomaly space while X stays raw: the model now sees relative
+        anomalies directly instead of trying to recover them via Region
+        interactions on raw values.
+        """
+        if not self.region_zscore_cids:
+            return
+        admin_col = (
+            "Country__Region"
+            if getattr(self, "countries_pooled", None)
+            and "Country__Region" in self.df_train.columns
+            else "Region"
+        )
+        std_floor = 1e-9
+        n_added = 0
+        for base in self.region_zscore_cids:
+            matching = [
+                c for c in self.df_train.columns
+                if c == base or str(c).startswith(f"{base} ")
+            ]
+            for col in matching:
+                stats = self.df_train.groupby(admin_col)[col].agg(
+                    ["mean", "std", "count"]
+                )
+                stats.loc[stats["count"] < 3, "std"] = np.nan
+                stats.loc[stats["std"].fillna(0) < std_floor, "std"] = np.nan
+                mu_lookup = stats["mean"].to_dict()
+                sd_lookup = stats["std"].to_dict()
+                # Insert "_zreg" right after the base name so the stage
+                # suffix is preserved (e.g. "STD_ETREF Jul 1-Apr 30" →
+                # "STD_ETREF_zreg Jul 1-Apr 30"). For bare-base columns
+                # without a stage suffix, just append "_zreg".
+                zname = (
+                    col.replace(base, f"{base}_zreg", 1)
+                    if " " in str(col) else f"{col}_zreg"
+                )
+                for df in (self.df_train, self.df_test):
+                    if df.empty or col not in df.columns:
+                        continue
+                    mu = df[admin_col].map(mu_lookup).astype(float)
+                    sd = df[admin_col].map(sd_lookup).astype(float)
+                    df[zname] = (
+                        (df[col].astype(float) - mu) / sd
+                    ).clip(-5, 5)
+                n_added += 1
+        if n_added:
+            self.logger.info(
+                f"  region_zscore: added {n_added} sibling z-scored "
+                f"column(s) for {len(self.region_zscore_cids)} base CID(s)"
             )
 
     def _compute_detrended_yield(self):
@@ -2156,7 +2250,7 @@ class Geocif:
             #)
 
             cid_cols_in_df = self.get_cid_column_names(self.df_train)
-            self.logger.warning(
+            self.logger.debug(
                 f"[create_feature_names] starting loop ({self.country} {self.crop} "
                 f"forecast_season={getattr(self, 'forecast_season', '?')}): "
                 f"len(stages_features)={len(stages_features)}, "
@@ -2215,7 +2309,7 @@ class Geocif:
                         )
 
             self.feature_names = list(set(self.feature_names))
-            self.logger.warning(
+            self.logger.debug(
                 f"[create_feature_names] loop done ({self.country} {self.crop} "
                 f"forecast_season={getattr(self, 'forecast_season', '?')}): "
                 f"candidates_seen={candidates_seen}, "
@@ -2248,7 +2342,16 @@ class Geocif:
 
         if self.use_yield_trend_as_feature and "Yield Trend" in self.df_train.columns:
             self.feature_names.append("Yield Trend")
-        
+
+        # Always include any "_zreg" sibling columns produced by
+        # _compute_region_zscore_features — they're force-included so the
+        # encoding-gap fix isn't silently dropped by feature selection.
+        if self.region_zscore_cids:
+            zreg_cols = [
+                c for c in self.df_train.columns if "_zreg" in str(c)
+            ]
+            self.feature_names.extend(zreg_cols)
+
         if self.lag_yield_as_feature:
             for i in range(1, self.number_lag_years + 1):
                 self.feature_names.append(f"t -{i} {self.target}")
@@ -2337,7 +2440,7 @@ class Geocif:
         else:
             X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
             stage_id_dbg = str(getattr(self, "stage_info", {}).get("Stage_ID", ""))
-            self.logger.warning(
+            self.logger.debug(
                 f"[apply_feature_selector] selecting features for "
                 f"{self.country} {self.crop} "
                 f"forecast_season={getattr(self, 'forecast_season', '?')} "
@@ -2411,6 +2514,35 @@ class Geocif:
                 self.selected_features = self.selected_features + forced
                 self.logger.info(
                     f"Force-included {len(forced)} FLDAS/S2S forecast CIDs "
+                    f"for {self.country} {self.crop} after selection "
+                    f"(use_cids={self.use_cids})"
+                )
+
+        # Force-include ETref CIDs (MEAN/MAX/MIN/STD/AUC/SUM_ETREF * stage)
+        # for the same reason as FLDAS/S2S above. Motivated by the Somalia
+        # drought-year audit (May 2026): residual-vs-CID coupling for
+        # STD_ETREF and MIN_ETREF jumps from r ~0.02-0.10 in normal years
+        # to r ~0.37-0.43 in drought years (2011, 2017, 2019-21), so the
+        # model has the signal in X_train but feature selection drops it
+        # because the normal-year correlation is too weak. Force-including
+        # protects it. Gated by [ML] force_include_etref (default False —
+        # opt in per country).
+        keep_etref = (
+            self.parser.getboolean("ML", "force_include_etref", fallback=False)
+            and ("all" in self.use_cids or "ETREF" in self.use_cids)
+        )
+        if keep_etref and hasattr(self, "X_train") and self.X_train is not None:
+            existing = set(self.selected_features)
+            forced_etref = [
+                col for col in self.X_train.columns
+                if "_ETREF" in str(col)
+                and col not in existing
+                and col != "Region"
+            ]
+            if forced_etref:
+                self.selected_features = self.selected_features + forced_etref
+                self.logger.info(
+                    f"Force-included {len(forced_etref)} ETref CIDs "
                     f"for {self.country} {self.crop} after selection "
                     f"(use_cids={self.use_cids})"
                 )

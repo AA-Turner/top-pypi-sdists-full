@@ -1224,6 +1224,25 @@ OPENSSL_EXPORT int SSL_CTX_use_cert_and_key(SSL_CTX *ctx, X509 *x509,
                                             EVP_PKEY *privatekey,
                                             STACK_OF(X509) *chain, int override);
 
+// SSL_use_cert_and_key sets |x509|, |privatekey|, and |chain| on |ssl|.
+// The |privatekey| argument must be the private key of the certificate |x509|.
+// If the override argument is 0, then |x509|, |privatekey|, and |chain| are
+// set only if all were not previously set. If override is non-0, then the
+// certificate, private key and chain certs are always set. |privatekey| and
+// |x509| are not copied or duplicated, their reference counts are incremented.
+// In OpenSSL, a shallow copy of |chain| is stored with a reference count
+// increment for all |X509| objects in the chain. In AWS-LC,
+// we represent X509 chains as a CRYPTO_BUFFER stack. Therefore, we create a
+// an internal copy and leave the |chain| parameter untouched. This means,
+// changes to |chain| after this function is called will not update in |ssl|.
+// This is different from OpenSSL which stores a reference to the X509
+// certificates in the |chain| object.
+//
+// Returns one on success and zero on error.
+OPENSSL_EXPORT int SSL_use_cert_and_key(SSL *ssl, X509 *x509,
+                                        EVP_PKEY *privatekey,
+                                        STACK_OF(X509) *chain, int override);
+
 // Certificate and private key convenience functions.
 
 // SSL_CTX_set_chain_and_key sets the certificate chain and private key for a
@@ -5127,6 +5146,9 @@ OPENSSL_EXPORT long BIO_set_ssl(BIO *bio, SSL *ssl, int take_owership);
 // not be freed. It returns one on success or something other than one on error.
 OPENSSL_EXPORT long BIO_get_ssl(BIO *bio, SSL **ssl);
 
+// BIO_new_ssl_connect requires socket support for the underlying connect BIO.
+// It is unavailable on platforms that define OPENSSL_NO_SOCK.
+#if !defined(OPENSSL_NO_SOCK)
 // BIO_new_ssl_connect uses |ctx| to return a newly allocated BIO chain with
 // |BIO_new_ssl|, followed by a connect BIO.
 //
@@ -5134,6 +5156,7 @@ OPENSSL_EXPORT long BIO_get_ssl(BIO *bio, SSL **ssl);
 // caveats hold true for this function as well. See |BIO_f_ssl| for more
 // details.
 OPENSSL_EXPORT BIO *BIO_new_ssl_connect(SSL_CTX *ctx);
+#endif  // !OPENSSL_NO_SOCK
 
 // BIO_new_ssl returns a newly allocated SSL BIO created with |ctx|. A client
 // SSL is created if |client| is non-zero, and a server is created if otherwise.

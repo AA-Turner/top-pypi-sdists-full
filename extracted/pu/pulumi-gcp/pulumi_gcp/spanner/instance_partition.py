@@ -24,11 +24,12 @@ class InstancePartitionArgs:
                  config: pulumi.Input[_builtins.str],
                  display_name: pulumi.Input[_builtins.str],
                  instance: pulumi.Input[_builtins.str],
-                 autoscaling_config: Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 autoscaling_config: pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a InstancePartition resource.
 
@@ -43,6 +44,12 @@ class InstancePartitionArgs:
                OUTPUT_ONLY fields and reflect the current compute capacity allocated to the
                instance partition.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: A unique identifier for the instance partition, which cannot be changed after
                the instance partition is created. The name must be between 2 and 64 characters
                and match the regular expression [a-z][a-z0-9\\\\-]{0,61}[a-z0-9].
@@ -60,6 +67,8 @@ class InstancePartitionArgs:
         pulumi.set(__self__, "instance", instance)
         if autoscaling_config is not None:
             pulumi.set(__self__, "autoscaling_config", autoscaling_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if node_count is not None:
@@ -109,7 +118,7 @@ class InstancePartitionArgs:
 
     @_builtins.property
     @pulumi.getter(name="autoscalingConfig")
-    def autoscaling_config(self) -> Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']]:
+    def autoscaling_config(self) -> pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']]:
         """
         The autoscaling configuration. Autoscaling is enabled if this field is set.
         Exactly one of either node_count, processing_units, or autoscaling_config must be
@@ -121,12 +130,29 @@ class InstancePartitionArgs:
         return pulumi.get(self, "autoscaling_config")
 
     @autoscaling_config.setter
-    def autoscaling_config(self, value: Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']]):
+    def autoscaling_config(self, value: pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']]):
         pulumi.set(self, "autoscaling_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the instance partition, which cannot be changed after
         the instance partition is created. The name must be between 2 and 64 characters
@@ -135,12 +161,12 @@ class InstancePartitionArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeCount")
-    def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def node_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of nodes allocated to this instance partition. One node equals
         1000 processing units. Exactly one of either node_count, processing_units,
@@ -149,12 +175,12 @@ class InstancePartitionArgs:
         return pulumi.get(self, "node_count")
 
     @node_count.setter
-    def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def node_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "node_count", value)
 
     @_builtins.property
     @pulumi.getter(name="processingUnits")
-    def processing_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def processing_units(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of processing units allocated to this instance partition.
         Exactly one of either node_count, processing_units, or autoscaling_config
@@ -163,12 +189,12 @@ class InstancePartitionArgs:
         return pulumi.get(self, "processing_units")
 
     @processing_units.setter
-    def processing_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def processing_units(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "processing_units", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -176,22 +202,23 @@ class InstancePartitionArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _InstancePartitionState:
     def __init__(__self__, *,
-                 autoscaling_config: Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 autoscaling_config: pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering InstancePartition resources.
 
@@ -203,6 +230,12 @@ class _InstancePartitionState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] config: The name of the instance partition's configuration (similar to a region) which
                defines the geographic placement and replication of data in this instance partition.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance partition as it appears in UIs.
                Must be unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] instance: The instance to create the instance partition in.
@@ -226,6 +259,8 @@ class _InstancePartitionState:
             pulumi.set(__self__, "autoscaling_config", autoscaling_config)
         if config is not None:
             pulumi.set(__self__, "config", config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if instance is not None:
@@ -243,7 +278,7 @@ class _InstancePartitionState:
 
     @_builtins.property
     @pulumi.getter(name="autoscalingConfig")
-    def autoscaling_config(self) -> Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']]:
+    def autoscaling_config(self) -> pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']]:
         """
         The autoscaling configuration. Autoscaling is enabled if this field is set.
         Exactly one of either node_count, processing_units, or autoscaling_config must be
@@ -255,12 +290,12 @@ class _InstancePartitionState:
         return pulumi.get(self, "autoscaling_config")
 
     @autoscaling_config.setter
-    def autoscaling_config(self, value: Optional[pulumi.Input['InstancePartitionAutoscalingConfigArgs']]):
+    def autoscaling_config(self, value: pulumi.Input[Optional['InstancePartitionAutoscalingConfigArgs']]):
         pulumi.set(self, "autoscaling_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the instance partition's configuration (similar to a region) which
         defines the geographic placement and replication of data in this instance partition.
@@ -268,12 +303,29 @@ class _InstancePartitionState:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The descriptive name for this instance partition as it appears in UIs.
         Must be unique per project and between 4 and 30 characters in length.
@@ -281,24 +333,24 @@ class _InstancePartitionState:
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The instance to create the instance partition in.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A unique identifier for the instance partition, which cannot be changed after
         the instance partition is created. The name must be between 2 and 64 characters
@@ -307,12 +359,12 @@ class _InstancePartitionState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeCount")
-    def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def node_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of nodes allocated to this instance partition. One node equals
         1000 processing units. Exactly one of either node_count, processing_units,
@@ -321,12 +373,12 @@ class _InstancePartitionState:
         return pulumi.get(self, "node_count")
 
     @node_count.setter
-    def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def node_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "node_count", value)
 
     @_builtins.property
     @pulumi.getter(name="processingUnits")
-    def processing_units(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def processing_units(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of processing units allocated to this instance partition.
         Exactly one of either node_count, processing_units, or autoscaling_config
@@ -335,12 +387,12 @@ class _InstancePartitionState:
         return pulumi.get(self, "processing_units")
 
     @processing_units.setter
-    def processing_units(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def processing_units(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "processing_units", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -348,12 +400,12 @@ class _InstancePartitionState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The current instance partition state. Possible values are:
         CREATING: The instance partition is being created. Resources are being
@@ -363,7 +415,7 @@ class _InstancePartitionState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -373,14 +425,15 @@ class InstancePartition(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 autoscaling_config: Optional[pulumi.Input[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 autoscaling_config: pulumi.Input[Optional[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Cloud Spanner instance partition is a unit of Cloud Spanner database capacity
@@ -469,6 +522,12 @@ class InstancePartition(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] config: The name of the instance partition's configuration (similar to a region) which
                defines the geographic placement and replication of data in this instance partition.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance partition as it appears in UIs.
                Must be unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] instance: The instance to create the instance partition in.
@@ -582,14 +641,15 @@ class InstancePartition(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 autoscaling_config: Optional[pulumi.Input[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
-                 config: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 autoscaling_config: pulumi.Input[Optional[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
+                 config: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -603,6 +663,7 @@ class InstancePartition(pulumi.CustomResource):
             if config is None and not opts.urn:
                 raise TypeError("Missing required property 'config'")
             __props__.__dict__["config"] = config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
@@ -624,15 +685,16 @@ class InstancePartition(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            autoscaling_config: Optional[pulumi.Input[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
-            config: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            node_count: Optional[pulumi.Input[_builtins.int]] = None,
-            processing_units: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'InstancePartition':
+            autoscaling_config: pulumi.Input[Optional[Union['InstancePartitionAutoscalingConfigArgs', 'InstancePartitionAutoscalingConfigArgsDict']]] = None,
+            config: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            node_count: pulumi.Input[Optional[_builtins.int]] = None,
+            processing_units: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'InstancePartition':
         """
         Get an existing InstancePartition resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -648,6 +710,12 @@ class InstancePartition(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] config: The name of the instance partition's configuration (similar to a region) which
                defines the geographic placement and replication of data in this instance partition.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The descriptive name for this instance partition as it appears in UIs.
                Must be unique per project and between 4 and 30 characters in length.
         :param pulumi.Input[_builtins.str] instance: The instance to create the instance partition in.
@@ -673,6 +741,7 @@ class InstancePartition(pulumi.CustomResource):
 
         __props__.__dict__["autoscaling_config"] = autoscaling_config
         __props__.__dict__["config"] = config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["instance"] = instance
         __props__.__dict__["name"] = name
@@ -703,6 +772,19 @@ class InstancePartition(pulumi.CustomResource):
         defines the geographic placement and replication of data in this instance partition.
         """
         return pulumi.get(self, "config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

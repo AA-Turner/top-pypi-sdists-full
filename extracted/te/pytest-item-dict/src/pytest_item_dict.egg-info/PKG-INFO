@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-item-dict
-Version: 1.3.5
+Version: 1.3.7
 Summary: Get a hierarchical dict of session.items
 Author-email: Adam Nogowski <anogowski@live.com>
 Maintainer-email: Adam Nogowski <anogowski@live.com>
@@ -424,6 +424,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

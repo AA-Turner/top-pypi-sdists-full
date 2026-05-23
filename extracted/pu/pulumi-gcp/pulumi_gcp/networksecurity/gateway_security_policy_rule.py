@@ -25,11 +25,12 @@ class GatewaySecurityPolicyRuleArgs:
                  location: pulumi.Input[_builtins.str],
                  priority: pulumi.Input[_builtins.int],
                  session_matcher: pulumi.Input[_builtins.str],
-                 application_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_inspection_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
+                 application_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_inspection_enabled: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         The set of arguments for constructing a GatewaySecurityPolicyRule resource.
 
@@ -41,6 +42,12 @@ class GatewaySecurityPolicyRuleArgs:
         :param pulumi.Input[_builtins.int] priority: Priority of the rule. Lower number corresponds to higher precedence.
         :param pulumi.Input[_builtins.str] session_matcher: CEL expression for matching on session criteria.
         :param pulumi.Input[_builtins.str] application_matcher: CEL expression for matching on L7/application level criteria.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.str] name: Name of the resource. ame is the full resource name so projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}/rules/{rule}
                rule should match the pattern: (^a-z?$).
@@ -57,6 +64,8 @@ class GatewaySecurityPolicyRuleArgs:
         pulumi.set(__self__, "session_matcher", session_matcher)
         if application_matcher is not None:
             pulumi.set(__self__, "application_matcher", application_matcher)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
@@ -141,31 +150,48 @@ class GatewaySecurityPolicyRuleArgs:
 
     @_builtins.property
     @pulumi.getter(name="applicationMatcher")
-    def application_matcher(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def application_matcher(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         CEL expression for matching on L7/application level criteria.
         """
         return pulumi.get(self, "application_matcher")
 
     @application_matcher.setter
-    def application_matcher(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def application_matcher(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "application_matcher", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Free-text description of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. ame is the full resource name so projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}/rules/{rule}
         rule should match the pattern: (^a-z?$).
@@ -173,12 +199,12 @@ class GatewaySecurityPolicyRuleArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -186,12 +212,12 @@ class GatewaySecurityPolicyRuleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsInspectionEnabled")
-    def tls_inspection_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def tls_inspection_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Flag to enable TLS inspection of traffic matching on. Can only be true if the
         parent GatewaySecurityPolicy references a TLSInspectionConfig.
@@ -199,27 +225,28 @@ class GatewaySecurityPolicyRuleArgs:
         return pulumi.get(self, "tls_inspection_enabled")
 
     @tls_inspection_enabled.setter
-    def tls_inspection_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def tls_inspection_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "tls_inspection_enabled", value)
 
 
 @pulumi.input_type
 class _GatewaySecurityPolicyRuleState:
     def __init__(__self__, *,
-                 application_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 basic_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gateway_security_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None,
-                 session_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_inspection_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 application_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 basic_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gateway_security_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None,
+                 session_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_inspection_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering GatewaySecurityPolicyRule resources.
 
@@ -229,6 +256,12 @@ class _GatewaySecurityPolicyRuleState:
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
                Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] enabled: Whether the rule is enforced.
         :param pulumi.Input[_builtins.str] gateway_security_policy: The name of the gatewat security policy this rule belongs to.
@@ -252,6 +285,8 @@ class _GatewaySecurityPolicyRuleState:
             pulumi.set(__self__, "basic_profile", basic_profile)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if enabled is not None:
@@ -277,19 +312,19 @@ class _GatewaySecurityPolicyRuleState:
 
     @_builtins.property
     @pulumi.getter(name="applicationMatcher")
-    def application_matcher(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def application_matcher(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         CEL expression for matching on L7/application level criteria.
         """
         return pulumi.get(self, "application_matcher")
 
     @application_matcher.setter
-    def application_matcher(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def application_matcher(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "application_matcher", value)
 
     @_builtins.property
     @pulumi.getter(name="basicProfile")
-    def basic_profile(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def basic_profile(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Profile which tells what the primitive action should be. Possible values are: * ALLOW * DENY.
         Possible values are: `BASIC_PROFILE_UNSPECIFIED`, `ALLOW`, `DENY`.
@@ -297,12 +332,12 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "basic_profile")
 
     @basic_profile.setter
-    def basic_profile(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def basic_profile(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "basic_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was created.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -311,60 +346,77 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Free-text description of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the rule is enforced.
         """
         return pulumi.get(self, "enabled")
 
     @enabled.setter
-    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="gatewaySecurityPolicy")
-    def gateway_security_policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def gateway_security_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the gatewat security policy this rule belongs to.
         """
         return pulumi.get(self, "gateway_security_policy")
 
     @gateway_security_policy.setter
-    def gateway_security_policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def gateway_security_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "gateway_security_policy", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the gateway security policy.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. ame is the full resource name so projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}/rules/{rule}
         rule should match the pattern: (^a-z?$).
@@ -372,24 +424,24 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def priority(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Priority of the rule. Lower number corresponds to higher precedence.
         """
         return pulumi.get(self, "priority")
 
     @priority.setter
-    def priority(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "priority", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -397,36 +449,36 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Server-defined URL of this resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
     @_builtins.property
     @pulumi.getter(name="sessionMatcher")
-    def session_matcher(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def session_matcher(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         CEL expression for matching on session criteria.
         """
         return pulumi.get(self, "session_matcher")
 
     @session_matcher.setter
-    def session_matcher(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def session_matcher(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "session_matcher", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsInspectionEnabled")
-    def tls_inspection_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def tls_inspection_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Flag to enable TLS inspection of traffic matching on. Can only be true if the
         parent GatewaySecurityPolicy references a TLSInspectionConfig.
@@ -434,12 +486,12 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "tls_inspection_enabled")
 
     @tls_inspection_enabled.setter
-    def tls_inspection_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def tls_inspection_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "tls_inspection_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was updated.
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
@@ -448,7 +500,7 @@ class _GatewaySecurityPolicyRuleState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -458,17 +510,18 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 basic_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gateway_security_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 session_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_inspection_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 application_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 basic_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gateway_security_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 session_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_inspection_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
         The GatewaySecurityPolicyRule resource is in a nested collection within a GatewaySecurityPolicy and represents
@@ -545,6 +598,12 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] application_matcher: CEL expression for matching on L7/application level criteria.
         :param pulumi.Input[_builtins.str] basic_profile: Profile which tells what the primitive action should be. Possible values are: * ALLOW * DENY.
                Possible values are: `BASIC_PROFILE_UNSPECIFIED`, `ALLOW`, `DENY`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] enabled: Whether the rule is enforced.
         :param pulumi.Input[_builtins.str] gateway_security_policy: The name of the gatewat security policy this rule belongs to.
@@ -649,17 +708,18 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 basic_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 gateway_security_policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 priority: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 session_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_inspection_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 application_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 basic_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 gateway_security_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 session_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_inspection_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -673,6 +733,7 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
             if basic_profile is None and not opts.urn:
                 raise TypeError("Missing required property 'basic_profile'")
             __props__.__dict__["basic_profile"] = basic_profile
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if enabled is None and not opts.urn:
                 raise TypeError("Missing required property 'enabled'")
@@ -705,20 +766,21 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            application_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-            basic_profile: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            gateway_security_policy: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            priority: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None,
-            session_matcher: Optional[pulumi.Input[_builtins.str]] = None,
-            tls_inspection_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'GatewaySecurityPolicyRule':
+            application_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+            basic_profile: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            gateway_security_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None,
+            session_matcher: pulumi.Input[Optional[_builtins.str]] = None,
+            tls_inspection_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'GatewaySecurityPolicyRule':
         """
         Get an existing GatewaySecurityPolicyRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -732,6 +794,12 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
                Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z"
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] enabled: Whether the rule is enforced.
         :param pulumi.Input[_builtins.str] gateway_security_policy: The name of the gatewat security policy this rule belongs to.
@@ -756,6 +824,7 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
         __props__.__dict__["application_matcher"] = application_matcher
         __props__.__dict__["basic_profile"] = basic_profile
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["enabled"] = enabled
         __props__.__dict__["gateway_security_policy"] = gateway_security_policy
@@ -795,6 +864,19 @@ class GatewaySecurityPolicyRule(pulumi.CustomResource):
         Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z"
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

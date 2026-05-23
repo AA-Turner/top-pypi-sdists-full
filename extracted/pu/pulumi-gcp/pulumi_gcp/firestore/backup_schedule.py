@@ -22,10 +22,11 @@ __all__ = ['BackupScheduleArgs', 'BackupSchedule']
 class BackupScheduleArgs:
     def __init__(__self__, *,
                  retention: pulumi.Input[_builtins.str],
-                 daily_recurrence: Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 weekly_recurrence: Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']] = None):
+                 daily_recurrence: pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 weekly_recurrence: pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']] = None):
         """
         The set of arguments for constructing a BackupSchedule resource.
 
@@ -34,6 +35,12 @@ class BackupScheduleArgs:
                You can set this to a value up to 14 weeks.
         :param pulumi.Input['BackupScheduleDailyRecurrenceArgs'] daily_recurrence: For a schedule that runs daily.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input['BackupScheduleWeeklyRecurrenceArgs'] weekly_recurrence: For a schedule that runs weekly on a specific day.
@@ -44,6 +51,8 @@ class BackupScheduleArgs:
             pulumi.set(__self__, "daily_recurrence", daily_recurrence)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
         if weekly_recurrence is not None:
@@ -65,31 +74,48 @@ class BackupScheduleArgs:
 
     @_builtins.property
     @pulumi.getter(name="dailyRecurrence")
-    def daily_recurrence(self) -> Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']]:
+    def daily_recurrence(self) -> pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']]:
         """
         For a schedule that runs daily.
         """
         return pulumi.get(self, "daily_recurrence")
 
     @daily_recurrence.setter
-    def daily_recurrence(self, value: Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']]):
+    def daily_recurrence(self, value: pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']]):
         pulumi.set(self, "daily_recurrence", value)
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -97,12 +123,12 @@ class BackupScheduleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="weeklyRecurrence")
-    def weekly_recurrence(self) -> Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']]:
+    def weekly_recurrence(self) -> pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']]:
         """
         For a schedule that runs weekly on a specific day.
         Structure is documented below.
@@ -110,24 +136,31 @@ class BackupScheduleArgs:
         return pulumi.get(self, "weekly_recurrence")
 
     @weekly_recurrence.setter
-    def weekly_recurrence(self, value: Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']]):
+    def weekly_recurrence(self, value: pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']]):
         pulumi.set(self, "weekly_recurrence", value)
 
 
 @pulumi.input_type
 class _BackupScheduleState:
     def __init__(__self__, *,
-                 daily_recurrence: Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 weekly_recurrence: Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']] = None):
+                 daily_recurrence: pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 weekly_recurrence: pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']] = None):
         """
         Input properties used for looking up and filtering BackupSchedule resources.
 
         :param pulumi.Input['BackupScheduleDailyRecurrenceArgs'] daily_recurrence: For a schedule that runs daily.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The unique backup schedule identifier across all locations and databases for the given project. Format:
                `projects/{{project}}/databases/{{database}}/backupSchedules/{{backupSchedule}}`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -142,6 +175,8 @@ class _BackupScheduleState:
             pulumi.set(__self__, "daily_recurrence", daily_recurrence)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
@@ -153,31 +188,48 @@ class _BackupScheduleState:
 
     @_builtins.property
     @pulumi.getter(name="dailyRecurrence")
-    def daily_recurrence(self) -> Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']]:
+    def daily_recurrence(self) -> pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']]:
         """
         For a schedule that runs daily.
         """
         return pulumi.get(self, "daily_recurrence")
 
     @daily_recurrence.setter
-    def daily_recurrence(self, value: Optional[pulumi.Input['BackupScheduleDailyRecurrenceArgs']]):
+    def daily_recurrence(self, value: pulumi.Input[Optional['BackupScheduleDailyRecurrenceArgs']]):
         pulumi.set(self, "daily_recurrence", value)
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique backup schedule identifier across all locations and databases for the given project. Format:
         `projects/{{project}}/databases/{{database}}/backupSchedules/{{backupSchedule}}`
@@ -185,12 +237,12 @@ class _BackupScheduleState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -198,12 +250,12 @@ class _BackupScheduleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def retention(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def retention(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days.
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
@@ -212,12 +264,12 @@ class _BackupScheduleState:
         return pulumi.get(self, "retention")
 
     @retention.setter
-    def retention(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def retention(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "retention", value)
 
     @_builtins.property
     @pulumi.getter(name="weeklyRecurrence")
-    def weekly_recurrence(self) -> Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']]:
+    def weekly_recurrence(self) -> pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']]:
         """
         For a schedule that runs weekly on a specific day.
         Structure is documented below.
@@ -225,7 +277,7 @@ class _BackupScheduleState:
         return pulumi.get(self, "weekly_recurrence")
 
     @weekly_recurrence.setter
-    def weekly_recurrence(self, value: Optional[pulumi.Input['BackupScheduleWeeklyRecurrenceArgs']]):
+    def weekly_recurrence(self, value: pulumi.Input[Optional['BackupScheduleWeeklyRecurrenceArgs']]):
         pulumi.set(self, "weekly_recurrence", value)
 
 
@@ -235,11 +287,12 @@ class BackupSchedule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 daily_recurrence: Optional[pulumi.Input[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 weekly_recurrence: Optional[pulumi.Input[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None,
+                 daily_recurrence: pulumi.Input[Optional[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 weekly_recurrence: pulumi.Input[Optional[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None,
                  __props__=None):
         """
         A backup schedule for a Cloud Firestore Database.
@@ -321,6 +374,12 @@ class BackupSchedule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']] daily_recurrence: For a schedule that runs daily.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[_builtins.str] retention: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days.
@@ -426,11 +485,12 @@ class BackupSchedule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 daily_recurrence: Optional[pulumi.Input[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 retention: Optional[pulumi.Input[_builtins.str]] = None,
-                 weekly_recurrence: Optional[pulumi.Input[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None,
+                 daily_recurrence: pulumi.Input[Optional[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 retention: pulumi.Input[Optional[_builtins.str]] = None,
+                 weekly_recurrence: pulumi.Input[Optional[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -442,6 +502,7 @@ class BackupSchedule(pulumi.CustomResource):
 
             __props__.__dict__["daily_recurrence"] = daily_recurrence
             __props__.__dict__["database"] = database
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["project"] = project
             if retention is None and not opts.urn:
                 raise TypeError("Missing required property 'retention'")
@@ -458,12 +519,13 @@ class BackupSchedule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            daily_recurrence: Optional[pulumi.Input[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
-            database: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            retention: Optional[pulumi.Input[_builtins.str]] = None,
-            weekly_recurrence: Optional[pulumi.Input[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None) -> 'BackupSchedule':
+            daily_recurrence: pulumi.Input[Optional[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']]] = None,
+            database: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            retention: pulumi.Input[Optional[_builtins.str]] = None,
+            weekly_recurrence: pulumi.Input[Optional[Union['BackupScheduleWeeklyRecurrenceArgs', 'BackupScheduleWeeklyRecurrenceArgsDict']]] = None) -> 'BackupSchedule':
         """
         Get an existing BackupSchedule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -473,6 +535,12 @@ class BackupSchedule(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['BackupScheduleDailyRecurrenceArgs', 'BackupScheduleDailyRecurrenceArgsDict']] daily_recurrence: For a schedule that runs daily.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: The unique backup schedule identifier across all locations and databases for the given project. Format:
                `projects/{{project}}/databases/{{database}}/backupSchedules/{{backupSchedule}}`
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -489,6 +557,7 @@ class BackupSchedule(pulumi.CustomResource):
 
         __props__.__dict__["daily_recurrence"] = daily_recurrence
         __props__.__dict__["database"] = database
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
         __props__.__dict__["retention"] = retention
@@ -510,6 +579,19 @@ class BackupSchedule(pulumi.CustomResource):
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

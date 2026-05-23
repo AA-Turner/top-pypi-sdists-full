@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kernel
-Version: 0.56.0
+Version: 0.57.0
 Summary: The official Python library for the kernel API
 Project-URL: Homepage, https://github.com/kernel/kernel-python-sdk
 Project-URL: Repository, https://github.com/kernel/kernel-python-sdk
@@ -238,9 +238,9 @@ from kernel import Kernel
 client = Kernel()
 
 browser = client.browsers.create(
-    persistence={"id": "my-awesome-browser-for-user-1234"},
+    profile={},
 )
-print(browser.persistence)
+print(browser.profile)
 ```
 
 ## File uploads

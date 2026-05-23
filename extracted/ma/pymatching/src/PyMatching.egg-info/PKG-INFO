@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: PyMatching
-Version: 2.3.1
+Version: 2.4.0
 Summary: A package for decoding quantum error correcting codes using minimum-weight perfect matching.
 Home-page: https://github.com/oscarhiggott/PyMatching
 Author: Oscar Higgott and Craig Gidney
 License: Apache 2
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: scipy

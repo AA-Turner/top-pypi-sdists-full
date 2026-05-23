@@ -28,15 +28,15 @@ class TestFormsRoutes(unittest.TestCase):
     def test_create_form(self):
         mock_form = MagicMock()
         mock_form.editor_dto = {"id": "form2", "title": "New Form"}
-        self.controller.create_form.return_value = mock_form
+        self.controller.create_stage.return_value = mock_form
 
         payload = {"title": "New Form", "file": "new_form.py"}
         resp = self.client.post("/forms/", json=payload)
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json, {"id": "form2", "title": "New Form"})
-        self.controller.create_form.assert_called_with(
-            "New Form", "new_form.py", (0, 0), None
+        self.controller.create_stage.assert_called_with(
+            "form", "New Form", "new_form.py", (0, 0), None
         )
 
     def test_create_form_missing_data(self):

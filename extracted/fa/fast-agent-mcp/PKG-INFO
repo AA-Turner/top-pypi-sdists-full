@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.7.8
+Version: 0.7.9
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -251,6 +251,7 @@ Requires-Dist: python-frontmatter==1.1.0
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: rich==15.0.0
 Requires-Dist: ruamel-yaml==0.19.1
+Requires-Dist: textual-image>=0.12.0
 Requires-Dist: tiktoken==0.13.0
 Requires-Dist: typer==0.25.1
 Requires-Dist: uvloop==0.22.1; platform_system != 'Windows'

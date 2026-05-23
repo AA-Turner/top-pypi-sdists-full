@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.266
+Version: 0.3.268
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -16,6 +16,10 @@ Requires-Dist: rich ; extra == 'cli'
 Requires-Dist: plotext ; extra == 'cli'
 Requires-Dist: pyodbc ; extra == 'odbc'
 Requires-Dist: psycopg2-binary ; extra == 'postgres'
+Requires-Dist: markdown ; extra == 'report'
+Requires-Dist: altair ; extra == 'report'
+Requires-Dist: vl-convert-python ; extra == 'report'
+Requires-Dist: playwright ; extra == 'report'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
 Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
@@ -25,6 +29,7 @@ Provides-Extra: bigquery
 Provides-Extra: cli
 Provides-Extra: odbc
 Provides-Extra: postgres
+Provides-Extra: report
 Provides-Extra: serve
 Provides-Extra: snowflake
 License-File: LICENSE.md

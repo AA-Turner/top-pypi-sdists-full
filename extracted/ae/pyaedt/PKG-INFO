@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.27.1
+Version: 0.28.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -45,7 +45,7 @@ Requires-Dist: cffi>=1.16.0; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
 Provides-Extra: graphics
 Requires-Dist: ansys-tools-visualization-interface; extra == "graphics"
-Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "graphics"
+Requires-Dist: pyvista[io]<0.49,>=0.38.0; extra == "graphics"
 Requires-Dist: matplotlib>=3.5.0; extra == "graphics"
 Requires-Dist: vtk<9.7,>=9.0; extra == "graphics"
 Requires-Dist: fpdf2; extra == "graphics"
@@ -58,7 +58,7 @@ Requires-Dist: matplotlib>=3.5.0; extra == "all"
 Requires-Dist: openpyxl>=3.1.0; extra == "all"
 Requires-Dist: osmnx>=2.0.0; extra == "all"
 Requires-Dist: pandas>=1.1.0; extra == "all"
-Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "all"
+Requires-Dist: pyvista[io]<0.49,>=0.38.0; extra == "all"
 Requires-Dist: fast-simplification>=0.1.7; extra == "all"
 Requires-Dist: ansys-tools-visualization-interface; extra == "all"
 Requires-Dist: tables; python_version >= "3.10" and extra == "all"

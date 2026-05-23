@@ -1125,6 +1125,7 @@ impl<'db> DeclarationsBoundnessEvaluator<'_, 'db> {
                     Some(DeclarationWithConstraint {
                         declaration,
                         reachability_constraint,
+                        ..
                     }) if declaration.is_undefined_or(|def| {
                         is_non_exported(db, def, requires_explicit_reexport)
                     }) =>
@@ -1331,7 +1332,7 @@ impl<'db> LoopHeaderReachability<'db> {
     ) -> LoopHeaderReachability<'db> {
         // Avoid losing precision for cycles that are soon to converge.
         // See [`Type::cycle_normalized`] for more details.
-        let reachable_bindings = if cycle.iteration() <= 1 {
+        let reachable_bindings = if cycle.iteration() <= crate::TAINTED_CYCLES {
             self.reachable_bindings
         } else {
             let previous_bindings = previous.reachable_bindings.iter().copied();
@@ -1737,6 +1738,7 @@ fn place_from_declarations_impl<'db>(
         let DeclarationWithConstraint {
             declaration,
             reachability_constraint,
+            ..
         } = declaration_with_constraint;
 
         let DefinitionState::Defined(declaration) = declaration else {

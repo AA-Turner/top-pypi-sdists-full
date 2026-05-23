@@ -24,23 +24,25 @@ class AppArgs:
                  app_id: pulumi.Input[_builtins.str],
                  display_name: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 audio_processing_config: Optional[pulumi.Input['AppAudioProcessingConfigArgs']] = None,
-                 client_certificate_settings: Optional[pulumi.Input['AppClientCertificateSettingsArgs']] = None,
-                 data_store_settings: Optional[pulumi.Input['AppDataStoreSettingsArgs']] = None,
-                 default_channel_profile: Optional[pulumi.Input['AppDefaultChannelProfileArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 evaluation_metrics_thresholds: Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']] = None,
-                 global_instruction: Optional[pulumi.Input[_builtins.str]] = None,
-                 guardrails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 language_settings: Optional[pulumi.Input['AppLanguageSettingsArgs']] = None,
-                 logging_settings: Optional[pulumi.Input['AppLoggingSettingsArgs']] = None,
-                 metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 model_settings: Optional[pulumi.Input['AppModelSettingsArgs']] = None,
-                 pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 root_agent: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone_settings: Optional[pulumi.Input['AppTimeZoneSettingsArgs']] = None,
-                 variable_declarations: Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]] = None):
+                 audio_processing_config: pulumi.Input[Optional['AppAudioProcessingConfigArgs']] = None,
+                 client_certificate_settings: pulumi.Input[Optional['AppClientCertificateSettingsArgs']] = None,
+                 data_store_settings: pulumi.Input[Optional['AppDataStoreSettingsArgs']] = None,
+                 default_channel_profile: pulumi.Input[Optional['AppDefaultChannelProfileArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 evaluation_metrics_thresholds: pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']] = None,
+                 global_instruction: pulumi.Input[Optional[_builtins.str]] = None,
+                 guardrails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 language_settings: pulumi.Input[Optional['AppLanguageSettingsArgs']] = None,
+                 logging_settings: pulumi.Input[Optional['AppLoggingSettingsArgs']] = None,
+                 metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 model_settings: pulumi.Input[Optional['AppModelSettingsArgs']] = None,
+                 pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 root_agent: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone_settings: pulumi.Input[Optional['AppTimeZoneSettingsArgs']] = None,
+                 tool_execution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 variable_declarations: pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]] = None):
         """
         The set of arguments for constructing a App resource.
 
@@ -59,6 +61,12 @@ class AppArgs:
         :param pulumi.Input['AppDefaultChannelProfileArgs'] default_channel_profile: A ChannelProfile configures the agent's behavior for a specific communication
                channel, such as web UI or telephony.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Human-readable description of the app.
         :param pulumi.Input['AppEvaluationMetricsThresholdsArgs'] evaluation_metrics_thresholds: Threshold settings for metrics in an Evaluation.
                Structure is documented below.
@@ -83,6 +91,8 @@ class AppArgs:
                Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
         :param pulumi.Input['AppTimeZoneSettingsArgs'] time_zone_settings: TimeZone settings of the app.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] tool_execution_mode: The tool execution mode for the app.
+               See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
         :param pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]] variable_declarations: The declarations of the variables.
                Structure is documented below.
         """
@@ -97,6 +107,8 @@ class AppArgs:
             pulumi.set(__self__, "data_store_settings", data_store_settings)
         if default_channel_profile is not None:
             pulumi.set(__self__, "default_channel_profile", default_channel_profile)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if evaluation_metrics_thresholds is not None:
@@ -121,6 +133,8 @@ class AppArgs:
             pulumi.set(__self__, "root_agent", root_agent)
         if time_zone_settings is not None:
             pulumi.set(__self__, "time_zone_settings", time_zone_settings)
+        if tool_execution_mode is not None:
+            pulumi.set(__self__, "tool_execution_mode", tool_execution_mode)
         if variable_declarations is not None:
             pulumi.set(__self__, "variable_declarations", variable_declarations)
 
@@ -164,7 +178,7 @@ class AppArgs:
 
     @_builtins.property
     @pulumi.getter(name="audioProcessingConfig")
-    def audio_processing_config(self) -> Optional[pulumi.Input['AppAudioProcessingConfigArgs']]:
+    def audio_processing_config(self) -> pulumi.Input[Optional['AppAudioProcessingConfigArgs']]:
         """
         Configuration for how the input and output audio should be processed and
         delivered.
@@ -173,12 +187,12 @@ class AppArgs:
         return pulumi.get(self, "audio_processing_config")
 
     @audio_processing_config.setter
-    def audio_processing_config(self, value: Optional[pulumi.Input['AppAudioProcessingConfigArgs']]):
+    def audio_processing_config(self, value: pulumi.Input[Optional['AppAudioProcessingConfigArgs']]):
         pulumi.set(self, "audio_processing_config", value)
 
     @_builtins.property
     @pulumi.getter(name="clientCertificateSettings")
-    def client_certificate_settings(self) -> Optional[pulumi.Input['AppClientCertificateSettingsArgs']]:
+    def client_certificate_settings(self) -> pulumi.Input[Optional['AppClientCertificateSettingsArgs']]:
         """
         The default client certificate settings for the app.
         Structure is documented below.
@@ -186,12 +200,12 @@ class AppArgs:
         return pulumi.get(self, "client_certificate_settings")
 
     @client_certificate_settings.setter
-    def client_certificate_settings(self, value: Optional[pulumi.Input['AppClientCertificateSettingsArgs']]):
+    def client_certificate_settings(self, value: pulumi.Input[Optional['AppClientCertificateSettingsArgs']]):
         pulumi.set(self, "client_certificate_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="dataStoreSettings")
-    def data_store_settings(self) -> Optional[pulumi.Input['AppDataStoreSettingsArgs']]:
+    def data_store_settings(self) -> pulumi.Input[Optional['AppDataStoreSettingsArgs']]:
         """
         Data store related settings for the app.
         Structure is documented below.
@@ -199,12 +213,12 @@ class AppArgs:
         return pulumi.get(self, "data_store_settings")
 
     @data_store_settings.setter
-    def data_store_settings(self, value: Optional[pulumi.Input['AppDataStoreSettingsArgs']]):
+    def data_store_settings(self, value: pulumi.Input[Optional['AppDataStoreSettingsArgs']]):
         pulumi.set(self, "data_store_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultChannelProfile")
-    def default_channel_profile(self) -> Optional[pulumi.Input['AppDefaultChannelProfileArgs']]:
+    def default_channel_profile(self) -> pulumi.Input[Optional['AppDefaultChannelProfileArgs']]:
         """
         A ChannelProfile configures the agent's behavior for a specific communication
         channel, such as web UI or telephony.
@@ -213,24 +227,41 @@ class AppArgs:
         return pulumi.get(self, "default_channel_profile")
 
     @default_channel_profile.setter
-    def default_channel_profile(self, value: Optional[pulumi.Input['AppDefaultChannelProfileArgs']]):
+    def default_channel_profile(self, value: pulumi.Input[Optional['AppDefaultChannelProfileArgs']]):
         pulumi.set(self, "default_channel_profile", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable description of the app.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="evaluationMetricsThresholds")
-    def evaluation_metrics_thresholds(self) -> Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']]:
+    def evaluation_metrics_thresholds(self) -> pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']]:
         """
         Threshold settings for metrics in an Evaluation.
         Structure is documented below.
@@ -238,12 +269,12 @@ class AppArgs:
         return pulumi.get(self, "evaluation_metrics_thresholds")
 
     @evaluation_metrics_thresholds.setter
-    def evaluation_metrics_thresholds(self, value: Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']]):
+    def evaluation_metrics_thresholds(self, value: pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']]):
         pulumi.set(self, "evaluation_metrics_thresholds", value)
 
     @_builtins.property
     @pulumi.getter(name="globalInstruction")
-    def global_instruction(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def global_instruction(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Instructions for all the agents in the app.
         You can use this instruction to set up a stable identity or personality
@@ -252,12 +283,12 @@ class AppArgs:
         return pulumi.get(self, "global_instruction")
 
     @global_instruction.setter
-    def global_instruction(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def global_instruction(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "global_instruction", value)
 
     @_builtins.property
     @pulumi.getter
-    def guardrails(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def guardrails(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of guardrails for the app.
         Format:
@@ -266,12 +297,12 @@ class AppArgs:
         return pulumi.get(self, "guardrails")
 
     @guardrails.setter
-    def guardrails(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def guardrails(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "guardrails", value)
 
     @_builtins.property
     @pulumi.getter(name="languageSettings")
-    def language_settings(self) -> Optional[pulumi.Input['AppLanguageSettingsArgs']]:
+    def language_settings(self) -> pulumi.Input[Optional['AppLanguageSettingsArgs']]:
         """
         Language settings of the app.
         Structure is documented below.
@@ -279,12 +310,12 @@ class AppArgs:
         return pulumi.get(self, "language_settings")
 
     @language_settings.setter
-    def language_settings(self, value: Optional[pulumi.Input['AppLanguageSettingsArgs']]):
+    def language_settings(self, value: pulumi.Input[Optional['AppLanguageSettingsArgs']]):
         pulumi.set(self, "language_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingSettings")
-    def logging_settings(self) -> Optional[pulumi.Input['AppLoggingSettingsArgs']]:
+    def logging_settings(self) -> pulumi.Input[Optional['AppLoggingSettingsArgs']]:
         """
         Settings to describe the logging behaviors for the app.
         Structure is documented below.
@@ -292,12 +323,12 @@ class AppArgs:
         return pulumi.get(self, "logging_settings")
 
     @logging_settings.setter
-    def logging_settings(self, value: Optional[pulumi.Input['AppLoggingSettingsArgs']]):
+    def logging_settings(self, value: pulumi.Input[Optional['AppLoggingSettingsArgs']]):
         pulumi.set(self, "logging_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def metadata(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Metadata about the app. This field can be used to store additional
         information relevant to the app's details or intended usages.
@@ -305,12 +336,12 @@ class AppArgs:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def metadata(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter(name="modelSettings")
-    def model_settings(self) -> Optional[pulumi.Input['AppModelSettingsArgs']]:
+    def model_settings(self) -> pulumi.Input[Optional['AppModelSettingsArgs']]:
         """
         Model settings contains various configurations for the LLM model.
         Structure is documented below.
@@ -318,24 +349,24 @@ class AppArgs:
         return pulumi.get(self, "model_settings")
 
     @model_settings.setter
-    def model_settings(self, value: Optional[pulumi.Input['AppModelSettingsArgs']]):
+    def model_settings(self, value: pulumi.Input[Optional['AppModelSettingsArgs']]):
         pulumi.set(self, "model_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def pinned(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def pinned(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the app is pinned in the app list.
         """
         return pulumi.get(self, "pinned")
 
     @pinned.setter
-    def pinned(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def pinned(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "pinned", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -343,12 +374,12 @@ class AppArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rootAgent")
-    def root_agent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def root_agent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The root agent is the entry point of the app.
         Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
@@ -356,12 +387,12 @@ class AppArgs:
         return pulumi.get(self, "root_agent")
 
     @root_agent.setter
-    def root_agent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def root_agent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "root_agent", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZoneSettings")
-    def time_zone_settings(self) -> Optional[pulumi.Input['AppTimeZoneSettingsArgs']]:
+    def time_zone_settings(self) -> pulumi.Input[Optional['AppTimeZoneSettingsArgs']]:
         """
         TimeZone settings of the app.
         Structure is documented below.
@@ -369,12 +400,25 @@ class AppArgs:
         return pulumi.get(self, "time_zone_settings")
 
     @time_zone_settings.setter
-    def time_zone_settings(self, value: Optional[pulumi.Input['AppTimeZoneSettingsArgs']]):
+    def time_zone_settings(self, value: pulumi.Input[Optional['AppTimeZoneSettingsArgs']]):
         pulumi.set(self, "time_zone_settings", value)
 
     @_builtins.property
+    @pulumi.getter(name="toolExecutionMode")
+    def tool_execution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The tool execution mode for the app.
+        See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
+        """
+        return pulumi.get(self, "tool_execution_mode")
+
+    @tool_execution_mode.setter
+    def tool_execution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "tool_execution_mode", value)
+
+    @_builtins.property
     @pulumi.getter(name="variableDeclarations")
-    def variable_declarations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]:
+    def variable_declarations(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]:
         """
         The declarations of the variables.
         Structure is documented below.
@@ -382,38 +426,40 @@ class AppArgs:
         return pulumi.get(self, "variable_declarations")
 
     @variable_declarations.setter
-    def variable_declarations(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]):
+    def variable_declarations(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]):
         pulumi.set(self, "variable_declarations", value)
 
 
 @pulumi.input_type
 class _AppState:
     def __init__(__self__, *,
-                 app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 audio_processing_config: Optional[pulumi.Input['AppAudioProcessingConfigArgs']] = None,
-                 client_certificate_settings: Optional[pulumi.Input['AppClientCertificateSettingsArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_store_settings: Optional[pulumi.Input['AppDataStoreSettingsArgs']] = None,
-                 default_channel_profile: Optional[pulumi.Input['AppDefaultChannelProfileArgs']] = None,
-                 deployment_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 evaluation_metrics_thresholds: Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']] = None,
-                 global_instruction: Optional[pulumi.Input[_builtins.str]] = None,
-                 guardrails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 language_settings: Optional[pulumi.Input['AppLanguageSettingsArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_settings: Optional[pulumi.Input['AppLoggingSettingsArgs']] = None,
-                 metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 model_settings: Optional[pulumi.Input['AppModelSettingsArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 root_agent: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone_settings: Optional[pulumi.Input['AppTimeZoneSettingsArgs']] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 variable_declarations: Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]] = None):
+                 app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 audio_processing_config: pulumi.Input[Optional['AppAudioProcessingConfigArgs']] = None,
+                 client_certificate_settings: pulumi.Input[Optional['AppClientCertificateSettingsArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_store_settings: pulumi.Input[Optional['AppDataStoreSettingsArgs']] = None,
+                 default_channel_profile: pulumi.Input[Optional['AppDefaultChannelProfileArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deployment_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 evaluation_metrics_thresholds: pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']] = None,
+                 global_instruction: pulumi.Input[Optional[_builtins.str]] = None,
+                 guardrails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 language_settings: pulumi.Input[Optional['AppLanguageSettingsArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_settings: pulumi.Input[Optional['AppLoggingSettingsArgs']] = None,
+                 metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 model_settings: pulumi.Input[Optional['AppModelSettingsArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 root_agent: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone_settings: pulumi.Input[Optional['AppTimeZoneSettingsArgs']] = None,
+                 tool_execution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 variable_declarations: pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]] = None):
         """
         Input properties used for looking up and filtering App resources.
 
@@ -431,6 +477,12 @@ class _AppState:
         :param pulumi.Input['AppDefaultChannelProfileArgs'] default_channel_profile: A ChannelProfile configures the agent's behavior for a specific communication
                channel, such as web UI or telephony.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.int] deployment_count: Number of deployments in the app.
         :param pulumi.Input[_builtins.str] description: Human-readable description of the app.
         :param pulumi.Input[_builtins.str] display_name: Display name of the app.
@@ -463,6 +515,8 @@ class _AppState:
                Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
         :param pulumi.Input['AppTimeZoneSettingsArgs'] time_zone_settings: TimeZone settings of the app.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] tool_execution_mode: The tool execution mode for the app.
+               See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
         :param pulumi.Input[_builtins.str] update_time: Timestamp when the app was last updated.
         :param pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]] variable_declarations: The declarations of the variables.
                Structure is documented below.
@@ -479,6 +533,8 @@ class _AppState:
             pulumi.set(__self__, "data_store_settings", data_store_settings)
         if default_channel_profile is not None:
             pulumi.set(__self__, "default_channel_profile", default_channel_profile)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deployment_count is not None:
             pulumi.set(__self__, "deployment_count", deployment_count)
         if description is not None:
@@ -513,6 +569,8 @@ class _AppState:
             pulumi.set(__self__, "root_agent", root_agent)
         if time_zone_settings is not None:
             pulumi.set(__self__, "time_zone_settings", time_zone_settings)
+        if tool_execution_mode is not None:
+            pulumi.set(__self__, "tool_execution_mode", tool_execution_mode)
         if update_time is not None:
             pulumi.set(__self__, "update_time", update_time)
         if variable_declarations is not None:
@@ -520,7 +578,7 @@ class _AppState:
 
     @_builtins.property
     @pulumi.getter(name="appId")
-    def app_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def app_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the app, which will become the final component of
         the app's resource name. If not provided, a unique ID will be
@@ -529,12 +587,12 @@ class _AppState:
         return pulumi.get(self, "app_id")
 
     @app_id.setter
-    def app_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def app_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "app_id", value)
 
     @_builtins.property
     @pulumi.getter(name="audioProcessingConfig")
-    def audio_processing_config(self) -> Optional[pulumi.Input['AppAudioProcessingConfigArgs']]:
+    def audio_processing_config(self) -> pulumi.Input[Optional['AppAudioProcessingConfigArgs']]:
         """
         Configuration for how the input and output audio should be processed and
         delivered.
@@ -543,12 +601,12 @@ class _AppState:
         return pulumi.get(self, "audio_processing_config")
 
     @audio_processing_config.setter
-    def audio_processing_config(self, value: Optional[pulumi.Input['AppAudioProcessingConfigArgs']]):
+    def audio_processing_config(self, value: pulumi.Input[Optional['AppAudioProcessingConfigArgs']]):
         pulumi.set(self, "audio_processing_config", value)
 
     @_builtins.property
     @pulumi.getter(name="clientCertificateSettings")
-    def client_certificate_settings(self) -> Optional[pulumi.Input['AppClientCertificateSettingsArgs']]:
+    def client_certificate_settings(self) -> pulumi.Input[Optional['AppClientCertificateSettingsArgs']]:
         """
         The default client certificate settings for the app.
         Structure is documented below.
@@ -556,24 +614,24 @@ class _AppState:
         return pulumi.get(self, "client_certificate_settings")
 
     @client_certificate_settings.setter
-    def client_certificate_settings(self, value: Optional[pulumi.Input['AppClientCertificateSettingsArgs']]):
+    def client_certificate_settings(self, value: pulumi.Input[Optional['AppClientCertificateSettingsArgs']]):
         pulumi.set(self, "client_certificate_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the app was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="dataStoreSettings")
-    def data_store_settings(self) -> Optional[pulumi.Input['AppDataStoreSettingsArgs']]:
+    def data_store_settings(self) -> pulumi.Input[Optional['AppDataStoreSettingsArgs']]:
         """
         Data store related settings for the app.
         Structure is documented below.
@@ -581,12 +639,12 @@ class _AppState:
         return pulumi.get(self, "data_store_settings")
 
     @data_store_settings.setter
-    def data_store_settings(self, value: Optional[pulumi.Input['AppDataStoreSettingsArgs']]):
+    def data_store_settings(self, value: pulumi.Input[Optional['AppDataStoreSettingsArgs']]):
         pulumi.set(self, "data_store_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="defaultChannelProfile")
-    def default_channel_profile(self) -> Optional[pulumi.Input['AppDefaultChannelProfileArgs']]:
+    def default_channel_profile(self) -> pulumi.Input[Optional['AppDefaultChannelProfileArgs']]:
         """
         A ChannelProfile configures the agent's behavior for a specific communication
         channel, such as web UI or telephony.
@@ -595,48 +653,65 @@ class _AppState:
         return pulumi.get(self, "default_channel_profile")
 
     @default_channel_profile.setter
-    def default_channel_profile(self, value: Optional[pulumi.Input['AppDefaultChannelProfileArgs']]):
+    def default_channel_profile(self, value: pulumi.Input[Optional['AppDefaultChannelProfileArgs']]):
         pulumi.set(self, "default_channel_profile", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deploymentCount")
-    def deployment_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def deployment_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Number of deployments in the app.
         """
         return pulumi.get(self, "deployment_count")
 
     @deployment_count.setter
-    def deployment_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def deployment_count(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "deployment_count", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable description of the app.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display name of the app.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Etag used to ensure the object hasn't changed during a read-modify-write
         operation. If the etag is empty, the update will overwrite any concurrent
@@ -645,12 +720,12 @@ class _AppState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter(name="evaluationMetricsThresholds")
-    def evaluation_metrics_thresholds(self) -> Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']]:
+    def evaluation_metrics_thresholds(self) -> pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']]:
         """
         Threshold settings for metrics in an Evaluation.
         Structure is documented below.
@@ -658,12 +733,12 @@ class _AppState:
         return pulumi.get(self, "evaluation_metrics_thresholds")
 
     @evaluation_metrics_thresholds.setter
-    def evaluation_metrics_thresholds(self, value: Optional[pulumi.Input['AppEvaluationMetricsThresholdsArgs']]):
+    def evaluation_metrics_thresholds(self, value: pulumi.Input[Optional['AppEvaluationMetricsThresholdsArgs']]):
         pulumi.set(self, "evaluation_metrics_thresholds", value)
 
     @_builtins.property
     @pulumi.getter(name="globalInstruction")
-    def global_instruction(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def global_instruction(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Instructions for all the agents in the app.
         You can use this instruction to set up a stable identity or personality
@@ -672,12 +747,12 @@ class _AppState:
         return pulumi.get(self, "global_instruction")
 
     @global_instruction.setter
-    def global_instruction(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def global_instruction(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "global_instruction", value)
 
     @_builtins.property
     @pulumi.getter
-    def guardrails(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def guardrails(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of guardrails for the app.
         Format:
@@ -686,12 +761,12 @@ class _AppState:
         return pulumi.get(self, "guardrails")
 
     @guardrails.setter
-    def guardrails(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def guardrails(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "guardrails", value)
 
     @_builtins.property
     @pulumi.getter(name="languageSettings")
-    def language_settings(self) -> Optional[pulumi.Input['AppLanguageSettingsArgs']]:
+    def language_settings(self) -> pulumi.Input[Optional['AppLanguageSettingsArgs']]:
         """
         Language settings of the app.
         Structure is documented below.
@@ -699,24 +774,24 @@ class _AppState:
         return pulumi.get(self, "language_settings")
 
     @language_settings.setter
-    def language_settings(self, value: Optional[pulumi.Input['AppLanguageSettingsArgs']]):
+    def language_settings(self, value: pulumi.Input[Optional['AppLanguageSettingsArgs']]):
         pulumi.set(self, "language_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingSettings")
-    def logging_settings(self) -> Optional[pulumi.Input['AppLoggingSettingsArgs']]:
+    def logging_settings(self) -> pulumi.Input[Optional['AppLoggingSettingsArgs']]:
         """
         Settings to describe the logging behaviors for the app.
         Structure is documented below.
@@ -724,12 +799,12 @@ class _AppState:
         return pulumi.get(self, "logging_settings")
 
     @logging_settings.setter
-    def logging_settings(self, value: Optional[pulumi.Input['AppLoggingSettingsArgs']]):
+    def logging_settings(self, value: pulumi.Input[Optional['AppLoggingSettingsArgs']]):
         pulumi.set(self, "logging_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def metadata(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def metadata(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Metadata about the app. This field can be used to store additional
         information relevant to the app's details or intended usages.
@@ -737,12 +812,12 @@ class _AppState:
         return pulumi.get(self, "metadata")
 
     @metadata.setter
-    def metadata(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def metadata(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "metadata", value)
 
     @_builtins.property
     @pulumi.getter(name="modelSettings")
-    def model_settings(self) -> Optional[pulumi.Input['AppModelSettingsArgs']]:
+    def model_settings(self) -> pulumi.Input[Optional['AppModelSettingsArgs']]:
         """
         Model settings contains various configurations for the LLM model.
         Structure is documented below.
@@ -750,12 +825,12 @@ class _AppState:
         return pulumi.get(self, "model_settings")
 
     @model_settings.setter
-    def model_settings(self, value: Optional[pulumi.Input['AppModelSettingsArgs']]):
+    def model_settings(self, value: pulumi.Input[Optional['AppModelSettingsArgs']]):
         pulumi.set(self, "model_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifier. The unique identifier of the app.
         Format: `projects/{project}/locations/{location}/apps/{app}`
@@ -763,24 +838,24 @@ class _AppState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def pinned(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def pinned(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether the app is pinned in the app list.
         """
         return pulumi.get(self, "pinned")
 
     @pinned.setter
-    def pinned(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def pinned(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "pinned", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -788,12 +863,12 @@ class _AppState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="rootAgent")
-    def root_agent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def root_agent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The root agent is the entry point of the app.
         Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
@@ -801,12 +876,12 @@ class _AppState:
         return pulumi.get(self, "root_agent")
 
     @root_agent.setter
-    def root_agent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def root_agent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "root_agent", value)
 
     @_builtins.property
     @pulumi.getter(name="timeZoneSettings")
-    def time_zone_settings(self) -> Optional[pulumi.Input['AppTimeZoneSettingsArgs']]:
+    def time_zone_settings(self) -> pulumi.Input[Optional['AppTimeZoneSettingsArgs']]:
         """
         TimeZone settings of the app.
         Structure is documented below.
@@ -814,24 +889,37 @@ class _AppState:
         return pulumi.get(self, "time_zone_settings")
 
     @time_zone_settings.setter
-    def time_zone_settings(self, value: Optional[pulumi.Input['AppTimeZoneSettingsArgs']]):
+    def time_zone_settings(self, value: pulumi.Input[Optional['AppTimeZoneSettingsArgs']]):
         pulumi.set(self, "time_zone_settings", value)
 
     @_builtins.property
+    @pulumi.getter(name="toolExecutionMode")
+    def tool_execution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The tool execution mode for the app.
+        See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
+        """
+        return pulumi.get(self, "tool_execution_mode")
+
+    @tool_execution_mode.setter
+    def tool_execution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "tool_execution_mode", value)
+
+    @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Timestamp when the app was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter(name="variableDeclarations")
-    def variable_declarations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]:
+    def variable_declarations(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]:
         """
         The declarations of the variables.
         Structure is documented below.
@@ -839,7 +927,7 @@ class _AppState:
         return pulumi.get(self, "variable_declarations")
 
     @variable_declarations.setter
-    def variable_declarations(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]):
+    def variable_declarations(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AppVariableDeclarationArgs']]]]):
         pulumi.set(self, "variable_declarations", value)
 
 
@@ -849,29 +937,35 @@ class App(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 audio_processing_config: Optional[pulumi.Input[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
-                 client_certificate_settings: Optional[pulumi.Input[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
-                 data_store_settings: Optional[pulumi.Input[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
-                 default_channel_profile: Optional[pulumi.Input[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 evaluation_metrics_thresholds: Optional[pulumi.Input[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
-                 global_instruction: Optional[pulumi.Input[_builtins.str]] = None,
-                 guardrails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 language_settings: Optional[pulumi.Input[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_settings: Optional[pulumi.Input[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
-                 metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 model_settings: Optional[pulumi.Input[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
-                 pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 root_agent: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone_settings: Optional[pulumi.Input[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
-                 variable_declarations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None,
+                 app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 audio_processing_config: pulumi.Input[Optional[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
+                 client_certificate_settings: pulumi.Input[Optional[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
+                 data_store_settings: pulumi.Input[Optional[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
+                 default_channel_profile: pulumi.Input[Optional[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 evaluation_metrics_thresholds: pulumi.Input[Optional[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
+                 global_instruction: pulumi.Input[Optional[_builtins.str]] = None,
+                 guardrails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 language_settings: pulumi.Input[Optional[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_settings: pulumi.Input[Optional[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
+                 metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 model_settings: pulumi.Input[Optional[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
+                 pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 root_agent: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone_settings: pulumi.Input[Optional[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
+                 tool_execution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 variable_declarations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None,
                  __props__=None):
         """
-        Description
+        Customer Engagement Suite App
+
+        To get more information about App, see:
+
+        * [API documentation](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rest/v1/projects.locations.apps)
 
         ## Example Usage
 
@@ -917,7 +1011,7 @@ class App(pulumi.CustomResource):
                     {
                         "language_code": "en-US",
                         "voice": "en-US-Standard-A",
-                        "speaking_rate": 1,
+                        "speaking_rate": float(1),
                     },
                     {
                         "language_code": "es-ES",
@@ -931,7 +1025,7 @@ class App(pulumi.CustomResource):
                 "inactivity_timeout": "300s",
                 "ambient_sound_config": {
                     "prebuilt_ambient_sound": "room_2",
-                    "volume_gain_db": -6,
+                    "volume_gain_db": float(-6),
                 },
             },
             logging_settings={
@@ -964,10 +1058,10 @@ class App(pulumi.CustomResource):
                 "golden_evaluation_metrics_thresholds": {
                     "turn_level_metrics_thresholds": {
                         "semantic_similarity_success_threshold": 3,
-                        "overall_tool_invocation_correctness_threshold": 1,
+                        "overall_tool_invocation_correctness_threshold": float(1),
                     },
                     "expectation_level_metrics_thresholds": {
-                        "tool_invocation_parameter_correctness_threshold": 1,
+                        "tool_invocation_parameter_correctness_threshold": float(1),
                     },
                 },
             },
@@ -1069,7 +1163,7 @@ class App(pulumi.CustomResource):
                     {
                         "language_code": "en-US",
                         "voice": "en-US-Standard-A",
-                        "speaking_rate": 1,
+                        "speaking_rate": float(1),
                     },
                     {
                         "language_code": "es-ES",
@@ -1083,7 +1177,7 @@ class App(pulumi.CustomResource):
                 "inactivity_timeout": "300s",
                 "ambient_sound_config": {
                     "gcs_uri": "gs://fake-bucket/sounds/ambient.wav",
-                    "volume_gain_db": -6,
+                    "volume_gain_db": float(-6),
                 },
             },
             logging_settings={
@@ -1116,10 +1210,10 @@ class App(pulumi.CustomResource):
                 "golden_evaluation_metrics_thresholds": {
                     "turn_level_metrics_thresholds": {
                         "semantic_similarity_success_threshold": 3,
-                        "overall_tool_invocation_correctness_threshold": 1,
+                        "overall_tool_invocation_correctness_threshold": float(1),
                     },
                     "expectation_level_metrics_thresholds": {
-                        "tool_invocation_parameter_correctness_threshold": 1,
+                        "tool_invocation_parameter_correctness_threshold": float(1),
                     },
                 },
             },
@@ -1223,6 +1317,12 @@ class App(pulumi.CustomResource):
         :param pulumi.Input[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']] default_channel_profile: A ChannelProfile configures the agent's behavior for a specific communication
                channel, such as web UI or telephony.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Human-readable description of the app.
         :param pulumi.Input[_builtins.str] display_name: Display name of the app.
         :param pulumi.Input[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']] evaluation_metrics_thresholds: Threshold settings for metrics in an Evaluation.
@@ -1249,6 +1349,8 @@ class App(pulumi.CustomResource):
                Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
         :param pulumi.Input[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']] time_zone_settings: TimeZone settings of the app.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] tool_execution_mode: The tool execution mode for the app.
+               See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]] variable_declarations: The declarations of the variables.
                Structure is documented below.
         """
@@ -1259,7 +1361,11 @@ class App(pulumi.CustomResource):
                  args: AppArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Description
+        Customer Engagement Suite App
+
+        To get more information about App, see:
+
+        * [API documentation](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rest/v1/projects.locations.apps)
 
         ## Example Usage
 
@@ -1305,7 +1411,7 @@ class App(pulumi.CustomResource):
                     {
                         "language_code": "en-US",
                         "voice": "en-US-Standard-A",
-                        "speaking_rate": 1,
+                        "speaking_rate": float(1),
                     },
                     {
                         "language_code": "es-ES",
@@ -1319,7 +1425,7 @@ class App(pulumi.CustomResource):
                 "inactivity_timeout": "300s",
                 "ambient_sound_config": {
                     "prebuilt_ambient_sound": "room_2",
-                    "volume_gain_db": -6,
+                    "volume_gain_db": float(-6),
                 },
             },
             logging_settings={
@@ -1352,10 +1458,10 @@ class App(pulumi.CustomResource):
                 "golden_evaluation_metrics_thresholds": {
                     "turn_level_metrics_thresholds": {
                         "semantic_similarity_success_threshold": 3,
-                        "overall_tool_invocation_correctness_threshold": 1,
+                        "overall_tool_invocation_correctness_threshold": float(1),
                     },
                     "expectation_level_metrics_thresholds": {
-                        "tool_invocation_parameter_correctness_threshold": 1,
+                        "tool_invocation_parameter_correctness_threshold": float(1),
                     },
                 },
             },
@@ -1457,7 +1563,7 @@ class App(pulumi.CustomResource):
                     {
                         "language_code": "en-US",
                         "voice": "en-US-Standard-A",
-                        "speaking_rate": 1,
+                        "speaking_rate": float(1),
                     },
                     {
                         "language_code": "es-ES",
@@ -1471,7 +1577,7 @@ class App(pulumi.CustomResource):
                 "inactivity_timeout": "300s",
                 "ambient_sound_config": {
                     "gcs_uri": "gs://fake-bucket/sounds/ambient.wav",
-                    "volume_gain_db": -6,
+                    "volume_gain_db": float(-6),
                 },
             },
             logging_settings={
@@ -1504,10 +1610,10 @@ class App(pulumi.CustomResource):
                 "golden_evaluation_metrics_thresholds": {
                     "turn_level_metrics_thresholds": {
                         "semantic_similarity_success_threshold": 3,
-                        "overall_tool_invocation_correctness_threshold": 1,
+                        "overall_tool_invocation_correctness_threshold": float(1),
                     },
                     "expectation_level_metrics_thresholds": {
-                        "tool_invocation_parameter_correctness_threshold": 1,
+                        "tool_invocation_parameter_correctness_threshold": float(1),
                     },
                 },
             },
@@ -1611,26 +1717,28 @@ class App(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 app_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 audio_processing_config: Optional[pulumi.Input[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
-                 client_certificate_settings: Optional[pulumi.Input[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
-                 data_store_settings: Optional[pulumi.Input[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
-                 default_channel_profile: Optional[pulumi.Input[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 evaluation_metrics_thresholds: Optional[pulumi.Input[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
-                 global_instruction: Optional[pulumi.Input[_builtins.str]] = None,
-                 guardrails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 language_settings: Optional[pulumi.Input[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 logging_settings: Optional[pulumi.Input[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
-                 metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 model_settings: Optional[pulumi.Input[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
-                 pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 root_agent: Optional[pulumi.Input[_builtins.str]] = None,
-                 time_zone_settings: Optional[pulumi.Input[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
-                 variable_declarations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None,
+                 app_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 audio_processing_config: pulumi.Input[Optional[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
+                 client_certificate_settings: pulumi.Input[Optional[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
+                 data_store_settings: pulumi.Input[Optional[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
+                 default_channel_profile: pulumi.Input[Optional[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 evaluation_metrics_thresholds: pulumi.Input[Optional[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
+                 global_instruction: pulumi.Input[Optional[_builtins.str]] = None,
+                 guardrails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 language_settings: pulumi.Input[Optional[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging_settings: pulumi.Input[Optional[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
+                 metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 model_settings: pulumi.Input[Optional[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
+                 pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 root_agent: pulumi.Input[Optional[_builtins.str]] = None,
+                 time_zone_settings: pulumi.Input[Optional[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
+                 tool_execution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 variable_declarations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1647,6 +1755,7 @@ class App(pulumi.CustomResource):
             __props__.__dict__["client_certificate_settings"] = client_certificate_settings
             __props__.__dict__["data_store_settings"] = data_store_settings
             __props__.__dict__["default_channel_profile"] = default_channel_profile
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -1665,6 +1774,7 @@ class App(pulumi.CustomResource):
             __props__.__dict__["project"] = project
             __props__.__dict__["root_agent"] = root_agent
             __props__.__dict__["time_zone_settings"] = time_zone_settings
+            __props__.__dict__["tool_execution_mode"] = tool_execution_mode
             __props__.__dict__["variable_declarations"] = variable_declarations
             __props__.__dict__["create_time"] = None
             __props__.__dict__["deployment_count"] = None
@@ -1681,31 +1791,33 @@ class App(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            app_id: Optional[pulumi.Input[_builtins.str]] = None,
-            audio_processing_config: Optional[pulumi.Input[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
-            client_certificate_settings: Optional[pulumi.Input[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            data_store_settings: Optional[pulumi.Input[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
-            default_channel_profile: Optional[pulumi.Input[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
-            deployment_count: Optional[pulumi.Input[_builtins.int]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            evaluation_metrics_thresholds: Optional[pulumi.Input[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
-            global_instruction: Optional[pulumi.Input[_builtins.str]] = None,
-            guardrails: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            language_settings: Optional[pulumi.Input[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            logging_settings: Optional[pulumi.Input[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
-            metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            model_settings: Optional[pulumi.Input[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            pinned: Optional[pulumi.Input[_builtins.bool]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            root_agent: Optional[pulumi.Input[_builtins.str]] = None,
-            time_zone_settings: Optional[pulumi.Input[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            variable_declarations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None) -> 'App':
+            app_id: pulumi.Input[Optional[_builtins.str]] = None,
+            audio_processing_config: pulumi.Input[Optional[Union['AppAudioProcessingConfigArgs', 'AppAudioProcessingConfigArgsDict']]] = None,
+            client_certificate_settings: pulumi.Input[Optional[Union['AppClientCertificateSettingsArgs', 'AppClientCertificateSettingsArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            data_store_settings: pulumi.Input[Optional[Union['AppDataStoreSettingsArgs', 'AppDataStoreSettingsArgsDict']]] = None,
+            default_channel_profile: pulumi.Input[Optional[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deployment_count: pulumi.Input[Optional[_builtins.int]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            evaluation_metrics_thresholds: pulumi.Input[Optional[Union['AppEvaluationMetricsThresholdsArgs', 'AppEvaluationMetricsThresholdsArgsDict']]] = None,
+            global_instruction: pulumi.Input[Optional[_builtins.str]] = None,
+            guardrails: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            language_settings: pulumi.Input[Optional[Union['AppLanguageSettingsArgs', 'AppLanguageSettingsArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            logging_settings: pulumi.Input[Optional[Union['AppLoggingSettingsArgs', 'AppLoggingSettingsArgsDict']]] = None,
+            metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            model_settings: pulumi.Input[Optional[Union['AppModelSettingsArgs', 'AppModelSettingsArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pinned: pulumi.Input[Optional[_builtins.bool]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            root_agent: pulumi.Input[Optional[_builtins.str]] = None,
+            time_zone_settings: pulumi.Input[Optional[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']]] = None,
+            tool_execution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            variable_declarations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]]] = None) -> 'App':
         """
         Get an existing App resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1727,6 +1839,12 @@ class App(pulumi.CustomResource):
         :param pulumi.Input[Union['AppDefaultChannelProfileArgs', 'AppDefaultChannelProfileArgsDict']] default_channel_profile: A ChannelProfile configures the agent's behavior for a specific communication
                channel, such as web UI or telephony.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.int] deployment_count: Number of deployments in the app.
         :param pulumi.Input[_builtins.str] description: Human-readable description of the app.
         :param pulumi.Input[_builtins.str] display_name: Display name of the app.
@@ -1759,6 +1877,8 @@ class App(pulumi.CustomResource):
                Format: `projects/{project}/locations/{location}/apps/{app}/agents/{agent}`
         :param pulumi.Input[Union['AppTimeZoneSettingsArgs', 'AppTimeZoneSettingsArgsDict']] time_zone_settings: TimeZone settings of the app.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] tool_execution_mode: The tool execution mode for the app.
+               See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
         :param pulumi.Input[_builtins.str] update_time: Timestamp when the app was last updated.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AppVariableDeclarationArgs', 'AppVariableDeclarationArgsDict']]]] variable_declarations: The declarations of the variables.
                Structure is documented below.
@@ -1773,6 +1893,7 @@ class App(pulumi.CustomResource):
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["data_store_settings"] = data_store_settings
         __props__.__dict__["default_channel_profile"] = default_channel_profile
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deployment_count"] = deployment_count
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
@@ -1790,6 +1911,7 @@ class App(pulumi.CustomResource):
         __props__.__dict__["project"] = project
         __props__.__dict__["root_agent"] = root_agent
         __props__.__dict__["time_zone_settings"] = time_zone_settings
+        __props__.__dict__["tool_execution_mode"] = tool_execution_mode
         __props__.__dict__["update_time"] = update_time
         __props__.__dict__["variable_declarations"] = variable_declarations
         return App(resource_name, opts=opts, __props__=__props__)
@@ -1849,6 +1971,19 @@ class App(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "default_channel_profile")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deploymentCount")
@@ -2000,6 +2135,15 @@ class App(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "time_zone_settings")
+
+    @_builtins.property
+    @pulumi.getter(name="toolExecutionMode")
+    def tool_execution_mode(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The tool execution mode for the app.
+        See the [API reference](https://docs.cloud.google.com/customer-engagement-ai/conversational-agents/ps/reference/rpc/google.cloud.ces.v1#google.cloud.ces.v1.App.ToolExecutionMode) for more details.
+        """
+        return pulumi.get(self, "tool_execution_mode")
 
     @_builtins.property
     @pulumi.getter(name="updateTime")

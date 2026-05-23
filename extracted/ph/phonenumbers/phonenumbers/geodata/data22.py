@@ -19,6 +19,13 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '86156819':{'en': 'Mianyang, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u7ef5\u9633\u5e02')},
+ '86156820':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
+ '861568210':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
+ '861568211':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
+ '861568212':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
+ '861568213':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
+ '861568214':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
  '861568215':{'en': 'Nanchong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5357\u5145\u5e02')},
  '861568216':{'en': 'Nanchong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5357\u5145\u5e02')},
  '861568217':{'en': 'Nanchong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5357\u5145\u5e02')},
@@ -10012,11 +10019,4 @@ data = {
  '861595701':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
  '861595702':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
  '861595703':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
- '861595704':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
- '861595705':{'en': 'Zhoushan, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u821f\u5c71\u5e02')},
- '861595706':{'en': 'Zhoushan, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u821f\u5c71\u5e02')},
- '861595707':{'en': 'Zhoushan, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u821f\u5c71\u5e02')},
- '861595708':{'en': 'Zhoushan, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u821f\u5c71\u5e02')},
- '861595709':{'en': 'Zhoushan, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u821f\u5c71\u5e02')},
- '86159571':{'en': 'Hangzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u676d\u5dde\u5e02')},
 }

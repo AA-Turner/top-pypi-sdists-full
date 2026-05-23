@@ -8,7 +8,11 @@ from functools import lru_cache
 from types import SimpleNamespace
 from typing import Any, Literal
 
-from reflex_base.components.component import Component, ComponentNamespace
+from reflex_base.components.component import (
+    Component,
+    ComponentNamespace,
+    MemoizationLeaf,
+)
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.utils.imports import ImportDict, ImportTypes, ImportVar
 from reflex_base.vars.base import Var
@@ -67,7 +71,7 @@ class Plugin(SimpleNamespace):
 @lru_cache
 def get_base_component_map() -> dict[str, Callable]: ...
 
-class Markdown(Component):
+class Markdown(MemoizationLeaf):
     @classmethod
     def create(
         cls,

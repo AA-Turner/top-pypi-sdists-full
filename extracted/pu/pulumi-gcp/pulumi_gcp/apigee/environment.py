@@ -22,16 +22,17 @@ __all__ = ['EnvironmentArgs', 'Environment']
 class EnvironmentArgs:
     def __init__(__self__, *,
                  org_id: pulumi.Input[_builtins.str],
-                 api_proxy_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_ip_resolution_config: Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']] = None,
-                 deployment_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 forward_proxy_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input['EnvironmentNodeConfigArgs']] = None,
-                 properties: Optional[pulumi.Input['EnvironmentPropertiesArgs']] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_proxy_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_ip_resolution_config: pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deployment_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 forward_proxy_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional['EnvironmentNodeConfigArgs']] = None,
+                 properties: pulumi.Input[Optional['EnvironmentPropertiesArgs']] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Environment resource.
 
@@ -42,6 +43,12 @@ class EnvironmentArgs:
                Possible values are: `API_PROXY_TYPE_UNSPECIFIED`, `PROGRAMMABLE`, `CONFIGURABLE`.
         :param pulumi.Input['EnvironmentClientIpResolutionConfigArgs'] client_ip_resolution_config: The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deployment_type: Optional. Deployment type supported by the environment. The deployment type can be
                set when creating the environment and cannot be changed. When you enable archive
                deployment, you will be prevented from performing a subset of actions within the
@@ -69,6 +76,8 @@ class EnvironmentArgs:
             pulumi.set(__self__, "api_proxy_type", api_proxy_type)
         if client_ip_resolution_config is not None:
             pulumi.set(__self__, "client_ip_resolution_config", client_ip_resolution_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deployment_type is not None:
             pulumi.set(__self__, "deployment_type", deployment_type)
         if description is not None:
@@ -101,7 +110,7 @@ class EnvironmentArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiProxyType")
-    def api_proxy_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api_proxy_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. API Proxy type supported by the environment. The type can be set when creating
         the Environment and cannot be changed.
@@ -110,12 +119,12 @@ class EnvironmentArgs:
         return pulumi.get(self, "api_proxy_type")
 
     @api_proxy_type.setter
-    def api_proxy_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api_proxy_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api_proxy_type", value)
 
     @_builtins.property
     @pulumi.getter(name="clientIpResolutionConfig")
-    def client_ip_resolution_config(self) -> Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']]:
+    def client_ip_resolution_config(self) -> pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']]:
         """
         The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
         Structure is documented below.
@@ -123,12 +132,29 @@ class EnvironmentArgs:
         return pulumi.get(self, "client_ip_resolution_config")
 
     @client_ip_resolution_config.setter
-    def client_ip_resolution_config(self, value: Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']]):
+    def client_ip_resolution_config(self, value: pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']]):
         pulumi.set(self, "client_ip_resolution_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deploymentType")
-    def deployment_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deployment_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Deployment type supported by the environment. The deployment type can be
         set when creating the environment and cannot be changed. When you enable archive
@@ -142,60 +168,60 @@ class EnvironmentArgs:
         return pulumi.get(self, "deployment_type")
 
     @deployment_type.setter
-    def deployment_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deployment_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deployment_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the environment.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display name of the environment.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="forwardProxyUri")
-    def forward_proxy_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def forward_proxy_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. URI of the forward proxy to be applied to the runtime instances in this environment. Must be in the format of {scheme}://{hostname}:{port}. Note that the scheme must be one of "http" or "https", and the port must be supplied.
         """
         return pulumi.get(self, "forward_proxy_uri")
 
     @forward_proxy_uri.setter
-    def forward_proxy_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def forward_proxy_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "forward_proxy_uri", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource ID of the environment.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeConfig")
-    def node_config(self) -> Optional[pulumi.Input['EnvironmentNodeConfigArgs']]:
+    def node_config(self) -> pulumi.Input[Optional['EnvironmentNodeConfigArgs']]:
         """
         NodeConfig for setting the min/max number of nodes associated with the environment.
         Structure is documented below.
@@ -203,12 +229,12 @@ class EnvironmentArgs:
         return pulumi.get(self, "node_config")
 
     @node_config.setter
-    def node_config(self, value: Optional[pulumi.Input['EnvironmentNodeConfigArgs']]):
+    def node_config(self, value: pulumi.Input[Optional['EnvironmentNodeConfigArgs']]):
         pulumi.set(self, "node_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[pulumi.Input['EnvironmentPropertiesArgs']]:
+    def properties(self) -> pulumi.Input[Optional['EnvironmentPropertiesArgs']]:
         """
         Key-value pairs that may be used for customizing the environment.
         Structure is documented below.
@@ -216,12 +242,12 @@ class EnvironmentArgs:
         return pulumi.get(self, "properties")
 
     @properties.setter
-    def properties(self, value: Optional[pulumi.Input['EnvironmentPropertiesArgs']]):
+    def properties(self, value: pulumi.Input[Optional['EnvironmentPropertiesArgs']]):
         pulumi.set(self, "properties", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Types that can be selected for an Environment. Each of the types are
         limited by capability and capacity. Refer to Apigee's public documentation
@@ -232,24 +258,25 @@ class EnvironmentArgs:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
 @pulumi.input_type
 class _EnvironmentState:
     def __init__(__self__, *,
-                 api_proxy_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_ip_resolution_config: Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']] = None,
-                 deployment_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 forward_proxy_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input['EnvironmentNodeConfigArgs']] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input['EnvironmentPropertiesArgs']] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 api_proxy_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_ip_resolution_config: pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deployment_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 forward_proxy_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional['EnvironmentNodeConfigArgs']] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional['EnvironmentPropertiesArgs']] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Environment resources.
 
@@ -258,6 +285,12 @@ class _EnvironmentState:
                Possible values are: `API_PROXY_TYPE_UNSPECIFIED`, `PROGRAMMABLE`, `CONFIGURABLE`.
         :param pulumi.Input['EnvironmentClientIpResolutionConfigArgs'] client_ip_resolution_config: The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deployment_type: Optional. Deployment type supported by the environment. The deployment type can be
                set when creating the environment and cannot be changed. When you enable archive
                deployment, you will be prevented from performing a subset of actions within the
@@ -286,6 +319,8 @@ class _EnvironmentState:
             pulumi.set(__self__, "api_proxy_type", api_proxy_type)
         if client_ip_resolution_config is not None:
             pulumi.set(__self__, "client_ip_resolution_config", client_ip_resolution_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deployment_type is not None:
             pulumi.set(__self__, "deployment_type", deployment_type)
         if description is not None:
@@ -307,7 +342,7 @@ class _EnvironmentState:
 
     @_builtins.property
     @pulumi.getter(name="apiProxyType")
-    def api_proxy_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def api_proxy_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. API Proxy type supported by the environment. The type can be set when creating
         the Environment and cannot be changed.
@@ -316,12 +351,12 @@ class _EnvironmentState:
         return pulumi.get(self, "api_proxy_type")
 
     @api_proxy_type.setter
-    def api_proxy_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def api_proxy_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "api_proxy_type", value)
 
     @_builtins.property
     @pulumi.getter(name="clientIpResolutionConfig")
-    def client_ip_resolution_config(self) -> Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']]:
+    def client_ip_resolution_config(self) -> pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']]:
         """
         The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
         Structure is documented below.
@@ -329,12 +364,29 @@ class _EnvironmentState:
         return pulumi.get(self, "client_ip_resolution_config")
 
     @client_ip_resolution_config.setter
-    def client_ip_resolution_config(self, value: Optional[pulumi.Input['EnvironmentClientIpResolutionConfigArgs']]):
+    def client_ip_resolution_config(self, value: pulumi.Input[Optional['EnvironmentClientIpResolutionConfigArgs']]):
         pulumi.set(self, "client_ip_resolution_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="deploymentType")
-    def deployment_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def deployment_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. Deployment type supported by the environment. The deployment type can be
         set when creating the environment and cannot be changed. When you enable archive
@@ -348,60 +400,60 @@ class _EnvironmentState:
         return pulumi.get(self, "deployment_type")
 
     @deployment_type.setter
-    def deployment_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def deployment_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "deployment_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Description of the environment.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display name of the environment.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="forwardProxyUri")
-    def forward_proxy_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def forward_proxy_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. URI of the forward proxy to be applied to the runtime instances in this environment. Must be in the format of {scheme}://{hostname}:{port}. Note that the scheme must be one of "http" or "https", and the port must be supplied.
         """
         return pulumi.get(self, "forward_proxy_uri")
 
     @forward_proxy_uri.setter
-    def forward_proxy_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def forward_proxy_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "forward_proxy_uri", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource ID of the environment.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nodeConfig")
-    def node_config(self) -> Optional[pulumi.Input['EnvironmentNodeConfigArgs']]:
+    def node_config(self) -> pulumi.Input[Optional['EnvironmentNodeConfigArgs']]:
         """
         NodeConfig for setting the min/max number of nodes associated with the environment.
         Structure is documented below.
@@ -409,12 +461,12 @@ class _EnvironmentState:
         return pulumi.get(self, "node_config")
 
     @node_config.setter
-    def node_config(self, value: Optional[pulumi.Input['EnvironmentNodeConfigArgs']]):
+    def node_config(self, value: pulumi.Input[Optional['EnvironmentNodeConfigArgs']]):
         pulumi.set(self, "node_config", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee Organization associated with the Apigee environment,
         in the format `organizations/{{org_name}}`.
@@ -422,12 +474,12 @@ class _EnvironmentState:
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[pulumi.Input['EnvironmentPropertiesArgs']]:
+    def properties(self) -> pulumi.Input[Optional['EnvironmentPropertiesArgs']]:
         """
         Key-value pairs that may be used for customizing the environment.
         Structure is documented below.
@@ -435,12 +487,12 @@ class _EnvironmentState:
         return pulumi.get(self, "properties")
 
     @properties.setter
-    def properties(self, value: Optional[pulumi.Input['EnvironmentPropertiesArgs']]):
+    def properties(self, value: pulumi.Input[Optional['EnvironmentPropertiesArgs']]):
         pulumi.set(self, "properties", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Types that can be selected for an Environment. Each of the types are
         limited by capability and capacity. Refer to Apigee's public documentation
@@ -451,7 +503,7 @@ class _EnvironmentState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
@@ -461,17 +513,18 @@ class Environment(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_proxy_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_ip_resolution_config: Optional[pulumi.Input[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
-                 deployment_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 forward_proxy_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_proxy_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_ip_resolution_config: pulumi.Input[Optional[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deployment_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 forward_proxy_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An `Environment` in Apigee.
@@ -542,6 +595,12 @@ class Environment(pulumi.CustomResource):
                Possible values are: `API_PROXY_TYPE_UNSPECIFIED`, `PROGRAMMABLE`, `CONFIGURABLE`.
         :param pulumi.Input[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']] client_ip_resolution_config: The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deployment_type: Optional. Deployment type supported by the environment. The deployment type can be
                set when creating the environment and cannot be changed. When you enable archive
                deployment, you will be prevented from performing a subset of actions within the
@@ -649,17 +708,18 @@ class Environment(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_proxy_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_ip_resolution_config: Optional[pulumi.Input[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
-                 deployment_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 forward_proxy_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_config: Optional[pulumi.Input[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 properties: Optional[pulumi.Input[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 api_proxy_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_ip_resolution_config: pulumi.Input[Optional[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deployment_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 forward_proxy_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 node_config: pulumi.Input[Optional[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 properties: pulumi.Input[Optional[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -671,6 +731,7 @@ class Environment(pulumi.CustomResource):
 
             __props__.__dict__["api_proxy_type"] = api_proxy_type
             __props__.__dict__["client_ip_resolution_config"] = client_ip_resolution_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deployment_type"] = deployment_type
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
@@ -692,17 +753,18 @@ class Environment(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            api_proxy_type: Optional[pulumi.Input[_builtins.str]] = None,
-            client_ip_resolution_config: Optional[pulumi.Input[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
-            deployment_type: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            forward_proxy_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            node_config: Optional[pulumi.Input[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            properties: Optional[pulumi.Input[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None) -> 'Environment':
+            api_proxy_type: pulumi.Input[Optional[_builtins.str]] = None,
+            client_ip_resolution_config: pulumi.Input[Optional[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deployment_type: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            forward_proxy_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            node_config: pulumi.Input[Optional[Union['EnvironmentNodeConfigArgs', 'EnvironmentNodeConfigArgsDict']]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            properties: pulumi.Input[Optional[Union['EnvironmentPropertiesArgs', 'EnvironmentPropertiesArgsDict']]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None) -> 'Environment':
         """
         Get an existing Environment resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -715,6 +777,12 @@ class Environment(pulumi.CustomResource):
                Possible values are: `API_PROXY_TYPE_UNSPECIFIED`, `PROGRAMMABLE`, `CONFIGURABLE`.
         :param pulumi.Input[Union['EnvironmentClientIpResolutionConfigArgs', 'EnvironmentClientIpResolutionConfigArgsDict']] client_ip_resolution_config: The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] deployment_type: Optional. Deployment type supported by the environment. The deployment type can be
                set when creating the environment and cannot be changed. When you enable archive
                deployment, you will be prevented from performing a subset of actions within the
@@ -745,6 +813,7 @@ class Environment(pulumi.CustomResource):
 
         __props__.__dict__["api_proxy_type"] = api_proxy_type
         __props__.__dict__["client_ip_resolution_config"] = client_ip_resolution_config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deployment_type"] = deployment_type
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
@@ -774,6 +843,19 @@ class Environment(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "client_ip_resolution_config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="deploymentType")

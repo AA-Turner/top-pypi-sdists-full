@@ -262,7 +262,8 @@ impl PySatState {
     ///     time (satkit.time): Time at which to apply the burn
     ///     dv_mps (float): Magnitude along velocity vector [m/s]
     fn add_prograde(&mut self, time: PyInstant, dv_mps: f64) {
-        self.0.add_maneuver(ImpulsiveManeuver::prograde(time.0, dv_mps));
+        self.0
+            .add_maneuver(ImpulsiveManeuver::prograde(time.0, dv_mps));
     }
 
     /// Add a retrograde impulsive burn (NTW -T axis, opposite velocity).
@@ -274,7 +275,8 @@ impl PySatState {
     ///     time (satkit.time): Time at which to apply the burn
     ///     dv_mps (float): Magnitude along anti-velocity vector [m/s]
     fn add_retrograde(&mut self, time: PyInstant, dv_mps: f64) {
-        self.0.add_maneuver(ImpulsiveManeuver::retrograde(time.0, dv_mps));
+        self.0
+            .add_maneuver(ImpulsiveManeuver::retrograde(time.0, dv_mps));
     }
 
     /// Add a radial-outward impulsive burn (NTW +N axis).
@@ -287,7 +289,8 @@ impl PySatState {
     ///     time (satkit.time): Time at which to apply the burn
     ///     dv_mps (float): Magnitude along in-plane normal-to-velocity [m/s]
     fn add_radial(&mut self, time: PyInstant, dv_mps: f64) {
-        self.0.add_maneuver(ImpulsiveManeuver::radial_out(time.0, dv_mps));
+        self.0
+            .add_maneuver(ImpulsiveManeuver::radial_out(time.0, dv_mps));
     }
 
     /// Add a cross-track ("normal") impulsive burn (NTW +W axis).
@@ -299,7 +302,8 @@ impl PySatState {
     ///     time (satkit.time): Time at which to apply the burn
     ///     dv_mps (float): Magnitude along angular momentum direction [m/s]
     fn add_normal(&mut self, time: PyInstant, dv_mps: f64) {
-        self.0.add_maneuver(ImpulsiveManeuver::normal(time.0, dv_mps));
+        self.0
+            .add_maneuver(ImpulsiveManeuver::normal(time.0, dv_mps));
     }
 
     /// Get the list of maneuvers
@@ -372,9 +376,11 @@ impl PySatState {
             .as_ref()
             .map(|s| &s.0 as &dyn satkit::orbitprop::SatProperties);
 
-        self.0
-            .propagate(&time, propsettings.as_ref(), satprops_ref)
-            .map(Self)
+        Ok(Self(self.0.propagate(
+            &time,
+            propsettings.as_ref(),
+            satprops_ref,
+        )?))
     }
 
     fn __getnewargs_ex__<'a>(&self, py: Python<'a>) -> (Bound<'a, PyTuple>, Bound<'a, PyDict>) {
@@ -484,7 +490,9 @@ impl PySatState {
         }
         for m in &self.0.maneuvers {
             buffer[offset..offset + 8].clone_from_slice(
-                &m.time.as_mjd_with_scale(satkit::TimeScale::TAI).to_le_bytes(),
+                &m.time
+                    .as_mjd_with_scale(satkit::TimeScale::TAI)
+                    .to_le_bytes(),
             );
             offset += 8;
             unsafe {

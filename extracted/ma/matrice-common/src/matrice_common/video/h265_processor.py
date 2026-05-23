@@ -1,5 +1,7 @@
 """Clean H.265 encoder/decoder classes for frame-wise and byte-wise streaming."""
 
+from __future__ import annotations
+
 import logging
 import queue
 import subprocess
@@ -7,9 +9,20 @@ import threading
 import time
 from typing import Generator, Optional
 
-import cv2
-import numpy as np
-import redis
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
+
+try:
+    import redis
+except ImportError:
+    redis = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

@@ -26,13 +26,14 @@ class SecurityActionArgs:
                  org_id: pulumi.Input[_builtins.str],
                  security_action_id: pulumi.Input[_builtins.str],
                  state: pulumi.Input[_builtins.str],
-                 allow: Optional[pulumi.Input['SecurityActionAllowArgs']] = None,
-                 api_proxies: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 deny: Optional[pulumi.Input['SecurityActionDenyArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 flag: Optional[pulumi.Input['SecurityActionFlagArgs']] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow: pulumi.Input[Optional['SecurityActionAllowArgs']] = None,
+                 api_proxies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deny: pulumi.Input[Optional['SecurityActionDenyArgs']] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 flag: pulumi.Input[Optional['SecurityActionFlagArgs']] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a SecurityAction resource.
 
@@ -50,6 +51,12 @@ class SecurityActionArgs:
                list is deployed at the time of enforcement. If set, several restrictions are enforced on SecurityActions.
                There can be at most 100 enabled actions with proxies set in an env.
                Several other restrictions apply on conditions and are detailed later.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['SecurityActionDenyArgs'] deny: Deny a request through if it matches this SecurityAction.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] description: An optional user provided description of the SecurityAction.
@@ -71,6 +78,8 @@ class SecurityActionArgs:
             pulumi.set(__self__, "allow", allow)
         if api_proxies is not None:
             pulumi.set(__self__, "api_proxies", api_proxies)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deny is not None:
             pulumi.set(__self__, "deny", deny)
         if description is not None:
@@ -147,19 +156,19 @@ class SecurityActionArgs:
 
     @_builtins.property
     @pulumi.getter
-    def allow(self) -> Optional[pulumi.Input['SecurityActionAllowArgs']]:
+    def allow(self) -> pulumi.Input[Optional['SecurityActionAllowArgs']]:
         """
         Allow a request through if it matches this SecurityAction.
         """
         return pulumi.get(self, "allow")
 
     @allow.setter
-    def allow(self, value: Optional[pulumi.Input['SecurityActionAllowArgs']]):
+    def allow(self, value: pulumi.Input[Optional['SecurityActionAllowArgs']]):
         pulumi.set(self, "allow", value)
 
     @_builtins.property
     @pulumi.getter(name="apiProxies")
-    def api_proxies(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def api_proxies(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         If unset, this would apply to all proxies in the environment.
         If set, this action is enforced only if at least one proxy in the repeated
@@ -170,12 +179,29 @@ class SecurityActionArgs:
         return pulumi.get(self, "api_proxies")
 
     @api_proxies.setter
-    def api_proxies(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def api_proxies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "api_proxies", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def deny(self) -> Optional[pulumi.Input['SecurityActionDenyArgs']]:
+    def deny(self) -> pulumi.Input[Optional['SecurityActionDenyArgs']]:
         """
         Deny a request through if it matches this SecurityAction.
         Structure is documented below.
@@ -183,24 +209,24 @@ class SecurityActionArgs:
         return pulumi.get(self, "deny")
 
     @deny.setter
-    def deny(self, value: Optional[pulumi.Input['SecurityActionDenyArgs']]):
+    def deny(self, value: pulumi.Input[Optional['SecurityActionDenyArgs']]):
         pulumi.set(self, "deny", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional user provided description of the SecurityAction.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="expireTime")
-    def expire_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expire_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The expiration for this SecurityAction.
         Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9
@@ -210,12 +236,12 @@ class SecurityActionArgs:
         return pulumi.get(self, "expire_time")
 
     @expire_time.setter
-    def expire_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expire_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expire_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def flag(self) -> Optional[pulumi.Input['SecurityActionFlagArgs']]:
+    def flag(self) -> pulumi.Input[Optional['SecurityActionFlagArgs']]:
         """
         Flag a request through if it matches this SecurityAction.
         Structure is documented below.
@@ -223,12 +249,12 @@ class SecurityActionArgs:
         return pulumi.get(self, "flag")
 
     @flag.setter
-    def flag(self, value: Optional[pulumi.Input['SecurityActionFlagArgs']]):
+    def flag(self, value: pulumi.Input[Optional['SecurityActionFlagArgs']]):
         pulumi.set(self, "flag", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL for this SecurityAction.
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
@@ -236,27 +262,28 @@ class SecurityActionArgs:
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
 
 @pulumi.input_type
 class _SecurityActionState:
     def __init__(__self__, *,
-                 allow: Optional[pulumi.Input['SecurityActionAllowArgs']] = None,
-                 api_proxies: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 condition_config: Optional[pulumi.Input['SecurityActionConditionConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 deny: Optional[pulumi.Input['SecurityActionDenyArgs']] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 env_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 flag: Optional[pulumi.Input['SecurityActionFlagArgs']] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_action_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 allow: pulumi.Input[Optional['SecurityActionAllowArgs']] = None,
+                 api_proxies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 condition_config: pulumi.Input[Optional['SecurityActionConditionConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deny: pulumi.Input[Optional['SecurityActionDenyArgs']] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 flag: pulumi.Input[Optional['SecurityActionFlagArgs']] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_action_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SecurityAction resources.
 
@@ -271,6 +298,12 @@ class _SecurityActionState:
         :param pulumi.Input[_builtins.str] create_time: The create time for this SecurityAction.
                Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits.
                Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['SecurityActionDenyArgs'] deny: Deny a request through if it matches this SecurityAction.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] description: An optional user provided description of the SecurityAction.
@@ -300,6 +333,8 @@ class _SecurityActionState:
             pulumi.set(__self__, "condition_config", condition_config)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if deny is not None:
             pulumi.set(__self__, "deny", deny)
         if description is not None:
@@ -323,19 +358,19 @@ class _SecurityActionState:
 
     @_builtins.property
     @pulumi.getter
-    def allow(self) -> Optional[pulumi.Input['SecurityActionAllowArgs']]:
+    def allow(self) -> pulumi.Input[Optional['SecurityActionAllowArgs']]:
         """
         Allow a request through if it matches this SecurityAction.
         """
         return pulumi.get(self, "allow")
 
     @allow.setter
-    def allow(self, value: Optional[pulumi.Input['SecurityActionAllowArgs']]):
+    def allow(self, value: pulumi.Input[Optional['SecurityActionAllowArgs']]):
         pulumi.set(self, "allow", value)
 
     @_builtins.property
     @pulumi.getter(name="apiProxies")
-    def api_proxies(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def api_proxies(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         If unset, this would apply to all proxies in the environment.
         If set, this action is enforced only if at least one proxy in the repeated
@@ -346,12 +381,12 @@ class _SecurityActionState:
         return pulumi.get(self, "api_proxies")
 
     @api_proxies.setter
-    def api_proxies(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def api_proxies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "api_proxies", value)
 
     @_builtins.property
     @pulumi.getter(name="conditionConfig")
-    def condition_config(self) -> Optional[pulumi.Input['SecurityActionConditionConfigArgs']]:
+    def condition_config(self) -> pulumi.Input[Optional['SecurityActionConditionConfigArgs']]:
         """
         A valid SecurityAction must contain at least one condition.
         Structure is documented below.
@@ -359,12 +394,12 @@ class _SecurityActionState:
         return pulumi.get(self, "condition_config")
 
     @condition_config.setter
-    def condition_config(self, value: Optional[pulumi.Input['SecurityActionConditionConfigArgs']]):
+    def condition_config(self, value: pulumi.Input[Optional['SecurityActionConditionConfigArgs']]):
         pulumi.set(self, "condition_config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The create time for this SecurityAction.
         Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits.
@@ -373,12 +408,29 @@ class _SecurityActionState:
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def deny(self) -> Optional[pulumi.Input['SecurityActionDenyArgs']]:
+    def deny(self) -> pulumi.Input[Optional['SecurityActionDenyArgs']]:
         """
         Deny a request through if it matches this SecurityAction.
         Structure is documented below.
@@ -386,36 +438,36 @@ class _SecurityActionState:
         return pulumi.get(self, "deny")
 
     @deny.setter
-    def deny(self, value: Optional[pulumi.Input['SecurityActionDenyArgs']]):
+    def deny(self, value: pulumi.Input[Optional['SecurityActionDenyArgs']]):
         pulumi.set(self, "deny", value)
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional user provided description of the SecurityAction.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="envId")
-    def env_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def env_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Apigee environment that this security action applies to.
         """
         return pulumi.get(self, "env_id")
 
     @env_id.setter
-    def env_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def env_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "env_id", value)
 
     @_builtins.property
     @pulumi.getter(name="expireTime")
-    def expire_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expire_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The expiration for this SecurityAction.
         Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9
@@ -425,12 +477,12 @@ class _SecurityActionState:
         return pulumi.get(self, "expire_time")
 
     @expire_time.setter
-    def expire_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expire_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expire_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def flag(self) -> Optional[pulumi.Input['SecurityActionFlagArgs']]:
+    def flag(self) -> pulumi.Input[Optional['SecurityActionFlagArgs']]:
         """
         Flag a request through if it matches this SecurityAction.
         Structure is documented below.
@@ -438,24 +490,24 @@ class _SecurityActionState:
         return pulumi.get(self, "flag")
 
     @flag.setter
-    def flag(self, value: Optional[pulumi.Input['SecurityActionFlagArgs']]):
+    def flag(self, value: pulumi.Input[Optional['SecurityActionFlagArgs']]):
         pulumi.set(self, "flag", value)
 
     @_builtins.property
     @pulumi.getter(name="orgId")
-    def org_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def org_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The organization that this security action applies to.
         """
         return pulumi.get(self, "org_id")
 
     @org_id.setter
-    def org_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def org_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "org_id", value)
 
     @_builtins.property
     @pulumi.getter(name="securityActionId")
-    def security_action_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_action_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID to use for the SecurityAction, which will become the final component of the action's resource name.
         This value should be 0-61 characters, and valid format is (^a-z?$).
@@ -463,12 +515,12 @@ class _SecurityActionState:
         return pulumi.get(self, "security_action_id")
 
     @security_action_id.setter
-    def security_action_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_action_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_action_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Only an ENABLED SecurityAction is enforced. An ENABLED SecurityAction past its expiration time will not be enforced.
         Possible values are: `ENABLED`, `DISABLED`.
@@ -476,12 +528,12 @@ class _SecurityActionState:
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def ttl(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ttl(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The TTL for this SecurityAction.
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
@@ -489,12 +541,12 @@ class _SecurityActionState:
         return pulumi.get(self, "ttl")
 
     @ttl.setter
-    def ttl(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ttl(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ttl", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The update time for this SecurityAction. This reflects when this SecurityAction changed states.
         Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits.
@@ -503,7 +555,7 @@ class _SecurityActionState:
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -513,18 +565,19 @@ class SecurityAction(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow: Optional[pulumi.Input[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
-                 api_proxies: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 condition_config: Optional[pulumi.Input[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
-                 deny: Optional[pulumi.Input[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 env_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 flag: Optional[pulumi.Input[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_action_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow: pulumi.Input[Optional[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
+                 api_proxies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 condition_config: pulumi.Input[Optional[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deny: pulumi.Input[Optional[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 flag: pulumi.Input[Optional[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_action_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A SecurityAction is rule that can be enforced at an environment level.
@@ -622,6 +675,12 @@ class SecurityAction(pulumi.CustomResource):
                Several other restrictions apply on conditions and are detailed later.
         :param pulumi.Input[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']] condition_config: A valid SecurityAction must contain at least one condition.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']] deny: Deny a request through if it matches this SecurityAction.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] description: An optional user provided description of the SecurityAction.
@@ -747,18 +806,19 @@ class SecurityAction(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 allow: Optional[pulumi.Input[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
-                 api_proxies: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 condition_config: Optional[pulumi.Input[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
-                 deny: Optional[pulumi.Input[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 env_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 flag: Optional[pulumi.Input[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
-                 org_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_action_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 ttl: Optional[pulumi.Input[_builtins.str]] = None,
+                 allow: pulumi.Input[Optional[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
+                 api_proxies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 condition_config: pulumi.Input[Optional[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 deny: pulumi.Input[Optional[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 env_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 flag: pulumi.Input[Optional[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
+                 org_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_action_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 ttl: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -773,6 +833,7 @@ class SecurityAction(pulumi.CustomResource):
             if condition_config is None and not opts.urn:
                 raise TypeError("Missing required property 'condition_config'")
             __props__.__dict__["condition_config"] = condition_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["deny"] = deny
             __props__.__dict__["description"] = description
             if env_id is None and not opts.urn:
@@ -802,20 +863,21 @@ class SecurityAction(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            allow: Optional[pulumi.Input[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
-            api_proxies: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            condition_config: Optional[pulumi.Input[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            deny: Optional[pulumi.Input[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            env_id: Optional[pulumi.Input[_builtins.str]] = None,
-            expire_time: Optional[pulumi.Input[_builtins.str]] = None,
-            flag: Optional[pulumi.Input[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
-            org_id: Optional[pulumi.Input[_builtins.str]] = None,
-            security_action_id: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            ttl: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'SecurityAction':
+            allow: pulumi.Input[Optional[Union['SecurityActionAllowArgs', 'SecurityActionAllowArgsDict']]] = None,
+            api_proxies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            condition_config: pulumi.Input[Optional[Union['SecurityActionConditionConfigArgs', 'SecurityActionConditionConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            deny: pulumi.Input[Optional[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            env_id: pulumi.Input[Optional[_builtins.str]] = None,
+            expire_time: pulumi.Input[Optional[_builtins.str]] = None,
+            flag: pulumi.Input[Optional[Union['SecurityActionFlagArgs', 'SecurityActionFlagArgsDict']]] = None,
+            org_id: pulumi.Input[Optional[_builtins.str]] = None,
+            security_action_id: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            ttl: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'SecurityAction':
         """
         Get an existing SecurityAction resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -834,6 +896,12 @@ class SecurityAction(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: The create time for this SecurityAction.
                Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits.
                Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30".
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['SecurityActionDenyArgs', 'SecurityActionDenyArgsDict']] deny: Deny a request through if it matches this SecurityAction.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] description: An optional user provided description of the SecurityAction.
@@ -863,6 +931,7 @@ class SecurityAction(pulumi.CustomResource):
         __props__.__dict__["api_proxies"] = api_proxies
         __props__.__dict__["condition_config"] = condition_config
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["deny"] = deny
         __props__.__dict__["description"] = description
         __props__.__dict__["env_id"] = env_id
@@ -913,6 +982,19 @@ class SecurityAction(pulumi.CustomResource):
         Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30".
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

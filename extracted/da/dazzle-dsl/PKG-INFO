@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dazzle-dsl
-Version: 0.71.107
+Version: 0.71.134
 Summary: DAZZLE — declarative SaaS framework with built-in compliance (SOC 2, ISO 27001), provable RBAC, and graph features
 Author: DAZZLE Contributors
 Maintainer: DAZZLE Contributors
@@ -76,6 +76,8 @@ Requires-Dist: opentelemetry-sdk<2,>=1.27; extra == "perf"
 Requires-Dist: opentelemetry-instrumentation-fastapi<1,>=0.48b0; extra == "perf"
 Requires-Dist: opentelemetry-instrumentation-psycopg<1,>=0.48b0; extra == "perf"
 Requires-Dist: opentelemetry-instrumentation-asyncio<1,>=0.48b0; extra == "perf"
+Provides-Extra: observability
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.27; extra == "observability"
 Provides-Extra: serve
 Requires-Dist: fastapi>=0.100.0; extra == "serve"
 Requires-Dist: uvicorn[standard]>=0.24.0; extra == "serve"

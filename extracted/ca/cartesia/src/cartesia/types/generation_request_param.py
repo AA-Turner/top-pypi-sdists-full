@@ -3,23 +3,15 @@
 from __future__ import annotations
 
 from typing import Optional
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Required, TypedDict
 
 from .model_speed import ModelSpeed
-from .raw_encoding import RawEncoding
 from .supported_language import SupportedLanguage
 from .voice_specifier_param import VoiceSpecifierParam
 from .generation_config_param import GenerationConfigParam
+from .raw_output_format_param import RawOutputFormatParam as OutputFormat
 
 __all__ = ["GenerationRequestParam", "OutputFormat"]
-
-
-class OutputFormat(TypedDict, total=False):
-    container: Required[Literal["raw"]]
-
-    encoding: Required[RawEncoding]
-
-    sample_rate: Required[Literal[8000, 16000, 22050, 24000, 44100, 48000]]
 
 
 _GenerationRequestParamReservedKeywords = TypedDict(
@@ -32,6 +24,12 @@ _GenerationRequestParamReservedKeywords = TypedDict(
 
 
 class GenerationRequestParam(_GenerationRequestParamReservedKeywords, total=False):
+    context_id: Required[str]
+    """A unique identifier for the context.
+
+    You can use any unique identifier, like a UUID or human ID.
+    """
+
     model_id: Required[str]
     """The ID of the model to use for the generation.
 
@@ -57,15 +55,6 @@ class GenerationRequestParam(_GenerationRequestParamReservedKeywords, total=Fals
 
     If `false` (default), no word timestamps will be produced at all. If `true`, the
     server will return timestamp events containing word-level timing information.
-    """
-
-    context_id: Optional[str]
-    """A unique identifier for the context.
-
-    You can use any unique identifier, like a UUID or human ID.
-
-    Some customers use unique identifiers from their own systems (such as
-    conversation IDs) as context IDs.
     """
 
     flush: Optional[bool]
@@ -108,7 +97,7 @@ class GenerationRequestParam(_GenerationRequestParamReservedKeywords, total=Fals
     """
 
     speed: ModelSpeed
-    """Use `generation_config.speed` for sonic-3. Speed setting for the model.
+    """Speed setting for the model.
 
     Defaults to `normal`. This feature is experimental and may not work for all
     voices. Influences the speed of the generated speech. Faster speeds may reduce

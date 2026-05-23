@@ -24,9 +24,10 @@ class TargetSiteArgs:
                  data_store_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  provided_uri_pattern: pulumi.Input[_builtins.str],
-                 exact_match: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 exact_match: pulumi.Input[Optional[_builtins.bool]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a TargetSite resource.
 
@@ -35,6 +36,12 @@ class TargetSiteArgs:
                only be one of "global", "us" and "eu".
         :param pulumi.Input[_builtins.str] provided_uri_pattern: The user provided URI pattern from which the `generated_uri_pattern` is
                generated.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] exact_match: If set to false, a uri_pattern is generated to include all pages whose
                address contains the provided_uri_pattern. If set to true, an uri_pattern
                is generated to try to be an exact match of the provided_uri_pattern or
@@ -49,6 +56,8 @@ class TargetSiteArgs:
         pulumi.set(__self__, "data_store_id", data_store_id)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "provided_uri_pattern", provided_uri_pattern)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if exact_match is not None:
             pulumi.set(__self__, "exact_match", exact_match)
         if project is not None:
@@ -95,8 +104,25 @@ class TargetSiteArgs:
         pulumi.set(self, "provided_uri_pattern", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="exactMatch")
-    def exact_match(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def exact_match(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to false, a uri_pattern is generated to include all pages whose
         address contains the provided_uri_pattern. If set to true, an uri_pattern
@@ -108,12 +134,12 @@ class TargetSiteArgs:
         return pulumi.get(self, "exact_match")
 
     @exact_match.setter
-    def exact_match(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def exact_match(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "exact_match", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -121,12 +147,12 @@ class TargetSiteArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The possible target site types.
         Possible values are: `INCLUDE`, `EXCLUDE`.
@@ -134,31 +160,38 @@ class TargetSiteArgs:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
 @pulumi.input_type
 class _TargetSiteState:
     def __init__(__self__, *,
-                 data_store_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 exact_match: Optional[pulumi.Input[_builtins.bool]] = None,
-                 failure_reasons: Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]] = None,
-                 generated_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 indexing_status: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 root_domain_uri: Optional[pulumi.Input[_builtins.str]] = None,
-                 site_verification_infos: Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]] = None,
-                 target_site_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 data_store_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 exact_match: pulumi.Input[Optional[_builtins.bool]] = None,
+                 failure_reasons: pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]] = None,
+                 generated_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 indexing_status: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 root_domain_uri: pulumi.Input[Optional[_builtins.str]] = None,
+                 site_verification_infos: pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]] = None,
+                 target_site_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TargetSite resources.
 
         :param pulumi.Input[_builtins.str] data_store_id: The unique id of the data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] exact_match: If set to false, a uri_pattern is generated to include all pages whose
                address contains the provided_uri_pattern. If set to true, an uri_pattern
                is generated to try to be an exact match of the provided_uri_pattern or
@@ -189,6 +222,8 @@ class _TargetSiteState:
         """
         if data_store_id is not None:
             pulumi.set(__self__, "data_store_id", data_store_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if exact_match is not None:
             pulumi.set(__self__, "exact_match", exact_match)
         if failure_reasons is not None:
@@ -218,19 +253,36 @@ class _TargetSiteState:
 
     @_builtins.property
     @pulumi.getter(name="dataStoreId")
-    def data_store_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_store_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the data store.
         """
         return pulumi.get(self, "data_store_id")
 
     @data_store_id.setter
-    def data_store_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_store_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_store_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="exactMatch")
-    def exact_match(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def exact_match(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set to false, a uri_pattern is generated to include all pages whose
         address contains the provided_uri_pattern. If set to true, an uri_pattern
@@ -242,12 +294,12 @@ class _TargetSiteState:
         return pulumi.get(self, "exact_match")
 
     @exact_match.setter
-    def exact_match(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def exact_match(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "exact_match", value)
 
     @_builtins.property
     @pulumi.getter(name="failureReasons")
-    def failure_reasons(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]]:
+    def failure_reasons(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]]:
         """
         Site search indexing failure reasons.
         Structure is documented below.
@@ -255,36 +307,36 @@ class _TargetSiteState:
         return pulumi.get(self, "failure_reasons")
 
     @failure_reasons.setter
-    def failure_reasons(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]]):
+    def failure_reasons(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteFailureReasonArgs']]]]):
         pulumi.set(self, "failure_reasons", value)
 
     @_builtins.property
     @pulumi.getter(name="generatedUriPattern")
-    def generated_uri_pattern(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def generated_uri_pattern(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         This is system-generated based on the `provided_uri_pattern`.
         """
         return pulumi.get(self, "generated_uri_pattern")
 
     @generated_uri_pattern.setter
-    def generated_uri_pattern(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def generated_uri_pattern(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "generated_uri_pattern", value)
 
     @_builtins.property
     @pulumi.getter(name="indexingStatus")
-    def indexing_status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def indexing_status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The indexing status.
         """
         return pulumi.get(self, "indexing_status")
 
     @indexing_status.setter
-    def indexing_status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def indexing_status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "indexing_status", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The geographic location where the data store should reside. The value can
         only be one of "global", "us" and "eu".
@@ -292,12 +344,12 @@ class _TargetSiteState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique full resource name of the target site. Values are of the format
         `projects/{project}/locations/{location}/collections/{collection_id}/dataStores/{data_store_id}/siteSearchEngine/targetSites/{target_site_id}`.
@@ -307,12 +359,12 @@ class _TargetSiteState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -320,12 +372,12 @@ class _TargetSiteState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="providedUriPattern")
-    def provided_uri_pattern(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def provided_uri_pattern(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user provided URI pattern from which the `generated_uri_pattern` is
         generated.
@@ -333,24 +385,24 @@ class _TargetSiteState:
         return pulumi.get(self, "provided_uri_pattern")
 
     @provided_uri_pattern.setter
-    def provided_uri_pattern(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def provided_uri_pattern(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "provided_uri_pattern", value)
 
     @_builtins.property
     @pulumi.getter(name="rootDomainUri")
-    def root_domain_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def root_domain_uri(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Root domain of the `provided_uri_pattern`.
         """
         return pulumi.get(self, "root_domain_uri")
 
     @root_domain_uri.setter
-    def root_domain_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def root_domain_uri(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "root_domain_uri", value)
 
     @_builtins.property
     @pulumi.getter(name="siteVerificationInfos")
-    def site_verification_infos(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]]:
+    def site_verification_infos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]]:
         """
         Site ownership and validity verification status.
         Structure is documented below.
@@ -358,24 +410,24 @@ class _TargetSiteState:
         return pulumi.get(self, "site_verification_infos")
 
     @site_verification_infos.setter
-    def site_verification_infos(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]]):
+    def site_verification_infos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TargetSiteSiteVerificationInfoArgs']]]]):
         pulumi.set(self, "site_verification_infos", value)
 
     @_builtins.property
     @pulumi.getter(name="targetSiteId")
-    def target_site_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def target_site_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique id of the target site.
         """
         return pulumi.get(self, "target_site_id")
 
     @target_site_id.setter
-    def target_site_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def target_site_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "target_site_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The possible target site types.
         Possible values are: `INCLUDE`, `EXCLUDE`.
@@ -383,19 +435,19 @@ class _TargetSiteState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The target site's last updated time.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -405,12 +457,13 @@ class TargetSite(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_store_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 exact_match: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_store_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 exact_match: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         TargetSite represents a URI pattern that the users want to confine their
@@ -487,6 +540,12 @@ class TargetSite(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] data_store_id: The unique id of the data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] exact_match: If set to false, a uri_pattern is generated to include all pages whose
                address contains the provided_uri_pattern. If set to true, an uri_pattern
                is generated to try to be an exact match of the provided_uri_pattern or
@@ -595,12 +654,13 @@ class TargetSite(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 data_store_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 exact_match: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 data_store_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 exact_match: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -613,6 +673,7 @@ class TargetSite(pulumi.CustomResource):
             if data_store_id is None and not opts.urn:
                 raise TypeError("Missing required property 'data_store_id'")
             __props__.__dict__["data_store_id"] = data_store_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["exact_match"] = exact_match
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -640,20 +701,21 @@ class TargetSite(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            data_store_id: Optional[pulumi.Input[_builtins.str]] = None,
-            exact_match: Optional[pulumi.Input[_builtins.bool]] = None,
-            failure_reasons: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TargetSiteFailureReasonArgs', 'TargetSiteFailureReasonArgsDict']]]]] = None,
-            generated_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-            indexing_status: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            provided_uri_pattern: Optional[pulumi.Input[_builtins.str]] = None,
-            root_domain_uri: Optional[pulumi.Input[_builtins.str]] = None,
-            site_verification_infos: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TargetSiteSiteVerificationInfoArgs', 'TargetSiteSiteVerificationInfoArgsDict']]]]] = None,
-            target_site_id: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'TargetSite':
+            data_store_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            exact_match: pulumi.Input[Optional[_builtins.bool]] = None,
+            failure_reasons: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TargetSiteFailureReasonArgs', 'TargetSiteFailureReasonArgsDict']]]]] = None,
+            generated_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+            indexing_status: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            provided_uri_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+            root_domain_uri: pulumi.Input[Optional[_builtins.str]] = None,
+            site_verification_infos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TargetSiteSiteVerificationInfoArgs', 'TargetSiteSiteVerificationInfoArgsDict']]]]] = None,
+            target_site_id: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'TargetSite':
         """
         Get an existing TargetSite resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -662,6 +724,12 @@ class TargetSite(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] data_store_id: The unique id of the data store.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] exact_match: If set to false, a uri_pattern is generated to include all pages whose
                address contains the provided_uri_pattern. If set to true, an uri_pattern
                is generated to try to be an exact match of the provided_uri_pattern or
@@ -695,6 +763,7 @@ class TargetSite(pulumi.CustomResource):
         __props__ = _TargetSiteState.__new__(_TargetSiteState)
 
         __props__.__dict__["data_store_id"] = data_store_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["exact_match"] = exact_match
         __props__.__dict__["failure_reasons"] = failure_reasons
         __props__.__dict__["generated_uri_pattern"] = generated_uri_pattern
@@ -717,6 +786,19 @@ class TargetSite(pulumi.CustomResource):
         The unique id of the data store.
         """
         return pulumi.get(self, "data_store_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="exactMatch")

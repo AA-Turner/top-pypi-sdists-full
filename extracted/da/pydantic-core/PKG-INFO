@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: pydantic_core
-Version: 2.46.4
+Version: 2.47.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +27,7 @@ Summary: Core functionality for Pydantic validation and serialization
 Home-Page: https://github.com/pydantic/pydantic
 Author-email: Samuel Colvin <s@muelcolvin.com>, Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, David Montague <david@pydantic.dev>, David Hewitt <mail@davidhewitt.dev>, Sydney Runkle <sydneymarierunkle@gmail.com>, Victorien Plot <contact@vctrn.dev>
 License-Expression: MIT
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Funding, https://github.com/sponsors/samuelcolvin
 Project-URL: Homepage, https://github.com/pydantic
@@ -110,7 +109,7 @@ except ValidationError as e:
 You'll need:
 
 1. **[Rust](https://rustup.rs/)** - Rust stable (or nightly for coverage)
-2. **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager (will install Python 3.9+ automatically)
+2. **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager
 3. **[git](https://git-scm.com/)** - For version control
 4. **[make](https://www.gnu.org/software/make/)** - For running development commands (or use `nmake` on Windows)
 

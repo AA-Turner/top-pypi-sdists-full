@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.1.96
+Version: 0.2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -85,7 +85,7 @@ It offers:
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
-- 🎯 **Multiple Markdown flavors** - [GFM, MkDocs, MDX, Quarto](docs/flavors.md) support with auto-detection
+- 🎯 **Multiple Markdown flavors** - [GFM, MkDocs, MDX, Quarto, MyST](docs/flavors.md) support with auto-detection
 - 🌐 **Multiple installation options** - Rust, Python, standalone binaries
 - 🐍 **Installable via pip** for Python users
 - 📏 **Modern CLI** with detailed error reporting
@@ -235,7 +235,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.1.96
+mise use rumdl@0.2.0
 ```
 
 ### Using Nix (macOS/Linux)
@@ -434,7 +434,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.96
+    rev: v0.2.0
     hooks:
       - id: rumdl      # Lint only (fails on issues)
       - id: rumdl-fmt  # Auto-format and fail if issues remain
@@ -456,7 +456,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.96
+    rev: v0.2.0
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -548,6 +548,7 @@ rumdl supports multiple Markdown flavors to accommodate different documentation 
 | [obsidian](docs/flavors/obsidian.md)         | Obsidian                     | Tag syntax (#tagname treated as tags, not headings) |
 | [kramdown](docs/flavors/kramdown.md)         | Jekyll / kramdown            | IALs, ALDs, extension blocks                        |
 | [azure_devops](docs/flavors/azure_devops.md) | Azure DevOps Wiki            | Colon code fences (:::lang ... :::)                 |
+| [myst](docs/flavors/myst.md)                 | MyST / Jupyter Book / Sphinx | Directives, roles, `%` comments                     |
 
 ### Configuring Flavors
 

@@ -19,18 +19,25 @@ __all__ = ['TargetTCPProxyArgs', 'TargetTCPProxy']
 @pulumi.input_type
 class TargetTCPProxyArgs:
     def __init__(__self__, *,
-                 backend_service: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 load_balancing_scheme: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proxy_bind: Optional[pulumi.Input[_builtins.bool]] = None,
-                 proxy_header: Optional[pulumi.Input[_builtins.str]] = None):
+                 backend_service: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 load_balancing_scheme: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proxy_bind: pulumi.Input[Optional[_builtins.bool]] = None,
+                 proxy_header: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a TargetTCPProxy resource.
 
         :param pulumi.Input[_builtins.str] backend_service: A reference to the BackendService resource. This field is optional when
                the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] load_balancing_scheme: (Optional, Beta)
                Specifies the load balancer type. A target TCP proxy created for one type
@@ -55,6 +62,8 @@ class TargetTCPProxyArgs:
         """
         if backend_service is not None:
             pulumi.set(__self__, "backend_service", backend_service)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if load_balancing_scheme is not None:
@@ -70,7 +79,7 @@ class TargetTCPProxyArgs:
 
     @_builtins.property
     @pulumi.getter(name="backendService")
-    def backend_service(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backend_service(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the BackendService resource. This field is optional when
         the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
@@ -78,24 +87,41 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "backend_service")
 
     @backend_service.setter
-    def backend_service(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backend_service(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backend_service", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="loadBalancingScheme")
-    def load_balancing_scheme(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def load_balancing_scheme(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Beta)
         Specifies the load balancer type. A target TCP proxy created for one type
@@ -106,12 +132,12 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "load_balancing_scheme")
 
     @load_balancing_scheme.setter
-    def load_balancing_scheme(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def load_balancing_scheme(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "load_balancing_scheme", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -124,12 +150,12 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -137,12 +163,12 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="proxyBind")
-    def proxy_bind(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def proxy_bind(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         This field only applies when the forwarding rule that references
         this target proxy has a loadBalancingScheme set to INTERNAL_SELF_MANAGED.
@@ -150,12 +176,12 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "proxy_bind")
 
     @proxy_bind.setter
-    def proxy_bind(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def proxy_bind(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "proxy_bind", value)
 
     @_builtins.property
     @pulumi.getter(name="proxyHeader")
-    def proxy_header(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def proxy_header(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the type of proxy header to append before sending data to
         the backend.
@@ -165,29 +191,36 @@ class TargetTCPProxyArgs:
         return pulumi.get(self, "proxy_header")
 
     @proxy_header.setter
-    def proxy_header(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def proxy_header(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "proxy_header", value)
 
 
 @pulumi.input_type
 class _TargetTCPProxyState:
     def __init__(__self__, *,
-                 backend_service: Optional[pulumi.Input[_builtins.str]] = None,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 load_balancing_scheme: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proxy_bind: Optional[pulumi.Input[_builtins.bool]] = None,
-                 proxy_header: Optional[pulumi.Input[_builtins.str]] = None,
-                 proxy_id: Optional[pulumi.Input[_builtins.int]] = None,
-                 self_link: Optional[pulumi.Input[_builtins.str]] = None):
+                 backend_service: pulumi.Input[Optional[_builtins.str]] = None,
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 load_balancing_scheme: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proxy_bind: pulumi.Input[Optional[_builtins.bool]] = None,
+                 proxy_header: pulumi.Input[Optional[_builtins.str]] = None,
+                 proxy_id: pulumi.Input[Optional[_builtins.int]] = None,
+                 self_link: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TargetTCPProxy resources.
 
         :param pulumi.Input[_builtins.str] backend_service: A reference to the BackendService resource. This field is optional when
                the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] load_balancing_scheme: (Optional, Beta)
                Specifies the load balancer type. A target TCP proxy created for one type
@@ -216,6 +249,8 @@ class _TargetTCPProxyState:
             pulumi.set(__self__, "backend_service", backend_service)
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if load_balancing_scheme is not None:
@@ -235,7 +270,7 @@ class _TargetTCPProxyState:
 
     @_builtins.property
     @pulumi.getter(name="backendService")
-    def backend_service(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def backend_service(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A reference to the BackendService resource. This field is optional when
         the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
@@ -243,36 +278,53 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "backend_service")
 
     @backend_service.setter
-    def backend_service(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def backend_service(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "backend_service", value)
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="loadBalancingScheme")
-    def load_balancing_scheme(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def load_balancing_scheme(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Optional, Beta)
         Specifies the load balancer type. A target TCP proxy created for one type
@@ -283,12 +335,12 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "load_balancing_scheme")
 
     @load_balancing_scheme.setter
-    def load_balancing_scheme(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def load_balancing_scheme(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "load_balancing_scheme", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
         created. The name must be 1-63 characters long, and comply with
@@ -301,12 +353,12 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -314,12 +366,12 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="proxyBind")
-    def proxy_bind(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def proxy_bind(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         This field only applies when the forwarding rule that references
         this target proxy has a loadBalancingScheme set to INTERNAL_SELF_MANAGED.
@@ -327,12 +379,12 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "proxy_bind")
 
     @proxy_bind.setter
-    def proxy_bind(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def proxy_bind(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "proxy_bind", value)
 
     @_builtins.property
     @pulumi.getter(name="proxyHeader")
-    def proxy_header(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def proxy_header(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the type of proxy header to append before sending data to
         the backend.
@@ -342,31 +394,31 @@ class _TargetTCPProxyState:
         return pulumi.get(self, "proxy_header")
 
     @proxy_header.setter
-    def proxy_header(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def proxy_header(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "proxy_header", value)
 
     @_builtins.property
     @pulumi.getter(name="proxyId")
-    def proxy_id(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def proxy_id(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The unique identifier for the resource.
         """
         return pulumi.get(self, "proxy_id")
 
     @proxy_id.setter
-    def proxy_id(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def proxy_id(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "proxy_id", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
-    def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def self_link(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The URI of the created resource.
         """
         return pulumi.get(self, "self_link")
 
     @self_link.setter
-    def self_link(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def self_link(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "self_link", value)
 
 
@@ -376,13 +428,14 @@ class TargetTCPProxy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend_service: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 load_balancing_scheme: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proxy_bind: Optional[pulumi.Input[_builtins.bool]] = None,
-                 proxy_header: Optional[pulumi.Input[_builtins.str]] = None,
+                 backend_service: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 load_balancing_scheme: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proxy_bind: pulumi.Input[Optional[_builtins.bool]] = None,
+                 proxy_header: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents a TargetTcpProxy resource, which is used by one or more
@@ -508,6 +561,12 @@ class TargetTCPProxy(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] backend_service: A reference to the BackendService resource. This field is optional when
                the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] load_balancing_scheme: (Optional, Beta)
                Specifies the load balancer type. A target TCP proxy created for one type
@@ -671,13 +730,14 @@ class TargetTCPProxy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backend_service: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 load_balancing_scheme: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 proxy_bind: Optional[pulumi.Input[_builtins.bool]] = None,
-                 proxy_header: Optional[pulumi.Input[_builtins.str]] = None,
+                 backend_service: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 load_balancing_scheme: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 proxy_bind: pulumi.Input[Optional[_builtins.bool]] = None,
+                 proxy_header: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -688,6 +748,7 @@ class TargetTCPProxy(pulumi.CustomResource):
             __props__ = TargetTCPProxyArgs.__new__(TargetTCPProxyArgs)
 
             __props__.__dict__["backend_service"] = backend_service
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["load_balancing_scheme"] = load_balancing_scheme
             __props__.__dict__["name"] = name
@@ -707,16 +768,17 @@ class TargetTCPProxy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backend_service: Optional[pulumi.Input[_builtins.str]] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            load_balancing_scheme: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            proxy_bind: Optional[pulumi.Input[_builtins.bool]] = None,
-            proxy_header: Optional[pulumi.Input[_builtins.str]] = None,
-            proxy_id: Optional[pulumi.Input[_builtins.int]] = None,
-            self_link: Optional[pulumi.Input[_builtins.str]] = None) -> 'TargetTCPProxy':
+            backend_service: pulumi.Input[Optional[_builtins.str]] = None,
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            load_balancing_scheme: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            proxy_bind: pulumi.Input[Optional[_builtins.bool]] = None,
+            proxy_header: pulumi.Input[Optional[_builtins.str]] = None,
+            proxy_id: pulumi.Input[Optional[_builtins.int]] = None,
+            self_link: pulumi.Input[Optional[_builtins.str]] = None) -> 'TargetTCPProxy':
         """
         Get an existing TargetTCPProxy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -727,6 +789,12 @@ class TargetTCPProxy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] backend_service: A reference to the BackendService resource. This field is optional when
                the loadBalancingScheme (available in beta) is set to INTERNAL_MANAGED.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] load_balancing_scheme: (Optional, Beta)
                Specifies the load balancer type. A target TCP proxy created for one type
@@ -757,6 +825,7 @@ class TargetTCPProxy(pulumi.CustomResource):
 
         __props__.__dict__["backend_service"] = backend_service
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["load_balancing_scheme"] = load_balancing_scheme
         __props__.__dict__["name"] = name
@@ -783,6 +852,19 @@ class TargetTCPProxy(pulumi.CustomResource):
         Creation timestamp in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

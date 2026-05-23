@@ -13,6 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from .. import _utilities
+from . import outputs
+from ._inputs import *
 
 __all__ = ['OrganizationSecurityPolicyArgs', 'OrganizationSecurityPolicy']
 
@@ -20,15 +22,25 @@ __all__ = ['OrganizationSecurityPolicyArgs', 'OrganizationSecurityPolicy']
 class OrganizationSecurityPolicyArgs:
     def __init__(__self__, *,
                  parent: pulumi.Input[_builtins.str],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 short_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 advanced_options_config: pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 short_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a OrganizationSecurityPolicy resource.
 
         :param pulumi.Input[_builtins.str] parent: The parent of this OrganizationSecurityPolicy in the Cloud Resource Hierarchy.
                Format: organizations/{organization_id} or folders/{folder_id}
+        :param pulumi.Input['OrganizationSecurityPolicyAdvancedOptionsConfigArgs'] advanced_options_config: Additional options for this security policy.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description for the organization security policy.
         :param pulumi.Input[_builtins.str] display_name: User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         :param pulumi.Input[_builtins.str] short_name: User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is CLOUD_ARMOR.
@@ -37,6 +49,10 @@ class OrganizationSecurityPolicyArgs:
                Possible values are: `FIREWALL`, `CLOUD_ARMOR`, `CLOUD_ARMOR_EDGE`, `CLOUD_ARMOR_INTERNAL_SERVICE`, `CLOUD_ARMOR_NETWORK`.
         """
         pulumi.set(__self__, "parent", parent)
+        if advanced_options_config is not None:
+            pulumi.set(__self__, "advanced_options_config", advanced_options_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -60,44 +76,74 @@ class OrganizationSecurityPolicyArgs:
         pulumi.set(self, "parent", value)
 
     @_builtins.property
+    @pulumi.getter(name="advancedOptionsConfig")
+    def advanced_options_config(self) -> pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']]:
+        """
+        Additional options for this security policy.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "advanced_options_config")
+
+    @advanced_options_config.setter
+    def advanced_options_config(self, value: pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']]):
+        pulumi.set(self, "advanced_options_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A textual description for the organization security policy.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="shortName")
-    def short_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def short_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is CLOUD_ARMOR.
         """
         return pulumi.get(self, "short_name")
 
     @short_name.setter
-    def short_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def short_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "short_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type indicates the intended use of the security policy. This field can be set only at resource creation time.
         **NOTE** : 'FIREWALL' type is deprecated and will be removed in a future major release. Please use 'google_compute_firewall_policy' instead."
@@ -106,23 +152,33 @@ class OrganizationSecurityPolicyArgs:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
 @pulumi.input_type
 class _OrganizationSecurityPolicyState:
     def __init__(__self__, *,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 short_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None):
+                 advanced_options_config: pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 short_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering OrganizationSecurityPolicy resources.
 
+        :param pulumi.Input['OrganizationSecurityPolicyAdvancedOptionsConfigArgs'] advanced_options_config: Additional options for this security policy.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description for the organization security policy.
         :param pulumi.Input[_builtins.str] display_name: User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. This field is used internally during
@@ -135,6 +191,10 @@ class _OrganizationSecurityPolicyState:
                **NOTE** : 'FIREWALL' type is deprecated and will be removed in a future major release. Please use 'google_compute_firewall_policy' instead."
                Possible values are: `FIREWALL`, `CLOUD_ARMOR`, `CLOUD_ARMOR_EDGE`, `CLOUD_ARMOR_INTERNAL_SERVICE`, `CLOUD_ARMOR_NETWORK`.
         """
+        if advanced_options_config is not None:
+            pulumi.set(__self__, "advanced_options_config", advanced_options_config)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
@@ -151,32 +211,62 @@ class _OrganizationSecurityPolicyState:
             pulumi.set(__self__, "type", type)
 
     @_builtins.property
+    @pulumi.getter(name="advancedOptionsConfig")
+    def advanced_options_config(self) -> pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']]:
+        """
+        Additional options for this security policy.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "advanced_options_config")
+
+    @advanced_options_config.setter
+    def advanced_options_config(self, value: pulumi.Input[Optional['OrganizationSecurityPolicyAdvancedOptionsConfigArgs']]):
+        pulumi.set(self, "advanced_options_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A textual description for the organization security policy.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def fingerprint(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fingerprint(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fingerprint of this resource. This field is used internally during
         updates of this resource.
@@ -184,12 +274,12 @@ class _OrganizationSecurityPolicyState:
         return pulumi.get(self, "fingerprint")
 
     @fingerprint.setter
-    def fingerprint(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fingerprint(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fingerprint", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of this OrganizationSecurityPolicy in the Cloud Resource Hierarchy.
         Format: organizations/{organization_id} or folders/{folder_id}
@@ -197,36 +287,36 @@ class _OrganizationSecurityPolicyState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="policyId")
-    def policy_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier for the resource. This identifier is defined by the server.
         """
         return pulumi.get(self, "policy_id")
 
     @policy_id.setter
-    def policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_id", value)
 
     @_builtins.property
     @pulumi.getter(name="shortName")
-    def short_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def short_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is CLOUD_ARMOR.
         """
         return pulumi.get(self, "short_name")
 
     @short_name.setter
-    def short_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def short_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "short_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type indicates the intended use of the security policy. This field can be set only at resource creation time.
         **NOTE** : 'FIREWALL' type is deprecated and will be removed in a future major release. Please use 'google_compute_firewall_policy' instead."
@@ -235,7 +325,7 @@ class _OrganizationSecurityPolicyState:
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "type", value)
 
 
@@ -245,11 +335,13 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 short_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 advanced_options_config: pulumi.Input[Optional[Union['OrganizationSecurityPolicyAdvancedOptionsConfigArgs', 'OrganizationSecurityPolicyAdvancedOptionsConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 short_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Organization security policies are used to control incoming/outgoing traffic.
@@ -273,6 +365,26 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
             parent="organizations/123456789",
             type="CLOUD_ARMOR")
         ```
+        ### Organization Security Policy With Advanced Options
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        policy = gcp.compute.OrganizationSecurityPolicy("policy",
+            short_name="security-policy",
+            parent="organizations/123456789",
+            type="CLOUD_ARMOR",
+            advanced_options_config={
+                "json_parsing": "STANDARD_WITH_GRAPHQL",
+                "log_level": "VERBOSE",
+                "json_custom_config": {
+                    "content_types": ["application/vnd.api+json"],
+                },
+                "user_ip_request_headers": ["X-Forwarded-For"],
+                "request_body_inspection_size": "64KB",
+            })
+        ```
 
         ## Import
 
@@ -291,6 +403,14 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[Union['OrganizationSecurityPolicyAdvancedOptionsConfigArgs', 'OrganizationSecurityPolicyAdvancedOptionsConfigArgsDict']] advanced_options_config: Additional options for this security policy.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description for the organization security policy.
         :param pulumi.Input[_builtins.str] display_name: User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         :param pulumi.Input[_builtins.str] parent: The parent of this OrganizationSecurityPolicy in the Cloud Resource Hierarchy.
@@ -328,6 +448,26 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
             parent="organizations/123456789",
             type="CLOUD_ARMOR")
         ```
+        ### Organization Security Policy With Advanced Options
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        policy = gcp.compute.OrganizationSecurityPolicy("policy",
+            short_name="security-policy",
+            parent="organizations/123456789",
+            type="CLOUD_ARMOR",
+            advanced_options_config={
+                "json_parsing": "STANDARD_WITH_GRAPHQL",
+                "log_level": "VERBOSE",
+                "json_custom_config": {
+                    "content_types": ["application/vnd.api+json"],
+                },
+                "user_ip_request_headers": ["X-Forwarded-For"],
+                "request_body_inspection_size": "64KB",
+            })
+        ```
 
         ## Import
 
@@ -359,11 +499,13 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 short_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 type: Optional[pulumi.Input[_builtins.str]] = None,
+                 advanced_options_config: pulumi.Input[Optional[Union['OrganizationSecurityPolicyAdvancedOptionsConfigArgs', 'OrganizationSecurityPolicyAdvancedOptionsConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 short_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -373,6 +515,8 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = OrganizationSecurityPolicyArgs.__new__(OrganizationSecurityPolicyArgs)
 
+            __props__.__dict__["advanced_options_config"] = advanced_options_config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["display_name"] = display_name
             if parent is None and not opts.urn:
@@ -392,13 +536,15 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-            short_name: Optional[pulumi.Input[_builtins.str]] = None,
-            type: Optional[pulumi.Input[_builtins.str]] = None) -> 'OrganizationSecurityPolicy':
+            advanced_options_config: pulumi.Input[Optional[Union['OrganizationSecurityPolicyAdvancedOptionsConfigArgs', 'OrganizationSecurityPolicyAdvancedOptionsConfigArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            fingerprint: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+            short_name: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None) -> 'OrganizationSecurityPolicy':
         """
         Get an existing OrganizationSecurityPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -406,6 +552,14 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[Union['OrganizationSecurityPolicyAdvancedOptionsConfigArgs', 'OrganizationSecurityPolicyAdvancedOptionsConfigArgsDict']] advanced_options_config: Additional options for this security policy.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: A textual description for the organization security policy.
         :param pulumi.Input[_builtins.str] display_name: User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
         :param pulumi.Input[_builtins.str] fingerprint: Fingerprint of this resource. This field is used internally during
@@ -422,6 +576,8 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
 
         __props__ = _OrganizationSecurityPolicyState.__new__(_OrganizationSecurityPolicyState)
 
+        __props__.__dict__["advanced_options_config"] = advanced_options_config
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["fingerprint"] = fingerprint
@@ -430,6 +586,28 @@ class OrganizationSecurityPolicy(pulumi.CustomResource):
         __props__.__dict__["short_name"] = short_name
         __props__.__dict__["type"] = type
         return OrganizationSecurityPolicy(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="advancedOptionsConfig")
+    def advanced_options_config(self) -> pulumi.Output[Optional['outputs.OrganizationSecurityPolicyAdvancedOptionsConfig']]:
+        """
+        Additional options for this security policy.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "advanced_options_config")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

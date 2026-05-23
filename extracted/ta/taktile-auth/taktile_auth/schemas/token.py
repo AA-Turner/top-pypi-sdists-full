@@ -96,13 +96,16 @@ class TaktileIdToken(BaseModel):
         """Recursively find role definitions that contain filter_key.
 
         If the role definition has filter_key in its args and the value
-        matches, return it. Otherwise, expand into sub-role definitions
-        and recurse until we find roles that have the filter_key.
+        matches, return it with the wildcard narrowed to filter_value.
+        Otherwise, expand into sub-role definitions and recurse until
+        we find roles that have the filter_key.
         """
         if filter_key in role_def.args:
             arg_value = role_args.get(filter_key, "")
             if _arg_matches(arg_value, filter_value):
-                return [(role_def, role_args)]
+                narrowed = dict(role_args)
+                narrowed[filter_key] = filter_value
+                return [(role_def, narrowed)]
             return []
 
         results: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []

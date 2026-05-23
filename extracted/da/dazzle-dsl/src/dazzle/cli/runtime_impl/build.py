@@ -276,11 +276,7 @@ def migrate_command(
         typer.echo(f"Migrating database: {database_url}")
         typer.echo()
 
-        svc.auto_migrate(
-            database_url,
-            appspec.domain.entities,
-            record_history=True,
-        )
+        svc.auto_migrate(database_url, appspec.domain.entities)
 
         typer.echo("Alembic migrations applied successfully.")
 
@@ -504,7 +500,7 @@ def _generate_sql_target(appspec: Any, output_dir: Path) -> None:
         return
 
     entities = convert_entities(appspec.domain.entities)
-    metadata = build_metadata(entities)
+    metadata = build_metadata(entities, surfaces=list(appspec.surfaces))
 
     lines: list[str] = []
     lines.append(f"-- SQL schema for {appspec.name}")

@@ -593,6 +593,7 @@ class LoggerSetup:
             trace=trace,
             log_file_path=log_file_path,
             filter=None,
+            selective_debug= False if "PK_DEBUG_ALL" in os.environ.keys() else True
         )
         debug_config_path = os.path.join(Archiver.get_user_data_dir(), "debug_config.ini")
         if os.path.exists(debug_config_path) and os.path.isfile(debug_config_path):
@@ -975,9 +976,6 @@ class ApplicationRunner:
                     f"{'Reduce number of piped scans if no stocks found.' if '[0]' in self.args.pipedtitle else ''}" +
                     colorText.END
                 )
-                if '[0]' in self.args.pipedtitle:
-                    OutputControls().printOutput(self.results)
-                    OutputControls().takeUserInput("Continue ?")
                 org_args = self._refresh_args()
                 if not org_args.monitor:
                     if org_args.answerdefault is None:

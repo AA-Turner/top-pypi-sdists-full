@@ -6,41 +6,24 @@ import time
 from pathlib import Path
 
 from biolib import api, utils
+from biolib._internal import docker
 from biolib._internal.data_record.push_data import (
     push_data_path,
     validate_data_path_and_get_files_and_size_of_directory,
 )
+from biolib._internal.docker import DockerStatusUpdate
 from biolib._internal.errors import AuthenticationError
 from biolib._internal.file_utils import get_files_and_size_of_directory, get_iterable_zip_stream
 from biolib._internal.progress import Progress
 from biolib._shared.types import PushResponseDict
-from biolib._shared.types.typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
+from biolib._shared.types.typing import Dict, Iterable, List, Optional, Set, Union
 from biolib._shared.utils import parse_resource_uri
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_api_client.biolib_app_api import BiolibAppApi
-from biolib.biolib_docker_client import BiolibDockerClient
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger
 
 REGEX_MARKDOWN_INLINE_IMAGE = re.compile(r'!\[(?P<alt>.*?)\]\((?P<src>[^\s)]+)\)')
-
-
-class DockerProgressDetail(TypedDict):
-    current: int
-    total: int
-
-
-class DockerErrorDetail(TypedDict, total=False):
-    message: str
-
-
-class DockerStatusUpdate(TypedDict, total=False):
-    status: str
-    progressDetail: DockerProgressDetail
-    progress: str
-    id: str
-    error: str
-    errorDetail: DockerErrorDetail
 
 
 def _raise_if_docker_status_update_is_error(update: DockerStatusUpdate, action: str) -> None:
@@ -118,6 +101,10 @@ def _process_docker_status_updates_with_progress_bar(status_updates: Iterable[Do
                     progress.update(task_id=overall_task_id, description=f'[bold blue]{action} Docker image - {status}')
             elif 'status' not in update and 'progressDetail' not in update:
                 print(update)
+
+        # Mark any layers that never received progress totals as complete
+        for task_id in layer_id_to_task_id.values():
+            progress.update(task_id=task_id, completed=100, total=100)
 
 
 def _process_docker_status_updates_with_logging(status_updates: Iterable[DockerStatusUpdate], action: str) -> None:
@@ -468,7 +455,7 @@ def push_application(
     docker_tags = new_app_version_json.get('docker_tags', {})
     if not app_version_to_copy_images_from and docker_tags:
         logger.info('Found docker images to push.')
-        docker_client = BiolibDockerClient.get_docker_client()
+        docker.check_docker_running()
 
         for module_name, repo_and_tag in docker_tags.items():
             docker_image_definition = config['modules'][module_name]['image']
@@ -478,12 +465,10 @@ def push_application(
                 docker_image_name = docker_image_definition.replace('dockerhub://', 'docker.io/', 1)
                 logger.info(f'Pulling image {docker_image_name} defined on module {module_name} from Dockerhub.')
                 dockerhub_repo, dockerhub_tag = docker_image_name.split(':')
-                pull_status_updates: Iterable[DockerStatusUpdate] = docker_client.api.pull(
-                    decode=True,
-                    platform='linux/amd64',
+                pull_status_updates = docker.pull_image(
                     repository=dockerhub_repo,
-                    stream=True,
                     tag=dockerhub_tag,
+                    platform='linux/amd64',
                 )
 
                 process_docker_status_updates(pull_status_updates, action='Pulling')
@@ -493,20 +478,18 @@ def push_application(
 
             try:
                 logger.info(f'Trying to push image {docker_image_name} defined on module {module_name}.')
-                image = docker_client.images.get(docker_image_name)
-                architecture = image.attrs.get('Architecture')
+                image_info = docker.get_image_info(docker_image_name)
+                architecture = image_info.get('Architecture')
                 if architecture != 'amd64':
                     print(f"Error: '{docker_image_name}' is compiled for {architecture}, expected x86 (amd64).")
                     print('If you are on an ARM processor, try passing --platform linux/amd64 to docker build.')
                     exit(1)
                 absolute_repo_uri = f'{utils.BIOLIB_SITE_HOSTNAME}/{repo}'
-                image.tag(absolute_repo_uri, tag)
+                docker.tag_image(docker_image_name, absolute_repo_uri, tag)
 
-                push_status_updates: Iterable[DockerStatusUpdate] = docker_client.images.push(
-                    absolute_repo_uri,
+                push_status_updates = docker.push_image(
+                    repository=absolute_repo_uri,
                     tag=tag,
-                    stream=True,
-                    decode=True,
                     auth_config={
                         'username': 'biolib',
                         # For legacy reasons access token is sent with trailing comma ','
@@ -520,7 +503,7 @@ def push_application(
                 logger.exception(f'Failed to tag and push image {docker_image_name}')
                 raise BioLibError(f'Failed to tag and push image {docker_image_name}: {exception}') from exception
 
-            image_size = image.attrs.get('Size', 0)
+            image_size = image_info.get('Size', 0)
             size_str = (
                 f'{image_size / 1024 ** 3:.1f} GB' if image_size >= 1024**3 else f'{image_size / 1024 ** 2:.0f} MB'
             )

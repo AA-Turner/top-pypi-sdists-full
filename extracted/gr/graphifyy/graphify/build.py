@@ -228,8 +228,9 @@ def build(
 
 
 def _norm_label(label: str) -> str:
-    """Canonical dedup key — lowercase, alphanumeric only."""
-    return re.sub(r"[^a-z0-9 ]", "", label.lower()).strip()
+    """Canonical dedup key — Unicode-aware, preserves CJK/word characters."""
+    label = unicodedata.normalize("NFKC", label)
+    return re.sub(r"[\W_ ]+", " ", label.casefold(), flags=re.UNICODE).strip()
 
 
 def deduplicate_by_label(nodes: list[dict], edges: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -303,6 +304,8 @@ def build_merge(
         # was inserted before the caller. The _src/_tgt direction-preserving
         # attrs are popped before saving in export.py, so going through the
         # NetworkX round-trip loses direction permanently (#760).
+        from graphify.security import check_graph_file_size_cap
+        check_graph_file_size_cap(graph_path)
         data = json.loads(graph_path.read_text(encoding="utf-8"))
         links_key = "links" if "links" in data else "edges"
         existing_nodes = list(data.get("nodes", []))

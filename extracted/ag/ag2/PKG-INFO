@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.13.0
+Version: 0.13.1
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -46,7 +46,7 @@ Requires-Dist: a2a-sdk<2,>=1.0.0; extra == 'a2a'
 Provides-Extra: a2ui
 Requires-Dist: jsonschema<5,>=4.0.0; extra == 'a2ui'
 Provides-Extra: ag-ui
-Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'ag-ui'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'ag-ui'
 Provides-Extra: anthropic
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'anthropic'
 Provides-Extra: autobuild
@@ -86,10 +86,10 @@ Requires-Dist: daytona<1,>=0.171.0; extra == 'daytona'
 Provides-Extra: ddgs
 Requires-Dist: ddgs<10,>=9.0.0; extra == 'ddgs'
 Provides-Extra: deepseek
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'deepseek'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'deepseek'
 Provides-Extra: dev
 Requires-Dist: a2a-sdk<2,>=1.0.0; extra == 'dev'
-Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'dev'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'dev'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
@@ -128,7 +128,7 @@ Requires-Dist: nbclient==0.10.2; extra == 'dev'
 Requires-Dist: nbconvert==7.17.1; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
 Requires-Dist: ollama>=0.4.7; extra == 'dev'
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'dev'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
 Requires-Dist: pandas<3,>=2.2.0; extra == 'dev'
@@ -157,6 +157,7 @@ Requires-Dist: types-requests; extra == 'dev'
 Requires-Dist: types-ujson; extra == 'dev'
 Requires-Dist: uv==0.11.6; extra == 'dev'
 Requires-Dist: watchdog<7,>=4.0; extra == 'dev'
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'dev'
 Requires-Dist: zizmor==1.11.0; extra == 'dev'
 Provides-Extra: diskcache
 Requires-Dist: diskcache; extra == 'diskcache'
@@ -164,7 +165,7 @@ Provides-Extra: docker
 Requires-Dist: docker<8,>=6.0.0; extra == 'docker'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk<2,>=1.0.0; extra == 'docs'
-Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'docs'
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
 Requires-Dist: dashscope>=1.25.13; extra == 'docs'
@@ -192,7 +193,7 @@ Requires-Dist: mkdocs-redirects==1.2.2; extra == 'docs'
 Requires-Dist: mkdocstrings[python]==0.30.0; extra == 'docs'
 Requires-Dist: nbclient==0.10.2; extra == 'docs'
 Requires-Dist: ollama>=0.4.7; extra == 'docs'
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'docs'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'docs'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
 Requires-Dist: pdoc3==0.11.6; extra == 'docs'
@@ -204,6 +205,7 @@ Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'docs'
 Requires-Dist: termcolor==3.1.0; extra == 'docs'
 Requires-Dist: typer==0.17.4; extra == 'docs'
 Requires-Dist: watchdog<7,>=4.0; extra == 'docs'
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'docs'
 Provides-Extra: duckduckgo
 Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
 Provides-Extra: exa
@@ -302,9 +304,9 @@ Provides-Extra: ollama
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
 Requires-Dist: ollama>=0.4.7; extra == 'ollama'
 Provides-Extra: openai
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'openai'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'openai'
 Provides-Extra: openai-realtime
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'openai-realtime'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'openai-realtime'
 Requires-Dist: openai[realtime]; extra == 'openai-realtime'
 Provides-Extra: perplexity
 Requires-Dist: perplexityai<1,>=0.30.0; extra == 'perplexity'
@@ -422,7 +424,7 @@ Requires-Dist: twilio>=9.3.2; extra == 'twilio'
 Requires-Dist: uvicorn<1,>=0.30.6; extra == 'twilio'
 Provides-Extra: types
 Requires-Dist: a2a-sdk<2,>=1.0.0; extra == 'types'
-Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'types'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'types'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'types'
 Requires-Dist: docker<8,>=6.0.0; extra == 'types'
@@ -433,7 +435,7 @@ Requires-Dist: mcp<2,>=1.11.0; extra == 'types'
 Requires-Dist: mypy==1.17.1; extra == 'types'
 Requires-Dist: nbconvert==7.17.1; extra == 'types'
 Requires-Dist: nbformat==5.10.4; extra == 'types'
-Requires-Dist: openai<3.0,>=1.99.3; extra == 'types'
+Requires-Dist: openai<3.0,>=2.30.0; extra == 'types'
 Requires-Dist: pandas<3,>=2.2.0; extra == 'types'
 Requires-Dist: pytest-asyncio==1.3.0; extra == 'types'
 Requires-Dist: pytest-cov==6.3.0; extra == 'types'
@@ -458,6 +460,8 @@ Requires-Dist: pathvalidate; extra == 'websurfer'
 Requires-Dist: pdfminer-six; extra == 'websurfer'
 Provides-Extra: wikipedia
 Requires-Dist: wikipedia-api<1.0,>=0.8.1; extra == 'wikipedia'
+Provides-Extra: xai
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'xai'
 Provides-Extra: yepcode
 Requires-Dist: python-dotenv; extra == 'yepcode'
 Requires-Dist: yepcode-run>=1.6.1; (python_version >= '3.11') and extra == 'yepcode'

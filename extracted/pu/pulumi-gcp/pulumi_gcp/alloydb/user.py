@@ -22,10 +22,11 @@ class UserArgs:
                  cluster: pulumi.Input[_builtins.str],
                  user_id: pulumi.Input[_builtins.str],
                  user_type: pulumi.Input[_builtins.str],
-                 database_roles: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo_version: Optional[pulumi.Input[_builtins.str]] = None):
+                 database_roles: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo_version: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a User resource.
 
@@ -35,6 +36,12 @@ class UserArgs:
         :param pulumi.Input[_builtins.str] user_type: The type of this user.
                Possible values are: `ALLOYDB_BUILT_IN`, `ALLOYDB_IAM_USER`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] database_roles: List of database roles this database user has.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] password: Password for this database user.
                **Note**: This property is sensitive and will not be displayed in the plan.
         :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
@@ -50,6 +57,8 @@ class UserArgs:
         pulumi.set(__self__, "user_type", user_type)
         if database_roles is not None:
             pulumi.set(__self__, "database_roles", database_roles)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if password is not None:
             pulumi.set(__self__, "password", password)
         if password_wo is not None:
@@ -97,19 +106,36 @@ class UserArgs:
 
     @_builtins.property
     @pulumi.getter(name="databaseRoles")
-    def database_roles(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def database_roles(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of database roles this database user has.
         """
         return pulumi.get(self, "database_roles")
 
     @database_roles.setter
-    def database_roles(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def database_roles(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "database_roles", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def password(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Password for this database user.
         **Note**: This property is sensitive and will not be displayed in the plan.
@@ -117,12 +143,12 @@ class UserArgs:
         return pulumi.get(self, "password")
 
     @password.setter
-    def password(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password", value)
 
     @_builtins.property
     @pulumi.getter(name="passwordWo")
-    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password_wo(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
         (Optional, Write-Only)
@@ -134,39 +160,46 @@ class UserArgs:
         return pulumi.get(self, "password_wo")
 
     @password_wo.setter
-    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password_wo(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password_wo", value)
 
     @_builtins.property
     @pulumi.getter(name="passwordWoVersion")
-    def password_wo_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password_wo_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Triggers update of `password_wo` write-only. Increment this value when an update to `password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         """
         return pulumi.get(self, "password_wo_version")
 
     @password_wo_version.setter
-    def password_wo_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password_wo_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password_wo_version", value)
 
 
 @pulumi.input_type
 class _UserState:
     def __init__(__self__, *,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_roles: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_roles: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering User resources.
 
         :param pulumi.Input[_builtins.str] cluster: Identifies the alloydb cluster. Must be in the format
                'projects/{project}/locations/{location}/clusters/{cluster_id}'
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] database_roles: List of database roles this database user has.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the resource in the form of projects/{project}/locations/{location}/clusters/{cluster}/users/{user}.
         :param pulumi.Input[_builtins.str] password: Password for this database user.
                **Note**: This property is sensitive and will not be displayed in the plan.
@@ -185,6 +218,8 @@ class _UserState:
             pulumi.set(__self__, "cluster", cluster)
         if database_roles is not None:
             pulumi.set(__self__, "database_roles", database_roles)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if password is not None:
@@ -200,7 +235,7 @@ class _UserState:
 
     @_builtins.property
     @pulumi.getter
-    def cluster(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cluster(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Identifies the alloydb cluster. Must be in the format
         'projects/{project}/locations/{location}/clusters/{cluster_id}'
@@ -208,36 +243,53 @@ class _UserState:
         return pulumi.get(self, "cluster")
 
     @cluster.setter
-    def cluster(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cluster(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cluster", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseRoles")
-    def database_roles(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def database_roles(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of database roles this database user has.
         """
         return pulumi.get(self, "database_roles")
 
     @database_roles.setter
-    def database_roles(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def database_roles(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "database_roles", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource in the form of projects/{project}/locations/{location}/clusters/{cluster}/users/{user}.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def password(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Password for this database user.
         **Note**: This property is sensitive and will not be displayed in the plan.
@@ -245,12 +297,12 @@ class _UserState:
         return pulumi.get(self, "password")
 
     @password.setter
-    def password(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password", value)
 
     @_builtins.property
     @pulumi.getter(name="passwordWo")
-    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password_wo(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
         (Optional, Write-Only)
@@ -262,36 +314,36 @@ class _UserState:
         return pulumi.get(self, "password_wo")
 
     @password_wo.setter
-    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password_wo(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password_wo", value)
 
     @_builtins.property
     @pulumi.getter(name="passwordWoVersion")
-    def password_wo_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password_wo_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Triggers update of `password_wo` write-only. Increment this value when an update to `password_wo` is needed. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         """
         return pulumi.get(self, "password_wo_version")
 
     @password_wo_version.setter
-    def password_wo_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password_wo_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password_wo_version", value)
 
     @_builtins.property
     @pulumi.getter(name="userId")
-    def user_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The database role name of the user.
         """
         return pulumi.get(self, "user_id")
 
     @user_id.setter
-    def user_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user_id", value)
 
     @_builtins.property
     @pulumi.getter(name="userType")
-    def user_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def user_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The type of this user.
         Possible values are: `ALLOYDB_BUILT_IN`, `ALLOYDB_IAM_USER`.
@@ -299,7 +351,7 @@ class _UserState:
         return pulumi.get(self, "user_type")
 
     @user_type.setter
-    def user_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def user_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "user_type", value)
 
 
@@ -309,13 +361,14 @@ class User(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_roles: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_roles: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A database user in an AlloyDB cluster.
@@ -435,6 +488,12 @@ class User(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] cluster: Identifies the alloydb cluster. Must be in the format
                'projects/{project}/locations/{location}/clusters/{cluster_id}'
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] database_roles: List of database roles this database user has.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] password: Password for this database user.
                **Note**: This property is sensitive and will not be displayed in the plan.
         :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
@@ -582,13 +641,14 @@ class User(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_roles: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
-                 password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 user_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_roles: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo: pulumi.Input[Optional[_builtins.str]] = None,
+                 password_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 user_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -602,6 +662,7 @@ class User(pulumi.CustomResource):
                 raise TypeError("Missing required property 'cluster'")
             __props__.__dict__["cluster"] = cluster
             __props__.__dict__["database_roles"] = database_roles
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["password"] = None if password is None else pulumi.Output.secret(password)
             __props__.__dict__["password_wo"] = None if password_wo is None else pulumi.Output.secret(password_wo)
             __props__.__dict__["password_wo_version"] = password_wo_version
@@ -624,14 +685,15 @@ class User(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            cluster: Optional[pulumi.Input[_builtins.str]] = None,
-            database_roles: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            password: Optional[pulumi.Input[_builtins.str]] = None,
-            password_wo: Optional[pulumi.Input[_builtins.str]] = None,
-            password_wo_version: Optional[pulumi.Input[_builtins.str]] = None,
-            user_id: Optional[pulumi.Input[_builtins.str]] = None,
-            user_type: Optional[pulumi.Input[_builtins.str]] = None) -> 'User':
+            cluster: pulumi.Input[Optional[_builtins.str]] = None,
+            database_roles: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            password: pulumi.Input[Optional[_builtins.str]] = None,
+            password_wo: pulumi.Input[Optional[_builtins.str]] = None,
+            password_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
+            user_id: pulumi.Input[Optional[_builtins.str]] = None,
+            user_type: pulumi.Input[Optional[_builtins.str]] = None) -> 'User':
         """
         Get an existing User resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -642,6 +704,12 @@ class User(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] cluster: Identifies the alloydb cluster. Must be in the format
                'projects/{project}/locations/{location}/clusters/{cluster_id}'
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] database_roles: List of database roles this database user has.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] name: Name of the resource in the form of projects/{project}/locations/{location}/clusters/{cluster}/users/{user}.
         :param pulumi.Input[_builtins.str] password: Password for this database user.
                **Note**: This property is sensitive and will not be displayed in the plan.
@@ -662,6 +730,7 @@ class User(pulumi.CustomResource):
 
         __props__.__dict__["cluster"] = cluster
         __props__.__dict__["database_roles"] = database_roles
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["name"] = name
         __props__.__dict__["password"] = password
         __props__.__dict__["password_wo"] = password_wo
@@ -686,6 +755,19 @@ class User(pulumi.CustomResource):
         List of database roles this database user has.
         """
         return pulumi.get(self, "database_roles")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

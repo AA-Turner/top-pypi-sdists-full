@@ -24,14 +24,17 @@ class WorkstationClusterArgs:
                  network: pulumi.Input[_builtins.str],
                  subnetwork: pulumi.Input[_builtins.str],
                  workstation_cluster_id: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_config: Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_cluster_config: Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_config: pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_cluster_config: pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 workstation_authorization_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_launch_url: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkstationCluster resource.
 
@@ -43,6 +46,12 @@ class WorkstationClusterArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] annotations: Client-specified annotations. This is distinct from labels.
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable name for this resource.
         :param pulumi.Input['WorkstationClusterDomainConfigArgs'] domain_config: Configuration options for a custom domain.
                Structure is documented below.
@@ -58,12 +67,18 @@ class WorkstationClusterArgs:
                For example:
                "123/environment": "production",
                "123/costCenter": "marketing"
+        :param pulumi.Input[_builtins.str] workstation_authorization_url: Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+               Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
+        :param pulumi.Input[_builtins.str] workstation_launch_url: Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+               Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
         """
         pulumi.set(__self__, "network", network)
         pulumi.set(__self__, "subnetwork", subnetwork)
         pulumi.set(__self__, "workstation_cluster_id", workstation_cluster_id)
         if annotations is not None:
             pulumi.set(__self__, "annotations", annotations)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if domain_config is not None:
@@ -78,6 +93,10 @@ class WorkstationClusterArgs:
             pulumi.set(__self__, "project", project)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
+        if workstation_authorization_url is not None:
+            pulumi.set(__self__, "workstation_authorization_url", workstation_authorization_url)
+        if workstation_launch_url is not None:
+            pulumi.set(__self__, "workstation_launch_url", workstation_launch_url)
 
     @_builtins.property
     @pulumi.getter
@@ -119,7 +138,7 @@ class WorkstationClusterArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Client-specified annotations. This is distinct from labels.
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
@@ -128,24 +147,41 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable name for this resource.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="domainConfig")
-    def domain_config(self) -> Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']]:
+    def domain_config(self) -> pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']]:
         """
         Configuration options for a custom domain.
         Structure is documented below.
@@ -153,12 +189,12 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "domain_config")
 
     @domain_config.setter
-    def domain_config(self, value: Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']]):
+    def domain_config(self, value: pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']]):
         pulumi.set(self, "domain_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Client-specified labels that are applied to the resource and that are also propagated to the underlying Compute Engine resources.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -167,24 +203,24 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where the workstation cluster should reside.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="privateClusterConfig")
-    def private_cluster_config(self) -> Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']]:
+    def private_cluster_config(self) -> pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']]:
         """
         Configuration for private cluster.
         Structure is documented below.
@@ -192,12 +228,12 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "private_cluster_config")
 
     @private_cluster_config.setter
-    def private_cluster_config(self, value: Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']]):
+    def private_cluster_config(self, value: pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']]):
         pulumi.set(self, "private_cluster_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -205,12 +241,12 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Resource manager tags bound to this resource.
         For example:
@@ -220,34 +256,63 @@ class WorkstationClusterArgs:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workstationAuthorizationUrl")
+    def workstation_authorization_url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+        Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
+        """
+        return pulumi.get(self, "workstation_authorization_url")
+
+    @workstation_authorization_url.setter
+    def workstation_authorization_url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workstation_authorization_url", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workstationLaunchUrl")
+    def workstation_launch_url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+        Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
+        """
+        return pulumi.get(self, "workstation_launch_url")
+
+    @workstation_launch_url.setter
+    def workstation_launch_url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workstation_launch_url", value)
 
 
 @pulumi.input_type
 class _WorkstationClusterState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 conditions: Optional[pulumi.Input[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]] = None,
-                 control_plane_ip: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 degraded: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_config: Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_cluster_config: Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 workstation_cluster_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 conditions: pulumi.Input[Optional[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]] = None,
+                 control_plane_ip: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 degraded: pulumi.Input[Optional[_builtins.bool]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_config: pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_cluster_config: pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_authorization_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_launch_url: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkstationCluster resources.
 
@@ -261,6 +326,12 @@ class _WorkstationClusterState:
         :param pulumi.Input[_builtins.str] create_time: Time when this resource was created.
         :param pulumi.Input[_builtins.bool] degraded: Whether this resource is in degraded mode, in which case it may require user action to restore full functionality.
                Details can be found in the conditions field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable name for this resource.
         :param pulumi.Input['WorkstationClusterDomainConfigArgs'] domain_config: Configuration options for a custom domain.
                Structure is documented below.
@@ -288,7 +359,11 @@ class _WorkstationClusterState:
                "123/environment": "production",
                "123/costCenter": "marketing"
         :param pulumi.Input[_builtins.str] uid: The system-generated UID of the resource.
+        :param pulumi.Input[_builtins.str] workstation_authorization_url: Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+               Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
         :param pulumi.Input[_builtins.str] workstation_cluster_id: ID to use for the workstation cluster.
+        :param pulumi.Input[_builtins.str] workstation_launch_url: Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+               Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
         """
         if annotations is not None:
             pulumi.set(__self__, "annotations", annotations)
@@ -300,6 +375,8 @@ class _WorkstationClusterState:
             pulumi.set(__self__, "create_time", create_time)
         if degraded is not None:
             pulumi.set(__self__, "degraded", degraded)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if domain_config is not None:
@@ -330,12 +407,16 @@ class _WorkstationClusterState:
             pulumi.set(__self__, "tags", tags)
         if uid is not None:
             pulumi.set(__self__, "uid", uid)
+        if workstation_authorization_url is not None:
+            pulumi.set(__self__, "workstation_authorization_url", workstation_authorization_url)
         if workstation_cluster_id is not None:
             pulumi.set(__self__, "workstation_cluster_id", workstation_cluster_id)
+        if workstation_launch_url is not None:
+            pulumi.set(__self__, "workstation_launch_url", workstation_launch_url)
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Client-specified annotations. This is distinct from labels.
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
@@ -344,12 +425,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def conditions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]]:
+    def conditions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]]:
         """
         Status conditions describing the current resource state.
         Structure is documented below.
@@ -357,12 +438,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "conditions")
 
     @conditions.setter
-    def conditions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]]):
+    def conditions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['WorkstationClusterConditionArgs']]]]):
         pulumi.set(self, "conditions", value)
 
     @_builtins.property
     @pulumi.getter(name="controlPlaneIp")
-    def control_plane_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def control_plane_ip(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The private IP address of the control plane for this workstation cluster.
         Workstation VMs need access to this IP address to work with the service, so make sure that your firewall rules allow egress from the workstation VMs to this address.
@@ -370,24 +451,24 @@ class _WorkstationClusterState:
         return pulumi.get(self, "control_plane_ip")
 
     @control_plane_ip.setter
-    def control_plane_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def control_plane_ip(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "control_plane_ip", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Time when this resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def degraded(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def degraded(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Whether this resource is in degraded mode, in which case it may require user action to restore full functionality.
         Details can be found in the conditions field.
@@ -395,24 +476,41 @@ class _WorkstationClusterState:
         return pulumi.get(self, "degraded")
 
     @degraded.setter
-    def degraded(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def degraded(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "degraded", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Human-readable name for this resource.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="domainConfig")
-    def domain_config(self) -> Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']]:
+    def domain_config(self) -> pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']]:
         """
         Configuration options for a custom domain.
         Structure is documented below.
@@ -420,36 +518,36 @@ class _WorkstationClusterState:
         return pulumi.get(self, "domain_config")
 
     @domain_config.setter
-    def domain_config(self, value: Optional[pulumi.Input['WorkstationClusterDomainConfigArgs']]):
+    def domain_config(self, value: pulumi.Input[Optional['WorkstationClusterDomainConfigArgs']]):
         pulumi.set(self, "domain_config", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Checksum computed by the server.
         May be sent on update and delete requests to ensure that the client has an up-to-date value before proceeding.
@@ -457,12 +555,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Client-specified labels that are applied to the resource and that are also propagated to the underlying Compute Engine resources.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -471,36 +569,36 @@ class _WorkstationClusterState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location where the workstation cluster should reside.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the cluster resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The relative resource name of the VPC network on which the instance can be accessed.
         It is specified in the following form: "projects/{projectNumber}/global/networks/{network_id}".
@@ -508,12 +606,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter(name="privateClusterConfig")
-    def private_cluster_config(self) -> Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']]:
+    def private_cluster_config(self) -> pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']]:
         """
         Configuration for private cluster.
         Structure is documented below.
@@ -521,12 +619,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "private_cluster_config")
 
     @private_cluster_config.setter
-    def private_cluster_config(self, value: Optional[pulumi.Input['WorkstationClusterPrivateClusterConfigArgs']]):
+    def private_cluster_config(self, value: pulumi.Input[Optional['WorkstationClusterPrivateClusterConfigArgs']]):
         pulumi.set(self, "private_cluster_config", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -534,12 +632,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -547,12 +645,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def subnetwork(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subnetwork(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the Compute Engine subnetwork in which instances associated with this cluster will be created.
         Must be part of the subnetwork specified for this cluster.
@@ -560,12 +658,12 @@ class _WorkstationClusterState:
         return pulumi.get(self, "subnetwork")
 
     @subnetwork.setter
-    def subnetwork(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subnetwork(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subnetwork", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Resource manager tags bound to this resource.
         For example:
@@ -575,32 +673,58 @@ class _WorkstationClusterState:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The system-generated UID of the resource.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
+    @pulumi.getter(name="workstationAuthorizationUrl")
+    def workstation_authorization_url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+        Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
+        """
+        return pulumi.get(self, "workstation_authorization_url")
+
+    @workstation_authorization_url.setter
+    def workstation_authorization_url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workstation_authorization_url", value)
+
+    @_builtins.property
     @pulumi.getter(name="workstationClusterId")
-    def workstation_cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def workstation_cluster_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         ID to use for the workstation cluster.
         """
         return pulumi.get(self, "workstation_cluster_id")
 
     @workstation_cluster_id.setter
-    def workstation_cluster_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def workstation_cluster_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workstation_cluster_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workstationLaunchUrl")
+    def workstation_launch_url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+        Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
+        """
+        return pulumi.get(self, "workstation_launch_url")
+
+    @workstation_launch_url.setter
+    def workstation_launch_url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workstation_launch_url", value)
 
 
 @pulumi.type_token("gcp:workstations/workstationCluster:WorkstationCluster")
@@ -609,17 +733,20 @@ class WorkstationCluster(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_config: Optional[pulumi.Input[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_cluster_config: Optional[pulumi.Input[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 workstation_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_config: pulumi.Input[Optional[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_cluster_config: pulumi.Input[Optional[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 workstation_authorization_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_launch_url: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A grouping of workstation configurations and the associated workstations in that region.
@@ -632,6 +759,29 @@ class WorkstationCluster(pulumi.CustomResource):
 
         ## Example Usage
 
+        ### Workstation Cluster Custom Urls
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default_network = gcp.compute.Network("default",
+            name="workstations-network",
+            auto_create_subnetworks=False)
+        default_subnetwork = gcp.compute.Subnetwork("default",
+            name="workstations-network",
+            ip_cidr_range="10.0.0.0/24",
+            region="us-central1",
+            network=default_network.name)
+        default = gcp.workstations.WorkstationCluster("default",
+            workstation_cluster_id="custom-urls-cluster",
+            network=default_network.id,
+            subnetwork=default_subnetwork.id,
+            location="us-central1",
+            workstation_authorization_url="https://workstations.cloud.google.com/ui/auth",
+            workstation_launch_url="https://console.cloud.google.com/workstations/launch")
+        project = gcp.organizations.get_project()
+        ```
         ### Workstation Cluster Basic
 
         ```python
@@ -779,6 +929,12 @@ class WorkstationCluster(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] annotations: Client-specified annotations. This is distinct from labels.
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable name for this resource.
         :param pulumi.Input[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']] domain_config: Configuration options for a custom domain.
                Structure is documented below.
@@ -798,7 +954,11 @@ class WorkstationCluster(pulumi.CustomResource):
                For example:
                "123/environment": "production",
                "123/costCenter": "marketing"
+        :param pulumi.Input[_builtins.str] workstation_authorization_url: Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+               Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
         :param pulumi.Input[_builtins.str] workstation_cluster_id: ID to use for the workstation cluster.
+        :param pulumi.Input[_builtins.str] workstation_launch_url: Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+               Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
         """
         ...
     @overload
@@ -817,6 +977,29 @@ class WorkstationCluster(pulumi.CustomResource):
 
         ## Example Usage
 
+        ### Workstation Cluster Custom Urls
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default_network = gcp.compute.Network("default",
+            name="workstations-network",
+            auto_create_subnetworks=False)
+        default_subnetwork = gcp.compute.Subnetwork("default",
+            name="workstations-network",
+            ip_cidr_range="10.0.0.0/24",
+            region="us-central1",
+            network=default_network.name)
+        default = gcp.workstations.WorkstationCluster("default",
+            workstation_cluster_id="custom-urls-cluster",
+            network=default_network.id,
+            subnetwork=default_subnetwork.id,
+            location="us-central1",
+            workstation_authorization_url="https://workstations.cloud.google.com/ui/auth",
+            workstation_launch_url="https://console.cloud.google.com/workstations/launch")
+        project = gcp.organizations.get_project()
+        ```
         ### Workstation Cluster Basic
 
         ```python
@@ -974,17 +1157,20 @@ class WorkstationCluster(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 domain_config: Optional[pulumi.Input[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_cluster_config: Optional[pulumi.Input[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 workstation_cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 domain_config: pulumi.Input[Optional[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 private_cluster_config: pulumi.Input[Optional[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 workstation_authorization_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 workstation_launch_url: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -995,6 +1181,7 @@ class WorkstationCluster(pulumi.CustomResource):
             __props__ = WorkstationClusterArgs.__new__(WorkstationClusterArgs)
 
             __props__.__dict__["annotations"] = annotations
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["domain_config"] = domain_config
             __props__.__dict__["labels"] = labels
@@ -1008,9 +1195,11 @@ class WorkstationCluster(pulumi.CustomResource):
                 raise TypeError("Missing required property 'subnetwork'")
             __props__.__dict__["subnetwork"] = subnetwork
             __props__.__dict__["tags"] = tags
+            __props__.__dict__["workstation_authorization_url"] = workstation_authorization_url
             if workstation_cluster_id is None and not opts.urn:
                 raise TypeError("Missing required property 'workstation_cluster_id'")
             __props__.__dict__["workstation_cluster_id"] = workstation_cluster_id
+            __props__.__dict__["workstation_launch_url"] = workstation_launch_url
             __props__.__dict__["conditions"] = None
             __props__.__dict__["control_plane_ip"] = None
             __props__.__dict__["create_time"] = None
@@ -1033,27 +1222,30 @@ class WorkstationCluster(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            conditions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WorkstationClusterConditionArgs', 'WorkstationClusterConditionArgsDict']]]]] = None,
-            control_plane_ip: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            degraded: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            domain_config: Optional[pulumi.Input[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            private_cluster_config: Optional[pulumi.Input[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
-            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            workstation_cluster_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkstationCluster':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            conditions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WorkstationClusterConditionArgs', 'WorkstationClusterConditionArgsDict']]]]] = None,
+            control_plane_ip: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            degraded: pulumi.Input[Optional[_builtins.bool]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            domain_config: pulumi.Input[Optional[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            private_cluster_config: pulumi.Input[Optional[Union['WorkstationClusterPrivateClusterConfigArgs', 'WorkstationClusterPrivateClusterConfigArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            subnetwork: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            workstation_authorization_url: pulumi.Input[Optional[_builtins.str]] = None,
+            workstation_cluster_id: pulumi.Input[Optional[_builtins.str]] = None,
+            workstation_launch_url: pulumi.Input[Optional[_builtins.str]] = None) -> 'WorkstationCluster':
         """
         Get an existing WorkstationCluster resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1071,6 +1263,12 @@ class WorkstationCluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] create_time: Time when this resource was created.
         :param pulumi.Input[_builtins.bool] degraded: Whether this resource is in degraded mode, in which case it may require user action to restore full functionality.
                Details can be found in the conditions field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Human-readable name for this resource.
         :param pulumi.Input[Union['WorkstationClusterDomainConfigArgs', 'WorkstationClusterDomainConfigArgsDict']] domain_config: Configuration options for a custom domain.
                Structure is documented below.
@@ -1098,7 +1296,11 @@ class WorkstationCluster(pulumi.CustomResource):
                "123/environment": "production",
                "123/costCenter": "marketing"
         :param pulumi.Input[_builtins.str] uid: The system-generated UID of the resource.
+        :param pulumi.Input[_builtins.str] workstation_authorization_url: Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+               Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
         :param pulumi.Input[_builtins.str] workstation_cluster_id: ID to use for the workstation cluster.
+        :param pulumi.Input[_builtins.str] workstation_launch_url: Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+               Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -1109,6 +1311,7 @@ class WorkstationCluster(pulumi.CustomResource):
         __props__.__dict__["control_plane_ip"] = control_plane_ip
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["degraded"] = degraded
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["domain_config"] = domain_config
         __props__.__dict__["effective_annotations"] = effective_annotations
@@ -1124,7 +1327,9 @@ class WorkstationCluster(pulumi.CustomResource):
         __props__.__dict__["subnetwork"] = subnetwork
         __props__.__dict__["tags"] = tags
         __props__.__dict__["uid"] = uid
+        __props__.__dict__["workstation_authorization_url"] = workstation_authorization_url
         __props__.__dict__["workstation_cluster_id"] = workstation_cluster_id
+        __props__.__dict__["workstation_launch_url"] = workstation_launch_url
         return WorkstationCluster(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -1171,6 +1376,19 @@ class WorkstationCluster(pulumi.CustomResource):
         Details can be found in the conditions field.
         """
         return pulumi.get(self, "degraded")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")
@@ -1305,10 +1523,28 @@ class WorkstationCluster(pulumi.CustomResource):
         return pulumi.get(self, "uid")
 
     @_builtins.property
+    @pulumi.getter(name="workstationAuthorizationUrl")
+    def workstation_authorization_url(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specifies the redirect URL for unauthorized requests received by workstation VMs in this cluster.
+        Redirects to this endpoint will send a base64 encoded `state` query param containing the target workstation name and original request hostname. The endpoint is responsible for retrieving a token using `GenerateAccessToken` and redirecting back to the original hostname with the token.
+        """
+        return pulumi.get(self, "workstation_authorization_url")
+
+    @_builtins.property
     @pulumi.getter(name="workstationClusterId")
     def workstation_cluster_id(self) -> pulumi.Output[_builtins.str]:
         """
         ID to use for the workstation cluster.
         """
         return pulumi.get(self, "workstation_cluster_id")
+
+    @_builtins.property
+    @pulumi.getter(name="workstationLaunchUrl")
+    def workstation_launch_url(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Specifies the launch URL for workstations in this cluster. Requests sent to unstarted workstations will be redirected to this URL.
+        Requests redirected to the launch endpoint will be sent with a `workstation` query parameter containing the full workstation resource. The launch endpoint is responsible for starting the workstation, polling it until it reaches `STATE_RUNNING`, and then issuing a redirect to the workstation's host URL.
+        """
+        return pulumi.get(self, "workstation_launch_url")
 

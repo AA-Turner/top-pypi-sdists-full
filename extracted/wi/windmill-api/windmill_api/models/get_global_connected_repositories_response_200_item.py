@@ -25,6 +25,9 @@ class GetGlobalConnectedRepositoriesResponse200Item:
         per_page (float): Number of repositories loaded per page
         workspace_id (Union[Unset, str]):
         error (Union[Unset, str]): Error message if token retrieval failed
+        github_base_url (Union[Unset, None, str]): Set for self-managed (GHES) installs. Cloud installs omit this field.
+        provisioned_by_admin (Union[Unset, bool]): True when the installation was assigned by the instance super-admin
+            from instance settings. Workspace admins cannot remove these.
     """
 
     installation_id: float
@@ -34,6 +37,8 @@ class GetGlobalConnectedRepositoriesResponse200Item:
     per_page: float
     workspace_id: Union[Unset, str] = UNSET
     error: Union[Unset, str] = UNSET
+    github_base_url: Union[Unset, None, str] = UNSET
+    provisioned_by_admin: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -49,6 +54,8 @@ class GetGlobalConnectedRepositoriesResponse200Item:
         per_page = self.per_page
         workspace_id = self.workspace_id
         error = self.error
+        github_base_url = self.github_base_url
+        provisioned_by_admin = self.provisioned_by_admin
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +72,10 @@ class GetGlobalConnectedRepositoriesResponse200Item:
             field_dict["workspace_id"] = workspace_id
         if error is not UNSET:
             field_dict["error"] = error
+        if github_base_url is not UNSET:
+            field_dict["github_base_url"] = github_base_url
+        if provisioned_by_admin is not UNSET:
+            field_dict["provisioned_by_admin"] = provisioned_by_admin
 
         return field_dict
 
@@ -96,6 +107,10 @@ class GetGlobalConnectedRepositoriesResponse200Item:
 
         error = d.pop("error", UNSET)
 
+        github_base_url = d.pop("github_base_url", UNSET)
+
+        provisioned_by_admin = d.pop("provisioned_by_admin", UNSET)
+
         get_global_connected_repositories_response_200_item = cls(
             installation_id=installation_id,
             account_id=account_id,
@@ -104,6 +119,8 @@ class GetGlobalConnectedRepositoriesResponse200Item:
             per_page=per_page,
             workspace_id=workspace_id,
             error=error,
+            github_base_url=github_base_url,
+            provisioned_by_admin=provisioned_by_admin,
         )
 
         get_global_connected_repositories_response_200_item.additional_properties = d

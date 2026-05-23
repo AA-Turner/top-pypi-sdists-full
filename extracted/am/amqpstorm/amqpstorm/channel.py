@@ -1,9 +1,14 @@
 """AMQPStorm Connection.Channel."""
+from __future__ import annotations
 
 import collections
 import logging
 import threading
 import time
+from types import TracebackType
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Iterator
 
 from pamqp import commands
 from pamqp.header import ContentHeader
@@ -25,6 +30,11 @@ from amqpstorm.queue import Queue
 from amqpstorm.rpc import Rpc
 from amqpstorm.tx import Tx
 
+if TYPE_CHECKING:
+    from pamqp.base import Frame
+
+    from amqpstorm.connection import Connection
+
 LOGGER = logging.getLogger(__name__)
 CONTENT_FRAME = ['Basic.Deliver', 'ContentHeader', 'ContentBody']
 
@@ -42,23 +52,34 @@ class Channel(BaseChannel):
         '_connection', '_exchange', '_inbound', '_queue', '_tx'
     ]
 
-    def __init__(self, channel_id, connection, rpc_timeout):
-        super(Channel, self).__init__(channel_id)
+    def __init__(
+        self,
+        channel_id: int,
+        connection: Connection,
+        rpc_timeout: float,
+    ) -> None:
+        super().__init__(channel_id)
         self.lock = threading.Lock()
         self.rpc = Rpc(self, timeout=rpc_timeout)
-        self._consumer_callbacks = {}
+        self._consumer_callbacks: dict[str, Any] = {}
         self._confirming_deliveries = False
         self._connection = connection
-        self._inbound = collections.deque()
+        self._inbound: collections.deque[Any] = collections.deque()
         self._basic = Basic(self, connection.max_frame_size)
         self._exchange = Exchange(self)
         self._tx = Tx(self)
         self._queue = Queue(self)
+        self._user_closed: bool = False
 
-    def __enter__(self):
+    def __enter__(self) -> Channel:
         return self
 
-    def __exit__(self, exception_type, exception_value, _):
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception_value: BaseException | None,
+        _: TracebackType | None,
+    ) -> None:
         if exception_type:
             LOGGER.warning(
                 'Closing channel due to an unhandled exception: %s',
@@ -68,11 +89,11 @@ class Channel(BaseChannel):
             return
         self.close()
 
-    def __int__(self):
+    def __int__(self) -> int:
         return self._channel_id
 
     @property
-    def basic(self):
+    def basic(self) -> Basic:
         """RabbitMQ Basic Operations.
 
             e.g.
@@ -85,7 +106,7 @@ class Channel(BaseChannel):
         return self._basic
 
     @property
-    def exchange(self):
+    def exchange(self) -> Exchange:
         """RabbitMQ Exchange Operations.
 
             e.g.
@@ -98,7 +119,7 @@ class Channel(BaseChannel):
         return self._exchange
 
     @property
-    def queue(self):
+    def queue(self) -> Queue:
         """RabbitMQ Queue Operations.
 
             e.g.
@@ -111,7 +132,7 @@ class Channel(BaseChannel):
         return self._queue
 
     @property
-    def tx(self):
+    def tx(self) -> Tx:
         """RabbitMQ Tx Operations.
 
             e.g.
@@ -123,18 +144,23 @@ class Channel(BaseChannel):
         """
         return self._tx
 
-    def build_inbound_messages(self, break_on_empty=False, to_tuple=False,
-                               auto_decode=True, message_impl=None):
+    def build_inbound_messages(
+        self,
+        break_on_empty: bool = False,
+        to_tuple: bool = False,
+        auto_decode: bool = True,
+        message_impl: type[BaseMessage] | None = None,
+    ) -> Iterator[Any]:
         """Build messages in the inbound queue.
 
         :param bool break_on_empty: Should we break the loop when there are
                                     no more messages in our inbound queue.
 
-                                    This does not guarantee that the queue
-                                    is emptied before the loop is broken, as
-                                    messages may be consumed faster then
-                                    they are being delivered by RabbitMQ,
-                                    causing the loop to be broken prematurely.
+                                    To avoid breaking out while messages are
+                                    still in flight from RabbitMQ, the loop
+                                    only exits after the inbound queue has
+                                    been continuously empty for at least one
+                                    second.
         :param bool to_tuple: Should incoming messages be converted to a
                               tuple before delivery.
         :param bool auto_decode: Auto-decode strings when possible.
@@ -148,7 +174,12 @@ class Channel(BaseChannel):
 
         :rtype: :py:class:`generator`
         """
-        self.check_for_errors()
+        try:
+            self.check_for_errors()
+        except (AMQPConnectionError, AMQPChannelError):
+            if self._user_initiated_close():
+                return
+            raise
         if message_impl:
             if not issubclass(message_impl, BaseMessage):
                 raise AMQPInvalidArgument(
@@ -156,21 +187,39 @@ class Channel(BaseChannel):
                 )
         else:
             message_impl = Message
+        empty_since = None
         while not self.is_closed:
-            message = self._build_message(auto_decode=auto_decode,
-                                          message_impl=message_impl)
+            try:
+                message = self._build_message(auto_decode=auto_decode,
+                                              message_impl=message_impl)
+            except (AMQPConnectionError, AMQPChannelError):
+                if self._user_initiated_close():
+                    return
+                raise
             if not message:
-                self.check_for_errors()
+                try:
+                    self.check_for_errors()
+                except (AMQPConnectionError, AMQPChannelError):
+                    if self._user_initiated_close():
+                        return
+                    raise
                 time.sleep(IDLE_WAIT)
                 if break_on_empty and not self._inbound:
-                    break
+                    if empty_since is None:
+                        empty_since = time.monotonic()
+                    elif time.monotonic() - empty_since >= 1.0:
+                        break
                 continue
+            empty_since = None
             if to_tuple:
                 yield message.to_tuple()
                 continue
             yield message
 
-    def close(self, reply_code=200, reply_text=''):
+    def _user_initiated_close(self) -> bool:
+        return self._user_closed or self._connection._user_closed
+
+    def close(self, reply_code: int = 200, reply_text: str = '') -> None:
         """Close Channel.
 
         :param int reply_code: Close reply code (e.g. 200)
@@ -187,6 +236,7 @@ class Channel(BaseChannel):
             raise AMQPInvalidArgument('reply_code should be an integer')
         elif not compatibility.is_string(reply_text):
             raise AMQPInvalidArgument('reply_text should be a string')
+        self._user_closed = True
         try:
             if self._connection.is_closed or not self.is_open:
                 self.stop_consuming()
@@ -211,7 +261,7 @@ class Channel(BaseChannel):
             self.set_state(self.CLOSED)
         LOGGER.debug('Channel #%d Closed', self.channel_id)
 
-    def check_for_errors(self,):
+    def check_for_errors(self) -> None:
         """Check connection and channel for errors.
 
         :raises AMQPChannelError: Raises if the channel encountered an error.
@@ -230,7 +280,7 @@ class Channel(BaseChannel):
         if self.is_closed:
             raise AMQPChannelError('channel closed')
 
-    def check_for_exceptions(self):
+    def check_for_exceptions(self) -> None:
         """Check channel for exceptions.
 
         :raises AMQPChannelError: Raises if the channel encountered an error.
@@ -243,7 +293,7 @@ class Channel(BaseChannel):
                 self.exceptions.pop(0)
             raise exception
 
-    def confirm_deliveries(self):
+    def confirm_deliveries(self) -> dict[str, Any]:
         """Set the channel to confirm that each message has been
         successfully delivered.
 
@@ -258,14 +308,14 @@ class Channel(BaseChannel):
         return self.rpc_request(confirm_frame)
 
     @property
-    def confirming_deliveries(self):
+    def confirming_deliveries(self) -> bool:
         """Is the channel set to confirm deliveries.
 
         :return:
         """
         return self._confirming_deliveries
 
-    def on_frame(self, frame_in):
+    def on_frame(self, frame_in: Any) -> None:
         """Handle frame sent to this specific channel.
 
         :param pamqp.Frame frame_in: Amqp frame.
@@ -294,19 +344,22 @@ class Channel(BaseChannel):
                 self.channel_id, frame_in.name, dict(frame_in)
             )
 
-    def open(self):
+    def open(self) -> None:
         """Open Channel.
 
         :return:
         """
         self._inbound = collections.deque()
-        self._exceptions = []
+        self._exceptions: list[Exception] = []
         self._confirming_deliveries = False
+        self._user_closed = False
         self.set_state(self.OPENING)
         self.rpc_request(commands.Channel.Open())
         self.set_state(self.OPEN)
 
-    def process_data_events(self, to_tuple=False, auto_decode=True):
+    def process_data_events(
+        self, to_tuple: bool = False, auto_decode: bool = True,
+    ) -> None:
         """Consume inbound messages.
 
         :param bool to_tuple: Should incoming messages be converted to a
@@ -331,7 +384,11 @@ class Channel(BaseChannel):
             # noinspection PyCallingNonCallable
             self._consumer_callbacks[consumer_tag](message)
 
-    def rpc_request(self, frame_out, connection_adapter=None):
+    def rpc_request(
+        self,
+        frame_out: Frame,
+        connection_adapter: Any = None,
+    ) -> Any:
         """Perform a RPC Request.
 
         :param specification.Frame frame_out: Amqp frame.
@@ -344,7 +401,9 @@ class Channel(BaseChannel):
                 uuid, connection_adapter=connection_adapter
             )
 
-    def start_consuming(self, to_tuple=False, auto_decode=True):
+    def start_consuming(
+        self, to_tuple: bool = False, auto_decode: bool = True,
+    ) -> None:
         """Start consuming messages.
 
         :param bool to_tuple: Should incoming messages be converted to a
@@ -367,7 +426,7 @@ class Channel(BaseChannel):
                 continue
             break
 
-    def stop_consuming(self):
+    def stop_consuming(self) -> None:
         """Stop consuming messages.
 
         :raises AMQPChannelError: Raises if the channel encountered an error.
@@ -383,7 +442,7 @@ class Channel(BaseChannel):
                 self.basic.cancel(tag)
         self.remove_consumer_tag()
 
-    def write_frame(self, frame_out):
+    def write_frame(self, frame_out: Frame) -> None:
         """Write a pamqp frame from the current channel.
 
         :param specification.Frame frame_out: A single pamqp frame.
@@ -393,7 +452,7 @@ class Channel(BaseChannel):
         self.check_for_errors()
         self._connection.write_frame(self.channel_id, frame_out)
 
-    def write_frames(self, frames_out):
+    def write_frames(self, frames_out: list[Frame]) -> None:
         """Write multiple pamqp frames from the current channel.
 
         :param list frames_out: A list of pamqp frames.
@@ -403,7 +462,7 @@ class Channel(BaseChannel):
         self.check_for_errors()
         self._connection.write_frames(self.channel_id, frames_out)
 
-    def _basic_cancel(self, frame_in):
+    def _basic_cancel(self, frame_in: Any) -> None:
         """Handle a Basic Cancel frame.
 
         :param specification.Basic.Cancel frame_in: Amqp frame.
@@ -416,7 +475,7 @@ class Channel(BaseChannel):
         )
         self.remove_consumer_tag(frame_in.consumer_tag)
 
-    def _basic_return(self, frame_in):
+    def _basic_return(self, frame_in: Any) -> None:
         """Handle a Basic Return Frame and treat it as an error.
 
         :param specification.Basic.Return frame_in: Amqp frame.
@@ -437,7 +496,9 @@ class Channel(BaseChannel):
                                      reply_code=frame_in.reply_code)
         self.exceptions.append(exception)
 
-    def _build_message(self, auto_decode, message_impl):
+    def _build_message(
+        self, auto_decode: bool, message_impl: type[BaseMessage],
+    ) -> BaseMessage | None:
         """Fetch and build a complete Message from the inbound queue.
 
         :param bool auto_decode: Auto-decode strings when possible.
@@ -460,7 +521,7 @@ class Channel(BaseChannel):
                                auto_decode=auto_decode)
         return message
 
-    def _build_message_headers(self):
+    def _build_message_headers(self) -> tuple[Any, Any] | None:
         """Fetch Message Headers (Deliver & Header Frames).
 
         :rtype: tuple,None
@@ -484,24 +545,26 @@ class Channel(BaseChannel):
 
         return basic_deliver, content_header
 
-    def _build_message_body(self, body_size):
+    def _build_message_body(self, body_size: int) -> bytes:
         """Build the Message body from the inbound queue.
 
         :rtype: str
         """
-        body = bytes()
-        while len(body) < body_size:
+        body_parts: list[bytes] = []
+        body_len = 0
+        while body_len < body_size:
             if not self._inbound:
                 self.check_for_errors()
                 time.sleep(IDLE_WAIT)
                 continue
-            body_piece = self._inbound.popleft()
+            body_piece: Any = self._inbound.popleft()
             if not body_piece.value:
                 break
-            body += body_piece.value
-        return body
+            body_parts.append(body_piece.value)
+            body_len += len(body_piece.value)
+        return b''.join(body_parts)
 
-    def _close_channel(self, frame_in):
+    def _close_channel(self, frame_in: Any) -> None:
         """Close Channel.
 
         :param specification.Channel.Close frame_in: Channel Close frame.
@@ -516,13 +579,13 @@ class Channel(BaseChannel):
         self.remove_consumer_tag()
         if self._inbound:
             self._inbound.clear()
-            self._inbound = None
+            # Releases the buffer; channel is being torn down so no further
+            # reads are expected.
+            self._inbound = None  # type: ignore[assignment]
+        reply_text = try_utf8_decode(frame_in.reply_text)
         self.exceptions.append(AMQPChannelError(
-            'Channel %d was closed by remote server: %s' %
-            (
-                self._channel_id,
-                try_utf8_decode(frame_in.reply_text)
-            ),
+            f'Channel {self._channel_id} was closed by remote server: '
+            f'{reply_text}',
             reply_code=frame_in.reply_code
         ))
         self.set_state(self.CLOSED)

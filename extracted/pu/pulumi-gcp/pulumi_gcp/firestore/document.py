@@ -22,8 +22,9 @@ class DocumentArgs:
                  collection: pulumi.Input[_builtins.str],
                  document_id: pulumi.Input[_builtins.str],
                  fields: pulumi.Input[_builtins.str],
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Document resource.
 
@@ -31,6 +32,12 @@ class DocumentArgs:
         :param pulumi.Input[_builtins.str] document_id: The client-assigned document ID to use for this document during creation.
         :param pulumi.Input[_builtins.str] fields: The document's [fields](https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents) formated as a json string.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         """
@@ -39,6 +46,8 @@ class DocumentArgs:
         pulumi.set(__self__, "fields", fields)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if project is not None:
             pulumi.set(__self__, "project", project)
 
@@ -80,19 +89,36 @@ class DocumentArgs:
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -100,28 +126,35 @@ class DocumentArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DocumentState:
     def __init__(__self__, *,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 fields: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 path: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 fields: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 path: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Document resources.
 
         :param pulumi.Input[_builtins.str] collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
         :param pulumi.Input[_builtins.str] create_time: Creation timestamp in RFC3339 format.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] document_id: The client-assigned document ID to use for this document during creation.
         :param pulumi.Input[_builtins.str] fields: The document's [fields](https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents) formated as a json string.
         :param pulumi.Input[_builtins.str] name: A server defined name for this document. Format:
@@ -137,6 +170,8 @@ class _DocumentState:
             pulumi.set(__self__, "create_time", create_time)
         if database is not None:
             pulumi.set(__self__, "database", database)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if document_id is not None:
             pulumi.set(__self__, "document_id", document_id)
         if fields is not None:
@@ -152,67 +187,84 @@ class _DocumentState:
 
     @_builtins.property
     @pulumi.getter
-    def collection(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def collection(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
         """
         return pulumi.get(self, "collection")
 
     @collection.setter
-    def collection(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def collection(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "collection", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Creation timestamp in RFC3339 format.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def database(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
 
     @database.setter
-    def database(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="documentId")
-    def document_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def document_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client-assigned document ID to use for this document during creation.
         """
         return pulumi.get(self, "document_id")
 
     @document_id.setter
-    def document_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def document_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "document_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def fields(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fields(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The document's [fields](https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents) formated as a json string.
         """
         return pulumi.get(self, "fields")
 
     @fields.setter
-    def fields(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fields(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fields", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A server defined name for this document. Format:
         `projects/{{project_id}}/databases/{{database_id}}/documents/{{path}}/{{document_id}}`
@@ -220,24 +272,24 @@ class _DocumentState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A relative path to the collection this document exists within
         """
         return pulumi.get(self, "path")
 
     @path.setter
-    def path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "path", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -245,19 +297,19 @@ class _DocumentState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Last update timestamp in RFC3339 format.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -267,11 +319,12 @@ class Document(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 fields: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 fields: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         In Cloud Firestore, the unit of storage is the document. A document is a lightweight record
@@ -386,6 +439,12 @@ class Document(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] document_id: The client-assigned document ID to use for this document during creation.
         :param pulumi.Input[_builtins.str] fields: The document's [fields](https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents) formated as a json string.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -521,11 +580,12 @@ class Document(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 collection: Optional[pulumi.Input[_builtins.str]] = None,
-                 database: Optional[pulumi.Input[_builtins.str]] = None,
-                 document_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 fields: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 database: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 document_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 fields: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -539,6 +599,7 @@ class Document(pulumi.CustomResource):
                 raise TypeError("Missing required property 'collection'")
             __props__.__dict__["collection"] = collection
             __props__.__dict__["database"] = database
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if document_id is None and not opts.urn:
                 raise TypeError("Missing required property 'document_id'")
             __props__.__dict__["document_id"] = document_id
@@ -560,15 +621,16 @@ class Document(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            collection: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            database: Optional[pulumi.Input[_builtins.str]] = None,
-            document_id: Optional[pulumi.Input[_builtins.str]] = None,
-            fields: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            path: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'Document':
+            collection: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            database: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            document_id: pulumi.Input[Optional[_builtins.str]] = None,
+            fields: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            path: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'Document':
         """
         Get an existing Document resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -579,6 +641,12 @@ class Document(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] collection: The collection ID, relative to database. For example: chatrooms or chatrooms/my-document/private-messages.
         :param pulumi.Input[_builtins.str] create_time: Creation timestamp in RFC3339 format.
         :param pulumi.Input[_builtins.str] database: The Firestore database id. Defaults to `"(default)"`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] document_id: The client-assigned document ID to use for this document during creation.
         :param pulumi.Input[_builtins.str] fields: The document's [fields](https://cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.documents) formated as a json string.
         :param pulumi.Input[_builtins.str] name: A server defined name for this document. Format:
@@ -595,6 +663,7 @@ class Document(pulumi.CustomResource):
         __props__.__dict__["collection"] = collection
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["database"] = database
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["document_id"] = document_id
         __props__.__dict__["fields"] = fields
         __props__.__dict__["name"] = name
@@ -626,6 +695,19 @@ class Document(pulumi.CustomResource):
         The Firestore database id. Defaults to `"(default)"`.
         """
         return pulumi.get(self, "database")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="documentId")

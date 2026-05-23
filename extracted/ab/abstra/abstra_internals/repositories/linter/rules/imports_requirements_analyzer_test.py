@@ -50,7 +50,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         (utils_dir / "helper.py").write_text("def helper(): pass")
 
         # Create script that imports from local folder
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from utils.helper import helper")
 
         rule = ImportsRequirementsAnalyzer()
@@ -69,7 +69,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         (self.root / "mymodule.py").write_text("def foo(): pass")
 
         # Create script that imports from local file
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from mymodule import foo")
 
         rule = ImportsRequirementsAnalyzer()
@@ -90,7 +90,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         (utils_dir / "helper.py").write_text("def helper(): pass")
 
         # Create script that imports from local package
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from utils import helper")
 
         rule = ImportsRequirementsAnalyzer()
@@ -115,7 +115,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         (self.root / "src" / "__init__.py").write_text("")
 
         # Create an entrypoint script
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from src.classes.some_class import OTHER_VALUE\n")
 
         rule = ImportsRequirementsAnalyzer()
@@ -140,7 +140,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         (entities_dir / "square.py").write_text("class Square: pass")
 
         # Create a script at root that imports from the namespace package
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from src.entities.square import Square\n")
 
         rule = ImportsRequirementsAnalyzer()
@@ -154,7 +154,7 @@ class TestFlowPoint1_LocalImportDetection(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text(
             "import os\n"
             "import sys\n"
@@ -186,7 +186,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("pandas==1.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -210,7 +210,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()  # Empty requirements
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -238,7 +238,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("python-dateutil==2.8.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import dateutil")
 
         with (
@@ -263,7 +263,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("Pillow==9.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from PIL import Image")
 
         with (
@@ -287,7 +287,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("pandas==1.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("from pandas.plotting import scatter_matrix")
 
         with (
@@ -311,7 +311,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("numpy==1.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import numpy as np")
 
         with (
@@ -335,7 +335,7 @@ class TestFlowPoint2_ResolvedImportsVsRequirements(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text(
             "import pandas\n"
             "from pandas import DataFrame\n"
@@ -377,7 +377,7 @@ class TestFlowPoint3_UninstalledLibsDetection(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("pandas==1.0.0\nsome-uninstalled-package==1.0.0\n")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import unknown_module")
 
         with (
@@ -411,7 +411,7 @@ class TestFlowPoint3_UninstalledLibsDetection(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("python-dateutil==2.8.0\n")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import dateutil")
 
         pypi_called = False
@@ -457,7 +457,7 @@ class TestFlowPoint3_UninstalledLibsDetection(BaseTest):
             "nonexistent-lib-three==3.0.0\n"
         )
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("print('hello')")
 
         with patch(
@@ -506,7 +506,7 @@ class TestFlowPoint4_PyPIVerification(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import requests")
 
         with (
@@ -537,7 +537,7 @@ class TestFlowPoint4_PyPIVerification(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import nonexistent_xyz_package_12345")
 
         with (
@@ -566,7 +566,7 @@ class TestFlowPoint4_PyPIVerification(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import some_package")
 
         query_count = 0
@@ -613,7 +613,7 @@ class TestEdgeCases(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("print('hello world')")
 
         rule = ImportsRequirementsAnalyzer()
@@ -644,7 +644,7 @@ class TestEdgeCases(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("def foo(\n  # syntax error - unclosed paren")
 
         # Should not raise exception
@@ -659,7 +659,7 @@ class TestEdgeCases(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -685,7 +685,7 @@ class TestEdgeCases(BaseTest):
         if requirements_file.exists():
             requirements_file.unlink()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -726,7 +726,7 @@ class TestEdgeCases(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("requests[security]==2.28.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import requests")
 
         with (
@@ -753,7 +753,7 @@ class TestEdgeCases(BaseTest):
             "abstra==1.0.0\npandas>=1.0.0\nnumpy~=1.20\nscipy!=1.5.0\nmatplotlib<4.0\n"
         )
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text(
             "import pandas\nimport numpy\nimport scipy\nimport matplotlib\n"
         )
@@ -792,7 +792,7 @@ class TestEdgeCases(BaseTest):
             "# This is a comment\nrequests==2.0.0\n# flask==2.0.0  # disabled\n"
         )
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import flask")
 
         with (
@@ -822,10 +822,10 @@ class TestEdgeCases(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script1 = self.controller.create_tasklet("Script 1", "script1.py")
+        script1 = self.controller.create_stage("tasklet", "Script 1", "script1.py")
         script1.file_path.write_text("import pandas")
 
-        script2 = self.controller.create_tasklet("Script 2", "script2.py")
+        script2 = self.controller.create_stage("tasklet", "Script 2", "script2.py")
         script2.file_path.write_text("import pandas")
 
         with (
@@ -870,7 +870,7 @@ class TestFixes(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("abstra==1.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import package_one\nimport package_two")
 
         with (
@@ -924,7 +924,7 @@ class TestFixes(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.write_text("abstra==1.0.0")
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import package_one\nimport package_two")
 
         with (
@@ -968,7 +968,7 @@ class TestFixes(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -1001,7 +1001,7 @@ class TestFixes(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import dateutil")
 
         with (
@@ -1048,7 +1048,7 @@ class TestMessageQuality(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import pandas")
 
         with (
@@ -1093,7 +1093,7 @@ class TestMessageQuality(BaseTest):
         requirements_file = self.root / "requirements.txt"
         requirements_file.touch()
 
-        script = self.controller.create_tasklet("New script", "script.py")
+        script = self.controller.create_stage("tasklet", "New script", "script.py")
         script.file_path.write_text("import nonexistent_xyz_12345")
 
         with (

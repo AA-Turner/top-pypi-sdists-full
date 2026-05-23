@@ -25,9 +25,10 @@ class DataAssetArgs:
                  data_product_id: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  resource: pulumi.Input[_builtins.str],
-                 access_group_configs: Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 access_group_configs: pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DataAsset resource.
 
@@ -37,6 +38,12 @@ class DataAssetArgs:
         :param pulumi.Input[_builtins.str] resource: Full resource name of the cloud resource.
         :param pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]] access_group_configs: Access groups configurations.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
@@ -49,6 +56,8 @@ class DataAssetArgs:
         pulumi.set(__self__, "resource", resource)
         if access_group_configs is not None:
             pulumi.set(__self__, "access_group_configs", access_group_configs)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
         if project is not None:
@@ -104,7 +113,7 @@ class DataAssetArgs:
 
     @_builtins.property
     @pulumi.getter(name="accessGroupConfigs")
-    def access_group_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]:
+    def access_group_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]:
         """
         Access groups configurations.
         Structure is documented below.
@@ -112,12 +121,29 @@ class DataAssetArgs:
         return pulumi.get(self, "access_group_configs")
 
     @access_group_configs.setter
-    def access_group_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]):
+    def access_group_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]):
         pulumi.set(self, "access_group_configs", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -126,12 +152,12 @@ class DataAssetArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -139,23 +165,24 @@ class DataAssetArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DataAssetState:
     def __init__(__self__, *,
-                 access_group_configs: Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]] = None,
-                 data_asset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_product_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 resource: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None):
+                 access_group_configs: pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]] = None,
+                 data_asset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_product_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 resource: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DataAsset resources.
 
@@ -163,6 +190,12 @@ class _DataAssetState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_asset_id: The ID of the data asset.
         :param pulumi.Input[_builtins.str] data_product_id: The ID of the parent data product.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -181,6 +214,8 @@ class _DataAssetState:
             pulumi.set(__self__, "data_asset_id", data_asset_id)
         if data_product_id is not None:
             pulumi.set(__self__, "data_product_id", data_product_id)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if labels is not None:
@@ -198,7 +233,7 @@ class _DataAssetState:
 
     @_builtins.property
     @pulumi.getter(name="accessGroupConfigs")
-    def access_group_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]:
+    def access_group_configs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]:
         """
         Access groups configurations.
         Structure is documented below.
@@ -206,48 +241,65 @@ class _DataAssetState:
         return pulumi.get(self, "access_group_configs")
 
     @access_group_configs.setter
-    def access_group_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]):
+    def access_group_configs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DataAssetAccessGroupConfigArgs']]]]):
         pulumi.set(self, "access_group_configs", value)
 
     @_builtins.property
     @pulumi.getter(name="dataAssetId")
-    def data_asset_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_asset_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the data asset.
         """
         return pulumi.get(self, "data_asset_id")
 
     @data_asset_id.setter
-    def data_asset_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_asset_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_asset_id", value)
 
     @_builtins.property
     @pulumi.getter(name="dataProductId")
-    def data_product_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def data_product_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the parent data product.
         """
         return pulumi.get(self, "data_product_id")
 
     @data_product_id.setter
-    def data_product_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def data_product_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "data_product_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         User-defined labels.
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -256,24 +308,24 @@ class _DataAssetState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the data asset.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -281,12 +333,12 @@ class _DataAssetState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -294,31 +346,31 @@ class _DataAssetState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def resource(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def resource(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Full resource name of the cloud resource.
         """
         return pulumi.get(self, "resource")
 
     @resource.setter
-    def resource(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def resource(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "resource", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         System generated unique ID.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
 
@@ -328,13 +380,14 @@ class DataAsset(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_group_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
-                 data_asset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_product_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 access_group_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
+                 data_asset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_product_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         > **Warning:** `dataplex.DataAsset` is deprecated and will be removed in a future major release. Please use `dataplex.DataProductDataAsset` resource instead.
@@ -361,7 +414,7 @@ class DataAsset(pulumi.CustomResource):
         example = gcp.dataplex.DataProduct("example",
             project="my-project-name",
             location="us-central1",
-            data_product_id="tf-test-dp-_41819",
+            data_product_id="tf-test-dp-_22375",
             display_name="Parent Data Product",
             owner_emails=["gterraformtestuser@gmail.com"],
             access_groups=[{
@@ -369,12 +422,12 @@ class DataAsset(pulumi.CustomResource):
                 "group_id": "analyst",
                 "display_name": "Data Analyst",
                 "principal": {
-                    "google_group": "tf-test-analysts-_75092@example.com",
+                    "google_group": "tf-test-analysts-_29439@example.com",
                 },
             }])
         example_dataset = gcp.bigquery.Dataset("example",
             project="my-project-name",
-            dataset_id="tf_test_dataset__2605",
+            dataset_id="tf_test_dataset__87786",
             location="us-central1")
         example_data_asset = gcp.dataplex.DataAsset("example",
             project="my-project-name",
@@ -396,7 +449,7 @@ class DataAsset(pulumi.CustomResource):
         example = gcp.dataplex.DataProduct("example",
             project="my-project-name",
             location="us-central1",
-            data_product_id="tf-test-dp-_34535",
+            data_product_id="tf-test-dp-_2067",
             display_name="Full Example Parent DP",
             owner_emails=["gterraformtestuser@gmail.com"],
             access_groups=[
@@ -419,7 +472,7 @@ class DataAsset(pulumi.CustomResource):
             ])
         example_dataset = gcp.bigquery.Dataset("example",
             project="my-project-name",
-            dataset_id="tf_test_dataset__22375",
+            dataset_id="tf_test_dataset__40785",
             location="us-central1")
         example_data_asset = gcp.dataplex.DataAsset("example",
             project="my-project-name",
@@ -470,6 +523,12 @@ class DataAsset(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_asset_id: The ID of the data asset.
         :param pulumi.Input[_builtins.str] data_product_id: The ID of the parent data product.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
@@ -509,7 +568,7 @@ class DataAsset(pulumi.CustomResource):
         example = gcp.dataplex.DataProduct("example",
             project="my-project-name",
             location="us-central1",
-            data_product_id="tf-test-dp-_41819",
+            data_product_id="tf-test-dp-_22375",
             display_name="Parent Data Product",
             owner_emails=["gterraformtestuser@gmail.com"],
             access_groups=[{
@@ -517,12 +576,12 @@ class DataAsset(pulumi.CustomResource):
                 "group_id": "analyst",
                 "display_name": "Data Analyst",
                 "principal": {
-                    "google_group": "tf-test-analysts-_75092@example.com",
+                    "google_group": "tf-test-analysts-_29439@example.com",
                 },
             }])
         example_dataset = gcp.bigquery.Dataset("example",
             project="my-project-name",
-            dataset_id="tf_test_dataset__2605",
+            dataset_id="tf_test_dataset__87786",
             location="us-central1")
         example_data_asset = gcp.dataplex.DataAsset("example",
             project="my-project-name",
@@ -544,7 +603,7 @@ class DataAsset(pulumi.CustomResource):
         example = gcp.dataplex.DataProduct("example",
             project="my-project-name",
             location="us-central1",
-            data_product_id="tf-test-dp-_34535",
+            data_product_id="tf-test-dp-_2067",
             display_name="Full Example Parent DP",
             owner_emails=["gterraformtestuser@gmail.com"],
             access_groups=[
@@ -567,7 +626,7 @@ class DataAsset(pulumi.CustomResource):
             ])
         example_dataset = gcp.bigquery.Dataset("example",
             project="my-project-name",
-            dataset_id="tf_test_dataset__22375",
+            dataset_id="tf_test_dataset__40785",
             location="us-central1")
         example_data_asset = gcp.dataplex.DataAsset("example",
             project="my-project-name",
@@ -627,13 +686,14 @@ class DataAsset(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 access_group_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
-                 data_asset_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 data_product_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 resource: Optional[pulumi.Input[_builtins.str]] = None,
+                 access_group_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
+                 data_asset_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 data_product_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 resource: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -650,6 +710,7 @@ class DataAsset(pulumi.CustomResource):
             if data_product_id is None and not opts.urn:
                 raise TypeError("Missing required property 'data_product_id'")
             __props__.__dict__["data_product_id"] = data_product_id
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["labels"] = labels
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -673,16 +734,17 @@ class DataAsset(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            access_group_configs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
-            data_asset_id: Optional[pulumi.Input[_builtins.str]] = None,
-            data_product_id: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            resource: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None) -> 'DataAsset':
+            access_group_configs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['DataAssetAccessGroupConfigArgs', 'DataAssetAccessGroupConfigArgsDict']]]]] = None,
+            data_asset_id: pulumi.Input[Optional[_builtins.str]] = None,
+            data_product_id: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            resource: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None) -> 'DataAsset':
         """
         Get an existing DataAsset resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -694,6 +756,12 @@ class DataAsset(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] data_asset_id: The ID of the data asset.
         :param pulumi.Input[_builtins.str] data_product_id: The ID of the parent data product.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -713,6 +781,7 @@ class DataAsset(pulumi.CustomResource):
         __props__.__dict__["access_group_configs"] = access_group_configs
         __props__.__dict__["data_asset_id"] = data_asset_id
         __props__.__dict__["data_product_id"] = data_product_id
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["labels"] = labels
         __props__.__dict__["location"] = location
@@ -746,6 +815,19 @@ class DataAsset(pulumi.CustomResource):
         The ID of the parent data product.
         """
         return pulumi.get(self, "data_product_id")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

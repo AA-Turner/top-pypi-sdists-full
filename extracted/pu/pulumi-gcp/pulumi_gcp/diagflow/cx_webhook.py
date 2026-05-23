@@ -22,18 +22,25 @@ __all__ = ['CxWebhookArgs', 'CxWebhook']
 class CxWebhookArgs:
     def __init__(__self__, *,
                  display_name: pulumi.Input[_builtins.str],
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_spell_correction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_stackdriver_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 generic_web_service: Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_directory: Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']] = None,
-                 timeout: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_spell_correction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_stackdriver_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 generic_web_service: pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_directory: pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']] = None,
+                 timeout: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a CxWebhook resource.
 
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the webhook, unique within the agent.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Indicates whether the webhook is disabled.
         :param pulumi.Input[_builtins.bool] enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
         :param pulumi.Input[_builtins.bool] enable_stackdriver_logging: Deprecated. Determines whether this agent should log conversation queries.
@@ -47,6 +54,8 @@ class CxWebhookArgs:
         :param pulumi.Input[_builtins.str] timeout: Webhook execution timeout.
         """
         pulumi.set(__self__, "display_name", display_name)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if enable_spell_correction is not None:
@@ -77,44 +86,61 @@ class CxWebhookArgs:
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether the webhook is disabled.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="enableSpellCorrection")
-    def enable_spell_correction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_spell_correction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
         """
         return pulumi.get(self, "enable_spell_correction")
 
     @enable_spell_correction.setter
-    def enable_spell_correction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_spell_correction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_spell_correction", value)
 
     @_builtins.property
     @pulumi.getter(name="enableStackdriverLogging")
-    def enable_stackdriver_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_stackdriver_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Deprecated. Determines whether this agent should log conversation queries.
         """
         return pulumi.get(self, "enable_stackdriver_logging")
 
     @enable_stackdriver_logging.setter
-    def enable_stackdriver_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_stackdriver_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_stackdriver_logging", value)
 
     @_builtins.property
     @pulumi.getter(name="genericWebService")
-    def generic_web_service(self) -> Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']]:
+    def generic_web_service(self) -> pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']]:
         """
         Represents configuration for a generic web service.
         Structure is documented below.
@@ -122,12 +148,12 @@ class CxWebhookArgs:
         return pulumi.get(self, "generic_web_service")
 
     @generic_web_service.setter
-    def generic_web_service(self, value: Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']]):
+    def generic_web_service(self, value: pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']]):
         pulumi.set(self, "generic_web_service", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create a webhook for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -135,24 +161,24 @@ class CxWebhookArgs:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="securitySettings")
-    def security_settings(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_settings(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Deprecated. Name of the SecuritySettings reference for the agent. Format: projects/<Project ID>/locations/<Location ID>/securitySettings/<Security Settings ID>.
         """
         return pulumi.get(self, "security_settings")
 
     @security_settings.setter
-    def security_settings(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_settings(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceDirectory")
-    def service_directory(self) -> Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']]:
+    def service_directory(self) -> pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']]:
         """
         Configuration for a Service Directory service.
         Structure is documented below.
@@ -160,39 +186,46 @@ class CxWebhookArgs:
         return pulumi.get(self, "service_directory")
 
     @service_directory.setter
-    def service_directory(self, value: Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']]):
+    def service_directory(self, value: pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']]):
         pulumi.set(self, "service_directory", value)
 
     @_builtins.property
     @pulumi.getter
-    def timeout(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def timeout(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Webhook execution timeout.
         """
         return pulumi.get(self, "timeout")
 
     @timeout.setter
-    def timeout(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def timeout(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "timeout", value)
 
 
 @pulumi.input_type
 class _CxWebhookState:
     def __init__(__self__, *,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_spell_correction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_stackdriver_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 generic_web_service: Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_directory: Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']] = None,
-                 start_flow: Optional[pulumi.Input[_builtins.str]] = None,
-                 timeout: Optional[pulumi.Input[_builtins.str]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_spell_correction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_stackdriver_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 generic_web_service: pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_directory: pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']] = None,
+                 start_flow: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeout: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering CxWebhook resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Indicates whether the webhook is disabled.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the webhook, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
@@ -209,6 +242,8 @@ class _CxWebhookState:
         :param pulumi.Input[_builtins.str] start_flow: Deprecated. Name of the start flow in this agent. A start flow will be automatically created when the agent is created, and can only be deleted by deleting the agent. Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/flows/<Flow ID>.
         :param pulumi.Input[_builtins.str] timeout: Webhook execution timeout.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if disabled is not None:
             pulumi.set(__self__, "disabled", disabled)
         if display_name is not None:
@@ -233,56 +268,73 @@ class _CxWebhookState:
             pulumi.set(__self__, "timeout", timeout)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def disabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Indicates whether the webhook is disabled.
         """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
-    def disabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def disabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "disabled", value)
 
     @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The human-readable name of the webhook, unique within the agent.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="enableSpellCorrection")
-    def enable_spell_correction(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_spell_correction(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
         """
         return pulumi.get(self, "enable_spell_correction")
 
     @enable_spell_correction.setter
-    def enable_spell_correction(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_spell_correction(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_spell_correction", value)
 
     @_builtins.property
     @pulumi.getter(name="enableStackdriverLogging")
-    def enable_stackdriver_logging(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enable_stackdriver_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Deprecated. Determines whether this agent should log conversation queries.
         """
         return pulumi.get(self, "enable_stackdriver_logging")
 
     @enable_stackdriver_logging.setter
-    def enable_stackdriver_logging(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enable_stackdriver_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enable_stackdriver_logging", value)
 
     @_builtins.property
     @pulumi.getter(name="genericWebService")
-    def generic_web_service(self) -> Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']]:
+    def generic_web_service(self) -> pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']]:
         """
         Represents configuration for a generic web service.
         Structure is documented below.
@@ -290,12 +342,12 @@ class _CxWebhookState:
         return pulumi.get(self, "generic_web_service")
 
     @generic_web_service.setter
-    def generic_web_service(self, value: Optional[pulumi.Input['CxWebhookGenericWebServiceArgs']]):
+    def generic_web_service(self, value: pulumi.Input[Optional['CxWebhookGenericWebServiceArgs']]):
         pulumi.set(self, "generic_web_service", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the webhook.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/webhooks/<Webhook ID>.
@@ -303,12 +355,12 @@ class _CxWebhookState:
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The agent to create a webhook for.
         Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.
@@ -316,24 +368,24 @@ class _CxWebhookState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter(name="securitySettings")
-    def security_settings(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def security_settings(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Deprecated. Name of the SecuritySettings reference for the agent. Format: projects/<Project ID>/locations/<Location ID>/securitySettings/<Security Settings ID>.
         """
         return pulumi.get(self, "security_settings")
 
     @security_settings.setter
-    def security_settings(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def security_settings(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "security_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="serviceDirectory")
-    def service_directory(self) -> Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']]:
+    def service_directory(self) -> pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']]:
         """
         Configuration for a Service Directory service.
         Structure is documented below.
@@ -341,31 +393,31 @@ class _CxWebhookState:
         return pulumi.get(self, "service_directory")
 
     @service_directory.setter
-    def service_directory(self, value: Optional[pulumi.Input['CxWebhookServiceDirectoryArgs']]):
+    def service_directory(self, value: pulumi.Input[Optional['CxWebhookServiceDirectoryArgs']]):
         pulumi.set(self, "service_directory", value)
 
     @_builtins.property
     @pulumi.getter(name="startFlow")
-    def start_flow(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def start_flow(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Deprecated. Name of the start flow in this agent. A start flow will be automatically created when the agent is created, and can only be deleted by deleting the agent. Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/flows/<Flow ID>.
         """
         return pulumi.get(self, "start_flow")
 
     @start_flow.setter
-    def start_flow(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def start_flow(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "start_flow", value)
 
     @_builtins.property
     @pulumi.getter
-    def timeout(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def timeout(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Webhook execution timeout.
         """
         return pulumi.get(self, "timeout")
 
     @timeout.setter
-    def timeout(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def timeout(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "timeout", value)
 
 
@@ -375,15 +427,16 @@ class CxWebhook(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_spell_correction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_stackdriver_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 generic_web_service: Optional[pulumi.Input[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_directory: Optional[pulumi.Input[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
-                 timeout: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_spell_correction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_stackdriver_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 generic_web_service: pulumi.Input[Optional[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_directory: pulumi.Input[Optional[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
+                 timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Webhooks host the developer's business logic. During a session, webhooks allow the developer to use the data extracted by Dialogflow's natural language processing to generate dynamic responses, validate collected data, or trigger actions on the backend.
@@ -687,6 +740,12 @@ class CxWebhook(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Indicates whether the webhook is disabled.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the webhook, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
@@ -1021,15 +1080,16 @@ class CxWebhook(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 enable_spell_correction: Optional[pulumi.Input[_builtins.bool]] = None,
-                 enable_stackdriver_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-                 generic_web_service: Optional[pulumi.Input[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-                 service_directory: Optional[pulumi.Input[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
-                 timeout: Optional[pulumi.Input[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 enable_spell_correction: pulumi.Input[Optional[_builtins.bool]] = None,
+                 enable_stackdriver_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+                 generic_web_service: pulumi.Input[Optional[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+                 service_directory: pulumi.Input[Optional[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
+                 timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1039,6 +1099,7 @@ class CxWebhook(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = CxWebhookArgs.__new__(CxWebhookArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["disabled"] = disabled
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
@@ -1062,17 +1123,18 @@ class CxWebhook(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            disabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            enable_spell_correction: Optional[pulumi.Input[_builtins.bool]] = None,
-            enable_stackdriver_logging: Optional[pulumi.Input[_builtins.bool]] = None,
-            generic_web_service: Optional[pulumi.Input[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            security_settings: Optional[pulumi.Input[_builtins.str]] = None,
-            service_directory: Optional[pulumi.Input[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
-            start_flow: Optional[pulumi.Input[_builtins.str]] = None,
-            timeout: Optional[pulumi.Input[_builtins.str]] = None) -> 'CxWebhook':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            disabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_spell_correction: pulumi.Input[Optional[_builtins.bool]] = None,
+            enable_stackdriver_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            generic_web_service: pulumi.Input[Optional[Union['CxWebhookGenericWebServiceArgs', 'CxWebhookGenericWebServiceArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            security_settings: pulumi.Input[Optional[_builtins.str]] = None,
+            service_directory: pulumi.Input[Optional[Union['CxWebhookServiceDirectoryArgs', 'CxWebhookServiceDirectoryArgsDict']]] = None,
+            start_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            timeout: pulumi.Input[Optional[_builtins.str]] = None) -> 'CxWebhook':
         """
         Get an existing CxWebhook resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1080,6 +1142,12 @@ class CxWebhook(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.bool] disabled: Indicates whether the webhook is disabled.
         :param pulumi.Input[_builtins.str] display_name: The human-readable name of the webhook, unique within the agent.
         :param pulumi.Input[_builtins.bool] enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
@@ -1100,6 +1168,7 @@ class CxWebhook(pulumi.CustomResource):
 
         __props__ = _CxWebhookState.__new__(_CxWebhookState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["disabled"] = disabled
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["enable_spell_correction"] = enable_spell_correction
@@ -1112,6 +1181,19 @@ class CxWebhook(pulumi.CustomResource):
         __props__.__dict__["start_flow"] = start_flow
         __props__.__dict__["timeout"] = timeout
         return CxWebhook(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

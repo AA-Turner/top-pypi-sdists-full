@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyStemmer
-Version: 3.0.0
+Version: 3.1.0
 Summary: Snowball stemming algorithms, for information retrieval
 Home-page: https://github.com/snowballstem/pystemmer/
 Author: Richard Boulton
@@ -15,12 +15,15 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: Arabic
+Classifier: Natural Language :: Armenian
 Classifier: Natural Language :: Basque
 Classifier: Natural Language :: Catalan
+Classifier: Natural Language :: Czech
 Classifier: Natural Language :: Danish
 Classifier: Natural Language :: Dutch
 Classifier: Natural Language :: English
 Classifier: Natural Language :: Esperanto
+Classifier: Natural Language :: Estonian
 Classifier: Natural Language :: Finnish
 Classifier: Natural Language :: French
 Classifier: Natural Language :: German
@@ -33,6 +36,8 @@ Classifier: Natural Language :: Italian
 Classifier: Natural Language :: Lithuanian
 Classifier: Natural Language :: Nepali
 Classifier: Natural Language :: Norwegian
+Classifier: Natural Language :: Persian
+Classifier: Natural Language :: Polish
 Classifier: Natural Language :: Portuguese
 Classifier: Natural Language :: Romanian
 Classifier: Natural Language :: Russian
@@ -41,13 +46,11 @@ Classifier: Natural Language :: Spanish
 Classifier: Natural Language :: Swedish
 Classifier: Natural Language :: Tamil
 Classifier: Natural Language :: Turkish
+Classifier: Natural Language :: Yiddish
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Other
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.3
 Classifier: Programming Language :: Python :: 3.4
@@ -60,6 +63,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
 Classifier: Topic :: Text Processing :: Indexing

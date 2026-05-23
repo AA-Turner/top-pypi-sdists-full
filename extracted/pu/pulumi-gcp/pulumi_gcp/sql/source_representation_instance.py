@@ -21,16 +21,17 @@ class SourceRepresentationInstanceArgs:
     def __init__(__self__, *,
                  database_version: pulumi.Input[_builtins.str],
                  host: pulumi.Input[_builtins.str],
-                 ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_file_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None):
+                 ca_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a SourceRepresentationInstance resource.
 
@@ -39,6 +40,12 @@ class SourceRepresentationInstanceArgs:
         :param pulumi.Input[_builtins.str] ca_certificate: The CA certificate on the external server. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] client_certificate: The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] client_key: The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dump_file_path: A file in the bucket that contains the data from the external server.
         :param pulumi.Input[_builtins.str] name: The name of the source representation instance. Use any valid Cloud SQL instance name.
         :param pulumi.Input[_builtins.str] password: The password for the replication user account.
@@ -59,6 +66,8 @@ class SourceRepresentationInstanceArgs:
             pulumi.set(__self__, "client_certificate", client_certificate)
         if client_key is not None:
             pulumi.set(__self__, "client_key", client_key)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if dump_file_path is not None:
             pulumi.set(__self__, "dump_file_path", dump_file_path)
         if name is not None:
@@ -100,67 +109,84 @@ class SourceRepresentationInstanceArgs:
 
     @_builtins.property
     @pulumi.getter(name="caCertificate")
-    def ca_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ca_certificate(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The CA certificate on the external server. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "ca_certificate")
 
     @ca_certificate.setter
-    def ca_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ca_certificate(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ca_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="clientCertificate")
-    def client_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_certificate(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "client_certificate")
 
     @client_certificate.setter
-    def client_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_certificate(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="clientKey")
-    def client_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "client_key")
 
     @client_key.setter
-    def client_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_key", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="dumpFilePath")
-    def dump_file_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A file in the bucket that contains the data from the external server.
         """
         return pulumi.get(self, "dump_file_path")
 
     @dump_file_path.setter
-    def dump_file_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_file_path", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the source representation instance. Use any valid Cloud SQL instance name.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def password(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The password for the replication user account.
         **Note**: This property is sensitive and will not be displayed in the plan.
@@ -168,12 +194,12 @@ class SourceRepresentationInstanceArgs:
         return pulumi.get(self, "password")
 
     @password.setter
-    def password(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password", value)
 
     @_builtins.property
     @pulumi.getter
-    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def port(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The externally accessible port for the source database server.
         Defaults to 3306.
@@ -181,12 +207,12 @@ class SourceRepresentationInstanceArgs:
         return pulumi.get(self, "port")
 
     @port.setter
-    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def port(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "port", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -194,12 +220,12 @@ class SourceRepresentationInstanceArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Region in which the created instance should reside.
         If it is not provided, the provider region is used.
@@ -207,37 +233,38 @@ class SourceRepresentationInstanceArgs:
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def username(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def username(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The replication user account on the external server.
         """
         return pulumi.get(self, "username")
 
     @username.setter
-    def username(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def username(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "username", value)
 
 
 @pulumi.input_type
 class _SourceRepresentationInstanceState:
     def __init__(__self__, *,
-                 ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_file_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None):
+                 ca_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SourceRepresentationInstance resources.
 
@@ -245,6 +272,12 @@ class _SourceRepresentationInstanceState:
         :param pulumi.Input[_builtins.str] client_certificate: The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] client_key: The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, POSTGRES_18, SQLSERVER_2022_STANDARD, SQLSERVER_2022_ENTERPRISE, SQLSERVER_2022_EXPRESS, SQLSERVER_2022_WEB, SQLSERVER_2025_STANDARD, SQLSERVER_2025_ENTERPRISE, SQLSERVER_2025_EXPRESS, SQLSERVER_2025_WEB. Database Version Policies includes an up-to-date reference of supported versions.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dump_file_path: A file in the bucket that contains the data from the external server.
         :param pulumi.Input[_builtins.str] host: The IPv4 address and port for the external server, or the the DNS address for the external server. If the external server is hosted on Cloud SQL, the port is 5432.
         :param pulumi.Input[_builtins.str] name: The name of the source representation instance. Use any valid Cloud SQL instance name.
@@ -266,6 +299,8 @@ class _SourceRepresentationInstanceState:
             pulumi.set(__self__, "client_key", client_key)
         if database_version is not None:
             pulumi.set(__self__, "database_version", database_version)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if dump_file_path is not None:
             pulumi.set(__self__, "dump_file_path", dump_file_path)
         if host is not None:
@@ -285,91 +320,108 @@ class _SourceRepresentationInstanceState:
 
     @_builtins.property
     @pulumi.getter(name="caCertificate")
-    def ca_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ca_certificate(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The CA certificate on the external server. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "ca_certificate")
 
     @ca_certificate.setter
-    def ca_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ca_certificate(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ca_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="clientCertificate")
-    def client_certificate(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_certificate(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "client_certificate")
 
     @client_certificate.setter
-    def client_certificate(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_certificate(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_certificate", value)
 
     @_builtins.property
     @pulumi.getter(name="clientKey")
-    def client_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def client_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         """
         return pulumi.get(self, "client_key")
 
     @client_key.setter
-    def client_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def client_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_key", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseVersion")
-    def database_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def database_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, POSTGRES_18, SQLSERVER_2022_STANDARD, SQLSERVER_2022_ENTERPRISE, SQLSERVER_2022_EXPRESS, SQLSERVER_2022_WEB, SQLSERVER_2025_STANDARD, SQLSERVER_2025_ENTERPRISE, SQLSERVER_2025_EXPRESS, SQLSERVER_2025_WEB. Database Version Policies includes an up-to-date reference of supported versions.
         """
         return pulumi.get(self, "database_version")
 
     @database_version.setter
-    def database_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def database_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "database_version", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="dumpFilePath")
-    def dump_file_path(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def dump_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A file in the bucket that contains the data from the external server.
         """
         return pulumi.get(self, "dump_file_path")
 
     @dump_file_path.setter
-    def dump_file_path(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def dump_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "dump_file_path", value)
 
     @_builtins.property
     @pulumi.getter
-    def host(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def host(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The IPv4 address and port for the external server, or the the DNS address for the external server. If the external server is hosted on Cloud SQL, the port is 5432.
         """
         return pulumi.get(self, "host")
 
     @host.setter
-    def host(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def host(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "host", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the source representation instance. Use any valid Cloud SQL instance name.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def password(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def password(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The password for the replication user account.
         **Note**: This property is sensitive and will not be displayed in the plan.
@@ -377,12 +429,12 @@ class _SourceRepresentationInstanceState:
         return pulumi.get(self, "password")
 
     @password.setter
-    def password(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def password(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "password", value)
 
     @_builtins.property
     @pulumi.getter
-    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def port(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The externally accessible port for the source database server.
         Defaults to 3306.
@@ -390,12 +442,12 @@ class _SourceRepresentationInstanceState:
         return pulumi.get(self, "port")
 
     @port.setter
-    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def port(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "port", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -403,12 +455,12 @@ class _SourceRepresentationInstanceState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Region in which the created instance should reside.
         If it is not provided, the provider region is used.
@@ -416,19 +468,19 @@ class _SourceRepresentationInstanceState:
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter
-    def username(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def username(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The replication user account on the external server.
         """
         return pulumi.get(self, "username")
 
     @username.setter
-    def username(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def username(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "username", value)
 
 
@@ -438,18 +490,19 @@ class SourceRepresentationInstance(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_file_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None,
+                 ca_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A source representation instance is a Cloud SQL instance that represents
@@ -516,6 +569,12 @@ class SourceRepresentationInstance(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] client_certificate: The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] client_key: The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, POSTGRES_18, SQLSERVER_2022_STANDARD, SQLSERVER_2022_ENTERPRISE, SQLSERVER_2022_EXPRESS, SQLSERVER_2022_WEB, SQLSERVER_2025_STANDARD, SQLSERVER_2025_ENTERPRISE, SQLSERVER_2025_EXPRESS, SQLSERVER_2025_WEB. Database Version Policies includes an up-to-date reference of supported versions.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dump_file_path: A file in the bucket that contains the data from the external server.
         :param pulumi.Input[_builtins.str] host: The IPv4 address and port for the external server, or the the DNS address for the external server. If the external server is hosted on Cloud SQL, the port is 5432.
         :param pulumi.Input[_builtins.str] name: The name of the source representation instance. Use any valid Cloud SQL instance name.
@@ -609,18 +668,19 @@ class SourceRepresentationInstance(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-                 client_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 database_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 dump_file_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 host: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 password: Optional[pulumi.Input[_builtins.str]] = None,
-                 port: Optional[pulumi.Input[_builtins.int]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 username: Optional[pulumi.Input[_builtins.str]] = None,
+                 ca_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+                 client_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 database_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 dump_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 host: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 password: pulumi.Input[Optional[_builtins.str]] = None,
+                 port: pulumi.Input[Optional[_builtins.int]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 username: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -636,6 +696,7 @@ class SourceRepresentationInstance(pulumi.CustomResource):
             if database_version is None and not opts.urn:
                 raise TypeError("Missing required property 'database_version'")
             __props__.__dict__["database_version"] = database_version
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["dump_file_path"] = dump_file_path
             if host is None and not opts.urn:
                 raise TypeError("Missing required property 'host'")
@@ -658,18 +719,19 @@ class SourceRepresentationInstance(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            ca_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-            client_certificate: Optional[pulumi.Input[_builtins.str]] = None,
-            client_key: Optional[pulumi.Input[_builtins.str]] = None,
-            database_version: Optional[pulumi.Input[_builtins.str]] = None,
-            dump_file_path: Optional[pulumi.Input[_builtins.str]] = None,
-            host: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            password: Optional[pulumi.Input[_builtins.str]] = None,
-            port: Optional[pulumi.Input[_builtins.int]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            username: Optional[pulumi.Input[_builtins.str]] = None) -> 'SourceRepresentationInstance':
+            ca_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+            client_certificate: pulumi.Input[Optional[_builtins.str]] = None,
+            client_key: pulumi.Input[Optional[_builtins.str]] = None,
+            database_version: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            dump_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+            host: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            password: pulumi.Input[Optional[_builtins.str]] = None,
+            port: pulumi.Input[Optional[_builtins.int]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            username: pulumi.Input[Optional[_builtins.str]] = None) -> 'SourceRepresentationInstance':
         """
         Get an existing SourceRepresentationInstance resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -681,6 +743,12 @@ class SourceRepresentationInstance(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] client_certificate: The client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] client_key: The private key file for the client certificate on the external server. Required only for server-client authentication. Include only if SSL/TLS is used on the external server.
         :param pulumi.Input[_builtins.str] database_version: The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, POSTGRES_18, SQLSERVER_2022_STANDARD, SQLSERVER_2022_ENTERPRISE, SQLSERVER_2022_EXPRESS, SQLSERVER_2022_WEB, SQLSERVER_2025_STANDARD, SQLSERVER_2025_ENTERPRISE, SQLSERVER_2025_EXPRESS, SQLSERVER_2025_WEB. Database Version Policies includes an up-to-date reference of supported versions.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] dump_file_path: A file in the bucket that contains the data from the external server.
         :param pulumi.Input[_builtins.str] host: The IPv4 address and port for the external server, or the the DNS address for the external server. If the external server is hosted on Cloud SQL, the port is 5432.
         :param pulumi.Input[_builtins.str] name: The name of the source representation instance. Use any valid Cloud SQL instance name.
@@ -702,6 +770,7 @@ class SourceRepresentationInstance(pulumi.CustomResource):
         __props__.__dict__["client_certificate"] = client_certificate
         __props__.__dict__["client_key"] = client_key
         __props__.__dict__["database_version"] = database_version
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["dump_file_path"] = dump_file_path
         __props__.__dict__["host"] = host
         __props__.__dict__["name"] = name
@@ -743,6 +812,19 @@ class SourceRepresentationInstance(pulumi.CustomResource):
         The MySQL, PostgreSQL or SQL Server (beta) version to use. Supported values include MYSQL_5_6, MYSQL_5_7, MYSQL_8_0, MYSQL_8_4, POSTGRES_9_6, POSTGRES_10, POSTGRES_11, POSTGRES_12, POSTGRES_13, POSTGRES_14, POSTGRES_15, POSTGRES_16, POSTGRES_17, POSTGRES_18, SQLSERVER_2022_STANDARD, SQLSERVER_2022_ENTERPRISE, SQLSERVER_2022_EXPRESS, SQLSERVER_2022_WEB, SQLSERVER_2025_STANDARD, SQLSERVER_2025_ENTERPRISE, SQLSERVER_2025_EXPRESS, SQLSERVER_2025_WEB. Database Version Policies includes an up-to-date reference of supported versions.
         """
         return pulumi.get(self, "database_version")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="dumpFilePath")

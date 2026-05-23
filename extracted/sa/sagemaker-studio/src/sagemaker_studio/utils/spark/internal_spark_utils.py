@@ -1,3 +1,4 @@
+import json
 import logging
 
 from sagemaker_studio import Project
@@ -39,6 +40,32 @@ def _generate_spark_catalog_spark_configs(account_id):
     }
 
 
+def _generate_workday_irc_spark_configs():
+    proj = Project()
+    conf = {}
+    connections = proj.connections
+    for connection in connections:
+        if connection.type == "WORKDAYICEBERGRESTCATALOG":
+            spark_catalog_configs = connection._spark_catalog_configs()
+            catalog_names = json.loads(spark_catalog_configs["SOURCE_CATALOG_LIST"])
+            for catalog_name in catalog_names:
+                rest_uri = spark_catalog_configs["INSTANCE_URL"]
+                access_token = spark_catalog_configs["ACCESS_TOKEN"]
+                realm = spark_catalog_configs["TENANT_ID"]
+
+                conf[f"spark.sql.catalog.{catalog_name}"] = "org.apache.iceberg.spark.SparkCatalog"
+                conf[f"spark.sql.catalog.{catalog_name}.type"] = "rest"
+                conf[f"spark.sql.catalog.{catalog_name}.uri"] = rest_uri
+                conf[f"spark.sql.catalog.{catalog_name}.warehouse"] = catalog_name
+                conf[f"spark.sql.catalog.{catalog_name}.header.Polaris-Realm"] = realm
+                conf[f"spark.sql.catalog.{catalog_name}.token"] = access_token
+                conf[f"spark.sql.catalog.{catalog_name}.header.X-Iceberg-Access-Delegation"] = (
+                    "vended-credentials"
+                )
+
+    return conf
+
+
 def _generate_s3tables_spark_configs():
     proj = Project()
     catalogs = proj.connection().catalogs
@@ -78,8 +105,10 @@ def _generate_s3tables_spark_configs():
     return conf
 
 
+# where spark session configs are added
 def generate_spark_configs(account_id):
     spark_props = DEFAULT_SPARK_PROPS.copy()
     spark_props.update(_generate_spark_catalog_spark_configs(account_id))
     spark_props.update(_generate_s3tables_spark_configs())
+    spark_props.update(_generate_workday_irc_spark_configs())
     return spark_props

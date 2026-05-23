@@ -30,6 +30,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.FromString,
         )
+        self.ValidateNamedQueries = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ValidateNamedQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.FromString,
+        )
         self.StartShadowBuildFromDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/StartShadowBuildFromDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.SerializeToString,
@@ -330,6 +335,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def IndexDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ValidateNamedQueries(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -697,6 +708,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.SerializeToString,
         ),
+        "ValidateNamedQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ValidateNamedQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.SerializeToString,
+        ),
         "StartShadowBuildFromDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.StartShadowBuildFromDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.FromString,
@@ -1063,6 +1079,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/IndexDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ValidateNamedQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ValidateNamedQueries",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ValidateNamedQueriesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,10 +1,10 @@
 Metadata-Version: 2.3
 Name: cartesia
-Version: 3.0.2
+Version: 3.1.0
 Summary: The official Python library for the cartesia API
 Project-URL: Homepage, https://github.com/cartesia-ai/cartesia-python
 Project-URL: Repository, https://github.com/cartesia-ai/cartesia-python
-Author: Cartesia
+Author-email: Cartesia <support@cartesia.ai>
 License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -27,7 +27,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
@@ -48,29 +48,43 @@ by [websockets](https://websockets.readthedocs.io/en/stable/).
 
 ## Table of contents
 
-- [Documentation](https://github.com/cartesia-ai/cartesia-python/tree/main/#documentation)
-- [Installation](https://github.com/cartesia-ai/cartesia-python/tree/main/#installation)
-- [Usage](https://github.com/cartesia-ai/cartesia-python/tree/main/#usage)
-- [Streaming inputs with Websockets](https://github.com/cartesia-ai/cartesia-python/tree/main/#streaming-inputs-with-websockets)
-- [Async usage](https://github.com/cartesia-ai/cartesia-python/tree/main/#async-usage)
-- [Examples](https://github.com/cartesia-ai/cartesia-python/tree/main/#examples)
-- [Using types](https://github.com/cartesia-ai/cartesia-python/tree/main/#using-types)
-- [Pagination](https://github.com/cartesia-ai/cartesia-python/tree/main/#pagination)
-- [Nested params](https://github.com/cartesia-ai/cartesia-python/tree/main/#nested-params)
-- [File uploads](https://github.com/cartesia-ai/cartesia-python/tree/main/#file-uploads)
-- [Handling errors](https://github.com/cartesia-ai/cartesia-python/tree/main/#handling-errors)
-- [Default Headers](https://github.com/cartesia-ai/cartesia-python/tree/main/#default-headers)
-- [Advanced](https://github.com/cartesia-ai/cartesia-python/tree/main/#advanced)
-- [Versioning](https://github.com/cartesia-ai/cartesia-python/tree/main/#versioning)
-- [Requirements](https://github.com/cartesia-ai/cartesia-python/tree/main/#requirements)
-- [Contributing](https://github.com/cartesia-ai/cartesia-python/tree/main/#contributing)
+- [Cartesia Python API library](https://github.com/cartesia-ai/cartesia-python/tree/main/#cartesia-python-api-library)
+  - [Table of contents](https://github.com/cartesia-ai/cartesia-python/tree/main/#table-of-contents)
+  - [Documentation](https://github.com/cartesia-ai/cartesia-python/tree/main/#documentation)
+  - [Installation](https://github.com/cartesia-ai/cartesia-python/tree/main/#installation)
+  - [Usage](https://github.com/cartesia-ai/cartesia-python/tree/main/#usage)
+  - [Streaming inputs with Websockets](https://github.com/cartesia-ai/cartesia-python/tree/main/#streaming-inputs-with-websockets)
+  - [Async usage](https://github.com/cartesia-ai/cartesia-python/tree/main/#async-usage)
+  - [Examples](https://github.com/cartesia-ai/cartesia-python/tree/main/#examples)
+    - [With aiohttp](https://github.com/cartesia-ai/cartesia-python/tree/main/#with-aiohttp)
+  - [Using types](https://github.com/cartesia-ai/cartesia-python/tree/main/#using-types)
+  - [Pagination](https://github.com/cartesia-ai/cartesia-python/tree/main/#pagination)
+  - [Nested params](https://github.com/cartesia-ai/cartesia-python/tree/main/#nested-params)
+  - [File uploads](https://github.com/cartesia-ai/cartesia-python/tree/main/#file-uploads)
+  - [Handling errors](https://github.com/cartesia-ai/cartesia-python/tree/main/#handling-errors)
+    - [Retries](https://github.com/cartesia-ai/cartesia-python/tree/main/#retries)
+    - [Timeouts](https://github.com/cartesia-ai/cartesia-python/tree/main/#timeouts)
+  - [Default Headers](https://github.com/cartesia-ai/cartesia-python/tree/main/#default-headers)
+  - [Advanced](https://github.com/cartesia-ai/cartesia-python/tree/main/#advanced)
+    - [Logging](https://github.com/cartesia-ai/cartesia-python/tree/main/#logging)
+    - [How to tell whether `None` means `null` or missing](https://github.com/cartesia-ai/cartesia-python/tree/main/#how-to-tell-whether-none-means-null-or-missing)
+    - [Accessing raw response data (e.g. headers)](https://github.com/cartesia-ai/cartesia-python/tree/main/#accessing-raw-response-data-eg-headers)
+      - [`.with_streaming_response`](https://github.com/cartesia-ai/cartesia-python/tree/main/#with_streaming_response)
+    - [Making custom/undocumented requests](https://github.com/cartesia-ai/cartesia-python/tree/main/#making-customundocumented-requests)
+      - [Undocumented endpoints](https://github.com/cartesia-ai/cartesia-python/tree/main/#undocumented-endpoints)
+      - [Undocumented request params](https://github.com/cartesia-ai/cartesia-python/tree/main/#undocumented-request-params)
+      - [Undocumented response properties](https://github.com/cartesia-ai/cartesia-python/tree/main/#undocumented-response-properties)
+    - [Configuring the HTTP client](https://github.com/cartesia-ai/cartesia-python/tree/main/#configuring-the-http-client)
+    - [Managing HTTP resources](https://github.com/cartesia-ai/cartesia-python/tree/main/#managing-http-resources)
+  - [Versioning](https://github.com/cartesia-ai/cartesia-python/tree/main/#versioning)
+    - [Determining the installed version](https://github.com/cartesia-ai/cartesia-python/tree/main/#determining-the-installed-version)
+  - [Requirements](https://github.com/cartesia-ai/cartesia-python/tree/main/#requirements)
+  - [Contributing](https://github.com/cartesia-ai/cartesia-python/tree/main/#contributing)
+  - [More from Cartesia](https://github.com/cartesia-ai/cartesia-python/tree/main/#more-from-cartesia)
 
 ## Documentation
 
-The REST API documentation can be found on <http://docs.cartesia.ai/>. The full API of this library can be found in [api.md](https://github.com/cartesia-ai/cartesia-python/tree/main/api.md).
-
-> [!NOTE]
-> **Migrating from 2.x?** The 3.x series maintains backwards compatibility with the method signatures from 2.x. To use the latest helpers, see [MIGRATING.md](https://github.com/cartesia-ai/cartesia-python/tree/main/MIGRATING.md).
+The REST API documentation can be found on [docs.cartesia.ai](https://docs.cartesia.ai). The full API of this library can be found in [api.md](https://github.com/cartesia-ai/cartesia-python/tree/main/api.md).
 
 ## Installation
 
@@ -84,6 +98,8 @@ pip install 'cartesia[websockets]'
 
 ## Usage
 
+The full API of this library can be found in [api.md](https://github.com/cartesia-ai/cartesia-python/tree/main/api.md).
+
 ```python
 import os
 from cartesia import Cartesia
@@ -93,13 +109,13 @@ client = Cartesia(
 )
 
 response = client.tts.generate(
-    model_id="sonic-3",
+    model_id="sonic-latest",
     output_format={
         "container": "wav",
         "encoding": "pcm_f32le",
         "sample_rate": 44100,
     },
-    transcript="I have to say that I'd rather stay awake when I'm asleep.",
+    transcript="Hi there! This audio is generated by Sonic: Cartesia's real-time text-to-speech model.",
     voice={
         "mode": "id",
         "id": "e07c00bc-4134-4eae-9ea4-1a55fb45746b",
@@ -122,15 +138,16 @@ client = Cartesia(
     api_key=os.getenv("CARTESIA_API_KEY"),
 )
 
-with client.tts.websocket_connect() as connection:
-    ctx = connection.context(
-        model_id="sonic-3",
+with client.tts.websocket_connect() as ws:
+    ctx = ws.context(
+        model_id="sonic-latest",
         voice={"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"},
         output_format={
             "container": "raw",
             "encoding": "pcm_f32le",
             "sample_rate": 44100,
         },
+        language="en",
     )
 
     for part in ["The road ", "goes ever ", "on and ", "on."]:
@@ -166,13 +183,13 @@ client = AsyncCartesia(
 
 async def main() -> None:
     response = await client.tts.generate(
-        model_id="sonic-3",
+        model_id="sonic-latest",
         output_format={
             "container": "wav",
             "encoding": "pcm_f32le",
             "sample_rate": 44100,
         },
-        transcript="I have to say that I'd rather stay awake when I'm asleep.",
+        transcript="Hi there! This audio is generated by Sonic: Cartesia's real-time text-to-speech model.",
         voice={
             "mode": "id",
             "id": "e07c00bc-4134-4eae-9ea4-1a55fb45746b",
@@ -192,13 +209,13 @@ identical.
 We have extensive examples in examples/examples.py (and
 examples/async_examples.py), including:
 
-- [`tts_generate_to_file`](https://github.com/cartesia-ai/cartesia-python/blob/main/examples/examples.py#L32): generate text-to-speech audio and save it to a file.
-- [`tts_websocket_basic`](https://github.com/cartesia-ai/cartesia-python/blob/main/examples/examples.py#L199):
+- [`tts_generate_to_file`](https://github.com/cartesia-ai/cartesia-python/tree/main//examples/examples.py#L34): generate text-to-speech audio and save it to a file.
+- [`tts_websocket_basic`](https://github.com/cartesia-ai/cartesia-python/tree/main//examples/examples.py#L212):
   connect to Cartesia over websockets and generate text-to-speech audio
-- [`tts_websocket_continuations`](https://github.com/cartesia-ai/cartesia-python/blob/main/examples/examples.py#L226):
+- [`tts_websocket_continuations`](https://github.com/cartesia-ai/cartesia-python/tree/main//examples/examples.py#L241):
   stream transcripts to Cartesia over websockets. This is useful when your text
   is generated by an LLM's streaming API.
-- [`tts_async_concurrent_contexts`](https://github.com/cartesia-ai/cartesia-python/blob/main/examples/async_examples.py#L291):
+- [`tts_async_concurrent_contexts`](https://github.com/cartesia-ai/cartesia-python/tree/main//examples/async_examples.py#L352):
   multiple concurrently-generated text-to-speech audios streamed over a single
   websocket. This is the most performant way to integrate Cartesia at scale.
 
@@ -228,13 +245,13 @@ async def main() -> None:
         http_client=DefaultAioHttpClient(),
     ) as client:
         response = await client.tts.generate(
-            model_id="sonic-3",
+            model_id="sonic-latest",
             output_format={
                 "container": "wav",
                 "encoding": "pcm_f32le",
                 "sample_rate": 44100,
             },
-            transcript="I have to say that I'd rather stay awake when I'm asleep.",
+            transcript="Hi there! This audio is generated by Sonic: Cartesia's real-time text-to-speech model.",
             voice={
                 "mode": "id",
                 "id": "e07c00bc-4134-4eae-9ea4-1a55fb45746b",
@@ -329,6 +346,7 @@ client = Cartesia()
 response = client.tts.generate(
     model_id="model_id",
     output_format={
+        "container": "raw",
         "encoding": "pcm_f32le",
         "sample_rate": 8000,
     },

@@ -24,10 +24,11 @@ class DashboardChartArgs:
                  dashboard_chart: pulumi.Input['DashboardChartDashboardChartArgs'],
                  instance: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
-                 chart_layout: Optional[pulumi.Input['DashboardChartChartLayoutArgs']] = None,
-                 dashboard_query: Optional[pulumi.Input['DashboardChartDashboardQueryArgs']] = None,
-                 native_dashboard: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 chart_layout: pulumi.Input[Optional['DashboardChartChartLayoutArgs']] = None,
+                 dashboard_query: pulumi.Input[Optional['DashboardChartDashboardQueryArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 native_dashboard: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a DashboardChart resource.
 
@@ -39,6 +40,12 @@ class DashboardChartArgs:
                Structure is documented below.
         :param pulumi.Input['DashboardChartDashboardQueryArgs'] dashboard_query: The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] native_dashboard: The parent NativeDashboard resource name, formatted as projects/{project}/locations/{location}/instances/{instance}/nativeDashboards/{dashboard_id}
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -50,6 +57,8 @@ class DashboardChartArgs:
             pulumi.set(__self__, "chart_layout", chart_layout)
         if dashboard_query is not None:
             pulumi.set(__self__, "dashboard_query", dashboard_query)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if native_dashboard is not None:
             pulumi.set(__self__, "native_dashboard", native_dashboard)
         if project is not None:
@@ -94,7 +103,7 @@ class DashboardChartArgs:
 
     @_builtins.property
     @pulumi.getter(name="chartLayout")
-    def chart_layout(self) -> Optional[pulumi.Input['DashboardChartChartLayoutArgs']]:
+    def chart_layout(self) -> pulumi.Input[Optional['DashboardChartChartLayoutArgs']]:
         """
         The layout of this chart within the NativeDashboard.
         Structure is documented below.
@@ -102,12 +111,12 @@ class DashboardChartArgs:
         return pulumi.get(self, "chart_layout")
 
     @chart_layout.setter
-    def chart_layout(self, value: Optional[pulumi.Input['DashboardChartChartLayoutArgs']]):
+    def chart_layout(self, value: pulumi.Input[Optional['DashboardChartChartLayoutArgs']]):
         pulumi.set(self, "chart_layout", value)
 
     @_builtins.property
     @pulumi.getter(name="dashboardQuery")
-    def dashboard_query(self) -> Optional[pulumi.Input['DashboardChartDashboardQueryArgs']]:
+    def dashboard_query(self) -> pulumi.Input[Optional['DashboardChartDashboardQueryArgs']]:
         """
         The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
         Structure is documented below.
@@ -115,24 +124,41 @@ class DashboardChartArgs:
         return pulumi.get(self, "dashboard_query")
 
     @dashboard_query.setter
-    def dashboard_query(self, value: Optional[pulumi.Input['DashboardChartDashboardQueryArgs']]):
+    def dashboard_query(self, value: pulumi.Input[Optional['DashboardChartDashboardQueryArgs']]):
         pulumi.set(self, "dashboard_query", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="nativeDashboard")
-    def native_dashboard(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def native_dashboard(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent NativeDashboard resource name, formatted as projects/{project}/locations/{location}/instances/{instance}/nativeDashboards/{dashboard_id}
         """
         return pulumi.get(self, "native_dashboard")
 
     @native_dashboard.setter
-    def native_dashboard(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def native_dashboard(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "native_dashboard", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -140,22 +166,23 @@ class DashboardChartArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _DashboardChartState:
     def __init__(__self__, *,
-                 chart_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 chart_layout: Optional[pulumi.Input['DashboardChartChartLayoutArgs']] = None,
-                 dashboard_chart: Optional[pulumi.Input['DashboardChartDashboardChartArgs']] = None,
-                 dashboard_query: Optional[pulumi.Input['DashboardChartDashboardQueryArgs']] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 native_dashboard: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 chart_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 chart_layout: pulumi.Input[Optional['DashboardChartChartLayoutArgs']] = None,
+                 dashboard_chart: pulumi.Input[Optional['DashboardChartDashboardChartArgs']] = None,
+                 dashboard_query: pulumi.Input[Optional['DashboardChartDashboardQueryArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 native_dashboard: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DashboardChart resources.
 
@@ -166,6 +193,12 @@ class _DashboardChartState:
                Structure is documented below.
         :param pulumi.Input['DashboardChartDashboardQueryArgs'] dashboard_query: The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The ID of the Chronicle instance.
         :param pulumi.Input[_builtins.str] location: The location of the Chronicle instance.
         :param pulumi.Input[_builtins.str] name: The full resource name of the DashboardChart.
@@ -181,6 +214,8 @@ class _DashboardChartState:
             pulumi.set(__self__, "dashboard_chart", dashboard_chart)
         if dashboard_query is not None:
             pulumi.set(__self__, "dashboard_query", dashboard_query)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if instance is not None:
             pulumi.set(__self__, "instance", instance)
         if location is not None:
@@ -194,19 +229,19 @@ class _DashboardChartState:
 
     @_builtins.property
     @pulumi.getter(name="chartId")
-    def chart_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def chart_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The unique identifier of the chart, automatically extracted from the full resource name.
         """
         return pulumi.get(self, "chart_id")
 
     @chart_id.setter
-    def chart_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def chart_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "chart_id", value)
 
     @_builtins.property
     @pulumi.getter(name="chartLayout")
-    def chart_layout(self) -> Optional[pulumi.Input['DashboardChartChartLayoutArgs']]:
+    def chart_layout(self) -> pulumi.Input[Optional['DashboardChartChartLayoutArgs']]:
         """
         The layout of this chart within the NativeDashboard.
         Structure is documented below.
@@ -214,12 +249,12 @@ class _DashboardChartState:
         return pulumi.get(self, "chart_layout")
 
     @chart_layout.setter
-    def chart_layout(self, value: Optional[pulumi.Input['DashboardChartChartLayoutArgs']]):
+    def chart_layout(self, value: pulumi.Input[Optional['DashboardChartChartLayoutArgs']]):
         pulumi.set(self, "chart_layout", value)
 
     @_builtins.property
     @pulumi.getter(name="dashboardChart")
-    def dashboard_chart(self) -> Optional[pulumi.Input['DashboardChartDashboardChartArgs']]:
+    def dashboard_chart(self) -> pulumi.Input[Optional['DashboardChartDashboardChartArgs']]:
         """
         Core configuration details for the DashboardChart.
         Structure is documented below.
@@ -227,12 +262,12 @@ class _DashboardChartState:
         return pulumi.get(self, "dashboard_chart")
 
     @dashboard_chart.setter
-    def dashboard_chart(self, value: Optional[pulumi.Input['DashboardChartDashboardChartArgs']]):
+    def dashboard_chart(self, value: pulumi.Input[Optional['DashboardChartDashboardChartArgs']]):
         pulumi.set(self, "dashboard_chart", value)
 
     @_builtins.property
     @pulumi.getter(name="dashboardQuery")
-    def dashboard_query(self) -> Optional[pulumi.Input['DashboardChartDashboardQueryArgs']]:
+    def dashboard_query(self) -> pulumi.Input[Optional['DashboardChartDashboardQueryArgs']]:
         """
         The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
         Structure is documented below.
@@ -240,60 +275,77 @@ class _DashboardChartState:
         return pulumi.get(self, "dashboard_query")
 
     @dashboard_query.setter
-    def dashboard_query(self, value: Optional[pulumi.Input['DashboardChartDashboardQueryArgs']]):
+    def dashboard_query(self, value: pulumi.Input[Optional['DashboardChartDashboardQueryArgs']]):
         pulumi.set(self, "dashboard_query", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the Chronicle instance.
         """
         return pulumi.get(self, "instance")
 
     @instance.setter
-    def instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the Chronicle instance.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The full resource name of the DashboardChart.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="nativeDashboard")
-    def native_dashboard(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def native_dashboard(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent NativeDashboard resource name, formatted as projects/{project}/locations/{location}/instances/{instance}/nativeDashboards/{dashboard_id}
         """
         return pulumi.get(self, "native_dashboard")
 
     @native_dashboard.setter
-    def native_dashboard(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def native_dashboard(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "native_dashboard", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -301,7 +353,7 @@ class _DashboardChartState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -311,23 +363,21 @@ class DashboardChart(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 chart_layout: Optional[pulumi.Input[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
-                 dashboard_chart: Optional[pulumi.Input[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
-                 dashboard_query: Optional[pulumi.Input[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 native_dashboard: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 chart_layout: pulumi.Input[Optional[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
+                 dashboard_chart: pulumi.Input[Optional[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
+                 dashboard_query: pulumi.Input[Optional[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 native_dashboard: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A chart resource used within a NativeDashboard. Its lifecycle (Create, Update, Delete) is managed via custom methods on the NativeDashboard resource.
 
-        > **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-        See Provider Versions for more details on beta resources.
-
         To get more information about DashboardChart, see:
 
-        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1beta/projects.locations.instances.dashboardCharts)
+        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1/projects.locations.instances.dashboardCharts)
         * How-to Guides
             * [Google SecOps Guides](https://cloud.google.com/chronicle/docs/secops/secops-overview)
 
@@ -522,6 +572,12 @@ class DashboardChart(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']] dashboard_query: The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The ID of the Chronicle instance.
         :param pulumi.Input[_builtins.str] location: The location of the Chronicle instance.
         :param pulumi.Input[_builtins.str] native_dashboard: The parent NativeDashboard resource name, formatted as projects/{project}/locations/{location}/instances/{instance}/nativeDashboards/{dashboard_id}
@@ -537,12 +593,9 @@ class DashboardChart(pulumi.CustomResource):
         """
         A chart resource used within a NativeDashboard. Its lifecycle (Create, Update, Delete) is managed via custom methods on the NativeDashboard resource.
 
-        > **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-        See Provider Versions for more details on beta resources.
-
         To get more information about DashboardChart, see:
 
-        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1beta/projects.locations.instances.dashboardCharts)
+        * [API documentation](https://cloud.google.com/chronicle/docs/reference/rest/v1/projects.locations.instances.dashboardCharts)
         * How-to Guides
             * [Google SecOps Guides](https://cloud.google.com/chronicle/docs/secops/secops-overview)
 
@@ -744,13 +797,14 @@ class DashboardChart(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 chart_layout: Optional[pulumi.Input[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
-                 dashboard_chart: Optional[pulumi.Input[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
-                 dashboard_query: Optional[pulumi.Input[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
-                 instance: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 native_dashboard: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 chart_layout: pulumi.Input[Optional[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
+                 dashboard_chart: pulumi.Input[Optional[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
+                 dashboard_query: pulumi.Input[Optional[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 native_dashboard: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -765,6 +819,7 @@ class DashboardChart(pulumi.CustomResource):
                 raise TypeError("Missing required property 'dashboard_chart'")
             __props__.__dict__["dashboard_chart"] = dashboard_chart
             __props__.__dict__["dashboard_query"] = dashboard_query
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if instance is None and not opts.urn:
                 raise TypeError("Missing required property 'instance'")
             __props__.__dict__["instance"] = instance
@@ -785,15 +840,16 @@ class DashboardChart(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            chart_id: Optional[pulumi.Input[_builtins.str]] = None,
-            chart_layout: Optional[pulumi.Input[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
-            dashboard_chart: Optional[pulumi.Input[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
-            dashboard_query: Optional[pulumi.Input[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
-            instance: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            native_dashboard: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'DashboardChart':
+            chart_id: pulumi.Input[Optional[_builtins.str]] = None,
+            chart_layout: pulumi.Input[Optional[Union['DashboardChartChartLayoutArgs', 'DashboardChartChartLayoutArgsDict']]] = None,
+            dashboard_chart: pulumi.Input[Optional[Union['DashboardChartDashboardChartArgs', 'DashboardChartDashboardChartArgsDict']]] = None,
+            dashboard_query: pulumi.Input[Optional[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            instance: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            native_dashboard: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'DashboardChart':
         """
         Get an existing DashboardChart resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -808,6 +864,12 @@ class DashboardChart(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['DashboardChartDashboardQueryArgs', 'DashboardChartDashboardQueryArgsDict']] dashboard_query: The complete specification of the query for this chart. This includes the raw query string, execution parameters (like time windows), and server-generated metadata.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] instance: The ID of the Chronicle instance.
         :param pulumi.Input[_builtins.str] location: The location of the Chronicle instance.
         :param pulumi.Input[_builtins.str] name: The full resource name of the DashboardChart.
@@ -823,6 +885,7 @@ class DashboardChart(pulumi.CustomResource):
         __props__.__dict__["chart_layout"] = chart_layout
         __props__.__dict__["dashboard_chart"] = dashboard_chart
         __props__.__dict__["dashboard_query"] = dashboard_query
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["instance"] = instance
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -864,6 +927,19 @@ class DashboardChart(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "dashboard_query")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

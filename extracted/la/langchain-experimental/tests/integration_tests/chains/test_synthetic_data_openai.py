@@ -1,7 +1,17 @@
 import pytest
-from langchain_community.chat_models import ChatOpenAI
-from langchain_core.prompts.few_shot import FewShotPromptTemplate
-from pydantic import BaseModel
+
+try:
+    from langchain_community.chat_models import ChatOpenAI
+except ImportError:
+    pytest.skip(
+        "`langchain_community.chat_models.ChatOpenAI` was removed in "
+        "`langchain-community>=0.4.2`; use `langchain_openai.ChatOpenAI` "
+        "instead.",
+        allow_module_level=True,
+    )
+
+from langchain_core.prompts.few_shot import FewShotPromptTemplate  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
 from langchain_experimental.tabular_synthetic_data.base import SyntheticDataGenerator
 from langchain_experimental.tabular_synthetic_data.openai import (

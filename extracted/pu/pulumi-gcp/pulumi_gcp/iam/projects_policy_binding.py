@@ -25,11 +25,12 @@ class ProjectsPolicyBindingArgs:
                  policy: pulumi.Input[_builtins.str],
                  policy_binding_id: pulumi.Input[_builtins.str],
                  target: pulumi.Input['ProjectsPolicyBindingTargetArgs'],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 condition: Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 condition: pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a ProjectsPolicyBinding resource.
 
@@ -66,6 +67,12 @@ class ProjectsPolicyBindingArgs:
                determined by the service that evaluates it. See the service documentation for
                additional information.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         :param pulumi.Input[_builtins.str] policy_kind: Immutable. The kind of the policy to attach in this binding. This
                field must be one of the following:  - Left empty (will be automatically set
@@ -81,6 +88,8 @@ class ProjectsPolicyBindingArgs:
             pulumi.set(__self__, "annotations", annotations)
         if condition is not None:
             pulumi.set(__self__, "condition", condition)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if policy_kind is not None:
@@ -139,7 +148,7 @@ class ProjectsPolicyBindingArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations
 
@@ -149,12 +158,12 @@ class ProjectsPolicyBindingArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def condition(self) -> Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']]:
+    def condition(self) -> pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']]:
         """
         Represents a textual expression in the Common Expression Language
         (CEL) syntax. CEL is a C-like expression language. The syntax and semantics of
@@ -184,24 +193,41 @@ class ProjectsPolicyBindingArgs:
         return pulumi.get(self, "condition")
 
     @condition.setter
-    def condition(self, value: Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']]):
+    def condition(self, value: pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']]):
         pulumi.set(self, "condition", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="policyKind")
-    def policy_kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. The kind of the policy to attach in this binding. This
         field must be one of the following:  - Left empty (will be automatically set
@@ -210,12 +236,12 @@ class ProjectsPolicyBindingArgs:
         return pulumi.get(self, "policy_kind")
 
     @policy_kind.setter
-    def policy_kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_kind", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -223,29 +249,30 @@ class ProjectsPolicyBindingArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _ProjectsPolicyBindingState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 condition: Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 target: Optional[pulumi.Input['ProjectsPolicyBindingTargetArgs']] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 condition: pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 target: pulumi.Input[Optional['ProjectsPolicyBindingTargetArgs']] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ProjectsPolicyBinding resources.
 
@@ -278,6 +305,12 @@ class _ProjectsPolicyBindingState:
                additional information.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time when the policy binding was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] etag: Optional. The etag for the policy binding. If this is provided on update, it must match the server's etag.
@@ -302,6 +335,8 @@ class _ProjectsPolicyBindingState:
             pulumi.set(__self__, "condition", condition)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if effective_annotations is not None:
@@ -331,7 +366,7 @@ class _ProjectsPolicyBindingState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations
 
@@ -341,12 +376,12 @@ class _ProjectsPolicyBindingState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def condition(self) -> Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']]:
+    def condition(self) -> pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']]:
         """
         Represents a textual expression in the Common Expression Language
         (CEL) syntax. CEL is a C-like expression language. The syntax and semantics of
@@ -376,108 +411,125 @@ class _ProjectsPolicyBindingState:
         return pulumi.get(self, "condition")
 
     @condition.setter
-    def condition(self, value: Optional[pulumi.Input['ProjectsPolicyBindingConditionArgs']]):
+    def condition(self, value: pulumi.Input[Optional['ProjectsPolicyBindingConditionArgs']]):
         pulumi.set(self, "condition", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time when the policy binding was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The etag for the policy binding. If this is provided on update, it must match the server's etag.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the Policy Binding
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of the policy binding in the format `{binding_parent/locations/{location}/policyBindings/{policy_binding_id}`
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def policy(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project).
         """
         return pulumi.get(self, "policy")
 
     @policy.setter
-    def policy(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy", value)
 
     @_builtins.property
     @pulumi.getter(name="policyBindingId")
-    def policy_binding_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_binding_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Policy Binding ID.
         """
         return pulumi.get(self, "policy_binding_id")
 
     @policy_binding_id.setter
-    def policy_binding_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_binding_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_binding_id", value)
 
     @_builtins.property
     @pulumi.getter(name="policyKind")
-    def policy_kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_kind(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Immutable. The kind of the policy to attach in this binding. This
         field must be one of the following:  - Left empty (will be automatically set
@@ -486,24 +538,24 @@ class _ProjectsPolicyBindingState:
         return pulumi.get(self, "policy_kind")
 
     @policy_kind.setter
-    def policy_kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_kind(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_kind", value)
 
     @_builtins.property
     @pulumi.getter(name="policyUid")
-    def policy_uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def policy_uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The globally unique ID of the policy to be bound.
         """
         return pulumi.get(self, "policy_uid")
 
     @policy_uid.setter
-    def policy_uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def policy_uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "policy_uid", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -511,12 +563,12 @@ class _ProjectsPolicyBindingState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def target(self) -> Optional[pulumi.Input['ProjectsPolicyBindingTargetArgs']]:
+    def target(self) -> pulumi.Input[Optional['ProjectsPolicyBindingTargetArgs']]:
         """
         Target is the full resource name of the resource to which the policy will be bound. Immutable once set.
         Structure is documented below.
@@ -524,31 +576,31 @@ class _ProjectsPolicyBindingState:
         return pulumi.get(self, "target")
 
     @target.setter
-    def target(self, value: Optional[pulumi.Input['ProjectsPolicyBindingTargetArgs']]):
+    def target(self, value: pulumi.Input[Optional['ProjectsPolicyBindingTargetArgs']]):
         pulumi.set(self, "target", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The globally unique ID of the policy binding. Assigned when the policy binding is created.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time when the policy binding was most recently updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -558,15 +610,16 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 condition: Optional[pulumi.Input[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 target: Optional[pulumi.Input[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 condition: pulumi.Input[Optional[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 target: pulumi.Input[Optional[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
                  __props__=None):
         """
         A policy binding to a project. This is a Terraform resource, and maps to a policy binding resource in GCP.
@@ -654,6 +707,12 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
                determined by the service that evaluates it. See the service documentation for
                additional information.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         :param pulumi.Input[_builtins.str] location: The location of the Policy Binding
         :param pulumi.Input[_builtins.str] policy: Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project).
@@ -743,15 +802,16 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 condition: Optional[pulumi.Input[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 policy_kind: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 target: Optional[pulumi.Input[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 condition: pulumi.Input[Optional[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 policy_kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 target: pulumi.Input[Optional[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -763,6 +823,7 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
 
             __props__.__dict__["annotations"] = annotations
             __props__.__dict__["condition"] = condition
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -795,22 +856,23 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            condition: Optional[pulumi.Input[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            policy: Optional[pulumi.Input[_builtins.str]] = None,
-            policy_binding_id: Optional[pulumi.Input[_builtins.str]] = None,
-            policy_kind: Optional[pulumi.Input[_builtins.str]] = None,
-            policy_uid: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            target: Optional[pulumi.Input[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'ProjectsPolicyBinding':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            condition: pulumi.Input[Optional[Union['ProjectsPolicyBindingConditionArgs', 'ProjectsPolicyBindingConditionArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            policy: pulumi.Input[Optional[_builtins.str]] = None,
+            policy_binding_id: pulumi.Input[Optional[_builtins.str]] = None,
+            policy_kind: pulumi.Input[Optional[_builtins.str]] = None,
+            policy_uid: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            target: pulumi.Input[Optional[Union['ProjectsPolicyBindingTargetArgs', 'ProjectsPolicyBindingTargetArgsDict']]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'ProjectsPolicyBinding':
         """
         Get an existing ProjectsPolicyBinding resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -847,6 +909,12 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
                additional information.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time when the policy binding was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] etag: Optional. The etag for the policy binding. If this is provided on update, it must match the server's etag.
@@ -872,6 +940,7 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
         __props__.__dict__["annotations"] = annotations
         __props__.__dict__["condition"] = condition
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["etag"] = etag
@@ -936,6 +1005,19 @@ class ProjectsPolicyBinding(pulumi.CustomResource):
         Output only. The time when the policy binding was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

@@ -22,20 +22,21 @@ class TransportArgs:
                  network: pulumi.Input[_builtins.str],
                  region: pulumi.Input[_builtins.str],
                  remote_profile: pulumi.Input[_builtins.str],
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 advertised_routes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 auto_accept: Optional[pulumi.Input[_builtins.bool]] = None,
-                 bandwidth: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 hub: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 mtu_limit: Optional[pulumi.Input[_builtins.int]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 psc_routing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 remote_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None):
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 advertised_routes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 auto_accept: pulumi.Input[Optional[_builtins.bool]] = None,
+                 bandwidth: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 hub: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mtu_limit: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 psc_routing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 remote_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a Transport resource.
 
@@ -47,6 +48,12 @@ class TransportArgs:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] advertised_routes: List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         :param pulumi.Input[_builtins.bool] auto_accept: Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         :param pulumi.Input[_builtins.str] bandwidth: Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] hub: The NCC Hub that the Transport should attach to. The hub must be in the same project as the Transport.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional labels in key:value format. For more information about labels, see [Requirements for labels](https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements).
@@ -73,6 +80,8 @@ class TransportArgs:
             pulumi.set(__self__, "auto_accept", auto_accept)
         if bandwidth is not None:
             pulumi.set(__self__, "bandwidth", bandwidth)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if hub is not None:
@@ -133,79 +142,96 @@ class TransportArgs:
 
     @_builtins.property
     @pulumi.getter(name="adminEnabled")
-    def admin_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def admin_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Administrative state of the underlying connectivity. If set to true (default), connectivity should be available between your environments. If set to false, the connectivity over these links is disabled. Disabling your Transport does not affect billing, and retains the underlying network bandwidth associated with the connectivity.
         """
         return pulumi.get(self, "admin_enabled")
 
     @admin_enabled.setter
-    def admin_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def admin_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "admin_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="advertisedRoutes")
-    def advertised_routes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def advertised_routes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         """
         return pulumi.get(self, "advertised_routes")
 
     @advertised_routes.setter
-    def advertised_routes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def advertised_routes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "advertised_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="autoAccept")
-    def auto_accept(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def auto_accept(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         """
         return pulumi.get(self, "auto_accept")
 
     @auto_accept.setter
-    def auto_accept(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def auto_accept(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "auto_accept", value)
 
     @_builtins.property
     @pulumi.getter
-    def bandwidth(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bandwidth(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
         """
         return pulumi.get(self, "bandwidth")
 
     @bandwidth.setter
-    def bandwidth(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bandwidth(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bandwidth", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def hub(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def hub(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The NCC Hub that the Transport should attach to. The hub must be in the same project as the Transport.
         """
         return pulumi.get(self, "hub")
 
     @hub.setter
-    def hub(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def hub(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "hub", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional labels in key:value format. For more information about labels, see [Requirements for labels](https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements).
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -214,36 +240,36 @@ class TransportArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="mtuLimit")
-    def mtu_limit(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def mtu_limit(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         [Output only] The maximum transmission unit (MTU) of a packet that can be sent over this transport.
         """
         return pulumi.get(self, "mtu_limit")
 
     @mtu_limit.setter
-    def mtu_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def mtu_limit(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "mtu_limit", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource, see google.aip.dev/122 for resource naming.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -251,48 +277,48 @@ class TransportArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="providedActivationKey")
-    def provided_activation_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def provided_activation_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Key used for establishing a connection with the remote transport. This key can only be provided if the profile supports an INPUT key flow and the resource is in the PENDING_KEY state.
         """
         return pulumi.get(self, "provided_activation_key")
 
     @provided_activation_key.setter
-    def provided_activation_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def provided_activation_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "provided_activation_key", value)
 
     @_builtins.property
     @pulumi.getter(name="pscRoutingEnabled")
-    def psc_routing_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def psc_routing_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether a Routing VPC Spoke should be created and attached to the NCC Hub.
         """
         return pulumi.get(self, "psc_routing_enabled")
 
     @psc_routing_enabled.setter
-    def psc_routing_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def psc_routing_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "psc_routing_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="remoteAccountId")
-    def remote_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def remote_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user supplied account id for the CSP associated with the remote profile.
         """
         return pulumi.get(self, "remote_account_id")
 
     @remote_account_id.setter
-    def remote_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def remote_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "remote_account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="stackType")
-    def stack_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stack_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP version stack for the established connectivity.
         Possible values are: `IPV4_IPV6`, `IPV4_ONLY`.
@@ -300,35 +326,36 @@ class TransportArgs:
         return pulumi.get(self, "stack_type")
 
     @stack_type.setter
-    def stack_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stack_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stack_type", value)
 
 
 @pulumi.input_type
 class _TransportState:
     def __init__(__self__, *,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 advertised_routes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 auto_accept: Optional[pulumi.Input[_builtins.bool]] = None,
-                 bandwidth: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 generated_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 hub: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 mtu_limit: Optional[pulumi.Input[_builtins.int]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 peering_network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 psc_routing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None):
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 advertised_routes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 auto_accept: pulumi.Input[Optional[_builtins.bool]] = None,
+                 bandwidth: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 generated_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 hub: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mtu_limit: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 peering_network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 psc_routing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Transport resources.
 
@@ -336,6 +363,12 @@ class _TransportState:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] advertised_routes: List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         :param pulumi.Input[_builtins.bool] auto_accept: Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         :param pulumi.Input[_builtins.str] bandwidth: Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] generated_activation_key: [Output only] Google-generated activation key. This is only output if the selected profile supports an OUTPUT key flow. Inputting this to the provider is only valid while the resource is in a PENDING_KEY state. Once the provider has accepted the key, the resource will move to the CONFIGURING state.
@@ -369,6 +402,8 @@ class _TransportState:
             pulumi.set(__self__, "auto_accept", auto_accept)
         if bandwidth is not None:
             pulumi.set(__self__, "bandwidth", bandwidth)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if effective_labels is not None:
@@ -408,103 +443,120 @@ class _TransportState:
 
     @_builtins.property
     @pulumi.getter(name="adminEnabled")
-    def admin_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def admin_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Administrative state of the underlying connectivity. If set to true (default), connectivity should be available between your environments. If set to false, the connectivity over these links is disabled. Disabling your Transport does not affect billing, and retains the underlying network bandwidth associated with the connectivity.
         """
         return pulumi.get(self, "admin_enabled")
 
     @admin_enabled.setter
-    def admin_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def admin_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "admin_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="advertisedRoutes")
-    def advertised_routes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def advertised_routes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         """
         return pulumi.get(self, "advertised_routes")
 
     @advertised_routes.setter
-    def advertised_routes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def advertised_routes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "advertised_routes", value)
 
     @_builtins.property
     @pulumi.getter(name="autoAccept")
-    def auto_accept(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def auto_accept(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         """
         return pulumi.get(self, "auto_accept")
 
     @auto_accept.setter
-    def auto_accept(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def auto_accept(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "auto_accept", value)
 
     @_builtins.property
     @pulumi.getter
-    def bandwidth(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def bandwidth(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
         """
         return pulumi.get(self, "bandwidth")
 
     @bandwidth.setter
-    def bandwidth(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def bandwidth(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "bandwidth", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="generatedActivationKey")
-    def generated_activation_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def generated_activation_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         [Output only] Google-generated activation key. This is only output if the selected profile supports an OUTPUT key flow. Inputting this to the provider is only valid while the resource is in a PENDING_KEY state. Once the provider has accepted the key, the resource will move to the CONFIGURING state.
         """
         return pulumi.get(self, "generated_activation_key")
 
     @generated_activation_key.setter
-    def generated_activation_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def generated_activation_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "generated_activation_key", value)
 
     @_builtins.property
     @pulumi.getter
-    def hub(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def hub(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The NCC Hub that the Transport should attach to. The hub must be in the same project as the Transport.
         """
         return pulumi.get(self, "hub")
 
     @hub.setter
-    def hub(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def hub(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "hub", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional labels in key:value format. For more information about labels, see [Requirements for labels](https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements).
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -513,60 +565,60 @@ class _TransportState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="mtuLimit")
-    def mtu_limit(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def mtu_limit(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         [Output only] The maximum transmission unit (MTU) of a packet that can be sent over this transport.
         """
         return pulumi.get(self, "mtu_limit")
 
     @mtu_limit.setter
-    def mtu_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def mtu_limit(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "mtu_limit", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the resource, see google.aip.dev/122 for resource naming.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource URL of the Network that will be peered with this Transport. This field must be provided during resource creation and cannot be changed.
         """
         return pulumi.get(self, "network")
 
     @network.setter
-    def network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "network", value)
 
     @_builtins.property
     @pulumi.getter(name="peeringNetwork")
-    def peering_network(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def peering_network(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         VPC Network URI that was created for the VPC Peering connection to the provided `network`. If VPC Peering is disconnected, this can be used to re-establish.
         """
         return pulumi.get(self, "peering_network")
 
     @peering_network.setter
-    def peering_network(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def peering_network(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "peering_network", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -574,36 +626,36 @@ class _TransportState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="providedActivationKey")
-    def provided_activation_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def provided_activation_key(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Key used for establishing a connection with the remote transport. This key can only be provided if the profile supports an INPUT key flow and the resource is in the PENDING_KEY state.
         """
         return pulumi.get(self, "provided_activation_key")
 
     @provided_activation_key.setter
-    def provided_activation_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def provided_activation_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "provided_activation_key", value)
 
     @_builtins.property
     @pulumi.getter(name="pscRoutingEnabled")
-    def psc_routing_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def psc_routing_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Controls whether a Routing VPC Spoke should be created and attached to the NCC Hub.
         """
         return pulumi.get(self, "psc_routing_enabled")
 
     @psc_routing_enabled.setter
-    def psc_routing_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def psc_routing_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "psc_routing_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -611,36 +663,36 @@ class _TransportState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The region of this resource. This is required to construct the resource name, but is not sent to the API since the region is already contained in the parent field.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="remoteAccountId")
-    def remote_account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def remote_account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The user supplied account id for the CSP associated with the remote profile.
         """
         return pulumi.get(self, "remote_account_id")
 
     @remote_account_id.setter
-    def remote_account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def remote_account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "remote_account_id", value)
 
     @_builtins.property
     @pulumi.getter(name="remoteProfile")
-    def remote_profile(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def remote_profile(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Resource URL of the remoteTransportProfile that this Transport is
         connecting to.
@@ -648,12 +700,12 @@ class _TransportState:
         return pulumi.get(self, "remote_profile")
 
     @remote_profile.setter
-    def remote_profile(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def remote_profile(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "remote_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="stackType")
-    def stack_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def stack_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         IP version stack for the established connectivity.
         Possible values are: `IPV4_IPV6`, `IPV4_ONLY`.
@@ -661,19 +713,19 @@ class _TransportState:
         return pulumi.get(self, "stack_type")
 
     @stack_type.setter
-    def stack_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def stack_type(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "stack_type", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         [Output Only] State of the underlying connectivity.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
 
@@ -683,23 +735,24 @@ class Transport(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 advertised_routes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 auto_accept: Optional[pulumi.Input[_builtins.bool]] = None,
-                 bandwidth: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 hub: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 mtu_limit: Optional[pulumi.Input[_builtins.int]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 psc_routing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 advertised_routes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 auto_accept: pulumi.Input[Optional[_builtins.bool]] = None,
+                 bandwidth: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 hub: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mtu_limit: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 psc_routing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The Transport resource is a top-level resource used by customers to control Partner Cross-Cloud Interconnect (CCI) connections.
@@ -723,10 +776,10 @@ class Transport(pulumi.CustomResource):
 
         project = gcp.organizations.get_project()
         primary_network = gcp.compute.Network("primary-network",
-            name="tf-test-my-vpc-network_79580",
+            name="tf-test-my-vpc-network_44154",
             auto_create_subnetworks=False)
         primary = gcp.networkconnectivity.Transport("primary",
-            name="tf-test-basic-transport_98863",
+            name="tf-test-basic-transport_90221",
             region="us-east4",
             description="A sample transport",
             remote_profile=f"https://networkconnectivity.googleapis.com/v1beta/{project.id}/locations/us-east4/remoteTransportProfiles/aws-us-east-1",
@@ -763,6 +816,12 @@ class Transport(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] advertised_routes: List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         :param pulumi.Input[_builtins.bool] auto_accept: Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         :param pulumi.Input[_builtins.str] bandwidth: Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.str] hub: The NCC Hub that the Transport should attach to. The hub must be in the same project as the Transport.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Optional labels in key:value format. For more information about labels, see [Requirements for labels](https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements).
@@ -810,10 +869,10 @@ class Transport(pulumi.CustomResource):
 
         project = gcp.organizations.get_project()
         primary_network = gcp.compute.Network("primary-network",
-            name="tf-test-my-vpc-network_79580",
+            name="tf-test-my-vpc-network_44154",
             auto_create_subnetworks=False)
         primary = gcp.networkconnectivity.Transport("primary",
-            name="tf-test-basic-transport_98863",
+            name="tf-test-basic-transport_90221",
             region="us-east4",
             description="A sample transport",
             remote_profile=f"https://networkconnectivity.googleapis.com/v1beta/{project.id}/locations/us-east4/remoteTransportProfiles/aws-us-east-1",
@@ -859,23 +918,24 @@ class Transport(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 advertised_routes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 auto_accept: Optional[pulumi.Input[_builtins.bool]] = None,
-                 bandwidth: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 hub: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 mtu_limit: Optional[pulumi.Input[_builtins.int]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 network: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 provided_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 psc_routing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 remote_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 stack_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 advertised_routes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 auto_accept: pulumi.Input[Optional[_builtins.bool]] = None,
+                 bandwidth: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 hub: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mtu_limit: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 network: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 provided_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 psc_routing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 remote_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 stack_type: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -889,6 +949,7 @@ class Transport(pulumi.CustomResource):
             __props__.__dict__["advertised_routes"] = advertised_routes
             __props__.__dict__["auto_accept"] = auto_accept
             __props__.__dict__["bandwidth"] = bandwidth
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["hub"] = hub
             __props__.__dict__["labels"] = labels
@@ -925,28 +986,29 @@ class Transport(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            admin_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            advertised_routes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            auto_accept: Optional[pulumi.Input[_builtins.bool]] = None,
-            bandwidth: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            generated_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-            hub: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            mtu_limit: Optional[pulumi.Input[_builtins.int]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            network: Optional[pulumi.Input[_builtins.str]] = None,
-            peering_network: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            provided_activation_key: Optional[pulumi.Input[_builtins.str]] = None,
-            psc_routing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            remote_account_id: Optional[pulumi.Input[_builtins.str]] = None,
-            remote_profile: Optional[pulumi.Input[_builtins.str]] = None,
-            stack_type: Optional[pulumi.Input[_builtins.str]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None) -> 'Transport':
+            admin_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            advertised_routes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            auto_accept: pulumi.Input[Optional[_builtins.bool]] = None,
+            bandwidth: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            generated_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+            hub: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            mtu_limit: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            network: pulumi.Input[Optional[_builtins.str]] = None,
+            peering_network: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            provided_activation_key: pulumi.Input[Optional[_builtins.str]] = None,
+            psc_routing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            remote_account_id: pulumi.Input[Optional[_builtins.str]] = None,
+            remote_profile: pulumi.Input[Optional[_builtins.str]] = None,
+            stack_type: pulumi.Input[Optional[_builtins.str]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None) -> 'Transport':
         """
         Get an existing Transport resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -958,6 +1020,12 @@ class Transport(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] advertised_routes: List of IP Prefixes that will be advertised to the remote provider. Both IPv4 and IPv6 addresses are supported.
         :param pulumi.Input[_builtins.bool] auto_accept: Controls whether resources proposed by the Transport are automatically accepted on behalf of the user.
         :param pulumi.Input[_builtins.str] bandwidth: Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.str] generated_activation_key: [Output only] Google-generated activation key. This is only output if the selected profile supports an OUTPUT key flow. Inputting this to the provider is only valid while the resource is in a PENDING_KEY state. Once the provider has accepted the key, the resource will move to the CONFIGURING state.
@@ -991,6 +1059,7 @@ class Transport(pulumi.CustomResource):
         __props__.__dict__["advertised_routes"] = advertised_routes
         __props__.__dict__["auto_accept"] = auto_accept
         __props__.__dict__["bandwidth"] = bandwidth
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["generated_activation_key"] = generated_activation_key
@@ -1042,6 +1111,19 @@ class Transport(pulumi.CustomResource):
         Bandwidth of the Transport. This must be one of the supported bandwidths for the remote profile.
         """
         return pulumi.get(self, "bandwidth")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

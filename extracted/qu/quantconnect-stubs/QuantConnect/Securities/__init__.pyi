@@ -9001,6 +9001,9 @@ class Futures(System.Object):
         VIX: str = "VX"
         """CBOE Volatility Index Futures"""
 
+        VIX_MINI: str = "VXM"
+        """VIX Mini Futures"""
+
         RUSSELL_2000_E_MINI: str = "RTY"
         """E-mini Russell 2000 Futures"""
 

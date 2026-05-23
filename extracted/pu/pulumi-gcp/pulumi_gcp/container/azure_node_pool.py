@@ -28,11 +28,12 @@ class AzureNodePoolArgs:
                  max_pods_constraint: pulumi.Input['AzureNodePoolMaxPodsConstraintArgs'],
                  subnet_id: pulumi.Input[_builtins.str],
                  version: pulumi.Input[_builtins.str],
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 azure_availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 management: Optional[pulumi.Input['AzureNodePoolManagementArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 azure_availability_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 management: pulumi.Input[Optional['AzureNodePoolManagementArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AzureNodePool resource.
 
@@ -48,6 +49,12 @@ class AzureNodePoolArgs:
                **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
                Please refer to the field `effective_annotations` for all of the annotations present on the resource.
         :param pulumi.Input[_builtins.str] azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to `1`.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['AzureNodePoolManagementArgs'] management: The Management configuration for this node pool.
         :param pulumi.Input[_builtins.str] name: The name of this resource.
         :param pulumi.Input[_builtins.str] project: The project for the resource
@@ -63,6 +70,8 @@ class AzureNodePoolArgs:
             pulumi.set(__self__, "annotations", annotations)
         if azure_availability_zone is not None:
             pulumi.set(__self__, "azure_availability_zone", azure_availability_zone)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if management is not None:
             pulumi.set(__self__, "management", management)
         if name is not None:
@@ -156,7 +165,7 @@ class AzureNodePoolArgs:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between.
 
@@ -166,80 +175,98 @@ class AzureNodePoolArgs:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter(name="azureAvailabilityZone")
-    def azure_availability_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def azure_availability_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to `1`.
         """
         return pulumi.get(self, "azure_availability_zone")
 
     @azure_availability_zone.setter
-    def azure_availability_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def azure_availability_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "azure_availability_zone", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def management(self) -> Optional[pulumi.Input['AzureNodePoolManagementArgs']]:
+    def management(self) -> pulumi.Input[Optional['AzureNodePoolManagementArgs']]:
         """
         The Management configuration for this node pool.
         """
         return pulumi.get(self, "management")
 
     @management.setter
-    def management(self, value: Optional[pulumi.Input['AzureNodePoolManagementArgs']]):
+    def management(self, value: pulumi.Input[Optional['AzureNodePoolManagementArgs']]):
         pulumi.set(self, "management", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AzureNodePoolState:
     def __init__(__self__, *,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 autoscaling: Optional[pulumi.Input['AzureNodePoolAutoscalingArgs']] = None,
-                 azure_availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input['AzureNodePoolConfigArgs']] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 etag: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 management: Optional[pulumi.Input['AzureNodePoolManagementArgs']] = None,
-                 max_pods_constraint: Optional[pulumi.Input['AzureNodePoolMaxPodsConstraintArgs']] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 uid: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 version: Optional[pulumi.Input[_builtins.str]] = None):
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 autoscaling: pulumi.Input[Optional['AzureNodePoolAutoscalingArgs']] = None,
+                 azure_availability_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional['AzureNodePoolConfigArgs']] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 etag: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 management: pulumi.Input[Optional['AzureNodePoolManagementArgs']] = None,
+                 max_pods_constraint: pulumi.Input[Optional['AzureNodePoolMaxPodsConstraintArgs']] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnet_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 uid: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 version: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AzureNodePool resources.
 
@@ -252,6 +279,12 @@ class _AzureNodePoolState:
         :param pulumi.Input[_builtins.str] cluster: The azureCluster for the resource
         :param pulumi.Input['AzureNodePoolConfigArgs'] config: The node configuration of the node pool.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this node pool was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] etag: Allows clients to perform consistent read-modify-writes through optimistic concurrency control. May be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.
         :param pulumi.Input[_builtins.str] location: The location for the resource
@@ -278,6 +311,8 @@ class _AzureNodePoolState:
             pulumi.set(__self__, "config", config)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_annotations is not None:
             pulumi.set(__self__, "effective_annotations", effective_annotations)
         if etag is not None:
@@ -307,7 +342,7 @@ class _AzureNodePoolState:
 
     @_builtins.property
     @pulumi.getter
-    def annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Optional. Annotations on the node pool. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Keys can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between.
 
@@ -317,223 +352,240 @@ class _AzureNodePoolState:
         return pulumi.get(self, "annotations")
 
     @annotations.setter
-    def annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def autoscaling(self) -> Optional[pulumi.Input['AzureNodePoolAutoscalingArgs']]:
+    def autoscaling(self) -> pulumi.Input[Optional['AzureNodePoolAutoscalingArgs']]:
         """
         Autoscaler configuration for this node pool.
         """
         return pulumi.get(self, "autoscaling")
 
     @autoscaling.setter
-    def autoscaling(self, value: Optional[pulumi.Input['AzureNodePoolAutoscalingArgs']]):
+    def autoscaling(self, value: pulumi.Input[Optional['AzureNodePoolAutoscalingArgs']]):
         pulumi.set(self, "autoscaling", value)
 
     @_builtins.property
     @pulumi.getter(name="azureAvailabilityZone")
-    def azure_availability_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def azure_availability_zone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to `1`.
         """
         return pulumi.get(self, "azure_availability_zone")
 
     @azure_availability_zone.setter
-    def azure_availability_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def azure_availability_zone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "azure_availability_zone", value)
 
     @_builtins.property
     @pulumi.getter
-    def cluster(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def cluster(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The azureCluster for the resource
         """
         return pulumi.get(self, "cluster")
 
     @cluster.setter
-    def cluster(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def cluster(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "cluster", value)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> Optional[pulumi.Input['AzureNodePoolConfigArgs']]:
+    def config(self) -> pulumi.Input[Optional['AzureNodePoolConfigArgs']]:
         """
         The node configuration of the node pool.
         """
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: Optional[pulumi.Input['AzureNodePoolConfigArgs']]):
+    def config(self, value: pulumi.Input[Optional['AzureNodePoolConfigArgs']]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this node pool was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")
-    def effective_annotations(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_annotations(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         """
         return pulumi.get(self, "effective_annotations")
 
     @effective_annotations.setter
-    def effective_annotations(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_annotations(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_annotations", value)
 
     @_builtins.property
     @pulumi.getter
-    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def etag(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Allows clients to perform consistent read-modify-writes through optimistic concurrency control. May be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.
         """
         return pulumi.get(self, "etag")
 
     @etag.setter
-    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def etag(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location for the resource
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def management(self) -> Optional[pulumi.Input['AzureNodePoolManagementArgs']]:
+    def management(self) -> pulumi.Input[Optional['AzureNodePoolManagementArgs']]:
         """
         The Management configuration for this node pool.
         """
         return pulumi.get(self, "management")
 
     @management.setter
-    def management(self, value: Optional[pulumi.Input['AzureNodePoolManagementArgs']]):
+    def management(self, value: pulumi.Input[Optional['AzureNodePoolManagementArgs']]):
         pulumi.set(self, "management", value)
 
     @_builtins.property
     @pulumi.getter(name="maxPodsConstraint")
-    def max_pods_constraint(self) -> Optional[pulumi.Input['AzureNodePoolMaxPodsConstraintArgs']]:
+    def max_pods_constraint(self) -> pulumi.Input[Optional['AzureNodePoolMaxPodsConstraintArgs']]:
         """
         The constraint on the maximum number of pods that can be run simultaneously on a node in the node pool.
         """
         return pulumi.get(self, "max_pods_constraint")
 
     @max_pods_constraint.setter
-    def max_pods_constraint(self, value: Optional[pulumi.Input['AzureNodePoolMaxPodsConstraintArgs']]):
+    def max_pods_constraint(self, value: pulumi.Input[Optional['AzureNodePoolMaxPodsConstraintArgs']]):
         pulumi.set(self, "max_pods_constraint", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resource.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The project for the resource
         """
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def reconciling(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def reconciling(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Output only. If set, there are currently pending changes to the node pool.
         """
         return pulumi.get(self, "reconciling")
 
     @reconciling.setter
-    def reconciling(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def reconciling(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "reconciling", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The current state of the node pool. Possible values: STATE_UNSPECIFIED, PROVISIONING, RUNNING, RECONCILING, STOPPING, ERROR, DEGRADED
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
-    def subnet_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def subnet_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ARM ID of the subnet where the node pool VMs run. Make sure it's a subnet under the virtual network in the cluster configuration.
         """
         return pulumi.get(self, "subnet_id")
 
     @subnet_id.setter
-    def subnet_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def subnet_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "subnet_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def uid(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def uid(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. A globally unique identifier for the node pool.
         """
         return pulumi.get(self, "uid")
 
     @uid.setter
-    def uid(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def uid(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uid", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this node pool was last updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The Kubernetes version (e.g. `1.19.10-gke.1000`) running on this node pool.
         """
         return pulumi.get(self, "version")
 
     @version.setter
-    def version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "version", value)
 
 
@@ -543,18 +595,19 @@ class AzureNodePool(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 autoscaling: Optional[pulumi.Input[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
-                 azure_availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 management: Optional[pulumi.Input[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
-                 max_pods_constraint: Optional[pulumi.Input[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 version: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 autoscaling: pulumi.Input[Optional[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
+                 azure_availability_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 management: pulumi.Input[Optional[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
+                 max_pods_constraint: pulumi.Input[Optional[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnet_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 version: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         An Anthos node pool running on Azure.
@@ -671,6 +724,12 @@ class AzureNodePool(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] azure_availability_zone: Optional. The Azure availability zone of the nodes in this nodepool. When unspecified, it defaults to `1`.
         :param pulumi.Input[_builtins.str] cluster: The azureCluster for the resource
         :param pulumi.Input[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']] config: The node configuration of the node pool.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] location: The location for the resource
         :param pulumi.Input[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']] management: The Management configuration for this node pool.
         :param pulumi.Input[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']] max_pods_constraint: The constraint on the maximum number of pods that can be run simultaneously on a node in the node pool.
@@ -805,18 +864,19 @@ class AzureNodePool(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 autoscaling: Optional[pulumi.Input[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
-                 azure_availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster: Optional[pulumi.Input[_builtins.str]] = None,
-                 config: Optional[pulumi.Input[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 management: Optional[pulumi.Input[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
-                 max_pods_constraint: Optional[pulumi.Input[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 version: Optional[pulumi.Input[_builtins.str]] = None,
+                 annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 autoscaling: pulumi.Input[Optional[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
+                 azure_availability_zone: pulumi.Input[Optional[_builtins.str]] = None,
+                 cluster: pulumi.Input[Optional[_builtins.str]] = None,
+                 config: pulumi.Input[Optional[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 management: pulumi.Input[Optional[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
+                 max_pods_constraint: pulumi.Input[Optional[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 subnet_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 version: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -837,6 +897,7 @@ class AzureNodePool(pulumi.CustomResource):
             if config is None and not opts.urn:
                 raise TypeError("Missing required property 'config'")
             __props__.__dict__["config"] = config
+            __props__.__dict__["deletion_policy"] = deletion_policy
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
@@ -869,25 +930,26 @@ class AzureNodePool(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            autoscaling: Optional[pulumi.Input[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
-            azure_availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
-            cluster: Optional[pulumi.Input[_builtins.str]] = None,
-            config: Optional[pulumi.Input[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            effective_annotations: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            etag: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            management: Optional[pulumi.Input[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
-            max_pods_constraint: Optional[pulumi.Input[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            reconciling: Optional[pulumi.Input[_builtins.bool]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
-            uid: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None,
-            version: Optional[pulumi.Input[_builtins.str]] = None) -> 'AzureNodePool':
+            annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            autoscaling: pulumi.Input[Optional[Union['AzureNodePoolAutoscalingArgs', 'AzureNodePoolAutoscalingArgsDict']]] = None,
+            azure_availability_zone: pulumi.Input[Optional[_builtins.str]] = None,
+            cluster: pulumi.Input[Optional[_builtins.str]] = None,
+            config: pulumi.Input[Optional[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_annotations: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            management: pulumi.Input[Optional[Union['AzureNodePoolManagementArgs', 'AzureNodePoolManagementArgsDict']]] = None,
+            max_pods_constraint: pulumi.Input[Optional[Union['AzureNodePoolMaxPodsConstraintArgs', 'AzureNodePoolMaxPodsConstraintArgsDict']]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            reconciling: pulumi.Input[Optional[_builtins.bool]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            subnet_id: pulumi.Input[Optional[_builtins.str]] = None,
+            uid: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None,
+            version: pulumi.Input[Optional[_builtins.str]] = None) -> 'AzureNodePool':
         """
         Get an existing AzureNodePool resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -904,6 +966,12 @@ class AzureNodePool(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] cluster: The azureCluster for the resource
         :param pulumi.Input[Union['AzureNodePoolConfigArgs', 'AzureNodePoolConfigArgsDict']] config: The node configuration of the node pool.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this node pool was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_annotations: All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
         :param pulumi.Input[_builtins.str] etag: Allows clients to perform consistent read-modify-writes through optimistic concurrency control. May be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.
         :param pulumi.Input[_builtins.str] location: The location for the resource
@@ -928,6 +996,7 @@ class AzureNodePool(pulumi.CustomResource):
         __props__.__dict__["cluster"] = cluster
         __props__.__dict__["config"] = config
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_annotations"] = effective_annotations
         __props__.__dict__["etag"] = etag
         __props__.__dict__["location"] = location
@@ -993,6 +1062,19 @@ class AzureNodePool(pulumi.CustomResource):
         Output only. The time at which this node pool was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to "DELETE".
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAnnotations")

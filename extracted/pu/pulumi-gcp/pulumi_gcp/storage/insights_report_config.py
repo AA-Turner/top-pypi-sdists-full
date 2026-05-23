@@ -22,13 +22,14 @@ __all__ = ['InsightsReportConfigArgs', 'InsightsReportConfig']
 class InsightsReportConfigArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
-                 csv_options: Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 frequency_options: Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']] = None,
-                 object_metadata_report_options: Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']] = None,
-                 parquet_options: Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 csv_options: pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 frequency_options: pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']] = None,
+                 object_metadata_report_options: pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']] = None,
+                 parquet_options: pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a InsightsReportConfig resource.
 
@@ -36,6 +37,12 @@ class InsightsReportConfigArgs:
                must be in the same location.
         :param pulumi.Input['InsightsReportConfigCsvOptionsArgs'] csv_options: Options for configuring the format of the inventory report CSV file.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         :param pulumi.Input[_builtins.bool] force_destroy: If set, all the inventory report details associated with this report configuration are deleted.
         :param pulumi.Input['InsightsReportConfigFrequencyOptionsArgs'] frequency_options: Options for configuring how inventory reports are generated.
@@ -49,6 +56,8 @@ class InsightsReportConfigArgs:
         pulumi.set(__self__, "location", location)
         if csv_options is not None:
             pulumi.set(__self__, "csv_options", csv_options)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if force_destroy is not None:
@@ -77,7 +86,7 @@ class InsightsReportConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="csvOptions")
-    def csv_options(self) -> Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']]:
+    def csv_options(self) -> pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']]:
         """
         Options for configuring the format of the inventory report CSV file.
         Structure is documented below.
@@ -85,36 +94,53 @@ class InsightsReportConfigArgs:
         return pulumi.get(self, "csv_options")
 
     @csv_options.setter
-    def csv_options(self, value: Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']]):
+    def csv_options(self, value: pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']]):
         pulumi.set(self, "csv_options", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="forceDestroy")
-    def force_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def force_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set, all the inventory report details associated with this report configuration are deleted.
         """
         return pulumi.get(self, "force_destroy")
 
     @force_destroy.setter
-    def force_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def force_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "force_destroy", value)
 
     @_builtins.property
     @pulumi.getter(name="frequencyOptions")
-    def frequency_options(self) -> Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']]:
+    def frequency_options(self) -> pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']]:
         """
         Options for configuring how inventory reports are generated.
         Structure is documented below.
@@ -122,12 +148,12 @@ class InsightsReportConfigArgs:
         return pulumi.get(self, "frequency_options")
 
     @frequency_options.setter
-    def frequency_options(self, value: Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']]):
+    def frequency_options(self, value: pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']]):
         pulumi.set(self, "frequency_options", value)
 
     @_builtins.property
     @pulumi.getter(name="objectMetadataReportOptions")
-    def object_metadata_report_options(self) -> Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']]:
+    def object_metadata_report_options(self) -> pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']]:
         """
         Options for including metadata in an inventory report.
         Structure is documented below.
@@ -135,24 +161,24 @@ class InsightsReportConfigArgs:
         return pulumi.get(self, "object_metadata_report_options")
 
     @object_metadata_report_options.setter
-    def object_metadata_report_options(self, value: Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']]):
+    def object_metadata_report_options(self, value: pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']]):
         pulumi.set(self, "object_metadata_report_options", value)
 
     @_builtins.property
     @pulumi.getter(name="parquetOptions")
-    def parquet_options(self) -> Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']]:
+    def parquet_options(self) -> pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']]:
         """
         An option for outputting inventory reports as parquet files.
         """
         return pulumi.get(self, "parquet_options")
 
     @parquet_options.setter
-    def parquet_options(self, value: Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']]):
+    def parquet_options(self, value: pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']]):
         pulumi.set(self, "parquet_options", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -160,27 +186,34 @@ class InsightsReportConfigArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _InsightsReportConfigState:
     def __init__(__self__, *,
-                 csv_options: Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 frequency_options: Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 object_metadata_report_options: Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']] = None,
-                 parquet_options: Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 csv_options: pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 frequency_options: pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 object_metadata_report_options: pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']] = None,
+                 parquet_options: pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering InsightsReportConfig resources.
 
         :param pulumi.Input['InsightsReportConfigCsvOptionsArgs'] csv_options: Options for configuring the format of the inventory report CSV file.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         :param pulumi.Input[_builtins.bool] force_destroy: If set, all the inventory report details associated with this report configuration are deleted.
         :param pulumi.Input['InsightsReportConfigFrequencyOptionsArgs'] frequency_options: Options for configuring how inventory reports are generated.
@@ -196,6 +229,8 @@ class _InsightsReportConfigState:
         """
         if csv_options is not None:
             pulumi.set(__self__, "csv_options", csv_options)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if force_destroy is not None:
@@ -215,7 +250,7 @@ class _InsightsReportConfigState:
 
     @_builtins.property
     @pulumi.getter(name="csvOptions")
-    def csv_options(self) -> Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']]:
+    def csv_options(self) -> pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']]:
         """
         Options for configuring the format of the inventory report CSV file.
         Structure is documented below.
@@ -223,36 +258,53 @@ class _InsightsReportConfigState:
         return pulumi.get(self, "csv_options")
 
     @csv_options.setter
-    def csv_options(self, value: Optional[pulumi.Input['InsightsReportConfigCsvOptionsArgs']]):
+    def csv_options(self, value: pulumi.Input[Optional['InsightsReportConfigCsvOptionsArgs']]):
         pulumi.set(self, "csv_options", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="forceDestroy")
-    def force_destroy(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def force_destroy(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If set, all the inventory report details associated with this report configuration are deleted.
         """
         return pulumi.get(self, "force_destroy")
 
     @force_destroy.setter
-    def force_destroy(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def force_destroy(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "force_destroy", value)
 
     @_builtins.property
     @pulumi.getter(name="frequencyOptions")
-    def frequency_options(self) -> Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']]:
+    def frequency_options(self) -> pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']]:
         """
         Options for configuring how inventory reports are generated.
         Structure is documented below.
@@ -260,12 +312,12 @@ class _InsightsReportConfigState:
         return pulumi.get(self, "frequency_options")
 
     @frequency_options.setter
-    def frequency_options(self, value: Optional[pulumi.Input['InsightsReportConfigFrequencyOptionsArgs']]):
+    def frequency_options(self, value: pulumi.Input[Optional['InsightsReportConfigFrequencyOptionsArgs']]):
         pulumi.set(self, "frequency_options", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the ReportConfig. The source and destination buckets specified in the ReportConfig
         must be in the same location.
@@ -273,24 +325,24 @@ class _InsightsReportConfigState:
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The UUID of the inventory report configuration.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="objectMetadataReportOptions")
-    def object_metadata_report_options(self) -> Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']]:
+    def object_metadata_report_options(self) -> pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']]:
         """
         Options for including metadata in an inventory report.
         Structure is documented below.
@@ -298,24 +350,24 @@ class _InsightsReportConfigState:
         return pulumi.get(self, "object_metadata_report_options")
 
     @object_metadata_report_options.setter
-    def object_metadata_report_options(self, value: Optional[pulumi.Input['InsightsReportConfigObjectMetadataReportOptionsArgs']]):
+    def object_metadata_report_options(self, value: pulumi.Input[Optional['InsightsReportConfigObjectMetadataReportOptionsArgs']]):
         pulumi.set(self, "object_metadata_report_options", value)
 
     @_builtins.property
     @pulumi.getter(name="parquetOptions")
-    def parquet_options(self) -> Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']]:
+    def parquet_options(self) -> pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']]:
         """
         An option for outputting inventory reports as parquet files.
         """
         return pulumi.get(self, "parquet_options")
 
     @parquet_options.setter
-    def parquet_options(self, value: Optional[pulumi.Input['InsightsReportConfigParquetOptionsArgs']]):
+    def parquet_options(self, value: pulumi.Input[Optional['InsightsReportConfigParquetOptionsArgs']]):
         pulumi.set(self, "parquet_options", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -323,7 +375,7 @@ class _InsightsReportConfigState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
@@ -333,14 +385,15 @@ class InsightsReportConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 csv_options: Optional[pulumi.Input[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 frequency_options: Optional[pulumi.Input[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 object_metadata_report_options: Optional[pulumi.Input[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
-                 parquet_options: Optional[pulumi.Input[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 csv_options: pulumi.Input[Optional[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 frequency_options: pulumi.Input[Optional[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 object_metadata_report_options: pulumi.Input[Optional[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
+                 parquet_options: pulumi.Input[Optional[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Represents an inventory report configuration.
@@ -428,6 +481,12 @@ class InsightsReportConfig(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']] csv_options: Options for configuring the format of the inventory report CSV file.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         :param pulumi.Input[_builtins.bool] force_destroy: If set, all the inventory report details associated with this report configuration are deleted.
         :param pulumi.Input[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']] frequency_options: Options for configuring how inventory reports are generated.
@@ -543,14 +602,15 @@ class InsightsReportConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 csv_options: Optional[pulumi.Input[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-                 frequency_options: Optional[pulumi.Input[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 object_metadata_report_options: Optional[pulumi.Input[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
-                 parquet_options: Optional[pulumi.Input[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 csv_options: pulumi.Input[Optional[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+                 frequency_options: pulumi.Input[Optional[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 object_metadata_report_options: pulumi.Input[Optional[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
+                 parquet_options: pulumi.Input[Optional[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -561,6 +621,7 @@ class InsightsReportConfig(pulumi.CustomResource):
             __props__ = InsightsReportConfigArgs.__new__(InsightsReportConfigArgs)
 
             __props__.__dict__["csv_options"] = csv_options
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["force_destroy"] = force_destroy
             __props__.__dict__["frequency_options"] = frequency_options
@@ -581,15 +642,16 @@ class InsightsReportConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            csv_options: Optional[pulumi.Input[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
-            frequency_options: Optional[pulumi.Input[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            object_metadata_report_options: Optional[pulumi.Input[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
-            parquet_options: Optional[pulumi.Input[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None) -> 'InsightsReportConfig':
+            csv_options: pulumi.Input[Optional[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            frequency_options: pulumi.Input[Optional[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            object_metadata_report_options: pulumi.Input[Optional[Union['InsightsReportConfigObjectMetadataReportOptionsArgs', 'InsightsReportConfigObjectMetadataReportOptionsArgsDict']]] = None,
+            parquet_options: pulumi.Input[Optional[Union['InsightsReportConfigParquetOptionsArgs', 'InsightsReportConfigParquetOptionsArgsDict']]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None) -> 'InsightsReportConfig':
         """
         Get an existing InsightsReportConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -599,6 +661,12 @@ class InsightsReportConfig(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['InsightsReportConfigCsvOptionsArgs', 'InsightsReportConfigCsvOptionsArgsDict']] csv_options: Options for configuring the format of the inventory report CSV file.
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
         :param pulumi.Input[_builtins.bool] force_destroy: If set, all the inventory report details associated with this report configuration are deleted.
         :param pulumi.Input[Union['InsightsReportConfigFrequencyOptionsArgs', 'InsightsReportConfigFrequencyOptionsArgsDict']] frequency_options: Options for configuring how inventory reports are generated.
@@ -617,6 +685,7 @@ class InsightsReportConfig(pulumi.CustomResource):
         __props__ = _InsightsReportConfigState.__new__(_InsightsReportConfigState)
 
         __props__.__dict__["csv_options"] = csv_options
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["force_destroy"] = force_destroy
         __props__.__dict__["frequency_options"] = frequency_options
@@ -635,6 +704,19 @@ class InsightsReportConfig(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "csv_options")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

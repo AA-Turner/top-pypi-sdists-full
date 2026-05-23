@@ -20,20 +20,27 @@ __all__ = ['TlsInspectionPolicyArgs', 'TlsInspectionPolicy']
 class TlsInspectionPolicyArgs:
     def __init__(__self__, *,
                  ca_pool: pulumi.Input[_builtins.str],
-                 custom_tls_features: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 exclude_public_ca_set: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 min_tls_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_feature_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_config: Optional[pulumi.Input[_builtins.str]] = None):
+                 custom_tls_features: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 exclude_public_ca_set: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 min_tls_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_feature_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_config: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a TlsInspectionPolicy resource.
 
         :param pulumi.Input[_builtins.str] ca_pool: A CA pool resource used to issue interception certificates.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_tls_features: List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] exclude_public_ca_set: If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         :param pulumi.Input[_builtins.str] location: The location of the tls inspection policy.
@@ -51,6 +58,8 @@ class TlsInspectionPolicyArgs:
         pulumi.set(__self__, "ca_pool", ca_pool)
         if custom_tls_features is not None:
             pulumi.set(__self__, "custom_tls_features", custom_tls_features)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if exclude_public_ca_set is not None:
@@ -82,55 +91,72 @@ class TlsInspectionPolicyArgs:
 
     @_builtins.property
     @pulumi.getter(name="customTlsFeatures")
-    def custom_tls_features(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def custom_tls_features(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
         """
         return pulumi.get(self, "custom_tls_features")
 
     @custom_tls_features.setter
-    def custom_tls_features(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def custom_tls_features(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "custom_tls_features", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Free-text description of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="excludePublicCaSet")
-    def exclude_public_ca_set(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def exclude_public_ca_set(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         """
         return pulumi.get(self, "exclude_public_ca_set")
 
     @exclude_public_ca_set.setter
-    def exclude_public_ca_set(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def exclude_public_ca_set(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "exclude_public_ca_set", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the tls inspection policy.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="minTlsVersion")
-    def min_tls_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def min_tls_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Minimum TLS version that the firewall should use when negotiating connections with both clients and servers. If this is not set, then the default value is to allow the broadest set of clients and servers (TLS 1.0 or higher). Setting this to more restrictive values may improve security, but may also prevent the firewall from connecting to some clients or servers. Note that Secure Web Proxy does not yet honor this field.
         Default value is `TLS_VERSION_UNSPECIFIED`.
@@ -139,24 +165,24 @@ class TlsInspectionPolicyArgs:
         return pulumi.get(self, "min_tls_version")
 
     @min_tls_version.setter
-    def min_tls_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def min_tls_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "min_tls_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Short name of the TlsInspectionPolicy resource to be created.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -164,12 +190,12 @@ class TlsInspectionPolicyArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsFeatureProfile")
-    def tls_feature_profile(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def tls_feature_profile(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The selected Profile. If this is not set, then the default value is to allow the broadest set of clients and servers (\\"PROFILE_COMPATIBLE\\"). Setting this to more restrictive values may improve security, but may also prevent the TLS inspection proxy from connecting to some clients or servers. Note that Secure Web Proxy does not yet honor this field.
         Default value is `PROFILE_UNSPECIFIED`.
@@ -178,43 +204,50 @@ class TlsInspectionPolicyArgs:
         return pulumi.get(self, "tls_feature_profile")
 
     @tls_feature_profile.setter
-    def tls_feature_profile(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def tls_feature_profile(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "tls_feature_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="trustConfig")
-    def trust_config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def trust_config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A TrustConfig resource used when making a connection to the TLS server. This is a relative resource path following the form \\"projects/{project}/locations/{location}/trustConfigs/{trust_config}\\". This is necessary to intercept TLS connections to servers with certificates signed by a private CA or self-signed certificates. Trust config and the TLS inspection policy must be in the same region. Note that Secure Web Proxy does not yet honor this field.
         """
         return pulumi.get(self, "trust_config")
 
     @trust_config.setter
-    def trust_config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def trust_config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "trust_config", value)
 
 
 @pulumi.input_type
 class _TlsInspectionPolicyState:
     def __init__(__self__, *,
-                 ca_pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_tls_features: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 exclude_public_ca_set: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 min_tls_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_feature_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_config: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 ca_pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_tls_features: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 exclude_public_ca_set: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 min_tls_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_feature_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_config: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TlsInspectionPolicy resources.
 
         :param pulumi.Input[_builtins.str] ca_pool: A CA pool resource used to issue interception certificates.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_tls_features: List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] exclude_public_ca_set: If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         :param pulumi.Input[_builtins.str] location: The location of the tls inspection policy.
@@ -236,6 +269,8 @@ class _TlsInspectionPolicyState:
             pulumi.set(__self__, "create_time", create_time)
         if custom_tls_features is not None:
             pulumi.set(__self__, "custom_tls_features", custom_tls_features)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if exclude_public_ca_set is not None:
@@ -257,79 +292,96 @@ class _TlsInspectionPolicyState:
 
     @_builtins.property
     @pulumi.getter(name="caPool")
-    def ca_pool(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def ca_pool(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A CA pool resource used to issue interception certificates.
         """
         return pulumi.get(self, "ca_pool")
 
     @ca_pool.setter
-    def ca_pool(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def ca_pool(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ca_pool", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
     @pulumi.getter(name="customTlsFeatures")
-    def custom_tls_features(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def custom_tls_features(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
         """
         return pulumi.get(self, "custom_tls_features")
 
     @custom_tls_features.setter
-    def custom_tls_features(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def custom_tls_features(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "custom_tls_features", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Free-text description of the resource.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="excludePublicCaSet")
-    def exclude_public_ca_set(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def exclude_public_ca_set(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         """
         return pulumi.get(self, "exclude_public_ca_set")
 
     @exclude_public_ca_set.setter
-    def exclude_public_ca_set(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def exclude_public_ca_set(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "exclude_public_ca_set", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The location of the tls inspection policy.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter(name="minTlsVersion")
-    def min_tls_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def min_tls_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Minimum TLS version that the firewall should use when negotiating connections with both clients and servers. If this is not set, then the default value is to allow the broadest set of clients and servers (TLS 1.0 or higher). Setting this to more restrictive values may improve security, but may also prevent the firewall from connecting to some clients or servers. Note that Secure Web Proxy does not yet honor this field.
         Default value is `TLS_VERSION_UNSPECIFIED`.
@@ -338,24 +390,24 @@ class _TlsInspectionPolicyState:
         return pulumi.get(self, "min_tls_version")
 
     @min_tls_version.setter
-    def min_tls_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def min_tls_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "min_tls_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Short name of the TlsInspectionPolicy resource to be created.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -363,12 +415,12 @@ class _TlsInspectionPolicyState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="tlsFeatureProfile")
-    def tls_feature_profile(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def tls_feature_profile(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The selected Profile. If this is not set, then the default value is to allow the broadest set of clients and servers (\\"PROFILE_COMPATIBLE\\"). Setting this to more restrictive values may improve security, but may also prevent the TLS inspection proxy from connecting to some clients or servers. Note that Secure Web Proxy does not yet honor this field.
         Default value is `PROFILE_UNSPECIFIED`.
@@ -377,31 +429,31 @@ class _TlsInspectionPolicyState:
         return pulumi.get(self, "tls_feature_profile")
 
     @tls_feature_profile.setter
-    def tls_feature_profile(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def tls_feature_profile(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "tls_feature_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="trustConfig")
-    def trust_config(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def trust_config(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A TrustConfig resource used when making a connection to the TLS server. This is a relative resource path following the form \\"projects/{project}/locations/{location}/trustConfigs/{trust_config}\\". This is necessary to intercept TLS connections to servers with certificates signed by a private CA or self-signed certificates. Trust config and the TLS inspection policy must be in the same region. Note that Secure Web Proxy does not yet honor this field.
         """
         return pulumi.get(self, "trust_config")
 
     @trust_config.setter
-    def trust_config(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def trust_config(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "trust_config", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timestamp when the resource was updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -411,16 +463,17 @@ class TlsInspectionPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ca_pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_tls_features: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 exclude_public_ca_set: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 min_tls_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_feature_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_config: Optional[pulumi.Input[_builtins.str]] = None,
+                 ca_pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_tls_features: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 exclude_public_ca_set: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 min_tls_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_feature_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_config: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The TlsInspectionPolicy resource contains references to CA pools in Certificate Authority Service and associated metadata.
@@ -643,6 +696,12 @@ class TlsInspectionPolicy(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] ca_pool: A CA pool resource used to issue interception certificates.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_tls_features: List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] exclude_public_ca_set: If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         :param pulumi.Input[_builtins.str] location: The location of the tls inspection policy.
@@ -895,16 +954,17 @@ class TlsInspectionPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ca_pool: Optional[pulumi.Input[_builtins.str]] = None,
-                 custom_tls_features: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 exclude_public_ca_set: Optional[pulumi.Input[_builtins.bool]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 min_tls_version: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 tls_feature_profile: Optional[pulumi.Input[_builtins.str]] = None,
-                 trust_config: Optional[pulumi.Input[_builtins.str]] = None,
+                 ca_pool: pulumi.Input[Optional[_builtins.str]] = None,
+                 custom_tls_features: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 exclude_public_ca_set: pulumi.Input[Optional[_builtins.bool]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 min_tls_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 tls_feature_profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 trust_config: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -918,6 +978,7 @@ class TlsInspectionPolicy(pulumi.CustomResource):
                 raise TypeError("Missing required property 'ca_pool'")
             __props__.__dict__["ca_pool"] = ca_pool
             __props__.__dict__["custom_tls_features"] = custom_tls_features
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             __props__.__dict__["exclude_public_ca_set"] = exclude_public_ca_set
             __props__.__dict__["location"] = location
@@ -938,18 +999,19 @@ class TlsInspectionPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            ca_pool: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            custom_tls_features: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            exclude_public_ca_set: Optional[pulumi.Input[_builtins.bool]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            min_tls_version: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            tls_feature_profile: Optional[pulumi.Input[_builtins.str]] = None,
-            trust_config: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'TlsInspectionPolicy':
+            ca_pool: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            custom_tls_features: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            exclude_public_ca_set: pulumi.Input[Optional[_builtins.bool]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            min_tls_version: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            tls_feature_profile: pulumi.Input[Optional[_builtins.str]] = None,
+            trust_config: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'TlsInspectionPolicy':
         """
         Get an existing TlsInspectionPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -960,6 +1022,12 @@ class TlsInspectionPolicy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] ca_pool: A CA pool resource used to issue interception certificates.
         :param pulumi.Input[_builtins.str] create_time: The timestamp when the resource was created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_tls_features: List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: Free-text description of the resource.
         :param pulumi.Input[_builtins.bool] exclude_public_ca_set: If FALSE (the default), use our default set of public CAs in addition to any CAs specified in trustConfig. These public CAs are currently based on the Mozilla Root Program and are subject to change over time. If TRUE, do not accept our default set of public CAs. Only CAs specified in trustConfig will be accepted.
         :param pulumi.Input[_builtins.str] location: The location of the tls inspection policy.
@@ -982,6 +1050,7 @@ class TlsInspectionPolicy(pulumi.CustomResource):
         __props__.__dict__["ca_pool"] = ca_pool
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["custom_tls_features"] = custom_tls_features
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["exclude_public_ca_set"] = exclude_public_ca_set
         __props__.__dict__["location"] = location
@@ -1016,6 +1085,19 @@ class TlsInspectionPolicy(pulumi.CustomResource):
         List of custom TLS cipher suites selected. This field is valid only if the selected tls_feature_profile is CUSTOM. The compute.SslPoliciesService.ListAvailableFeatures method returns the set of features that can be specified in this list. Note that Secure Web Proxy does not yet honor this field.
         """
         return pulumi.get(self, "custom_tls_features")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

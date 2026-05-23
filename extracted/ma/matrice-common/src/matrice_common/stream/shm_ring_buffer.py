@@ -26,6 +26,8 @@ Version History:
          torn frame detection, 2-file layout, page alignment)
 """
 
+from __future__ import annotations
+
 __version__ = "2.0.0"
 
 import logging
@@ -35,7 +37,13 @@ import struct
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
+try:
+    import numpy as np
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -575,8 +583,8 @@ class ShmRingBuffer:
             self._frames_fd = os.open(self.frames_shm_path, os.O_RDONLY)
             self._frames_mmap = mmap.mmap(self._frames_fd, self.frames_size, MAP_SHARED, PROT_READ)
 
-            # Create numpy view of frame data
-            if self.height > 0 and self.width > 0 and self.channels > 0:
+            # Create numpy view of frame data (only when numpy is available)
+            if NUMPY_AVAILABLE and self.height > 0 and self.width > 0 and self.channels > 0:
                 try:
                     self._frames_np = np.ndarray(
                         shape=(self.num_slots, self.height, self.width, self.channels),
@@ -586,6 +594,8 @@ class ShmRingBuffer:
                 except ValueError:
                     # Shape doesn't match mmap size (page-aligned), skip numpy view
                     self._frames_np = None
+            else:
+                self._frames_np = None
 
             self._initialized = True
             logger.info(f"[SHM] Consumer connected: {self.camera_id}")
@@ -726,7 +736,7 @@ class ShmRingBuffer:
         # Convert to bytes
         if CUPY_AVAILABLE and cp is not None and isinstance(raw_data, cp.ndarray):
             raw_bytes = raw_data.tobytes()
-        elif isinstance(raw_data, np.ndarray):
+        elif NUMPY_AVAILABLE and np is not None and isinstance(raw_data, np.ndarray):
             if raw_data.flags["C_CONTIGUOUS"]:
                 raw_mv = memoryview(raw_data.data).cast("B")
             else:
@@ -793,7 +803,7 @@ class ShmRingBuffer:
         # Convert to bytes
         if CUPY_AVAILABLE and cp is not None and isinstance(gpu_frame, cp.ndarray):
             frame_bytes = gpu_frame.tobytes()
-        elif isinstance(gpu_frame, np.ndarray):
+        elif NUMPY_AVAILABLE and np is not None and isinstance(gpu_frame, np.ndarray):
             frame_bytes = gpu_frame.tobytes()
         else:
             frame_bytes = bytes(gpu_frame)
@@ -1284,8 +1294,15 @@ class ShmRingBuffer:
 # =============================================================================
 
 
-def bgr_to_nv12(bgr_frame: np.ndarray) -> bytes:
+def _require_numpy() -> None:
+    """Raise ImportError if numpy isn't installed (for runtime-only helpers)."""
+    if not NUMPY_AVAILABLE:
+        raise ImportError("numpy is required for this operation but is not installed. Install with: pip install numpy")
+
+
+def bgr_to_nv12(bgr_frame: "np.ndarray") -> bytes:
     """Convert BGR frame to NV12 format."""
+    _require_numpy()
     import cv2
 
     height, width = bgr_frame.shape[:2]
@@ -1295,14 +1312,15 @@ def bgr_to_nv12(bgr_frame: np.ndarray) -> bytes:
     y_plane = yuv_i420[:y_end, :].flatten()
     u_plane = yuv_i420[y_end:u_end, :].flatten()
     v_plane = yuv_i420[u_end:, :].flatten()
-    uv_interleaved: np.ndarray = np.empty(len(u_plane) * 2, dtype=np.uint8)
+    uv_interleaved = np.empty(len(u_plane) * 2, dtype=np.uint8)
     uv_interleaved[0::2] = u_plane
     uv_interleaved[1::2] = v_plane
     return np.concatenate([y_plane, uv_interleaved]).tobytes()
 
 
-def nv12_to_bgr(nv12_bytes: bytes, width: int, height: int) -> np.ndarray:
+def nv12_to_bgr(nv12_bytes: bytes, width: int, height: int) -> "np.ndarray":
     """Convert NV12 bytes to BGR frame."""
+    _require_numpy()
     import cv2
 
     expected = int(width * height * 1.5)
@@ -1312,8 +1330,9 @@ def nv12_to_bgr(nv12_bytes: bytes, width: int, height: int) -> np.ndarray:
     return cv2.cvtColor(nv12_array, cv2.COLOR_YUV2BGR_NV12)
 
 
-def rgb_to_nv12(rgb_frame: np.ndarray) -> bytes:
+def rgb_to_nv12(rgb_frame: "np.ndarray") -> bytes:
     """Convert RGB frame to NV12 format."""
+    _require_numpy()
     import cv2
 
     return bgr_to_nv12(cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR))

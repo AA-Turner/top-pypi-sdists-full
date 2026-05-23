@@ -21,7 +21,9 @@ import comet_ml.api
 import comet_ml.system.gpu.gpu_logging
 
 import ray
-from ray.air import session
+import ray.train
+
+from ...constants import OTHER_KEY_CREATED_FROM
 
 LOGGER = logging.getLogger(__file__)
 
@@ -68,9 +70,8 @@ def comet_worker_logger(
             yield experiment
             return
 
-        _setup_environment()
-
         try:
+            _setup_environment()
             experiment_config_kwargs = {
                 "log_env_gpu": True,
                 "log_env_cpu": True,
@@ -93,6 +94,7 @@ def comet_worker_logger(
                 online=online,
                 mode=mode,
             )
+            _preserve_driver_created_from_stamp(experiment)
         except Exception:
             LOGGER.warning(
                 "Internal error occurred when creating experiment object."
@@ -142,5 +144,47 @@ def _prepare_experiment_kwargs_for_passing_to_experiment_config(
 
 
 def _setup_environment() -> None:
-    os.environ["COMET_DISTRIBUTED_NODE_IDENTIFIER"] = str(session.get_world_rank())
+    os.environ["COMET_DISTRIBUTED_NODE_IDENTIFIER"] = str(_get_world_rank())
     comet_ml.system.gpu.gpu_logging.set_devices_to_report(ray.get_gpu_ids())
+
+
+def _preserve_driver_created_from_stamp(experiment: Any) -> None:
+    # ``CometTrainLoggerCallback.__init__`` stamps ``Created from = Ray`` on
+    # the shared experiment from the driver process. The worker reconnects
+    # to that experiment here, and during training the auto-loggers of
+    # frameworks like PyTorch register themselves in ``experiment._frameworks``
+    # via ``_track_framework_usage``. On ``experiment.end()`` (fired from
+    # this context manager's ``finally``), ``CometExperiment._clean_experiment``
+    # iterates that set and re-stamps ``Created from = <framework>`` for each
+    # one — the last write wins on the backend, so the driver's ``Ray`` stamp
+    # gets clobbered by whatever framework name sorts last (``pytorch`` under
+    # this distributed-training setup). The iteration emits each re-stamp via
+    # ``_log_other(..., framework="comet", ...)``, which short-circuits when
+    # ``"comet:<key>"`` is in ``autolog_others_ignore``. Marking the
+    # ``Created from`` other as ignored for the ``comet`` pseudo-framework
+    # makes that loop a no-op on the worker's connection, preserving the
+    # driver's ``Ray`` stamp.
+    try:
+        experiment.autolog_others_ignore.add("comet:%s" % OTHER_KEY_CREATED_FROM)
+    except AttributeError:
+        # Disabled experiments and other non-standard handles may not expose
+        # the ignore set. The override only matters when the framework loop
+        # would actually fire, so swallowing this is safe.
+        LOGGER.debug(
+            "Could not register %r in autolog_others_ignore on worker experiment",
+            OTHER_KEY_CREATED_FROM,
+            exc_info=True,
+        )
+
+
+def _get_world_rank() -> int:
+    # ``ray.train.get_context()`` works on both Ray Train V1 and V2; the
+    # legacy ``ray.air.session.get_world_rank()`` raises under V2 because the
+    # Tune session is no longer initialised. We deliberately let the exception
+    # propagate when there is no Train context — ``comet_worker_logger`` wraps
+    # this call in the same try/except that protects ``comet_ml.start()`` and
+    # yields a disabled experiment on failure. Defaulting to 0 here would
+    # collide every non-Train worker's per-rank GPU and system-metric stream
+    # onto a single identifier, which defeats the purpose of stamping the
+    # rank in the first place.
+    return ray.train.get_context().get_world_rank()

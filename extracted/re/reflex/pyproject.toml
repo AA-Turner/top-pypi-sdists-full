@@ -33,7 +33,7 @@ dependencies = [
   "starlette >=0.47.0",
   "typing_extensions >=4.13.0",
   "wrapt >=1.17.0,<3.0",
-  "reflex-base == 0.9.2.post1",
+  "reflex-base == 0.9.3",
   "reflex-components-code >= 0.9.0",
   "reflex-components-core >= 0.9.0",
   "reflex-components-dataeditor >= 0.9.0",
@@ -256,7 +256,7 @@ asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 
 [tool.codespell]
-skip = "*.html, examples, *.pyi, */nba.csv, */olympic-winners.json, uv.lock, node_modules"
+skip = "*.html, examples, *.pyi, */nba.csv, */olympic-winners.json, uv.lock, */bun.lock, node_modules"
 ignore-words-list = "te, TreeE, selectin"
 
 

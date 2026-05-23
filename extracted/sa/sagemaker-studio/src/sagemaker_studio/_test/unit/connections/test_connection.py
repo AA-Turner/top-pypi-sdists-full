@@ -1304,3 +1304,121 @@ class TestConnection(unittest.TestCase):
         self.assertTrue(connection.physical_endpoints[0].enable_trusted_identity_propagation)
         self.assertEqual(connection.physical_endpoints[0].aws_account_id, "123456789012")
         self.assertEqual(connection.physical_endpoints[0].aws_region, "us-east-1")
+
+
+class TestSparkCatalogConfigs(unittest.TestCase):
+    """Tests for Connection._spark_catalog_configs."""
+
+    def setUp(self):
+        self.original_modules = dict(sys.modules)
+        self.mock_glue_lib = Mock()
+        sys.modules["sagemaker_studio.connections.glue_connection_lib"] = self.mock_glue_lib
+
+        self.dz_api_mock = Mock()
+        self.dz_api_mock.get_connection.return_value = {
+            "connectionCredentials": {
+                "AccessKeyId": "ak",
+                "SecretAccessKey": "sk",
+                "SessionToken": "st",
+                "expiration": datetime.today().isoformat(),
+            }
+        }
+        self.glue_mock = Mock()
+        self.glue_mock.meta = Mock()
+        self.glue_mock.meta.endpoint_url = "https://example.com"
+        self.glue_mock.meta.region_name = "us-east-1"
+        self.secrets_manager_mock = Mock()
+        self.secrets_manager_mock.meta = Mock()
+        self.secrets_manager_mock.meta.endpoint_url = "https://example.com"
+        self.secrets_manager_mock.meta.region_name = "us-east-1"
+        self.kms_mock = Mock()
+        self.kms_mock.meta = Mock()
+        self.kms_mock.meta.endpoint_url = "https://example.com"
+        self.kms_mock.meta.region_name = "us-east-1"
+
+    def tearDown(self):
+        sys.modules.clear()
+        sys.modules.update(self.original_modules)
+
+    def _make_connection(self, conn_type, glue_connection_name=None):
+        connection_data = {
+            "connectionId": "conn123",
+            "name": "test_conn",
+            "type": conn_type,
+            "connectionCredentials": {
+                "accessKeyId": "ak",
+                "secretAccessKey": "sk",
+                "sessionToken": "st",
+                "expiration": datetime.today().isoformat(),
+            },
+            "physicalEndpoints": (
+                [
+                    {
+                        "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-east-1"},
+                        "glueConnectionName": glue_connection_name,
+                    }
+                ]
+                if glue_connection_name
+                else []
+            ),
+        }
+        return Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+    def test_unsupported_type_raises_attribute_error(self):
+        conn = self._make_connection("ATHENA")
+        with self.assertRaises(AttributeError) as cm:
+            conn._spark_catalog_configs()
+        self.assertIn("not supported", str(cm.exception))
+
+    def test_none_type_raises_attribute_error(self):
+        conn = self._make_connection(None)
+        with self.assertRaises(AttributeError):
+            conn._spark_catalog_configs()
+
+    def test_no_physical_endpoints_returns_none(self):
+        conn = self._make_connection("WORKDAYICEBERGRESTCATALOG")
+        # physical_endpoints is empty list, so condition fails
+        result = conn._spark_catalog_configs()
+        self.assertIsNone(result)
+
+    @patch(
+        "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"
+    )
+    def test_success_returns_catalog_configs(self, mock_get_client):
+        mock_get_client.return_value = Mock()
+        conn = self._make_connection("WORKDAYICEBERGRESTCATALOG", "glue-conn-name")
+
+        mock_glue_connection = {"ConnectionType": "ICEBERGRESTCATALOG", "ConnectionProperties": {}}
+        conn._glue_api = Mock()
+        conn._glue_api.get_connection.return_value = {"Connection": mock_glue_connection}
+
+        mock_wrapper = Mock()
+        expected_configs = {"SOURCE_CATALOG_LIST": '["cat1"]', "ACCESS_TOKEN": "token123"}
+        mock_wrapper.get_catalog_configs.return_value = expected_configs
+        self.mock_glue_lib.GlueConnectionWrapper.create.return_value = mock_wrapper
+
+        result = conn._spark_catalog_configs()
+        self.assertEqual(result, expected_configs)
+        self.mock_glue_lib.GlueConnectionWrapper.create.assert_called_once()
+
+    @patch(
+        "sagemaker_studio.connections.connection.Connection._get_aws_client_with_connection_credentials"
+    )
+    def test_glue_api_error_raises_runtime_error(self, mock_get_client):
+        mock_get_client.return_value = Mock()
+        conn = self._make_connection("WORKDAYICEBERGRESTCATALOG", "glue-conn-name")
+
+        conn._glue_api = Mock()
+        conn._glue_api.get_connection.side_effect = Exception("Glue API failure")
+
+        with self.assertRaises(RuntimeError) as cm:
+            conn._spark_catalog_configs()
+        self.assertIn("Encountered an error getting spark catalog options", str(cm.exception))
+        self.assertIn("Glue API failure", str(cm.exception))

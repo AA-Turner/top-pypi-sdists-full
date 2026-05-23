@@ -55,14 +55,17 @@ use bitflags::bitflags;
 use ruff_db::diagnostic::{Annotation, DiagnosticId, Severity, Span};
 use ruff_db::files::{File, FileRange};
 use ruff_db::parsed::{ParsedModuleRef, parsed_module};
-use ruff_python_ast::{self as ast, ParameterWithDefault};
+use ruff_db::source::source_text;
+use ruff_diagnostics::{Edit, Fix};
+use ruff_python_ast::find_node::covering_node;
+use ruff_python_ast::{self as ast, OperatorPrecedence, ParameterWithDefault};
 use ruff_text_size::Ranged;
 use salsa::plumbing::AsId;
 use ty_module_resolver::{KnownModule, ModuleName, file_to_module, resolve_module};
 
 use crate::place::{DefinedPlace, Definedness, Place, place_from_bindings};
 use crate::types::call::{Binding, CallArguments};
-use crate::types::callable::CallableTypeKind;
+use crate::types::callable::{CallableFunctionProvenance, CallableTypeKind};
 use crate::types::constraints::ConstraintSet;
 use crate::types::context::InferContext;
 use crate::types::cyclic::ActiveRecursionDetector;
@@ -1336,16 +1339,27 @@ impl<'db> FunctionType<'db> {
             .last_definition_raw_signature(db, return_callable_typevar_scope)
     }
 
-    /// Convert the `FunctionType` into a [`CallableType`].
-    pub(crate) fn into_callable_type(self, db: &'db dyn Db) -> CallableType<'db> {
-        let kind = if self.is_classmethod(db) {
+    /// Return the kind for this function when it is converted into a [`CallableType`].
+    pub(crate) fn callable_type_kind(self, db: &'db dyn Db) -> CallableTypeKind {
+        if self.is_classmethod(db) {
             CallableTypeKind::ClassMethodLike
         } else if self.is_staticmethod(db) {
             CallableTypeKind::StaticMethodLike
         } else {
             CallableTypeKind::FunctionLike
-        };
-        CallableType::new(db, self.signature(db), kind)
+        }
+    }
+
+    /// Convert the `FunctionType` into a [`CallableType`].
+    pub(crate) fn into_callable_type(self, db: &'db dyn Db) -> CallableType<'db> {
+        CallableType::new(
+            db,
+            self.signature(db),
+            self.callable_type_kind(db),
+            CallableFunctionProvenance::from_function_return_annotation(
+                self.has_explicit_return_annotation(db),
+            ),
+        )
     }
 
     /// Convert the `FunctionType` into a [`BoundMethodType`].
@@ -2249,6 +2263,31 @@ impl KnownFunction {
                             diagnostic.info(format_args!(
                                 "`{casted_display}` is equivalent to `{source_display}`",
                             ));
+                        }
+                        if let Some(value) = call_expression.arguments.find_argument_value("val", 1)
+                        {
+                            let covering = covering_node(
+                                context.module().syntax().into(),
+                                call_expression.range(),
+                            );
+                            let needs_parens = covering
+                                .parent()
+                                .and_then(ast::AnyNodeRef::as_expr_ref)
+                                .is_some_and(|parent| {
+                                    let value_precedence = OperatorPrecedence::from_expr(value);
+                                    OperatorPrecedence::from_expr_ref(parent) >= value_precedence
+                                });
+                            let value_text = &source_text(db, file)[value.range()];
+                            let replacement = if needs_parens {
+                                format!("({value_text})")
+                            } else {
+                                value_text.to_string()
+                            };
+                            diagnostic.help("Remove the redundant `cast`");
+                            diagnostic.set_fix(Fix::safe_edit(Edit::range_replacement(
+                                replacement,
+                                call_expression.range(),
+                            )));
                         }
                     }
                 }

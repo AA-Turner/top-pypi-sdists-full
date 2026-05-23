@@ -21,19 +21,26 @@ __all__ = ['TopicArgs', 'Topic']
 @pulumi.input_type
 class TopicArgs:
     def __init__(__self__, *,
-                 ingestion_data_source_settings: Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']] = None,
-                 kms_key_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 message_retention_duration: Optional[pulumi.Input[_builtins.str]] = None,
-                 message_storage_policy: Optional[pulumi.Input['TopicMessageStoragePolicyArgs']] = None,
-                 message_transforms: Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema_settings: Optional[pulumi.Input['TopicSchemaSettingsArgs']] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingestion_data_source_settings: pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']] = None,
+                 kms_key_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 message_retention_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 message_storage_policy: pulumi.Input[Optional['TopicMessageStoragePolicyArgs']] = None,
+                 message_transforms: pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_settings: pulumi.Input[Optional['TopicSchemaSettingsArgs']] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Topic resource.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input['TopicIngestionDataSourceSettingsArgs'] ingestion_data_source_settings: Settings for ingestion from a data source into this topic.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] kms_key_name: The resource name of the Cloud KMS CryptoKey to be used to protect access
@@ -74,6 +81,8 @@ class TopicArgs:
                apply tags to an existing resource, see the `tags.TagValue`
                resource.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if ingestion_data_source_settings is not None:
             pulumi.set(__self__, "ingestion_data_source_settings", ingestion_data_source_settings)
         if kms_key_name is not None:
@@ -96,8 +105,25 @@ class TopicArgs:
             pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="ingestionDataSourceSettings")
-    def ingestion_data_source_settings(self) -> Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']]:
+    def ingestion_data_source_settings(self) -> pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']]:
         """
         Settings for ingestion from a data source into this topic.
         Structure is documented below.
@@ -105,12 +131,12 @@ class TopicArgs:
         return pulumi.get(self, "ingestion_data_source_settings")
 
     @ingestion_data_source_settings.setter
-    def ingestion_data_source_settings(self, value: Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']]):
+    def ingestion_data_source_settings(self, value: pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']]):
         pulumi.set(self, "ingestion_data_source_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsKeyName")
-    def kms_key_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_key_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Cloud KMS CryptoKey to be used to protect access
         to messages published on this topic. Your project's PubSub service account
@@ -121,12 +147,12 @@ class TopicArgs:
         return pulumi.get(self, "kms_key_name")
 
     @kms_key_name.setter
-    def kms_key_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_key_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_key_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A set of key/value label pairs to assign to this Topic.
 
@@ -136,12 +162,12 @@ class TopicArgs:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="messageRetentionDuration")
-    def message_retention_duration(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def message_retention_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates the minimum duration to retain a message after it is published
         to the topic. If this field is set, messages published to the topic in
@@ -155,12 +181,12 @@ class TopicArgs:
         return pulumi.get(self, "message_retention_duration")
 
     @message_retention_duration.setter
-    def message_retention_duration(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def message_retention_duration(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "message_retention_duration", value)
 
     @_builtins.property
     @pulumi.getter(name="messageStoragePolicy")
-    def message_storage_policy(self) -> Optional[pulumi.Input['TopicMessageStoragePolicyArgs']]:
+    def message_storage_policy(self) -> pulumi.Input[Optional['TopicMessageStoragePolicyArgs']]:
         """
         Policy constraining the set of Google Cloud Platform regions where
         messages published to the topic may be stored. If not present, then no
@@ -170,12 +196,12 @@ class TopicArgs:
         return pulumi.get(self, "message_storage_policy")
 
     @message_storage_policy.setter
-    def message_storage_policy(self, value: Optional[pulumi.Input['TopicMessageStoragePolicyArgs']]):
+    def message_storage_policy(self, value: pulumi.Input[Optional['TopicMessageStoragePolicyArgs']]):
         pulumi.set(self, "message_storage_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="messageTransforms")
-    def message_transforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]:
+    def message_transforms(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]:
         """
         Transforms to be applied to messages published to the topic. Transforms are applied in the
         order specified.
@@ -184,24 +210,24 @@ class TopicArgs:
         return pulumi.get(self, "message_transforms")
 
     @message_transforms.setter
-    def message_transforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]):
+    def message_transforms(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]):
         pulumi.set(self, "message_transforms", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the topic.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -209,12 +235,12 @@ class TopicArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="schemaSettings")
-    def schema_settings(self) -> Optional[pulumi.Input['TopicSchemaSettingsArgs']]:
+    def schema_settings(self) -> pulumi.Input[Optional['TopicSchemaSettingsArgs']]:
         """
         Settings for validating messages published against a schema.
         Structure is documented below.
@@ -222,12 +248,12 @@ class TopicArgs:
         return pulumi.get(self, "schema_settings")
 
     @schema_settings.setter
-    def schema_settings(self, value: Optional[pulumi.Input['TopicSchemaSettingsArgs']]):
+    def schema_settings(self, value: pulumi.Input[Optional['TopicSchemaSettingsArgs']]):
         pulumi.set(self, "schema_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Input only. Resource manager tags to be bound to the topic. Tag keys and
         values have the same definition as resource manager tags. Keys must be in
@@ -241,28 +267,35 @@ class TopicArgs:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
 
 @pulumi.input_type
 class _TopicState:
     def __init__(__self__, *,
-                 effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 ingestion_data_source_settings: Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']] = None,
-                 kms_key_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 message_retention_duration: Optional[pulumi.Input[_builtins.str]] = None,
-                 message_storage_policy: Optional[pulumi.Input['TopicMessageStoragePolicyArgs']] = None,
-                 message_transforms: Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 schema_settings: Optional[pulumi.Input['TopicSchemaSettingsArgs']] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 ingestion_data_source_settings: pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']] = None,
+                 kms_key_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 message_retention_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 message_storage_policy: pulumi.Input[Optional['TopicMessageStoragePolicyArgs']] = None,
+                 message_transforms: pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 schema_settings: pulumi.Input[Optional['TopicSchemaSettingsArgs']] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering Topic resources.
 
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input['TopicIngestionDataSourceSettingsArgs'] ingestion_data_source_settings: Settings for ingestion from a data source into this topic.
                Structure is documented below.
@@ -306,6 +339,8 @@ class _TopicState:
                apply tags to an existing resource, see the `tags.TagValue`
                resource.
         """
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if effective_labels is not None:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if ingestion_data_source_settings is not None:
@@ -332,20 +367,37 @@ class _TopicState:
             pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="effectiveLabels")
-    def effective_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def effective_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         """
         return pulumi.get(self, "effective_labels")
 
     @effective_labels.setter
-    def effective_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def effective_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "effective_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="ingestionDataSourceSettings")
-    def ingestion_data_source_settings(self) -> Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']]:
+    def ingestion_data_source_settings(self) -> pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']]:
         """
         Settings for ingestion from a data source into this topic.
         Structure is documented below.
@@ -353,12 +405,12 @@ class _TopicState:
         return pulumi.get(self, "ingestion_data_source_settings")
 
     @ingestion_data_source_settings.setter
-    def ingestion_data_source_settings(self, value: Optional[pulumi.Input['TopicIngestionDataSourceSettingsArgs']]):
+    def ingestion_data_source_settings(self, value: pulumi.Input[Optional['TopicIngestionDataSourceSettingsArgs']]):
         pulumi.set(self, "ingestion_data_source_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="kmsKeyName")
-    def kms_key_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def kms_key_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the Cloud KMS CryptoKey to be used to protect access
         to messages published on this topic. Your project's PubSub service account
@@ -369,12 +421,12 @@ class _TopicState:
         return pulumi.get(self, "kms_key_name")
 
     @kms_key_name.setter
-    def kms_key_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def kms_key_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "kms_key_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         A set of key/value label pairs to assign to this Topic.
 
@@ -384,12 +436,12 @@ class _TopicState:
         return pulumi.get(self, "labels")
 
     @labels.setter
-    def labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "labels", value)
 
     @_builtins.property
     @pulumi.getter(name="messageRetentionDuration")
-    def message_retention_duration(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def message_retention_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Indicates the minimum duration to retain a message after it is published
         to the topic. If this field is set, messages published to the topic in
@@ -403,12 +455,12 @@ class _TopicState:
         return pulumi.get(self, "message_retention_duration")
 
     @message_retention_duration.setter
-    def message_retention_duration(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def message_retention_duration(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "message_retention_duration", value)
 
     @_builtins.property
     @pulumi.getter(name="messageStoragePolicy")
-    def message_storage_policy(self) -> Optional[pulumi.Input['TopicMessageStoragePolicyArgs']]:
+    def message_storage_policy(self) -> pulumi.Input[Optional['TopicMessageStoragePolicyArgs']]:
         """
         Policy constraining the set of Google Cloud Platform regions where
         messages published to the topic may be stored. If not present, then no
@@ -418,12 +470,12 @@ class _TopicState:
         return pulumi.get(self, "message_storage_policy")
 
     @message_storage_policy.setter
-    def message_storage_policy(self, value: Optional[pulumi.Input['TopicMessageStoragePolicyArgs']]):
+    def message_storage_policy(self, value: pulumi.Input[Optional['TopicMessageStoragePolicyArgs']]):
         pulumi.set(self, "message_storage_policy", value)
 
     @_builtins.property
     @pulumi.getter(name="messageTransforms")
-    def message_transforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]:
+    def message_transforms(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]:
         """
         Transforms to be applied to messages published to the topic. Transforms are applied in the
         order specified.
@@ -432,24 +484,24 @@ class _TopicState:
         return pulumi.get(self, "message_transforms")
 
     @message_transforms.setter
-    def message_transforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]):
+    def message_transforms(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['TopicMessageTransformArgs']]]]):
         pulumi.set(self, "message_transforms", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Name of the topic.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -457,12 +509,12 @@ class _TopicState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="pulumiLabels")
-    def pulumi_labels(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def pulumi_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         The combination of labels configured directly on the resource
          and default labels configured on the provider.
@@ -470,12 +522,12 @@ class _TopicState:
         return pulumi.get(self, "pulumi_labels")
 
     @pulumi_labels.setter
-    def pulumi_labels(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def pulumi_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "pulumi_labels", value)
 
     @_builtins.property
     @pulumi.getter(name="schemaSettings")
-    def schema_settings(self) -> Optional[pulumi.Input['TopicSchemaSettingsArgs']]:
+    def schema_settings(self) -> pulumi.Input[Optional['TopicSchemaSettingsArgs']]:
         """
         Settings for validating messages published against a schema.
         Structure is documented below.
@@ -483,12 +535,12 @@ class _TopicState:
         return pulumi.get(self, "schema_settings")
 
     @schema_settings.setter
-    def schema_settings(self, value: Optional[pulumi.Input['TopicSchemaSettingsArgs']]):
+    def schema_settings(self, value: pulumi.Input[Optional['TopicSchemaSettingsArgs']]):
         pulumi.set(self, "schema_settings", value)
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+    def tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
         Input only. Resource manager tags to be bound to the topic. Tag keys and
         values have the same definition as resource manager tags. Keys must be in
@@ -502,7 +554,7 @@ class _TopicState:
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+    def tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
 
@@ -512,16 +564,17 @@ class Topic(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ingestion_data_source_settings: Optional[pulumi.Input[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
-                 kms_key_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 message_retention_duration: Optional[pulumi.Input[_builtins.str]] = None,
-                 message_storage_policy: Optional[pulumi.Input[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
-                 message_transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema_settings: Optional[pulumi.Input[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingestion_data_source_settings: pulumi.Input[Optional[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
+                 kms_key_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 message_retention_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 message_storage_policy: pulumi.Input[Optional[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
+                 message_transforms: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_settings: pulumi.Input[Optional[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
         A named resource to which messages are sent by publishers.
@@ -834,6 +887,12 @@ class Topic(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']] ingestion_data_source_settings: Settings for ingestion from a data source into this topic.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] kms_key_name: The resource name of the Cloud KMS CryptoKey to be used to protect access
@@ -1204,16 +1263,17 @@ class Topic(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 ingestion_data_source_settings: Optional[pulumi.Input[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
-                 kms_key_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 message_retention_duration: Optional[pulumi.Input[_builtins.str]] = None,
-                 message_storage_policy: Optional[pulumi.Input[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
-                 message_transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 schema_settings: Optional[pulumi.Input[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 ingestion_data_source_settings: pulumi.Input[Optional[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
+                 kms_key_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 message_retention_duration: pulumi.Input[Optional[_builtins.str]] = None,
+                 message_storage_policy: pulumi.Input[Optional[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
+                 message_transforms: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_settings: pulumi.Input[Optional[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
+                 tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -1223,6 +1283,7 @@ class Topic(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = TopicArgs.__new__(TopicArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["ingestion_data_source_settings"] = ingestion_data_source_settings
             __props__.__dict__["kms_key_name"] = kms_key_name
             __props__.__dict__["labels"] = labels
@@ -1247,18 +1308,19 @@ class Topic(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            ingestion_data_source_settings: Optional[pulumi.Input[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
-            kms_key_name: Optional[pulumi.Input[_builtins.str]] = None,
-            labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            message_retention_duration: Optional[pulumi.Input[_builtins.str]] = None,
-            message_storage_policy: Optional[pulumi.Input[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
-            message_transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            pulumi_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            schema_settings: Optional[pulumi.Input[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
-            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'Topic':
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            effective_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            ingestion_data_source_settings: pulumi.Input[Optional[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']]] = None,
+            kms_key_name: pulumi.Input[Optional[_builtins.str]] = None,
+            labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            message_retention_duration: pulumi.Input[Optional[_builtins.str]] = None,
+            message_storage_policy: pulumi.Input[Optional[Union['TopicMessageStoragePolicyArgs', 'TopicMessageStoragePolicyArgsDict']]] = None,
+            message_transforms: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TopicMessageTransformArgs', 'TopicMessageTransformArgsDict']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            pulumi_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            schema_settings: pulumi.Input[Optional[Union['TopicSchemaSettingsArgs', 'TopicSchemaSettingsArgsDict']]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'Topic':
         """
         Get an existing Topic resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -1266,6 +1328,12 @@ class Topic(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[Union['TopicIngestionDataSourceSettingsArgs', 'TopicIngestionDataSourceSettingsArgsDict']] ingestion_data_source_settings: Settings for ingestion from a data source into this topic.
                Structure is documented below.
@@ -1313,6 +1381,7 @@ class Topic(pulumi.CustomResource):
 
         __props__ = _TopicState.__new__(_TopicState)
 
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["ingestion_data_source_settings"] = ingestion_data_source_settings
         __props__.__dict__["kms_key_name"] = kms_key_name
@@ -1326,6 +1395,19 @@ class Topic(pulumi.CustomResource):
         __props__.__dict__["schema_settings"] = schema_settings
         __props__.__dict__["tags"] = tags
         return Topic(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveLabels")

@@ -22,12 +22,13 @@ __all__ = ['AnalysisRuleArgs', 'AnalysisRule']
 class AnalysisRuleArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
-                 active: Optional[pulumi.Input[_builtins.bool]] = None,
-                 analysis_percentage: Optional[pulumi.Input[_builtins.float]] = None,
-                 annotator_selector: Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']] = None,
-                 conversation_filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None):
+                 active: pulumi.Input[Optional[_builtins.bool]] = None,
+                 analysis_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+                 annotator_selector: pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']] = None,
+                 conversation_filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         The set of arguments for constructing a AnalysisRule resource.
 
@@ -45,6 +46,12 @@ class AnalysisRuleArgs:
                conversations.
                Refer to https://cloud.google.com/contact-center/insights/docs/filtering
                for details.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name of the analysis rule.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
@@ -58,6 +65,8 @@ class AnalysisRuleArgs:
             pulumi.set(__self__, "annotator_selector", annotator_selector)
         if conversation_filter is not None:
             pulumi.set(__self__, "conversation_filter", conversation_filter)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if project is not None:
@@ -77,7 +86,7 @@ class AnalysisRuleArgs:
 
     @_builtins.property
     @pulumi.getter
-    def active(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def active(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, apply this rule to conversations. Otherwise, this rule is
         inactive and saved as a draft.
@@ -85,12 +94,12 @@ class AnalysisRuleArgs:
         return pulumi.get(self, "active")
 
     @active.setter
-    def active(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def active(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "active", value)
 
     @_builtins.property
     @pulumi.getter(name="analysisPercentage")
-    def analysis_percentage(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def analysis_percentage(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         Percentage of conversations that we should apply this analysis setting
         automatically, between [0, 1]. For example, 0.1 means 10%. Conversations
@@ -100,12 +109,12 @@ class AnalysisRuleArgs:
         return pulumi.get(self, "analysis_percentage")
 
     @analysis_percentage.setter
-    def analysis_percentage(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def analysis_percentage(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "analysis_percentage", value)
 
     @_builtins.property
     @pulumi.getter(name="annotatorSelector")
-    def annotator_selector(self) -> Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']]:
+    def annotator_selector(self) -> pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']]:
         """
         Selector of all available annotators and phrase matchers to run.
         Structure is documented below.
@@ -113,12 +122,12 @@ class AnalysisRuleArgs:
         return pulumi.get(self, "annotator_selector")
 
     @annotator_selector.setter
-    def annotator_selector(self, value: Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']]):
+    def annotator_selector(self, value: pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']]):
         pulumi.set(self, "annotator_selector", value)
 
     @_builtins.property
     @pulumi.getter(name="conversationFilter")
-    def conversation_filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def conversation_filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Filter for the conversations that should apply this analysis
         rule. An empty filter means this analysis rule applies to all
@@ -129,24 +138,41 @@ class AnalysisRuleArgs:
         return pulumi.get(self, "conversation_filter")
 
     @conversation_filter.setter
-    def conversation_filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def conversation_filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "conversation_filter", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display Name of the analysis rule.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -154,23 +180,24 @@ class AnalysisRuleArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
 
 @pulumi.input_type
 class _AnalysisRuleState:
     def __init__(__self__, *,
-                 active: Optional[pulumi.Input[_builtins.bool]] = None,
-                 analysis_percentage: Optional[pulumi.Input[_builtins.float]] = None,
-                 annotator_selector: Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']] = None,
-                 conversation_filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 active: pulumi.Input[Optional[_builtins.bool]] = None,
+                 analysis_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+                 annotator_selector: pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']] = None,
+                 conversation_filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AnalysisRule resources.
 
@@ -188,6 +215,12 @@ class _AnalysisRuleState:
                Refer to https://cloud.google.com/contact-center/insights/docs/filtering
                for details.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this analysis rule was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name of the analysis rule.
         :param pulumi.Input[_builtins.str] location: Location of the resource.
         :param pulumi.Input[_builtins.str] name: The resource name of the analysis rule. Randomly generated by Insights.
@@ -205,6 +238,8 @@ class _AnalysisRuleState:
             pulumi.set(__self__, "conversation_filter", conversation_filter)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if location is not None:
@@ -218,7 +253,7 @@ class _AnalysisRuleState:
 
     @_builtins.property
     @pulumi.getter
-    def active(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def active(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         If true, apply this rule to conversations. Otherwise, this rule is
         inactive and saved as a draft.
@@ -226,12 +261,12 @@ class _AnalysisRuleState:
         return pulumi.get(self, "active")
 
     @active.setter
-    def active(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def active(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "active", value)
 
     @_builtins.property
     @pulumi.getter(name="analysisPercentage")
-    def analysis_percentage(self) -> Optional[pulumi.Input[_builtins.float]]:
+    def analysis_percentage(self) -> pulumi.Input[Optional[_builtins.float]]:
         """
         Percentage of conversations that we should apply this analysis setting
         automatically, between [0, 1]. For example, 0.1 means 10%. Conversations
@@ -241,12 +276,12 @@ class _AnalysisRuleState:
         return pulumi.get(self, "analysis_percentage")
 
     @analysis_percentage.setter
-    def analysis_percentage(self, value: Optional[pulumi.Input[_builtins.float]]):
+    def analysis_percentage(self, value: pulumi.Input[Optional[_builtins.float]]):
         pulumi.set(self, "analysis_percentage", value)
 
     @_builtins.property
     @pulumi.getter(name="annotatorSelector")
-    def annotator_selector(self) -> Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']]:
+    def annotator_selector(self) -> pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']]:
         """
         Selector of all available annotators and phrase matchers to run.
         Structure is documented below.
@@ -254,12 +289,12 @@ class _AnalysisRuleState:
         return pulumi.get(self, "annotator_selector")
 
     @annotator_selector.setter
-    def annotator_selector(self, value: Optional[pulumi.Input['AnalysisRuleAnnotatorSelectorArgs']]):
+    def annotator_selector(self, value: pulumi.Input[Optional['AnalysisRuleAnnotatorSelectorArgs']]):
         pulumi.set(self, "annotator_selector", value)
 
     @_builtins.property
     @pulumi.getter(name="conversationFilter")
-    def conversation_filter(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def conversation_filter(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Filter for the conversations that should apply this analysis
         rule. An empty filter means this analysis rule applies to all
@@ -270,60 +305,77 @@ class _AnalysisRuleState:
         return pulumi.get(self, "conversation_filter")
 
     @conversation_filter.setter
-    def conversation_filter(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def conversation_filter(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "conversation_filter", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The time at which this analysis rule was created.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display Name of the analysis rule.
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location of the resource.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The resource name of the analysis rule. Randomly generated by Insights.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -331,19 +383,19 @@ class _AnalysisRuleState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The most recent time at which this analysis rule was updated.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -353,13 +405,14 @@ class AnalysisRule(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 active: Optional[pulumi.Input[_builtins.bool]] = None,
-                 analysis_percentage: Optional[pulumi.Input[_builtins.float]] = None,
-                 annotator_selector: Optional[pulumi.Input[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
-                 conversation_filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 active: pulumi.Input[Optional[_builtins.bool]] = None,
+                 analysis_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+                 annotator_selector: pulumi.Input[Optional[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
+                 conversation_filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         The CCAI Insights project wide analysis rule.
@@ -487,6 +540,12 @@ class AnalysisRule(pulumi.CustomResource):
                conversations.
                Refer to https://cloud.google.com/contact-center/insights/docs/filtering
                for details.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name of the analysis rule.
         :param pulumi.Input[_builtins.str] location: Location of the resource.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -624,13 +683,14 @@ class AnalysisRule(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 active: Optional[pulumi.Input[_builtins.bool]] = None,
-                 analysis_percentage: Optional[pulumi.Input[_builtins.float]] = None,
-                 annotator_selector: Optional[pulumi.Input[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
-                 conversation_filter: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
+                 active: pulumi.Input[Optional[_builtins.bool]] = None,
+                 analysis_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+                 annotator_selector: pulumi.Input[Optional[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
+                 conversation_filter: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -644,6 +704,7 @@ class AnalysisRule(pulumi.CustomResource):
             __props__.__dict__["analysis_percentage"] = analysis_percentage
             __props__.__dict__["annotator_selector"] = annotator_selector
             __props__.__dict__["conversation_filter"] = conversation_filter
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
@@ -662,16 +723,17 @@ class AnalysisRule(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            active: Optional[pulumi.Input[_builtins.bool]] = None,
-            analysis_percentage: Optional[pulumi.Input[_builtins.float]] = None,
-            annotator_selector: Optional[pulumi.Input[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
-            conversation_filter: Optional[pulumi.Input[_builtins.str]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'AnalysisRule':
+            active: pulumi.Input[Optional[_builtins.bool]] = None,
+            analysis_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+            annotator_selector: pulumi.Input[Optional[Union['AnalysisRuleAnnotatorSelectorArgs', 'AnalysisRuleAnnotatorSelectorArgsDict']]] = None,
+            conversation_filter: pulumi.Input[Optional[_builtins.str]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'AnalysisRule':
         """
         Get an existing AnalysisRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -693,6 +755,12 @@ class AnalysisRule(pulumi.CustomResource):
                Refer to https://cloud.google.com/contact-center/insights/docs/filtering
                for details.
         :param pulumi.Input[_builtins.str] create_time: Output only. The time at which this analysis rule was created.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name of the analysis rule.
         :param pulumi.Input[_builtins.str] location: Location of the resource.
         :param pulumi.Input[_builtins.str] name: The resource name of the analysis rule. Randomly generated by Insights.
@@ -709,6 +777,7 @@ class AnalysisRule(pulumi.CustomResource):
         __props__.__dict__["annotator_selector"] = annotator_selector
         __props__.__dict__["conversation_filter"] = conversation_filter
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["location"] = location
         __props__.__dict__["name"] = name
@@ -764,6 +833,19 @@ class AnalysisRule(pulumi.CustomResource):
         Output only. The time at which this analysis rule was created.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

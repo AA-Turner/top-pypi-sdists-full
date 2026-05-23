@@ -23,13 +23,14 @@ class PreventionDiscoveryConfigArgs:
     def __init__(__self__, *,
                  location: pulumi.Input[_builtins.str],
                  parent: pulumi.Input[_builtins.str],
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_templates: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 org_config: Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']] = None,
-                 other_cloud_starting_location: Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 targets: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]] = None):
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_templates: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 org_config: pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']] = None,
+                 other_cloud_starting_location: pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 targets: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]] = None):
         """
         The set of arguments for constructing a PreventionDiscoveryConfig resource.
 
@@ -39,6 +40,12 @@ class PreventionDiscoveryConfigArgs:
                * `organizations/{{organization_id}}/locations/{{location}}`
         :param pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]] actions: Actions to execute at the completion of scanning
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name (max 1000 Chars)
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] inspect_templates: Detection logic for profile generation
         :param pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs'] org_config: A nested object resource.
@@ -54,6 +61,8 @@ class PreventionDiscoveryConfigArgs:
         pulumi.set(__self__, "parent", parent)
         if actions is not None:
             pulumi.set(__self__, "actions", actions)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if inspect_templates is not None:
@@ -95,7 +104,7 @@ class PreventionDiscoveryConfigArgs:
 
     @_builtins.property
     @pulumi.getter
-    def actions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]:
+    def actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]:
         """
         Actions to execute at the completion of scanning
         Structure is documented below.
@@ -103,36 +112,53 @@ class PreventionDiscoveryConfigArgs:
         return pulumi.get(self, "actions")
 
     @actions.setter
-    def actions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]):
+    def actions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]):
         pulumi.set(self, "actions", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display Name (max 1000 Chars)
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectTemplates")
-    def inspect_templates(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def inspect_templates(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Detection logic for profile generation
         """
         return pulumi.get(self, "inspect_templates")
 
     @inspect_templates.setter
-    def inspect_templates(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def inspect_templates(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "inspect_templates", value)
 
     @_builtins.property
     @pulumi.getter(name="orgConfig")
-    def org_config(self) -> Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']]:
+    def org_config(self) -> pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -140,12 +166,12 @@ class PreventionDiscoveryConfigArgs:
         return pulumi.get(self, "org_config")
 
     @org_config.setter
-    def org_config(self, value: Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']]):
+    def org_config(self, value: pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']]):
         pulumi.set(self, "org_config", value)
 
     @_builtins.property
     @pulumi.getter(name="otherCloudStartingLocation")
-    def other_cloud_starting_location(self) -> Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]:
+    def other_cloud_starting_location(self) -> pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -153,12 +179,12 @@ class PreventionDiscoveryConfigArgs:
         return pulumi.get(self, "other_cloud_starting_location")
 
     @other_cloud_starting_location.setter
-    def other_cloud_starting_location(self, value: Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]):
+    def other_cloud_starting_location(self, value: pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]):
         pulumi.set(self, "other_cloud_starting_location", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. A status for this configuration
         Possible values are: `RUNNING`, `PAUSED`.
@@ -166,12 +192,12 @@ class PreventionDiscoveryConfigArgs:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
     @_builtins.property
     @pulumi.getter
-    def targets(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]:
+    def targets(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]:
         """
         Target to match against for determining what to scan and how frequently
         Structure is documented below.
@@ -179,33 +205,40 @@ class PreventionDiscoveryConfigArgs:
         return pulumi.get(self, "targets")
 
     @targets.setter
-    def targets(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]):
+    def targets(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]):
         pulumi.set(self, "targets", value)
 
 
 @pulumi.input_type
 class _PreventionDiscoveryConfigState:
     def __init__(__self__, *,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]] = None,
-                 create_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 errors: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]] = None,
-                 inspect_templates: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 last_run_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_config: Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']] = None,
-                 other_cloud_starting_location: Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 targets: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]] = None,
-                 update_time: Optional[pulumi.Input[_builtins.str]] = None):
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]] = None,
+                 create_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 errors: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]] = None,
+                 inspect_templates: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 last_run_time: pulumi.Input[Optional[_builtins.str]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_config: pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']] = None,
+                 other_cloud_starting_location: pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 targets: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]] = None,
+                 update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PreventionDiscoveryConfig resources.
 
         :param pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]] actions: Actions to execute at the completion of scanning
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Output only. The creation timestamp of a DiscoveryConfig.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name (max 1000 Chars)
         :param pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]] errors: Output only. A stream of errors encountered when the config was activated. Repeated errors may result in the config automatically being paused. Output only field. Will return the last 100 errors. Whenever the config is modified this list will be cleared.
                Structure is documented below.
@@ -230,6 +263,8 @@ class _PreventionDiscoveryConfigState:
             pulumi.set(__self__, "actions", actions)
         if create_time is not None:
             pulumi.set(__self__, "create_time", create_time)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
         if errors is not None:
@@ -257,7 +292,7 @@ class _PreventionDiscoveryConfigState:
 
     @_builtins.property
     @pulumi.getter
-    def actions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]:
+    def actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]:
         """
         Actions to execute at the completion of scanning
         Structure is documented below.
@@ -265,36 +300,53 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "actions")
 
     @actions.setter
-    def actions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]):
+    def actions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigActionArgs']]]]):
         pulumi.set(self, "actions", value)
 
     @_builtins.property
     @pulumi.getter(name="createTime")
-    def create_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The creation timestamp of a DiscoveryConfig.
         """
         return pulumi.get(self, "create_time")
 
     @create_time.setter
-    def create_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def create_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "create_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter(name="displayName")
-    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def display_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Display Name (max 1000 Chars)
         """
         return pulumi.get(self, "display_name")
 
     @display_name.setter
-    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def display_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def errors(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]]:
+    def errors(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]]:
         """
         Output only. A stream of errors encountered when the config was activated. Repeated errors may result in the config automatically being paused. Output only field. Will return the last 100 errors. Whenever the config is modified this list will be cleared.
         Structure is documented below.
@@ -302,60 +354,60 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "errors")
 
     @errors.setter
-    def errors(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]]):
+    def errors(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigErrorArgs']]]]):
         pulumi.set(self, "errors", value)
 
     @_builtins.property
     @pulumi.getter(name="inspectTemplates")
-    def inspect_templates(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def inspect_templates(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Detection logic for profile generation
         """
         return pulumi.get(self, "inspect_templates")
 
     @inspect_templates.setter
-    def inspect_templates(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def inspect_templates(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "inspect_templates", value)
 
     @_builtins.property
     @pulumi.getter(name="lastRunTime")
-    def last_run_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def last_run_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The timestamp of the last time this config was executed
         """
         return pulumi.get(self, "last_run_time")
 
     @last_run_time.setter
-    def last_run_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def last_run_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "last_run_time", value)
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def location(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Location to create the discovery config in.
         """
         return pulumi.get(self, "location")
 
     @location.setter
-    def location(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def location(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "location", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Unique resource name for the DiscoveryConfig, assigned by the service when the DiscoveryConfig is created.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="orgConfig")
-    def org_config(self) -> Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']]:
+    def org_config(self) -> pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -363,12 +415,12 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "org_config")
 
     @org_config.setter
-    def org_config(self, value: Optional[pulumi.Input['PreventionDiscoveryConfigOrgConfigArgs']]):
+    def org_config(self, value: pulumi.Input[Optional['PreventionDiscoveryConfigOrgConfigArgs']]):
         pulumi.set(self, "org_config", value)
 
     @_builtins.property
     @pulumi.getter(name="otherCloudStartingLocation")
-    def other_cloud_starting_location(self) -> Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]:
+    def other_cloud_starting_location(self) -> pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]:
         """
         A nested object resource.
         Structure is documented below.
@@ -376,12 +428,12 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "other_cloud_starting_location")
 
     @other_cloud_starting_location.setter
-    def other_cloud_starting_location(self, value: Optional[pulumi.Input['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]):
+    def other_cloud_starting_location(self, value: pulumi.Input[Optional['PreventionDiscoveryConfigOtherCloudStartingLocationArgs']]):
         pulumi.set(self, "other_cloud_starting_location", value)
 
     @_builtins.property
     @pulumi.getter
-    def parent(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def parent(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The parent of the discovery config in any of the following formats:
         * `projects/{{project}}/locations/{{location}}`
@@ -390,12 +442,12 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "parent")
 
     @parent.setter
-    def parent(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def parent(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "parent", value)
 
     @_builtins.property
     @pulumi.getter
-    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Required. A status for this configuration
         Possible values are: `RUNNING`, `PAUSED`.
@@ -403,12 +455,12 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "status")
 
     @status.setter
-    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def status(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "status", value)
 
     @_builtins.property
     @pulumi.getter
-    def targets(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]:
+    def targets(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]:
         """
         Target to match against for determining what to scan and how frequently
         Structure is documented below.
@@ -416,19 +468,19 @@ class _PreventionDiscoveryConfigState:
         return pulumi.get(self, "targets")
 
     @targets.setter
-    def targets(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]):
+    def targets(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PreventionDiscoveryConfigTargetArgs']]]]):
         pulumi.set(self, "targets", value)
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
-    def update_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Output only. The last update timestamp of a DiscoveryConfig.
         """
         return pulumi.get(self, "update_time")
 
     @update_time.setter
-    def update_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def update_time(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "update_time", value)
 
 
@@ -438,15 +490,16 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_templates: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_config: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
-                 other_cloud_starting_location: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 targets: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_templates: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_config: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
+                 other_cloud_starting_location: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 targets: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
                  __props__=None):
         """
         Configuration for discovery to scan resources for profile generation. Only one discovery configuration may exist per organization, folder, or project.
@@ -478,6 +531,12 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]] actions: Actions to execute at the completion of scanning
                Structure is documented below.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name (max 1000 Chars)
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] inspect_templates: Detection logic for profile generation
         :param pulumi.Input[_builtins.str] location: Location to create the discovery config in.
@@ -540,15 +599,16 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
-                 display_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 inspect_templates: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 location: Optional[pulumi.Input[_builtins.str]] = None,
-                 org_config: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
-                 other_cloud_starting_location: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
-                 parent: Optional[pulumi.Input[_builtins.str]] = None,
-                 status: Optional[pulumi.Input[_builtins.str]] = None,
-                 targets: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
+                 actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 inspect_templates: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 location: pulumi.Input[Optional[_builtins.str]] = None,
+                 org_config: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
+                 other_cloud_starting_location: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
+                 parent: pulumi.Input[Optional[_builtins.str]] = None,
+                 status: pulumi.Input[Optional[_builtins.str]] = None,
+                 targets: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -559,6 +619,7 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
             __props__ = PreventionDiscoveryConfigArgs.__new__(PreventionDiscoveryConfigArgs)
 
             __props__.__dict__["actions"] = actions
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["display_name"] = display_name
             __props__.__dict__["inspect_templates"] = inspect_templates
             if location is None and not opts.urn:
@@ -586,20 +647,21 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            actions: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
-            create_time: Optional[pulumi.Input[_builtins.str]] = None,
-            display_name: Optional[pulumi.Input[_builtins.str]] = None,
-            errors: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigErrorArgs', 'PreventionDiscoveryConfigErrorArgsDict']]]]] = None,
-            inspect_templates: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            last_run_time: Optional[pulumi.Input[_builtins.str]] = None,
-            location: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            org_config: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
-            other_cloud_starting_location: Optional[pulumi.Input[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
-            parent: Optional[pulumi.Input[_builtins.str]] = None,
-            status: Optional[pulumi.Input[_builtins.str]] = None,
-            targets: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
-            update_time: Optional[pulumi.Input[_builtins.str]] = None) -> 'PreventionDiscoveryConfig':
+            actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]]] = None,
+            create_time: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            errors: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigErrorArgs', 'PreventionDiscoveryConfigErrorArgsDict']]]]] = None,
+            inspect_templates: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            last_run_time: pulumi.Input[Optional[_builtins.str]] = None,
+            location: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            org_config: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOrgConfigArgs', 'PreventionDiscoveryConfigOrgConfigArgsDict']]] = None,
+            other_cloud_starting_location: pulumi.Input[Optional[Union['PreventionDiscoveryConfigOtherCloudStartingLocationArgs', 'PreventionDiscoveryConfigOtherCloudStartingLocationArgsDict']]] = None,
+            parent: pulumi.Input[Optional[_builtins.str]] = None,
+            status: pulumi.Input[Optional[_builtins.str]] = None,
+            targets: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigTargetArgs', 'PreventionDiscoveryConfigTargetArgsDict']]]]] = None,
+            update_time: pulumi.Input[Optional[_builtins.str]] = None) -> 'PreventionDiscoveryConfig':
         """
         Get an existing PreventionDiscoveryConfig resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -610,6 +672,12 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigActionArgs', 'PreventionDiscoveryConfigActionArgsDict']]]] actions: Actions to execute at the completion of scanning
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: Output only. The creation timestamp of a DiscoveryConfig.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] display_name: Display Name (max 1000 Chars)
         :param pulumi.Input[Sequence[pulumi.Input[Union['PreventionDiscoveryConfigErrorArgs', 'PreventionDiscoveryConfigErrorArgsDict']]]] errors: Output only. A stream of errors encountered when the config was activated. Repeated errors may result in the config automatically being paused. Output only field. Will return the last 100 errors. Whenever the config is modified this list will be cleared.
                Structure is documented below.
@@ -636,6 +704,7 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
 
         __props__.__dict__["actions"] = actions
         __props__.__dict__["create_time"] = create_time
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["display_name"] = display_name
         __props__.__dict__["errors"] = errors
         __props__.__dict__["inspect_templates"] = inspect_templates
@@ -666,6 +735,19 @@ class PreventionDiscoveryConfig(pulumi.CustomResource):
         Output only. The creation timestamp of a DiscoveryConfig.
         """
         return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter(name="displayName")

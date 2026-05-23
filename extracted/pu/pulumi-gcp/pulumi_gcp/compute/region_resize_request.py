@@ -23,16 +23,23 @@ class RegionResizeRequestArgs:
     def __init__(__self__, *,
                  instance_group_manager: pulumi.Input[_builtins.str],
                  resize_by: pulumi.Input[_builtins.int],
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 requested_run_duration: Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']] = None):
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 requested_run_duration: pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']] = None):
         """
         The set of arguments for constructing a RegionResizeRequest resource.
 
         :param pulumi.Input[_builtins.str] instance_group_manager: The reference of the regional instance group manager this ResizeRequest is a part of.
         :param pulumi.Input[_builtins.int] resize_by: The number of instances to be created by this resize request. The group's target size will be increased by this number.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resize-request.
         :param pulumi.Input[_builtins.str] name: The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
@@ -43,6 +50,8 @@ class RegionResizeRequestArgs:
         """
         pulumi.set(__self__, "instance_group_manager", instance_group_manager)
         pulumi.set(__self__, "resize_by", resize_by)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
@@ -79,32 +88,49 @@ class RegionResizeRequestArgs:
         pulumi.set(self, "resize_by", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resize-request.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -112,24 +138,24 @@ class RegionResizeRequestArgs:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reference of the compute region scoping this request. If it is not provided, the provider region is used.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="requestedRunDuration")
-    def requested_run_duration(self) -> Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']]:
+    def requested_run_duration(self) -> pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']]:
         """
         Requested run duration for instances that will be created by this request. At the end of the run duration instances will be deleted.
         Structure is documented below.
@@ -137,27 +163,34 @@ class RegionResizeRequestArgs:
         return pulumi.get(self, "requested_run_duration")
 
     @requested_run_duration.setter
-    def requested_run_duration(self, value: Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']]):
+    def requested_run_duration(self, value: pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']]):
         pulumi.set(self, "requested_run_duration", value)
 
 
 @pulumi.input_type
 class _RegionResizeRequestState:
     def __init__(__self__, *,
-                 creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_group_manager: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 requested_run_duration: Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']] = None,
-                 resize_by: Optional[pulumi.Input[_builtins.int]] = None,
-                 state: Optional[pulumi.Input[_builtins.str]] = None,
-                 statuses: Optional[pulumi.Input[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]] = None):
+                 creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_group_manager: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 requested_run_duration: pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']] = None,
+                 resize_by: pulumi.Input[Optional[_builtins.int]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None,
+                 statuses: pulumi.Input[Optional[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]] = None):
         """
         Input properties used for looking up and filtering RegionResizeRequest resources.
 
         :param pulumi.Input[_builtins.str] creation_timestamp: The creation timestamp for this resize request in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resize-request.
         :param pulumi.Input[_builtins.str] instance_group_manager: The reference of the regional instance group manager this ResizeRequest is a part of.
         :param pulumi.Input[_builtins.str] name: The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
@@ -173,6 +206,8 @@ class _RegionResizeRequestState:
         """
         if creation_timestamp is not None:
             pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        if deletion_policy is not None:
+            pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if instance_group_manager is not None:
@@ -194,55 +229,72 @@ class _RegionResizeRequestState:
 
     @_builtins.property
     @pulumi.getter(name="creationTimestamp")
-    def creation_timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def creation_timestamp(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The creation timestamp for this resize request in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
 
     @creation_timestamp.setter
-    def creation_timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def creation_timestamp(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "creation_timestamp", value)
 
     @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
+
+    @deletion_policy.setter
+    def deletion_policy(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deletion_policy", value)
+
+    @_builtins.property
     @pulumi.getter
-    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def description(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         An optional description of this resize-request.
         """
         return pulumi.get(self, "description")
 
     @description.setter
-    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def description(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "description", value)
 
     @_builtins.property
     @pulumi.getter(name="instanceGroupManager")
-    def instance_group_manager(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def instance_group_manager(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reference of the regional instance group manager this ResizeRequest is a part of.
         """
         return pulumi.get(self, "instance_group_manager")
 
     @instance_group_manager.setter
-    def instance_group_manager(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def instance_group_manager(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "instance_group_manager", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter
-    def project(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def project(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the project in which the resource belongs.
         If it is not provided, the provider project is used.
@@ -250,24 +302,24 @@ class _RegionResizeRequestState:
         return pulumi.get(self, "project")
 
     @project.setter
-    def project(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def project(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "project", value)
 
     @_builtins.property
     @pulumi.getter
-    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The reference of the compute region scoping this request. If it is not provided, the provider region is used.
         """
         return pulumi.get(self, "region")
 
     @region.setter
-    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "region", value)
 
     @_builtins.property
     @pulumi.getter(name="requestedRunDuration")
-    def requested_run_duration(self) -> Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']]:
+    def requested_run_duration(self) -> pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']]:
         """
         Requested run duration for instances that will be created by this request. At the end of the run duration instances will be deleted.
         Structure is documented below.
@@ -275,36 +327,36 @@ class _RegionResizeRequestState:
         return pulumi.get(self, "requested_run_duration")
 
     @requested_run_duration.setter
-    def requested_run_duration(self, value: Optional[pulumi.Input['RegionResizeRequestRequestedRunDurationArgs']]):
+    def requested_run_duration(self, value: pulumi.Input[Optional['RegionResizeRequestRequestedRunDurationArgs']]):
         pulumi.set(self, "requested_run_duration", value)
 
     @_builtins.property
     @pulumi.getter(name="resizeBy")
-    def resize_by(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def resize_by(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of instances to be created by this resize request. The group's target size will be increased by this number.
         """
         return pulumi.get(self, "resize_by")
 
     @resize_by.setter
-    def resize_by(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def resize_by(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "resize_by", value)
 
     @_builtins.property
     @pulumi.getter
-    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Current state of the request.
         """
         return pulumi.get(self, "state")
 
     @state.setter
-    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "state", value)
 
     @_builtins.property
     @pulumi.getter
-    def statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]]:
+    def statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]]:
         """
         Status of the request.
         Structure is documented below.
@@ -312,7 +364,7 @@ class _RegionResizeRequestState:
         return pulumi.get(self, "statuses")
 
     @statuses.setter
-    def statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]]):
+    def statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RegionResizeRequestStatusArgs']]]]):
         pulumi.set(self, "statuses", value)
 
 
@@ -322,13 +374,14 @@ class RegionResizeRequest(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_group_manager: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 requested_run_duration: Optional[pulumi.Input[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
-                 resize_by: Optional[pulumi.Input[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_group_manager: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 requested_run_duration: pulumi.Input[Optional[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
+                 resize_by: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         """
         Represents a Regional Managed Instance Group Resize Request
@@ -445,6 +498,12 @@ class RegionResizeRequest(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resize-request.
         :param pulumi.Input[_builtins.str] instance_group_manager: The reference of the regional instance group manager this ResizeRequest is a part of.
         :param pulumi.Input[_builtins.str] name: The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
@@ -589,13 +648,14 @@ class RegionResizeRequest(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 description: Optional[pulumi.Input[_builtins.str]] = None,
-                 instance_group_manager: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 project: Optional[pulumi.Input[_builtins.str]] = None,
-                 region: Optional[pulumi.Input[_builtins.str]] = None,
-                 requested_run_duration: Optional[pulumi.Input[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
-                 resize_by: Optional[pulumi.Input[_builtins.int]] = None,
+                 deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+                 description: pulumi.Input[Optional[_builtins.str]] = None,
+                 instance_group_manager: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 project: pulumi.Input[Optional[_builtins.str]] = None,
+                 region: pulumi.Input[Optional[_builtins.str]] = None,
+                 requested_run_duration: pulumi.Input[Optional[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
+                 resize_by: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -605,6 +665,7 @@ class RegionResizeRequest(pulumi.CustomResource):
                 raise TypeError('__props__ is only valid when passed in combination with a valid opts.id to get an existing resource')
             __props__ = RegionResizeRequestArgs.__new__(RegionResizeRequestArgs)
 
+            __props__.__dict__["deletion_policy"] = deletion_policy
             __props__.__dict__["description"] = description
             if instance_group_manager is None and not opts.urn:
                 raise TypeError("Missing required property 'instance_group_manager'")
@@ -629,16 +690,17 @@ class RegionResizeRequest(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
-            description: Optional[pulumi.Input[_builtins.str]] = None,
-            instance_group_manager: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            project: Optional[pulumi.Input[_builtins.str]] = None,
-            region: Optional[pulumi.Input[_builtins.str]] = None,
-            requested_run_duration: Optional[pulumi.Input[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
-            resize_by: Optional[pulumi.Input[_builtins.int]] = None,
-            state: Optional[pulumi.Input[_builtins.str]] = None,
-            statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RegionResizeRequestStatusArgs', 'RegionResizeRequestStatusArgsDict']]]]] = None) -> 'RegionResizeRequest':
+            creation_timestamp: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            instance_group_manager: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            project: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            requested_run_duration: pulumi.Input[Optional[Union['RegionResizeRequestRequestedRunDurationArgs', 'RegionResizeRequestRequestedRunDurationArgsDict']]] = None,
+            resize_by: pulumi.Input[Optional[_builtins.int]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            statuses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['RegionResizeRequestStatusArgs', 'RegionResizeRequestStatusArgsDict']]]]] = None) -> 'RegionResizeRequest':
         """
         Get an existing RegionResizeRequest resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -647,6 +709,12 @@ class RegionResizeRequest(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] creation_timestamp: The creation timestamp for this resize request in RFC3339 text format.
+        :param pulumi.Input[_builtins.str] deletion_policy: Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+               When a 'terraform destroy' or 'pulumi up' would delete the resource,
+               the command will fail if this field is set to "PREVENT" in Terraform state.
+               When set to "ABANDON", the command will remove the resource from Terraform
+               management without updating or deleting the resource in the API.
+               When set to "DELETE", deleting the resource is allowed.
         :param pulumi.Input[_builtins.str] description: An optional description of this resize-request.
         :param pulumi.Input[_builtins.str] instance_group_manager: The reference of the regional instance group manager this ResizeRequest is a part of.
         :param pulumi.Input[_builtins.str] name: The name of this resize request. The name must be 1-63 characters long, and comply with RFC1035.
@@ -665,6 +733,7 @@ class RegionResizeRequest(pulumi.CustomResource):
         __props__ = _RegionResizeRequestState.__new__(_RegionResizeRequestState)
 
         __props__.__dict__["creation_timestamp"] = creation_timestamp
+        __props__.__dict__["deletion_policy"] = deletion_policy
         __props__.__dict__["description"] = description
         __props__.__dict__["instance_group_manager"] = instance_group_manager
         __props__.__dict__["name"] = name
@@ -683,6 +752,19 @@ class RegionResizeRequest(pulumi.CustomResource):
         The creation timestamp for this resize request in RFC3339 text format.
         """
         return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="deletionPolicy")
+    def deletion_policy(self) -> pulumi.Output[_builtins.str]:
+        """
+        Whether Terraform will be prevented from destroying the resource. Defaults to DELETE.
+        When a 'terraform destroy' or 'pulumi up' would delete the resource,
+        the command will fail if this field is set to "PREVENT" in Terraform state.
+        When set to "ABANDON", the command will remove the resource from Terraform
+        management without updating or deleting the resource in the API.
+        When set to "DELETE", deleting the resource is allowed.
+        """
+        return pulumi.get(self, "deletion_policy")
 
     @_builtins.property
     @pulumi.getter

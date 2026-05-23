@@ -20,14 +20,14 @@ FileAction = Literal[
 
 def to_actions(a: Union[FileAction, Iterable[FileAction]]) -> Set[FileAction]:
     if isinstance(a, str):
-        return set(*[a])
+        return {a}  # type: ignore[return-value]
     return set(a)
 
 
 def to_globs(g: Union[str, PathLike, Iterable[Union[str, PathLike]]]) -> Set[str]:
-    if isinstance(g, Iterable):
-        return set(map(str, g))
-    return set(map(str, [g]))
+    if isinstance(g, (str, PathLike)):
+        return {str(g)}
+    return set(map(str, g))
 
 
 def path_in_glob(glob_exp: str, path: Union[str, PathLike]) -> bool:

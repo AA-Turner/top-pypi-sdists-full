@@ -31,6 +31,11 @@ SUPPORTED_GLUE_CONNECTION_TYPES = [
     "SQLSERVER",
     "TERADATA",
     "VERTICA",
+    "WORKDAYLDQ",
+]
+
+SUPPORTED_IRC_GLUE_CONNECTION_TYPES = [
+    "WORKDAYICEBERGRESTCATALOG",
 ]
 
 
@@ -208,7 +213,11 @@ class Connection:
         self.project_id = self.__connection_data.get("projectId", None)
         self.iam_role = self.__connection_data.get("environmentUserRole", None)
         self._project_config = project_config
-        if self.type in ["LAKEHOUSE", "IAM"] or self.type in SUPPORTED_GLUE_CONNECTION_TYPES:
+        if (
+            self.type in ["LAKEHOUSE", "IAM"]
+            or self.type in SUPPORTED_GLUE_CONNECTION_TYPES
+            or self.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES
+        ):
             self._glue_api: BaseClient = self._get_aws_client_with_connection_credentials(
                 "glue", self._connection_creds, glue_api
             )
@@ -429,6 +438,46 @@ class Connection:
             except Exception as e:
                 raise RuntimeError(
                     f"Encountered an error getting spark options for the connection:{self.name} {e}"
+                )
+        return None
+
+    def _spark_catalog_configs(self) -> Optional[Dict]:
+        """
+        Returns the Spark catalog configurations using GlueConnectionLib.
+        """
+        if self.type is None or self.type not in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+            raise AttributeError(f"Connection Type {self.type} not supported")
+
+        if self.physical_endpoints and self.physical_endpoints[0].glue_connection_name:
+            from .glue_connection_lib import GlueConnectionWrapper, GlueConnectionWrapperInputs
+
+            try:
+                glue_connection_name = self.physical_endpoints[0].glue_connection_name
+                connection = self._glue_api.get_connection(Name=glue_connection_name)["Connection"]
+
+                kms_client: BaseClient = self._get_aws_client_with_connection_credentials(
+                    "kms", self._connection_creds, self._kms_api
+                )
+
+                secrets_manager_client: BaseClient = self._get_aws_client_with_connection_credentials(  # type: ignore
+                    "secretsmanager", self._connection_creds, self._secrets_manager_api
+                )
+
+                wrapper_input = GlueConnectionWrapperInputs(
+                    connection=connection,
+                    kms_client=kms_client,
+                    secrets_manager_client=secrets_manager_client,
+                    additional_options={},
+                )
+
+                wrapper = GlueConnectionWrapper.create(wrapper_input)
+                catalog_configs = wrapper.get_catalog_configs()
+
+                return catalog_configs
+
+            except Exception as e:
+                raise RuntimeError(
+                    f"Encountered an error getting spark catalog options for the connection:{self.name} {e}"
                 )
         return None
 
