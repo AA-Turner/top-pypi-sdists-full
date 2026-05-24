@@ -3,11 +3,11 @@ import pytest
 import simpy
 
 
-@pytest.fixture()
+@pytest.fixture
 def log():
     return []
 
 
-@pytest.fixture()
+@pytest.fixture
 def env():
     return simpy.Environment()

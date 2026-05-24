@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyrnheim
-Version: 0.15.0
+Version: 0.15.1
 Summary: Define typed Python entities, generate transformations, run anywhere. A dbt alternative built on Pydantic + Ibis.
 Project-URL: Homepage, https://github.com/deepskydatahq/fyrnheim
 Project-URL: Repository, https://github.com/deepskydatahq/fyrnheim

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: simpy
-Version: 4.1.1
+Version: 4.1.2
 Summary: Event discrete, process based simulation for Python.
 Author-email: Ontje Lünsdorf <the_com@gmx.de>, Stefan Scherfke <stefan@sofa-rockers.org>
 License: MIT
@@ -22,12 +22,15 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
+Dynamic: license-file
 
 SimPy
 =====

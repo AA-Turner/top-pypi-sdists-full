@@ -1,2 +1,0 @@
-import"./rolldown-runtime-DIIn1E2Q.js";import{D as e}from"./vendor-vue-core-DO0afONr.js";import{r as t,t as n}from"./useFeatureUsageTracker-5g-qX7fc.js";function useSurveyFeatureTracking(r){let i=t(r);if(i?.enabled===!1||!i)return{trackFeatureUsed:()=>{},useCount:e(()=>0)};let{trackUsage:a,useCount:o}=n(r);return{trackFeatureUsed:a,useCount:o}}export{useSurveyFeatureTracking as t};
-//# sourceMappingURL=useSurveyFeatureTracking-Dt6iQUW_.js.map

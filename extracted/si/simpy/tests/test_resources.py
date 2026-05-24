@@ -2,6 +2,7 @@
 Theses test cases demonstrate the API for shared resources.
 
 """
+
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
@@ -240,7 +241,7 @@ def test_sorted_queue_maxlen(env):
         resource.request(priority=1)
         # The second request is enqueued.
         resource.request(priority=1)
-        with pytest.raises(RuntimeError, match='Cannot append event. Queue is full.'):
+        with pytest.raises(RuntimeError, match=r'Cannot append event. Queue is full.'):
             # The third request will now fail.
             resource.request(priority=1)
         yield env.timeout(0)
@@ -480,9 +481,9 @@ def test_initial_container_capacity(env):
 
 def test_container_get_put_bounds(env):
     container = simpy.Container(env)
-    with pytest.raises(ValueError, match='amount.*must be > 0'):
+    with pytest.raises(ValueError, match=r'amount.*must be > 0'):
         container.get(-13)
-    with pytest.raises(ValueError, match='amount.*must be > 0'):
+    with pytest.raises(ValueError, match=r'amount.*must be > 0'):
         container.put(-13)
 
 
@@ -501,13 +502,14 @@ def test_container_get_put_bounds(env):
 def test_container_init_capacity(env, error, args):
     args.insert(0, env)
     if error:
-        pytest.raises(error, simpy.Container, *args)
+        with pytest.raises(error):
+            simpy.Container(*args)
     else:
         simpy.Container(*args)
 
 
 #
-# Tests fore Store
+# Tests for Store
 #
 
 

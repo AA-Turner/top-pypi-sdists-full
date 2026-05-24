@@ -13,7 +13,7 @@ from notebooklm.notebooklm_cli import cli
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import AskResult, Notebook
 
-from .conftest import create_mock_client, patch_client_for_module, patch_main_cli_client
+from .conftest import create_mock_client, patch_main_cli_client
 
 
 @pytest.fixture
@@ -83,6 +83,8 @@ class TestNotebookList:
                 result = runner.invoke(cli, ["list"])
 
             assert result.exit_code == 0
+            assert "Notebooks" in result.output
+            assert "nb_1" in result.output
             assert "First Notebook" in result.output
             assert "Second Notebook" in result.output
 
@@ -109,9 +111,142 @@ class TestNotebookList:
 
             assert result.exit_code == 0
             data = json.loads(result.output)
+            assert list(data) == ["notebooks", "count"]
             assert "notebooks" in data
             assert data["count"] == 1
+            assert list(data["notebooks"][0]) == [
+                "index",
+                "id",
+                "title",
+                "is_owner",
+                "created_at",
+            ]
             assert data["notebooks"][0]["id"] == "nb_1"
+
+    def test_notebook_list_limit_caps_rows(self, runner, mock_auth):
+        """`--limit N` returns at most N data rows in text output."""
+        many = [
+            Notebook(
+                id=f"nb_{i:02d}",
+                title=f"Notebook {i:02d}",
+                created_at=datetime(2024, 1, 1),
+                is_owner=True,
+            )
+            for i in range(25)
+        ]
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(return_value=many)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["list", "--limit", "5"])
+
+            assert result.exit_code == 0, result.output
+            # The first 5 notebook ids (zero-padded) should appear; later ones must not.
+            for i in range(5):
+                assert f"nb_{i:02d}" in result.output
+            for i in range(5, 25):
+                assert f"nb_{i:02d}" not in result.output
+
+    def test_notebook_list_limit_json_caps_rows(self, runner, mock_auth):
+        """`--limit N` also caps the JSON `notebooks` array."""
+        many = [
+            Notebook(
+                id=f"nb_{i:02d}",
+                title=f"Notebook {i:02d}",
+                created_at=datetime(2024, 1, 1),
+                is_owner=True,
+            )
+            for i in range(25)
+        ]
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(return_value=many)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["list", "--limit", "3", "--json"])
+
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert data["count"] == 3
+            assert len(data["notebooks"]) == 3
+            assert [n["id"] for n in data["notebooks"]] == ["nb_00", "nb_01", "nb_02"]
+
+    def test_notebook_list_no_truncate_disables_ellipsis(self, runner, mock_auth):
+        """`--no-truncate` renders the full title without an ellipsis.
+
+        The default Title column uses Rich's ``overflow="ellipsis"`` so a
+        title that exceeds the auto-detected terminal width is truncated
+        with ``…``. ``--no-truncate`` flips the column to ``overflow="fold"``
+        so the title wraps instead, preserving every character.
+        """
+        long_title = "X" * 200
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_long",
+                        title=long_title,
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["list", "--no-truncate"])
+
+            assert result.exit_code == 0, result.output
+            # Rich may soft-wrap the cell across many lines, but
+            # --no-truncate MUST preserve every character of the title and
+            # MUST NOT insert an ellipsis.
+            assert result.output.count("X") >= 200
+            assert "…" not in result.output
+
+    def test_notebook_list_default_truncates_long_title(self, runner, mock_auth):
+        """Default rendering inserts an ellipsis for over-wide titles.
+
+        Pins the existing default behavior so --no-truncate doesn't change
+        rendering when the flag is not passed.
+        """
+        long_title = "X" * 200
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_long",
+                        title=long_title,
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["list"])
+
+            assert result.exit_code == 0, result.output
+            # Default truncation should drop characters and add ellipsis.
+            assert result.output.count("X") < 200
+            assert "…" in result.output
 
 
 # =============================================================================
@@ -120,7 +255,8 @@ class TestNotebookList:
 
 
 class TestNotebookCreate:
-    def test_notebook_create(self, runner, mock_auth):
+    def test_notebook_create(self, runner, mock_auth, mock_context_file):
+        """Default create stays pure — context file is not touched."""
         with patch_main_cli_client() as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.notebooks.create = AsyncMock(
@@ -138,8 +274,38 @@ class TestNotebookCreate:
 
             assert result.exit_code == 0
             assert "Created notebook" in result.output
+            assert "--use" in result.output  # hint shown when flag is omitted
+            assert not mock_context_file.exists()
 
-    def test_notebook_create_json_output(self, runner, mock_auth):
+    def test_notebook_create_does_not_overwrite_existing_context(
+        self, runner, mock_auth, mock_context_file
+    ):
+        """Default create must leave a previously active context untouched."""
+        mock_context_file.write_text(
+            json.dumps({"notebook_id": "old_nb", "title": "Previously Active"})
+        )
+
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(
+                    id="new_nb_id", title="Fresh", created_at=datetime(2024, 1, 1)
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["create", "Fresh"])
+
+            assert result.exit_code == 0
+            context = json.loads(mock_context_file.read_text())
+            assert context["notebook_id"] == "old_nb"
+
+    def test_notebook_create_json_output(self, runner, mock_auth, mock_context_file):
+        """JSON mode without --use is pure — no context mutation, no hint noise."""
         with patch_main_cli_client() as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.notebooks.create = AsyncMock(
@@ -158,6 +324,110 @@ class TestNotebookCreate:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["notebook"]["id"] == "new_nb_id"
+            assert not mock_context_file.exists()
+
+    def test_notebook_create_with_use_flag(self, runner, mock_auth, mock_context_file):
+        """`create --use` switches context (text mode)."""
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(
+                    id="new_nb_id", title="Test Notebook", created_at=datetime(2024, 1, 1)
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["create", "Test Notebook", "--use"])
+
+            assert result.exit_code == 0
+            assert "Context set to new notebook" in result.output
+            context = json.loads(mock_context_file.read_text())
+            assert context["notebook_id"] == "new_nb_id"
+            assert context["title"] == "Test Notebook"
+
+    def test_notebook_create_with_use_short_flag(self, runner, mock_auth, mock_context_file):
+        """`-u` shorthand works identically to `--use`."""
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(id="short_id", title="Short", created_at=datetime(2024, 1, 1))
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["create", "Short", "-u"])
+
+            assert result.exit_code == 0
+            context = json.loads(mock_context_file.read_text())
+            assert context["notebook_id"] == "short_id"
+
+    def test_notebook_create_with_use_json(self, runner, mock_auth, mock_context_file):
+        """`create --use --json` switches context AND emits JSON (consistent with text mode).
+
+        the JSON envelope MUST surface the
+        `active_notebook_id` alongside the create result so script callers
+        can pick up the new context without scraping any "Context set to ..."
+        text or shelling out to `notebooklm status --json`.
+        """
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(
+                    id="new_nb_id", title="Test Notebook", created_at=datetime(2024, 1, 1)
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["create", "Test Notebook", "--use", "--json"])
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["notebook"]["id"] == "new_nb_id"
+            # When --use is set, the JSON envelope surfaces the new
+            # active notebook id so callers don't have to round-trip via
+            # `notebooklm status --json`.
+            assert data["active_notebook_id"] == "new_nb_id"
+            context = json.loads(mock_context_file.read_text())
+            assert context["notebook_id"] == "new_nb_id"
+
+    def test_notebook_create_json_without_use_omits_active_id(
+        self, runner, mock_auth, mock_context_file
+    ):
+        """`create --json` (no --use) MUST NOT emit `active_notebook_id` —
+        signals that context was not switched, so callers can branch on
+        presence/absence without parsing prose.
+        """
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(
+                    id="new_nb_id", title="Test Notebook", created_at=datetime(2024, 1, 1)
+                )
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["create", "Test Notebook", "--json"])
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["notebook"]["id"] == "new_nb_id"
+            assert "active_notebook_id" not in data
+            assert not mock_context_file.exists()
 
     def test_notebook_create_json_quota_error(self, runner, mock_auth):
         """Create emits structured JSON when notebook quota is detected."""
@@ -239,6 +509,32 @@ class TestNotebookDelete:
             assert "Deleted notebook" in result.output
             mock_client.notebooks.delete.assert_called_once_with("nb_to_delete")
 
+    def test_notebook_delete_cancelled(self, runner, mock_auth):
+        with patch_main_cli_client() as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.notebooks.list = AsyncMock(
+                return_value=[
+                    Notebook(
+                        id="nb_to_delete",
+                        title="Test Notebook",
+                        created_at=datetime(2024, 1, 1),
+                        is_owner=True,
+                    ),
+                ]
+            )
+            mock_client.notebooks.delete = AsyncMock(return_value=True)
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["delete", "-n", "nb_to_delete"], input="n\n")
+
+            assert result.exit_code == 0
+            assert "Delete notebook nb_to_delete?" in result.output
+            mock_client.notebooks.delete.assert_not_called()
+
     def test_notebook_delete_clears_context_if_current(self, runner, mock_auth, tmp_path):
         context_file = tmp_path / "context.json"
         context_file.write_text('{"notebook_id": "nb_to_delete"}')
@@ -261,8 +557,12 @@ class TestNotebookDelete:
 
             with (
                 patch("notebooklm.cli.helpers.get_context_path", return_value=context_file),
-                patch("notebooklm.cli.notebook.get_current_notebook", return_value="nb_to_delete"),
-                patch("notebooklm.cli.notebook.clear_context"),
+                patch("notebooklm.cli.context.get_context_path", return_value=context_file),
+                patch("notebooklm.cli.resolve.get_context_path", return_value=context_file),
+                patch(
+                    "notebooklm.cli.notebook_cmd.get_current_notebook", return_value="nb_to_delete"
+                ),
+                patch("notebooklm.cli.notebook_cmd.clear_context"),
                 patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,
@@ -517,6 +817,10 @@ class TestNotebookAsk:
                     return_value=Path("/nonexistent/context.json"),
                 ),
                 patch(
+                    "notebooklm.cli.context.get_context_path",
+                    return_value=Path("/nonexistent/context.json"),
+                ),
+                patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,
             ):
@@ -615,7 +919,7 @@ class TestNotebookConfigure:
 
 class TestSourceAddResearch:
     def test_source_add_research_success(self, runner, mock_auth):
-        with patch_client_for_module("source") as mock_client_cls:
+        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.research.start = AsyncMock(return_value={"task_id": "task_123"})
             mock_client.research.poll = AsyncMock(
@@ -635,7 +939,7 @@ class TestSourceAddResearch:
             assert "Found 1 sources" in result.output
 
     def test_source_add_research_failed_to_start(self, runner, mock_auth):
-        with patch_client_for_module("source") as mock_client_cls:
+        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.research.start = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
@@ -652,13 +956,17 @@ class TestSourceAddResearch:
             assert "Research failed to start" in result.output
 
     def test_source_add_research_with_import(self, runner, mock_auth):
-        with patch_client_for_module("source") as mock_client_cls:
+        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.research.start = AsyncMock(return_value={"task_id": "task_123"})
             mock_client.research.poll = AsyncMock(
                 return_value={"status": "completed", "sources": [{"id": "src_1"}]}
             )
-            mock_client.research.import_sources = AsyncMock(return_value=[{"id": "src_1"}])
+            # CLI's import_with_retry now delegates to the library's
+            # import_sources_with_verification method (#315).
+            mock_client.research.import_sources_with_verification = AsyncMock(
+                return_value=[{"id": "src_1"}]
+            )
             mock_client_cls.return_value = mock_client
 
             with patch(
@@ -760,7 +1068,10 @@ class TestNotebookMetadata:
             mock_client_cls.return_value = mock_client
 
             with (
-                patch("notebooklm.cli.helpers.get_current_notebook", return_value="nb_1"),
+                patch(
+                    "notebooklm.cli.resolve.context_helpers.get_current_notebook",
+                    return_value="nb_1",
+                ),
                 patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,
@@ -798,7 +1109,10 @@ class TestNotebookMetadata:
             mock_client_cls.return_value = mock_client
 
             with (
-                patch("notebooklm.cli.helpers.get_current_notebook", return_value="nb_1"),
+                patch(
+                    "notebooklm.cli.resolve.context_helpers.get_current_notebook",
+                    return_value="nb_1",
+                ),
                 patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,
@@ -829,7 +1143,10 @@ class TestNotebookMetadata:
             mock_client_cls.return_value = mock_client
 
             with (
-                patch("notebooklm.cli.helpers.get_current_notebook", return_value="nb_empty"),
+                patch(
+                    "notebooklm.cli.resolve.context_helpers.get_current_notebook",
+                    return_value="nb_empty",
+                ),
                 patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,
@@ -865,7 +1182,10 @@ class TestNotebookMetadata:
             mock_client_cls.return_value = mock_client
 
             with (
-                patch("notebooklm.cli.helpers.get_current_notebook", return_value="nb_url"),
+                patch(
+                    "notebooklm.cli.resolve.context_helpers.get_current_notebook",
+                    return_value="nb_url",
+                ),
                 patch(
                     "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
                 ) as mock_fetch,

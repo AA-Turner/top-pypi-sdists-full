@@ -198,6 +198,13 @@ class SAGEBackend:
         except Exception as exc:
             return {"error": str(exc)}
 
+    def reclaim_identities(self) -> dict:
+        """Lock primary email and phone numbers to this account in the routing index."""
+        try:
+            return self._post("/sms/reclaim", {})
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
     def dispatch_text(self, text: str, from_addr: str) -> dict:
         """Send an iMessage/SMS task through the backend's @target: router.
 
@@ -248,7 +255,7 @@ def _load_sage_token() -> tuple[str, str]:
 # ── Utilities ──────────────────────────────────────────────────────────────────
 
 def _imessage_max_rowid() -> int:
-    """Return the highest message rowid in chat.db, or 0 if unreadable.
+    """Return the highest message rowid in chat.db, or -1 if unreadable.
 
     Used to verify whether `_send_imessage` actually queued a message —
     AppleScript's Messages.app handler returns success even for fake
@@ -256,17 +263,17 @@ def _imessage_max_rowid() -> int:
     row appeared in ~/Library/Messages/chat.db.
     """
     if sys.platform != "darwin":
-        return 0
+        return -1
     db_path = os.path.expanduser("~/Library/Messages/chat.db")
     if not os.path.exists(db_path):
-        return 0
+        return -1
     try:
         import sqlite3
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as db:
             row = db.execute("SELECT COALESCE(MAX(rowid), 0) FROM message").fetchone()
             return int(row[0]) if row else 0
     except Exception:
-        return 0
+        return -1
 
 
 def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
@@ -367,26 +374,36 @@ def _send_imessage(recipient: str, text: str) -> bool:
     for keyword in ("participant", "buddy"):
         ok, msg = _run_send_script(keyword)
         if not ok or msg != "ok":
+            # If iMessage service is unavailable, try falling back to SMS service
+            if "targetService" in msg and "iMessage" in msg:
+                logger.info("iMessage service unavailable, trying standard SMS fallback for %s", recipient)
+                if _send_macos_sms(recipient, text):
+                    return True
+            
             script_errors.append(f"{keyword}: {msg}")
             logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
             continue
-        # Give Messages.app up to 5s to write to chat.db (was 2s — sometimes
-        # the Messages.app write is slow under load or on first-message-to-contact).
+        
+        # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
+        # above just returned "ok".  We must trust it and return True, otherwise
+        # the backend will fall back to SMTP unnecessarily.
+        if baseline == -1:
+            logger.info("iMessage sent to %s via osascript. (Verification skipped: Full Disk Access missing).", recipient)
+            return True
+
+        # Give Messages.app up to 5s to write to chat.db
         for _ in range(20):  # 20 × 0.25s = 5s
             time.sleep(0.25)
             if _imessage_row_matches(baseline, text):
+                logger.info("iMessage delivery verified for %s", recipient)
                 return True
-        # osascript said "ok" but chat.db never got the row.  This usually
-        # means the recipient's handle isn't reachable on iMessage (not signed
-        # in, wrong handle format, Apple ID mismatch).  Log at WARNING so the
-        # user sees it in the bridge terminal output.
+        
         logger.warning(
             "iMessage to %s: osascript said ok but no row appeared in chat.db "
-            "after 5s — recipient may not have iMessage enabled for this "
-            "handle, or Messages.app is not signed in on this Mac",
+            "after 5s — recipient may not have iMessage enabled, or Messages.app is not signed in.",
             recipient,
         )
-        return False  # no point trying legacy keyword if modern already "ok"
+        return False
 
     # Both keywords produced script errors — log them visibly
     if script_errors:
@@ -1108,6 +1125,13 @@ class SAGEMessageBridge:
 
         body = f"[SAGE — {replier}] {output}"
         e164 = self._normalize_e164(sender)
+        # For iMessage, if we have a phone number, use the E.164 form.
+        # If it's a carrier gateway email (digits@domain), strip the domain.
+        if not e164 and "@" in sender:
+            local = sender.split("@")[0]
+            if local.isdigit() and len(local) >= 10:
+                e164 = self._normalize_e164(local)
+        
         recipient = e164 or sender
 
         sent_via = None
@@ -1342,15 +1366,26 @@ class SAGEMessageBridge:
             elif _send_via_kdeconnect(target, body):
                 sent_via = "KDE Connect"
         elif device_type == "apple":
-            if _send_imessage(target, body):
-                sent_via = "iMessage"
+            if sys.platform == "darwin":
+                if _send_imessage(target, body):
+                    sent_via = "iMessage"
+            
+            # Fallback for Apple on non-macOS or failed iMessage
+            if not sent_via and e164:
+                if _send_via_kdeconnect(target, body):
+                    sent_via = "KDE Connect (SMS)"
         else:
-            if service.lower() == "imessage" and _send_imessage(target, body):
-                sent_via = "iMessage"
-            elif sys.platform == "darwin" and _send_macos_sms(target, body):
-                sent_via = "SMS (iPhone relay)"
-            elif _send_imessage(target, body):
-                sent_via = "iMessage"
+            # Untagged/unknown device
+            if sys.platform == "darwin":
+                if _send_imessage(target, body):
+                    sent_via = "iMessage"
+                elif _send_macos_sms(target, body):
+                    sent_via = "SMS (iPhone relay)"
+            
+            # Fallback to KDE Connect on all platforms (including Linux/Windows)
+            if not sent_via and e164:
+                if _send_via_kdeconnect(target, body):
+                    sent_via = "KDE Connect (SMS)"
 
         if sent_via:
             self._log(f"→ replied to {sender} via {sent_via}")
@@ -1504,73 +1539,59 @@ class SAGEMessageBridge:
         timeout: int | None = None,
         mode: str = "auto",
     ) -> str:
-        """Execute a sage task as a subprocess.
-
-        Three dispatch modes:
-        - mode="auto" (default for SMS dispatch): classify the message and
-          route greetings/questions to chat, action requests to agent. This
-          avoids burning the heavy llama_cpp model load on a "Hello Sage".
-        - mode="agent": force the full `sage run --prompt` agent loop —
-          shell, file edits, RUN: blocks, test loops, retries.
-        - mode="chat": force `sage ask --raw` (used for the SMS reply summarizer):
-          which is a fast one-shot text completion with no tool use. Right for
-          pure compression tasks where we don't want the agent reasoning loop.
-
-        No deadline by default — real coding work routinely runs longer than
-        any timeout we'd pick, and dropping the reply mid-run is the worst
-        possible UX. Callers that genuinely want a deadline pass `timeout`.
-        """
-        # Resolve auto-mode now so the rest of the function only sees agent/chat.
+        """Execute a sage task as a subprocess."""
         if mode == "auto":
             mode = self._classify_sms_intent(task)
-        # Always pass --model explicitly so per-cwd `last_used_model` caches
-        # in ~/.sage/.../session_state.json can't override the user's intent.
-        # The resolver also auto-prefers ollama:<name> over llama_cpp:<name>
-        # if both are available — avoids Metal-shader compilation failures.
+            
         resolved_model = self._resolve_dispatch_model()
         model_flags = ["--model", resolved_model] if resolved_model else []
-
-        # Temperature flag (non-default only)
         temp = getattr(self.cfg, "temperature", 0.7)
         temp_flags = ["--temperature", str(temp)] if temp != 0.7 else []
-
-        # Output mode flag for agent (sage run)
-        out_mode = getattr(self.cfg, "output_mode", "") or ""
-        out_flags = (
-            ["--output", "verbose"] if out_mode == "verbose"
-            else ["--quiet"] if out_mode == "quiet"
-            else ["--quiet"]  # always quiet for SMS — we post-process output ourselves
+        
+        # Build command variants: try module path then bare command
+        base_flags = model_flags + temp_flags + (["--quiet", "--prompt", task] if mode == "agent" else ["--raw", task])
+        
+        # P0 FIX: Ensure we use the current sys.executable to maintain environment consistency
+        cmd_variants = (
+            [sys.executable, "-m", "sage", "run" if mode == "agent" else "ask"] + base_flags,
+            ["sage", "run" if mode == "agent" else "ask"] + base_flags,
         )
 
-        if mode == "agent":
-            cmd_variants = (
-                [sys.executable, "-m", "sage", "run"]
-                + model_flags + temp_flags + out_flags + ["--prompt", task],
-                ["sage", "run"]
-                + model_flags + temp_flags + out_flags + ["--prompt", task],
-            )
-        else:
-            cmd_variants = (
-                [sys.executable, "-m", "sage", "ask"] + model_flags + temp_flags + ["--raw", task],
-                ["sage", "ask"] + model_flags + temp_flags + ["--raw", task],
-            )
         for cmd in cmd_variants:
             try:
+                logger.info("SMS Bridge executing: %s", " ".join(cmd))
                 result = subprocess.run(
-                    cmd, cwd=str(self.working_dir),
+                    cmd, 
+                    cwd=str(self.working_dir),
                     capture_output=True, text=True, timeout=timeout,
-                    env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
+                    env={
+                        **os.environ, 
+                        "PYTHONPATH": str(self.cwd), 
+                        "NO_COLOR": "1", 
+                        "TERM": "dumb",
+                        "SAGE_BATCH_LIMIT": "250" # Ensure background task doesn't stop early
+                    }
                 )
+                
+                # Combine stdout and stderr for full context on failure
                 raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
-                out = _extract_final_answer(raw)
-                return out or "Task completed."
+                
+                if result.returncode == 0:
+                    out = _extract_final_answer(raw)
+                    return out or "Task completed successfully."
+                    
+                # If first variant failed with FileNotFoundError, it will be caught below
+                if result.returncode != 0 and cmd == cmd_variants[-1]:
+                    return f"❌ Error: {raw or 'Process exited with code %d' % result.returncode}"
+                    
             except FileNotFoundError:
                 continue
             except subprocess.TimeoutExpired:
                 return "⏱ Timed out — check your terminal for progress."
-            except Exception as exc:
-                return f"Error: {exc}"
-        return "Error: sage command not found"
+            except Exception as e:
+                return f"❌ System Error: {str(e)}"
+        
+        return "❌ Error: SAGE command not found in environment."
 
     def _summarize_for_sms(self, full_response: str, original_task: str) -> str:
         """Use the model to compress a long SAGE response into a phone-friendly reply.
@@ -1807,23 +1828,23 @@ class SAGEMessageBridge:
         # macOS Messages app routes by phone iff iMessage is enabled on this
         # machine and the recipient is registered with iMessage.
         if device_type == "apple":
-            if sys.platform == "darwin" and phone_e164:
-                if _send_imessage(phone_e164, body):
+            if sys.platform == "darwin":
+                if phone_e164 and _send_imessage(phone_e164, body):
                     return True
-            # Fallback to a linked Apple ID email if available
-            try:
-                be = SAGEBackend(self._token, self._api_base)
-                providers = be.get_linked_providers()
-                apple = next(
-                    (p for p in providers
-                     if p.get("provider_id") == "apple.com" and p.get("email")),
-                    None,
-                )
-                if apple and sys.platform == "darwin":
-                    if _send_imessage(apple["email"], body):
+                # Fallback to a linked Apple ID email if available
+                try:
+                    be = SAGEBackend(self._token, self._api_base)
+                    providers = be.get_linked_providers()
+                    apple = next((p for p in providers
+                                  if p.get("provider_id") == "apple.com" and p.get("email")), None)
+                    if apple and _send_imessage(apple["email"], body):
                         return True
-            except Exception as exc:
-                self._log(f"Apple ID lookup failed: {exc}")
+                except Exception as exc:
+                    self._log(f"Apple ID lookup failed: {exc}")
+
+            # Fallback for Apple on non-macOS (or failed iMessage on macOS): try KDE Connect
+            if phone_e164 and _send_via_kdeconnect(phone_e164, body):
+                return True
             return False
 
         # Android → KDE Connect (real SMS from user's own paired Android).
@@ -1834,6 +1855,20 @@ class SAGEMessageBridge:
                self._kde_listener.send_sms(phone_e164, body):
                 return True
             return _send_via_kdeconnect(phone_e164, body)
+
+        # Untagged/unknown device — try iMessage on macOS, KDE Connect everywhere.
+        if not device_type:
+            if sys.platform == "darwin":
+                if phone_e164 and _send_imessage(phone_e164, body):
+                    return True
+                if phone_e164 and _send_macos_sms(phone_e164, body):
+                    return True
+            
+            if phone_e164:
+                if getattr(self, "_kde_listener", None) and \
+                   self._kde_listener.send_sms(phone_e164, body):
+                    return True
+                return _send_via_kdeconnect(phone_e164, body)
 
         return False
 
@@ -1863,18 +1898,14 @@ class SAGEMessageBridge:
 
         body = f"[SAGE — {self.cfg.computer_name}] {text}"
 
-        if device_type == "apple" and sys.platform == "darwin":
+        # 1. Try iMessage if on macOS and device is Apple or untagged
+        if sys.platform == "darwin" and device_type in ("apple", ""):
             if _send_imessage(phone_e164, body):
                 self._log(f"→ announce delivered via iMessage to {phone_e164}")
                 return
-            self._log(f"⚠ iMessage delivery failed for {phone_e164}")
-            return
 
-        if device_type == "android":
-            # Android-tagged contacts get SMS via the user's OWN paired Android
-            # phone (KDE Connect). Never via iPhone relay — that would send
-            # from the user's iPhone number, not from sage, and the recipient
-            # (the Android phone) would just see iPhone messages.
+        # 2. Try KDE Connect if device is Android, untagged, or (Apple on non-macOS / failed iMessage)
+        if device_type in ("android", "", "apple"):
             if getattr(self, "_kde_listener", None) and \
                self._kde_listener.send_sms(phone_e164, body):
                 self._log(f"→ announce delivered via KDE Connect (takeover) to {phone_e164}")
@@ -1882,15 +1913,17 @@ class SAGEMessageBridge:
             if _send_via_kdeconnect(phone_e164, body):
                 self._log(f"→ announce delivered via KDE Connect to {phone_e164}")
                 return
-            self._log(
-                f"⚠ Android SMS delivery to {phone_e164} pending — waiting for "
-                "Pixel to reconnect. To force it: toggle Wi-Fi off/on on the Pixel."
-            )
-            return
+
+            if device_type == "android":
+                self._log(
+                    f"⚠ Android SMS delivery to {phone_e164} pending — waiting for "
+                    "Pixel to reconnect. To force it: toggle Wi-Fi off/on on the Pixel."
+                )
+                return
 
         self._log(
-            f"native_message: device_type={device_type!r} not handled on this platform "
-            f"(sys.platform={sys.platform})"
+            f"native_message: delivery failed for {phone_e164} (device={device_type!r}, platform={sys.platform}). "
+            "Ensure iMessage is signed in (macOS) or KDE Connect is paired (Linux/Windows/macOS)."
         )
 
     def _handle_imessage_fallback(self, msg: dict) -> None:
@@ -1907,7 +1940,7 @@ class SAGEMessageBridge:
         if not text:
             return
 
-        # Normalize phone number for KDE Connect (E.164 with US country code default)
+        # Normalize phone number for KDE Connect
         phone_local = recipient_bounced.split("@", 1)[0] if "@" in recipient_bounced else ""
         digits = re.sub(r"\D", "", phone_local)
         if len(digits) == 10:
@@ -1917,39 +1950,38 @@ class SAGEMessageBridge:
         else:
             phone_e164 = ""
 
-        try_apple   = device_type in ("", "apple")
-        try_android = device_type in ("", "android")
+        body = f"[SAGE] {text}"
 
-        # Path 1: macOS iMessage (Apple)
-        if try_apple and sys.platform == "darwin":
+        # 1. Try iMessage if on macOS and (Apple or Untagged)
+        if sys.platform == "darwin" and device_type in ("apple", ""):
             try:
                 be = SAGEBackend(self._token, self._api_base)
                 providers = be.get_linked_providers()
                 apple = next((p for p in providers
                               if p.get("provider_id") == "apple.com" and p.get("email")), None)
-                if apple and _send_imessage(apple["email"], f"[SAGE] {text}"):
+                if apple and _send_imessage(apple["email"], body):
                     self._log(
                         f"iMessage delivered to {apple['email']} "
-                        f"(SMTP to {recipient_bounced} bounced; device=apple)"
+                        f"(SMTP to {recipient_bounced} bounced; device={device_type or 'untagged'})"
                     )
                     return
             except Exception as exc:
                 self._log(f"iMessage path errored: {exc}")
 
-        # Path 2: KDE Connect → real SMS via paired Android phone
-        if try_android and phone_e164:
-            if _send_via_kdeconnect(phone_e164, f"[SAGE] {text}"):
+        # 2. Try KDE Connect if (Android or Untagged or Apple-on-non-macOS/failed-iMessage)
+        if phone_e164 and device_type in ("android", "", "apple"):
+            if _send_via_kdeconnect(phone_e164, body):
                 self._log(
                     f"KDE Connect SMS delivered to {phone_e164} "
-                    f"(SMTP to {recipient_bounced} bounced; device=android)"
+                    f"(SMTP to {recipient_bounced} bounced; device={device_type or 'untagged'})"
                 )
                 return
 
-        # All fallbacks failed — explain what they need
+        # All fallbacks failed
         self._log(
-            f"All fallbacks failed for {recipient_bounced} (device={device_type or 'unknown'}). "
-            "Apple: link Apple ID in Connected Accounts + open Messages app. "
-            "Android: install KDE Connect on this Mac and on your phone, then pair them."
+            f"All fallbacks failed for {recipient_bounced} (device={device_type or 'unknown'}, platform={sys.platform}). "
+            "Apple: link Apple ID in Connected Accounts + open Messages app (macOS). "
+            "Android/Linux/Windows: install KDE Connect on this computer and on your phone, then pair them."
         )
 
     def _handle_imessage_to_apple_id(self, msg: dict) -> None:
@@ -1970,9 +2002,17 @@ class SAGEMessageBridge:
         body = f"[SAGE — {computer_name}] {text}"
 
         if sys.platform != "darwin":
+            # Fallback for non-macOS: if apple_email is a phone number, try KDE Connect
+            digits = re.sub(r"\D", "", apple_email)
+            if len(digits) == 10 or (len(digits) == 11 and digits.startswith("1")):
+                phone_e164 = f"+1{digits}" if len(digits) == 10 else f"+{digits}"
+                if _send_via_kdeconnect(phone_e164, body):
+                    self._log(f"→ iMessage (SMS fallback via KDE Connect) delivered to {apple_email}")
+                    return
+
             self._log(
                 f"⚠ iMessage to Apple ID {apple_email} skipped — "
-                "only supported on macOS with Messages.app"
+                "only supported on macOS, and KDE Connect fallback failed or target is not a phone number"
             )
             return
 
@@ -2002,6 +2042,8 @@ class SAGEMessageBridge:
         # 1. Sync provider emails as contacts (idempotent)
         try:
             be.sync_provider_contacts()
+            # Also reclaim identities to ensure routing is correct for this UID
+            be.reclaim_identities()
         except Exception as exc:
             self._log(f"Contact sync failed (non-fatal): {exc}")
 
@@ -2114,18 +2156,30 @@ class SAGEMessageBridge:
         if sys.platform == "darwin":
             threading.Thread(target=self._imessage_poll_loop, daemon=True).start()
 
-        # KDE Connect inbound listener (takeover mode): off by default because
-        # it stops kdeconnectd to bind UDP+TCP 1716, and any TLS handshake
-        # failure can leave the Pixel in a half-paired state. Opt-in via
-        # SAGE_KDE_INBOUND=1 once we have a robust handshake. Until then,
-        # rely on email + iMessage paths for inbound; KDE Connect outbound
-        # (via kdeconnect-cli to the OS daemon) still works fine.
-        if os.environ.get("SAGE_KDE_INBOUND") == "1":
+        # KDE Connect inbound listener: enabled by default on Linux/Windows,
+        # opt-in on macOS (where iMessage is the primary native path).
+        kde_enabled = os.environ.get("SAGE_KDE_INBOUND")
+        if kde_enabled == "1" or (kde_enabled != "0" and sys.platform != "darwin"):
             self._start_kde_inbound_listener()
 
         self._log(f"Connecting to {self._ws_url}")
+        
+        # P0 Security: track the UID of the token we started with.
+        # If the user logs out and in as someone else, we must stop.
+        from utils.jwt_utils import get_uid_from_token
+        start_uid = get_uid_from_token(self._token)
 
         while not self._stop.is_set():
+            # Check if token still belongs to start_uid
+            from sage.core.cli_auth import load_auth
+            curr_auth = load_auth()
+            if curr_auth:
+                curr_uid = get_uid_from_token(curr_auth.get("id_token", ""))
+                if curr_uid and curr_uid != start_uid:
+                    self._log(f"User switch detected (start_uid={start_uid} curr_uid={curr_uid}). Stopping bridge.")
+                    self.stop()
+                    break
+            
             try:
                 ws = _ws_lib.create_connection(self._ws_url, timeout=15)
 
@@ -2134,6 +2188,7 @@ class SAGEMessageBridge:
                     "type": "auth",
                     "token": self._token,
                     "computer_name": self.cfg.computer_name,
+                    "platform": sys.platform,
                 }))
 
                 # Wait for ready — handle empty/invalid frames cleanly. Cloud Run

@@ -23,7 +23,8 @@ from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union
 import unittest
 import sys
 
-from typedload import dataloader, load, dump, typechecks, exceptions
+from typedload import dataloader, datadumper, load, dump, typechecks, exceptions
+from typedload.name_manglers import snake_case_to_camel_case
 
 
 class TestDataclassLoad(unittest.TestCase):
@@ -225,3 +226,28 @@ class TestDataclassMangle(unittest.TestCase):
             a: str = field(metadata={'name': 'q'})
         with self.assertRaises(exceptions.TypedloadAttributeError):
             load(1, A)
+
+    def test_mangler(self):
+        mload = dataloader.Loader(mangler=snake_case_to_camel_case).load
+        mdump = datadumper.Dumper(mangler=snake_case_to_camel_case).dump
+        @dataclass
+        class Mangle:
+            unmangled: int
+            mangled_name: int
+            overriden_name: int = field(metadata={'name': 'OVERRIDEN_NAME'})
+        assert (
+            mload({'unmangled': 2, 'mangledName': 4, 'OVERRIDEN_NAME': 8}, Mangle)
+            == Mangle(2, 4, 8)
+        )
+        assert (
+            mdump(Mangle(2, 4, 8))
+            == {'unmangled': 2, 'mangledName': 4, 'OVERRIDEN_NAME': 8}
+        )
+        for fail_case in [
+                # mangled_name is unmangled
+                {'unmangled': 2, 'mangled_name': 4, 'OVERRIDEN_NAME': 8},
+                # OVERRIDEN_NAME is improperly mangled
+                {'unmangled': 2, 'mangledName': 4, 'overridenName': 8},
+        ]:
+            with self.assertRaises(TypeError):
+                mload(fail_case, Mangle)

@@ -24,12 +24,16 @@ from advanced_alchemy.types.file_object.backends.obstore import ObstoreBackend
 from advanced_alchemy.types.file_object.data_type import StoredObject
 
 # Object storage backend
+# For local development, run an S3-compatible storage service (e.g., RustFS or MinIO) on port 9000 and create the 'static-files' bucket first.
+# Defaults below match pytest-databases >=0.19.0 RustFS fixture credentials; override via env when running real services.
 s3_backend = ObstoreBackend(
     key="local",
     fs="s3://static-files/",
     aws_endpoint="http://localhost:9000",
-    aws_access_key_id="minioadmin",
-    aws_secret_access_key="minioadmin",  # noqa: S106
+    aws_access_key_id="pytest-databases-rustfs",
+    aws_secret_access_key="pytest-databases-rustfs-secret",  # noqa: S106
+    aws_virtual_hosted_style_request=False,
+    client_options={"allow_http": True},
 )
 storages.register_backend(s3_backend)
 
@@ -97,7 +101,7 @@ class DocumentController(Controller):
         documents_service: DocumentService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
     ) -> service.OffsetPagination[Document]:
-        results, total = await documents_service.list_and_count(*filters)
+        results, total = await documents_service.get_many_and_count(*filters)
         return documents_service.to_schema(results, total, filters=filters, schema_type=Document)
 
     @post(path="/")

@@ -11,7 +11,10 @@ pub use solve::{
 
 pub(crate) use layer::{LayerPrimitiveCell, is_layer_block_form};
 pub(super) use primitive_cell::{PrimitiveCell, PrimitiveMagneticCell};
+pub(crate) use primitive_symmetry_search::search_bravais_group;
 pub(super) use primitive_symmetry_search::{
     PrimitiveMagneticSymmetrySearch, magnetic_operations_in_magnetic_cell, operations_in_cell,
 };
-pub(super) use symmetry_search::{iterative_magnetic_symmetry_search, iterative_symmetry_search};
+pub(super) use symmetry_search::{
+    iterative_layer_symmetry_search, iterative_magnetic_symmetry_search, iterative_symmetry_search,
+};

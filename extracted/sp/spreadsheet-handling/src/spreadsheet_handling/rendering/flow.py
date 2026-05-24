@@ -1,7 +1,12 @@
 from __future__ import annotations
-from typing import List, Dict, Any
+import ast
+import json
+from typing import List, Any
 from .ir import WorkbookIR, SheetIR, TableBlock
-from .passes.core import IRPass, StylePass, FilterPass, FreezePass, ValidationPass, MetaPass, NamedRangePass
+from .passes import (
+    default_passes,
+    IRPass,
+)
 from .plan import (
     RenderPlan,
     DefineSheet,
@@ -11,16 +16,103 @@ from .plan import (
     ApplyColumnStyle,
     SetAutoFilter,
     SetFreeze,
+    SetColumnWidth,
     AddValidation,
     WriteDataBlock,
     WriteMeta,
     DefineNamedRange,
+    SetSheetProtection,
+    ApplyCellLock,
 )
 
 def apply_ir_passes(doc: WorkbookIR, passes: List[IRPass]) -> WorkbookIR:
     for p in passes:
         doc = p.apply(doc)
     return doc
+
+
+def _dump_workbook_meta_blob(value: Any) -> str:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                # legacy: normalize pre-JSON repr blobs when re-rendering parsed IR.
+                parsed = ast.literal_eval(value)
+            except (ValueError, SyntaxError, TypeError):
+                parsed = value
+        if isinstance(parsed, dict):
+            value = parsed
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _meta_cell_value(key: str, value: Any) -> str:
+    if key == "workbook_meta_blob":
+        return _dump_workbook_meta_blob(value)
+    return str(value)
+
+
+def _header_grid_for_table(sh: SheetIR, table: TableBlock, table_index: int) -> Any:
+    if table_index != 0:
+        return None
+    header_grid = sh.meta.get("__header_grid")
+    if header_grid and table.header_rows >= 1:
+        return header_grid
+    return None
+
+
+def _sheet_column_extent(sh: SheetIR) -> int:
+    return max(
+        (table.left + table.n_cols - 1 for table in sh.tables if table.n_cols > 0),
+        default=0,
+    )
+
+
+def _column_key_to_index(key: Any) -> int | None:
+    if isinstance(key, int):
+        return key if key > 0 else None
+
+    text = str(key).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        idx = int(text)
+        return idx if idx > 0 else None
+    if not text.isalpha():
+        return None
+
+    idx = 0
+    for char in text.upper():
+        idx = idx * 26 + (ord(char) - ord("A") + 1)
+    return idx if idx > 0 else None
+
+
+def _column_width_value(spec: Any) -> float | None:
+    raw = spec.get("width") if isinstance(spec, dict) else spec
+    try:
+        width = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return width if width > 0 else None
+
+
+def _column_width_ops(sheet_name: str, sh: SheetIR) -> list[SetColumnWidth]:
+    raw = sh.meta.get("__column_widths")
+    if not isinstance(raw, dict):
+        return []
+
+    max_col = _sheet_column_extent(sh)
+    ops: list[SetColumnWidth] = []
+    for key, spec in raw.items():
+        col = _column_key_to_index(key)
+        width = _column_width_value(spec)
+        if col is None or width is None:
+            continue
+        if max_col and col > max_col:
+            continue
+        ops.append(SetColumnWidth(sheet=sheet_name, col=col, width=width))
+    return sorted(ops, key=lambda op: op.col)
+
 
 def build_render_plan(doc: WorkbookIR) -> RenderPlan:
     """
@@ -31,10 +123,9 @@ def build_render_plan(doc: WorkbookIR) -> RenderPlan:
     for sheet_name, sh in doc.sheets.items():
         plan.add(DefineSheet(sheet=sheet_name, order=len(plan.sheet_order)))
 
-        if sh.tables:
-            t = sh.tables[0]
-            header_grid = sh.meta.get("__header_grid")
-            if header_grid and t.header_rows >= 1:
+        for table_index, t in enumerate(sh.tables):
+            header_grid = _header_grid_for_table(sh, t, table_index)
+            if header_grid:
                 for row_off, row_vals in enumerate(header_grid):
                     r = t.top + row_off
                     for idx, text in enumerate(row_vals, start=0):
@@ -56,7 +147,7 @@ def build_render_plan(doc: WorkbookIR) -> RenderPlan:
                     c = t.left + idx
                     plan.add(SetHeader(sheet=sheet_name, row=r, col=c, text=text))
             styles = sh.meta.get("__style", {})
-            header_style = styles.get("header")
+            header_style = styles.get("legend_header") if t.kind == "legend" else styles.get("header")
             if header_style and t.n_cols:
                 for r in range(t.top, t.top + max(1, t.header_rows)):
                     for idx in range(t.n_cols):
@@ -88,6 +179,9 @@ def build_render_plan(doc: WorkbookIR) -> RenderPlan:
         fz = sh.meta.get("__freeze")
         if fz:
             plan.add(SetFreeze(sheet=sheet_name, row=int(fz["row"]), col=int(fz["col"])))
+
+        for op in _column_width_ops(sheet_name, sh):
+            plan.add(op)
 
         # Helper column highlighting
         hc = sh.meta.get("__helper_cols")
@@ -121,12 +215,39 @@ def build_render_plan(doc: WorkbookIR) -> RenderPlan:
                 r1=nr.area[0], c1=nr.area[1], r2=nr.area[2], c2=nr.area[3],
             ))
 
+        # Sheet protection
+        prot = sh.meta.get("__protection")
+        if prot and sh.tables:
+            t = sh.tables[0]
+            data_start = t.top + t.header_rows
+            data_end = t.top + t.n_rows - 1
+            all_start = t.top  # include headers
+            if data_end >= data_start:
+                for col_idx in prot["unlocked_cols"]:
+                    plan.add(ApplyCellLock(
+                        sheet=sheet_name,
+                        col=col_idx,
+                        from_row=all_start,
+                        to_row=data_end,
+                        locked=False,
+                    ))
+                plan.add(SetSheetProtection(
+                    sheet=sheet_name,
+                    password=prot.get("password"),
+                ))
+
     for sheet_name, sh in doc.hidden_sheets.items():
         hidden = bool(sh.meta.get("_hidden", True))
         kv = {k: v for k, v in sh.meta.items() if k != "_hidden"}
-        plan.add(WriteMeta(sheet=sheet_name, kv={str(k): str(v) for k, v in kv.items()}, hidden=hidden))
+        plan.add(
+            WriteMeta(
+                sheet=sheet_name,
+                kv={str(k): _meta_cell_value(str(k), v) for k, v in kv.items()},
+                hidden=hidden,
+            )
+        )
 
     return plan
 
 def default_p1_passes() -> List[IRPass]:
-    return [MetaPass(), ValidationPass(), StylePass(), FilterPass(), FreezePass(), NamedRangePass()]
+    return default_passes()

@@ -27,11 +27,13 @@ from enum import Enum
 import pathlib
 import re
 import uuid
-from typing import Any, Callable, get_type_hints, Type
+from collections.abc import Callable
+from typing import Any, get_type_hints, Type
 
 
 from .exceptions import TypedloadValueError
-from .typechecks import is_attrs, NONETYPE, is_literal
+from .typechecks import is_attrs, NONETYPE, is_literal, DT_MISSING_TYPE
+from .helpers import mangle_name
 from . import moretypes
 
 
@@ -70,6 +72,11 @@ class Dumper:
         Specifies which key is used into the metadata dictionaries
         to perform name-mangling.
 
+    mangler: Disabled by default
+        Function which inflects dataclass and attrs class identifiers to
+        their mangled forms. Note: if found in metadata, the name specified by
+        mangle_key is used instead.
+
     handlers: This is the list that the dumper uses to
         perform its task.
         The type is:
@@ -97,19 +104,6 @@ class Dumper:
 
     Because internal caches are used, after the first call to dump() these properties
     should no longer be modified.
-
-    There is support for:
-        * Basic python types (int, str, bool, float, NoneType)
-        * NamedTuple, dataclasses, attrs, TypedDict
-        * dict[TypeA, TypeB]
-        * Enum
-        * List
-        * Tuple
-        * Set
-        * FrozenSet
-        * Path
-        * IPv4Address, IPv6Address, IPv4Network, IPv6Network, IPv4Interface, IPv6Interface
-        * datetime
     """
     def __init__(self, **kwargs) -> None:
         self.basictypes = {int, bool, float, str, NONETYPE}
@@ -120,6 +114,9 @@ class Dumper:
 
         # Which key is used in metadata to perform name mangling
         self.mangle_key = 'name'
+
+        # Function to mangle names
+        self.mangler = None
 
         # Raise errors if the condition fails
         self.raiseconditionerrors = True
@@ -220,7 +217,7 @@ def _attrdump(d, value, t) -> dict[str, Any]:
                 continue
             elif hasattr(attr.default, 'factory') and attrval == attr.default.factory():
                 continue
-        name = attr.metadata.get(d.mangle_key, attr.name)
+        name = mangle_name(d, attr) or attr.name
         r[name] = d.dump(attrval)
     return r
 
@@ -239,7 +236,7 @@ def _datetimedump(d: Dumper, value: datetime.time | datetime.date | datetime.dat
     if isinstance(value, datetime.date) and not isinstance(value, datetime.datetime):
         return [value.year, value.month, value.day]
     if value.tzinfo is not None:
-        raise NotImplementedError('Dumping of tzdata object is not supported')
+        raise NotImplementedError('Dumping of tzdata object is not supported. Call dump() with isodates=True')
     if isinstance(value, datetime.time):
         return [value.hour, value.minute, value.second, value.microsecond]
     # datetime.datetime
@@ -268,13 +265,16 @@ def _dataclassdump(d: Dumper, value, t) -> dict[str, Any]:
     try:
         fields, defaults, type_hints, renames, needs_dump, hasdict  = d._dataclasscache[t]
     except KeyError:
-        from dataclasses import _MISSING_TYPE as DT_MISSING_TYPE
         fields = set(value.__dataclass_fields__.keys())
-        field_defaults = {k: v.default for k,v in value.__dataclass_fields__.items() if not isinstance (v.default, DT_MISSING_TYPE)}
-        field_factories = {k: v.default_factory() for k,v in value.__dataclass_fields__.items() if not isinstance (v.default_factory, DT_MISSING_TYPE)}
+        field_defaults = {k: v.default for k,v in value.__dataclass_fields__.items() if not v.default is DT_MISSING_TYPE}
+        field_factories = {k: v.default_factory() for k,v in value.__dataclass_fields__.items() if not v.default_factory is DT_MISSING_TYPE}
         defaults = {**field_defaults, **field_factories} # Merge the two dictionaries
         type_hints = get_type_hints(t)
-        renames = {k: v.metadata[d.mangle_key] for k,v in value.__dataclass_fields__.items() if d.mangle_key in v.metadata}
+        renames = {
+            original: mangled
+            for original, field in value.__dataclass_fields__.items()
+            if (mangled := mangle_name(d, field))
+        }
         # Fields to dump directly
         needs_dump = fields.difference({
             k for k,v in value.__dataclass_fields__.items()

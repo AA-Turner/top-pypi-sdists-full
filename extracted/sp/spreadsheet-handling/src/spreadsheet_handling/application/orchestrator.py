@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Mapping, MutableMapping, Optional
+from typing import Any, Dict, Iterable, Mapping
 
 import logging
-import pandas as pd
 
-from ..pipeline.registry import run_pipeline
+from ..io_backends.router import get_loader, get_saver
+from ..pipeline.execution import run_pipeline
 from ..pipeline.types import BoundStep, Frames
-
-# Backends (existing adapters)
-from ..io_backends.json_backend import JSONBackend
-from ..io_backends.xml_backend import XMLBackend
-from ..io_backends.yaml_backend import load_yaml_dir as _yaml_load, save_yaml_dir as _yaml_save
-from ..io_backends.xlsx.xlsx_backend import ExcelBackend
 
 log = logging.getLogger("sheets.orchestrator")
 
@@ -45,30 +39,18 @@ def _coerce_io(d: Mapping[str, Any] | None, role: str) -> IODesc:
 # ---------------------------
 
 def _load_frames(inp: IODesc, *, header_levels: int = 1) -> Frames:
-    if inp.kind in {"json", "json_dir"}:
-        return JSONBackend().read_multi(inp.path, header_levels=header_levels, options=inp.options)
-    if inp.kind in {"xml", "xml_dir"}:
-        return XMLBackend().read_multi(inp.path, header_levels=header_levels, options=inp.options)
-    if inp.kind in {"yaml", "yaml_dir"}:
-        return _yaml_load(inp.path)
-    if inp.kind in {"xlsx", "excel"}:
-        return ExcelBackend().read_multi(inp.path, header_levels=header_levels, options=inp.options)
-    raise ValueError(f"Unsupported input kind: {inp.kind!r}")
+    try:
+        loader = get_loader(inp.kind)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported input kind: {inp.kind!r}") from exc
+    return loader(inp.path, options=inp.options, header_levels=header_levels)
 
 def _save_frames(out: IODesc, frames: Frames) -> None:
-    if out.kind in {"json", "json_dir"}:
-        JSONBackend().write_multi(frames, out.path, options=out.options)
-        return
-    if out.kind in {"xml", "xml_dir"}:
-        XMLBackend().write_multi(frames, out.path, options=out.options)
-        return
-    if out.kind in {"yaml", "yaml_dir"}:
-        _yaml_save(frames, out.path)
-        return
-    if out.kind in {"xlsx", "excel"}:
-        ExcelBackend().write_multi(frames, out.path, options=out.options)
-        return
-    raise ValueError(f"Unsupported output kind: {out.kind!r}")
+    try:
+        saver = get_saver(out.kind)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported output kind: {out.kind!r}") from exc
+    saver(frames, out.path, options=out.options)
 
 
 # ---------------------------
@@ -83,9 +65,9 @@ def orchestrate(
     header_levels: int = 1,
 ) -> Frames:
     """
-    Unified execution engine for sheets-run and the CLI shims.
+    Unified execution engine for sheets-run and reference shortcut commands.
 
-    - Loads frames from 'input' backend (json_dir | yaml_dir | xlsx).
+    - Loads frames from 'input' backend (csv_dir | json_dir | yaml_dir | xml_dir | xlsx | ods | calc).
     - Runs the given 'steps' (pure Frames→Frames, optional).
     - Writes frames to 'output' backend.
     - Returns the final frames for in-process reuse/testing.
@@ -93,9 +75,9 @@ def orchestrate(
     Parameters
     ----------
     input : Mapping[str, Any]
-        { kind: "json_dir"|"yaml_dir"|"xlsx", path: str, options?: {...} }
+        { kind: "csv_dir"|"json_dir"|"yaml_dir"|"xml_dir"|"xlsx"|"ods"|"calc", path: str, options?: {...} }
     output : Mapping[str, Any]
-        { kind: "json_dir"|"yaml_dir"|"xlsx", path: str, options?: {...} }
+        { kind: "csv_dir"|"json_dir"|"yaml_dir"|"xml_dir"|"xlsx"|"ods"|"calc", path: str, options?: {...} }
     steps : Iterable[BoundStep] | None
         List of bound steps (use factories from pipeline to build them).
     header_levels : int

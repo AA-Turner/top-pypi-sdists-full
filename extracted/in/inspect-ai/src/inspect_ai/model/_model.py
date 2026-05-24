@@ -83,7 +83,6 @@ from inspect_ai.util._limit import (
 from ._cache import CacheEntry, CachePolicy, cache_fetch, cache_store, epoch
 from ._call_tools import (
     copy_tools_info,
-    disable_parallel_tools,
     execute_tools,
     prepare_tools,
     snapshot_tools_for_event,
@@ -702,10 +701,6 @@ class Model:
             if config.max_tokens is None:
                 config.max_tokens = self.api.max_tokens()
 
-        # disable parallel tool calls if requested by any of our tools
-        if disable_parallel_tools(tools):
-            config.parallel_tool_calls = False
-
         # normalize input to chat
         if isinstance(input, str):
             input = [ChatMessageUser(content=input)]
@@ -1112,7 +1107,21 @@ class Model:
                 time_start = time.monotonic()
                 try:
                     assert isinstance(event, ModelEvent)
-                    with track_active_model_event(event):
+                    # Local import to avoid an import cycle (agent → model → agent).
+                    from inspect_ai.agent._channel import null_execution_observer
+                    from inspect_ai.log._samples import sample_active
+
+                    _sample = sample_active()
+                    _observer = (
+                        _sample.execution_observer
+                        if _sample is not None
+                        else null_execution_observer()
+                    )
+
+                    with (
+                        track_active_model_event(event),
+                        _observer.track_model_event(event),
+                    ):
                         with timeout_cm:
                             result = await self.api.generate(
                                 input=input,
@@ -1424,6 +1433,17 @@ class Model:
         def complete(
             result: ModelOutput | Exception, updated_call: ModelCall | None
         ) -> None:
+            # Note on operator-cancel: ``AcpTransport.cancel_current_turn``
+            # stamps ``event.error = OPERATOR_CANCEL_ERROR`` on the
+            # in-flight event. The model API can still return inside the
+            # cancellation propagation window; we deliberately let the
+            # natural completion run so ``event.output`` / ``event.call``
+            # capture the real response for forensic logging. The
+            # success branch below does not overwrite ``event.error``,
+            # so the cancel marker stays sticky and downstream
+            # renderers (TUI + inspect view) discriminate on it to
+            # suppress display.
+
             # trace
             if isinstance(result, ModelOutput):
                 if result.choices:

@@ -6,7 +6,7 @@ RepositoryService object is generic on the domain model type which
 should be a SQLAlchemy model.
 """
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from functools import cached_property
 from typing import Any, ClassVar, Generic, List, Optional, Union, cast
@@ -27,7 +27,9 @@ from advanced_alchemy.repository import SQLAlchemySyncQueryRepository
 from advanced_alchemy.repository._util import LoadSpec, model_from_dict
 from advanced_alchemy.repository.typing import MISSING, ModelT, OrderingPair, PrimaryKeyType, SQLAlchemySyncRepositoryT
 from advanced_alchemy.service._util import ResultConverter
-from advanced_alchemy.service.typing import (
+from advanced_alchemy.utils.dataclass import Empty, EmptyType
+from advanced_alchemy.utils.deprecation import warn_deprecation
+from advanced_alchemy.utils.serialization import (
     UNSET,
     BulkModelDictT,
     ModelDictListT,
@@ -41,7 +43,6 @@ from advanced_alchemy.service.typing import (
     is_pydantic_model,
     is_sqlmodel_table_model,
 )
-from advanced_alchemy.utils.dataclass import Empty, EmptyType
 
 
 class SQLAlchemySyncQueryService(ResultConverter):
@@ -69,7 +70,7 @@ class SQLAlchemySyncQueryService(ResultConverter):
         cls,
         session: Optional[Union[Session, scoped_session[Session]]] = None,
         config: Optional[SQLAlchemySyncConfig] = None,
-    ) -> Iterator[Self]:
+    ) -> Generator[Self, None, None]:
         """Context manager that returns instance of service object.
 
         Handles construction of the database session._create_select_for_model
@@ -522,7 +523,7 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
 
         return cast("ModelT", data)
 
-    def list_and_count(
+    def get_many_and_count(
         self,
         *filters: Union[StatementFilter, ColumnElement[bool]],
         statement: Optional[Select[tuple[ModelT]]] = None,
@@ -559,7 +560,7 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
         """
         return cast(
             "tuple[Sequence[ModelT], int]",
-            self.repository.list_and_count(
+            self.repository.get_many_and_count(
                 *filters,
                 statement=statement,
                 auto_expunge=auto_expunge,
@@ -575,6 +576,48 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
             ),
         )
 
+    def list_and_count(
+        self,
+        *filters: Union[StatementFilter, ColumnElement[bool]],
+        statement: Optional[Select[tuple[ModelT]]] = None,
+        auto_expunge: Optional[bool] = None,
+        count_with_window_function: Optional[bool] = None,
+        order_by: Optional[Union[List[OrderingPair], OrderingPair]] = None,
+        error_messages: Optional[Union[ErrorMessages, EmptyType]] = Empty,
+        load: Optional[LoadSpec] = None,
+        execution_options: Optional[dict[str, Any]] = None,
+        uniquify: Optional[bool] = None,
+        use_cache: bool = True,
+        bind_group: Optional[str] = None,
+        **kwargs: Any,
+    ) -> tuple[Sequence[ModelT], int]:
+        """List of records and total count returned by query.
+
+        .. deprecated:: 1.10.0
+            Use :meth:`get_many_and_count` instead.
+        """
+        warn_deprecation(
+            version="1.10.0",
+            deprecated_name="list_and_count",
+            kind="method",
+            removal_in="2.0.0",
+            alternative="get_many_and_count",
+        )
+        return self.get_many_and_count(
+            *filters,
+            statement=statement,
+            auto_expunge=auto_expunge,
+            count_with_window_function=count_with_window_function,
+            order_by=order_by,
+            error_messages=error_messages,
+            load=load,
+            execution_options=execution_options,
+            uniquify=uniquify,
+            use_cache=use_cache,
+            bind_group=bind_group,
+            **kwargs,
+        )
+
     @classmethod
     @contextmanager
     def new(
@@ -587,7 +630,7 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
         execution_options: Optional[dict[str, Any]] = None,
         uniquify: Optional[bool] = None,
         count_with_window_function: Optional[bool] = None,
-    ) -> Iterator[Self]:
+    ) -> Generator[Self, None, None]:
         """Context manager that returns instance of service object.
 
         Handles construction of the database session._create_select_for_model
@@ -623,7 +666,7 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
                     count_with_window_function=count_with_window_function,
                 )
 
-    def list(
+    def get_many(
         self,
         *filters: Union[StatementFilter, ColumnElement[bool]],
         statement: Optional[Select[tuple[ModelT]]] = None,
@@ -658,7 +701,7 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
         """
         return cast(
             "Sequence[ModelT]",
-            self.repository.list(
+            self.repository.get_many(
                 *filters,
                 statement=statement,
                 auto_expunge=auto_expunge,
@@ -671,6 +714,46 @@ class SQLAlchemySyncRepositoryReadService(ResultConverter, Generic[ModelT, SQLAl
                 bind_group=bind_group,
                 **kwargs,
             ),
+        )
+
+    def list(
+        self,
+        *filters: Union[StatementFilter, ColumnElement[bool]],
+        statement: Optional[Select[tuple[ModelT]]] = None,
+        auto_expunge: Optional[bool] = None,
+        order_by: Optional[Union[List[OrderingPair], OrderingPair]] = None,
+        error_messages: Optional[Union[ErrorMessages, EmptyType]] = Empty,
+        load: Optional[LoadSpec] = None,
+        execution_options: Optional[dict[str, Any]] = None,
+        uniquify: Optional[bool] = None,
+        use_cache: bool = True,
+        bind_group: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Sequence[ModelT]:
+        """Wrap repository scalars operation.
+
+        .. deprecated:: 1.10.0
+            Use :meth:`get_many` instead.
+        """
+        warn_deprecation(
+            version="1.10.0",
+            deprecated_name="list",
+            kind="method",
+            removal_in="2.0.0",
+            alternative="get_many",
+        )
+        return self.get_many(
+            *filters,
+            statement=statement,
+            auto_expunge=auto_expunge,
+            order_by=order_by,
+            error_messages=error_messages,
+            load=load,
+            execution_options=execution_options,
+            uniquify=uniquify,
+            use_cache=use_cache,
+            bind_group=bind_group,
+            **kwargs,
         )
 
 

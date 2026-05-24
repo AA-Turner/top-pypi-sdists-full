@@ -154,7 +154,7 @@ class TileLayer(Layer):
 
         # Rendu avec contexte
         with ctx:
-            self._renderer.begin()
+            self._renderer.begin(pipeline)
             self._renderer.draw_visible(cc_min, cc_max, cr_min, cr_max)
             self._renderer.end()
 

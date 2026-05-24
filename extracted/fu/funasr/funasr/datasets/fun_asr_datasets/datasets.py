@@ -26,6 +26,17 @@ class FunASR(torch.utils.data.Dataset):
             float_pad_value: float = 0.0,
             **kwargs,
     ):
+        """Initialize FunASR.
+        
+            Args:
+                path: TODO.
+                index_ds: TODO.
+                frontend: Audio frontend for feature extraction.
+                tokenizer: Tokenizer instance for text encoding/decoding.
+                int_pad_value: TODO.
+                float_pad_value: TODO.
+                **kwargs: Additional keyword arguments.
+            """
         super().__init__()
         index_ds_class = tables.index_ds_classes.get(index_ds)
         self.index_ds = index_ds_class(path, **kwargs)
@@ -82,14 +93,30 @@ class FunASR(torch.utils.data.Dataset):
         self.min_output_non_mask_token_len = kwargs.get("min_non_mask_token_len", 6)  # [eos]
 
     def get_source_len(self, index):
+        """Get source len.
+        
+            Args:
+                index: TODO.
+            """
         item = self.index_ds[index]
         return self.index_ds.get_source_len(item)
 
     def get_target_len(self, index):
+        """Get target len.
+        
+            Args:
+                index: TODO.
+            """
         item = self.index_ds[index]
         return self.index_ds.get_target_len(item)
 
     def get_random_user_prompt(self, item, user_prompt):
+        """Get random user prompt.
+        
+            Args:
+                item: TODO.
+                user_prompt: TODO.
+            """
         tasks = ["语音转写：", "Speech transcription:"]
         language = item.get("language", None)
         # LID in distill data is fake
@@ -112,9 +139,15 @@ class FunASR(torch.utils.data.Dataset):
         return user_prompt
 
     def __len__(self):
+        """Internal: len  ."""
         return len(self.index_ds)
 
     def __getitem__(self, index):
+        """Internal: getitem  .
+        
+            Args:
+                index: TODO.
+            """
         output = None
 
         for idx in range(self.retry):
@@ -258,8 +291,9 @@ class FunASR(torch.utils.data.Dataset):
                         f"text_length: {len(target_ids)} > {self.max_target_length}, drop it: {item}"
                     )
                 #  simulate prev-token fixed output
+                target_labels = target_ids.copy()
                 if np.random.rand() < self.use_dynamic_output_ratio:
-                    max_len = len(target_ids)
+                    max_len = len(target_labels)
                     min_output_mask_token_len = min(self.min_output_mask_token_len, max_len)
                     min_output_non_mask_token_len = min(self.min_output_non_mask_token_len, max_len)
                     if max_len - min_output_non_mask_token_len > min_output_mask_token_len:
@@ -268,10 +302,10 @@ class FunASR(torch.utils.data.Dataset):
                     else:
                         end_index = max_len - min_output_non_mask_token_len
                     if end_index > 0:
-                        target_ids[:end_index] = [-100] * end_index
+                        target_labels[:end_index] = [-100] * end_index
 
                 input_ids += source_ids + target_ids
-                labels += source_mask + target_ids
+                labels += source_mask + target_labels
                 if len(speech) > 0:
                     fbank.append(speech[0, :, :])
                     fbank_lens.append(speech_lengths)
@@ -308,6 +342,11 @@ class FunASR(torch.utils.data.Dataset):
 
     def collator(self, samples: list = None):
 
+        """Collator.
+        
+            Args:
+                samples: TODO.
+            """
         for idx in range(self.retry):
             badcase_flag = False
 
@@ -353,6 +392,12 @@ class FunASR(torch.utils.data.Dataset):
 class FunASR(torch.utils.data.Dataset):  # torch.utils.data.Dataset
 
     def __init__(self, path: str, **kwargs):
+        """Initialize FunASR.
+        
+            Args:
+                path: TODO.
+                **kwargs: Additional keyword arguments.
+            """
         super().__init__()
 
         self.max_source_length = kwargs.get("max_source_length", 8000)
@@ -489,15 +534,26 @@ class FunASR(torch.utils.data.Dataset):  # torch.utils.data.Dataset
             f"\n\ntotal_num of samplers: {len(self.contents)}, total_whrs: {total_whrs:.5f}, total_token_for_llm_B: {total_token_for_llm_B:.5g}, {path}, {file_list}\n\n")
 
     def __len__(self):
+        """Internal: len  ."""
         return len(self.contents)
 
     def __getitem__(self, index):
 
+        """Internal: getitem  .
+        
+            Args:
+                index: TODO.
+            """
         data = self.contents[index]
 
         return data
 
     def get_source_len(self, data_dict):
+        """Get source len.
+        
+            Args:
+                data_dict: TODO.
+            """
         source_len = data_dict.get("source_len", -1)
         if source_len < 0:
             source_len = len(data_dict["system"]) + len(data_dict["user"])
@@ -505,4 +561,9 @@ class FunASR(torch.utils.data.Dataset):  # torch.utils.data.Dataset
 
     def get_target_len(self, data_dict):
 
+        """Get target len.
+        
+            Args:
+                data_dict: TODO.
+            """
         return 0

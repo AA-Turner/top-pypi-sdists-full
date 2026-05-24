@@ -445,7 +445,7 @@ class PKScreenerMain:
         maLength = None
         
         if executeOption == 3:
-            self.user_passed_args.maxdisplayresults = max(self.config_manager.maxdisplayresults, 2000)
+            self.user_passed_args.maxdisplayresults = max(self.config_manager.maxdisplayresults, 5000)
         elif executeOption == 4:
             daysForLowestVolume = handleScannerExecuteOption4(executeOption, options)
         elif executeOption == 5:

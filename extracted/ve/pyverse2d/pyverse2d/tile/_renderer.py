@@ -1,6 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._rendering import Pipeline
+
 from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
 
 import pyglet.gl as gl
@@ -15,15 +17,13 @@ _VERT_SRC = """
 #version 330 core
 layout(location = 0) in vec2 position;
 layout(location = 1) in vec3 tex_coord;
+
+uniform mat4 u_mvp;
+
 out vec3 v_tex;
 
-layout(std140) uniform WindowBlock {
-    mat4 projection;
-    mat4 view;
-} window;
-
 void main() {
-    gl_Position = window.projection * window.view * vec4(position, 0.0, 1.0);
+    gl_Position = u_mvp * vec4(position, 0.0, 1.0);
     v_tex = tex_coord;
 }
 """
@@ -267,12 +267,11 @@ class TileRenderer:
         return buf[:idx] if idx > 0 else None
 
     # ======================================== DRAW ========================================
-    def begin(self) -> None:
+    def begin(self, pipeline: Pipeline) -> None:
         """Active le shader et bind la texture array"""
         program = _get_program()
         program.use()
-        block_idx = gl.glGetUniformBlockIndex(program.id, b"WindowBlock")
-        gl.glUniformBlockBinding(program.id, block_idx, 0)
+        program['u_mvp'] = pipeline.full_matrix
         if self._texture:
             self._texture.bind(0)
         program['u_tiles'] = 0

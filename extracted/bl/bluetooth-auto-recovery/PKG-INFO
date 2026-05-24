@@ -1,18 +1,17 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: bluetooth-auto-recovery
-Version: 1.5.3
+Version: 1.6.0
 Summary: Recover bluetooth adapters that are in an stuck state
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

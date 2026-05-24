@@ -35,7 +35,6 @@ import sys
 from enum import Enum
 from re import Pattern
 from typing import Any, Tuple, Set, List, Dict, Type, FrozenSet, NewType
-from typing import Union #TODO useless after python 3.13
 
 
 __all__ = [
@@ -68,12 +67,22 @@ __all__ = [
     'NONETYPE',
     'HAS_TUPLEARGS',
     'HAS_UNIONSUBCLASS',
+    'DT_MISSING_TYPE',
 ]
 
 
 from typing import ForwardRef, Literal
 from typing import _TypedDictMeta  # type: ignore
 from types import UnionType
+
+
+# Default value and factory in dataclasses field will always be
+# DT_MISSING_TYPE across every python version
+try:
+    # Since 3.15
+    from dataclasses import MISSING as DT_MISSING_TYPE
+except ImportError:
+    from dataclasses import _MISSING_TYPE as DT_MISSING_TYPE  # type: ignore
 
 try:
     # Since 3.11
@@ -101,15 +110,25 @@ def is_tuple(type_: Any) -> bool:
     '''
     return _generic_type_check(type_, tuple, Tuple)
 
-
-def is_union(type_: Any) -> bool:
-    '''
-    Union[A, B]
-    Union
-    Optional[A]
-    A | B
-    '''
-    return getattr(type_, '__origin__', None) == Union or getattr(type_, '__class__', None) == UnionType
+if sys.version_info.minor >= 14:
+    def is_union(type_: Any) -> bool:
+            '''
+            Union[A, B]
+            Union
+            Optional[A]
+            A | B
+            '''
+            return getattr(type_, '__class__', None) == UnionType
+else:
+    from typing import Union
+    def is_union(type_: Any) -> bool:
+        '''
+        Union[A, B]
+        Union
+        Optional[A]
+        A | B
+        '''
+        return getattr(type_, '__origin__', None) == Union or getattr(type_, '__class__', None) == UnionType
 
 
 def is_optional(type_: Any) -> bool:
@@ -223,7 +242,7 @@ def uniontypes(type_: Any) -> Tuple[Type[Any], ...]:
     return type_.__args__
 
 
-def literalvalues(type_: Any) -> Set[Any]:
+def literalvalues(type_: Any) -> set[Any]:
     '''
     Returns the values of a Literal
 
@@ -315,7 +334,7 @@ def notrequiredtype(type_: Any) -> Type[Any]:
 readonlytype = requiredtype = notrequiredtype
 
 
-def discriminatorliterals(type_: Any) -> Dict[str, Set[Any]]:
+def discriminatorliterals(type_: Any) -> dict[str, set[Any]]:
     """
     Takes an object type (NamedTuple, TypedDict, attrs, dataclass)
     and returns which fields take a literal and which values are

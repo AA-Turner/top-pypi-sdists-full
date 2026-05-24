@@ -1,0 +1,77 @@
+"""Unit tests for the polling registry collaborator."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+import pytest
+
+from notebooklm._polling_registry import PendingPolls, PollRegistry
+from notebooklm._session import Session
+from notebooklm.auth import AuthTokens
+
+
+def _auth_tokens() -> AuthTokens:
+    return AuthTokens(
+        cookies={"SID": "test"},
+        csrf_token="csrf",
+        session_id="session",
+    )
+
+
+async def _never() -> None:
+    await asyncio.Event().wait()
+
+
+def test_poll_registry_owns_pending_mapping() -> None:
+    registry = PollRegistry()
+
+    assert registry.pending == {}
+
+
+def test_poll_registry_preserves_seeded_pending_mapping_identity() -> None:
+    pending: PendingPolls = {}
+    registry = PollRegistry(pending)
+
+    assert registry.pending is pending
+
+
+def test_session_exposes_poll_registry() -> None:
+    core = Session(_auth_tokens())
+
+    assert isinstance(core.poll_registry, PollRegistry)
+    assert core.poll_registry.pending == {}
+
+
+def test_session_poll_registry_pending_can_be_swapped() -> None:
+    core = Session(_auth_tokens())
+    registry = core.poll_registry
+    pending: PendingPolls = {}
+
+    # The ``_pending_polls`` compat bridge was retired in the
+    # session-shrink arc; write on the collaborator directly.
+    core.poll_registry.pending = pending
+
+    assert core.poll_registry is registry
+    assert core.poll_registry.pending is pending
+
+
+@pytest.mark.asyncio
+async def test_session_poll_registry_preserves_entry_shape() -> None:
+    core = Session(_auth_tokens())
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[Any] = loop.create_future()
+    task = asyncio.create_task(_never())
+    key = ("notebook-1", "task-1")
+
+    try:
+        core.poll_registry.pending[key] = (future, task)
+
+        assert core.poll_registry.pending[key] == (future, task)
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass

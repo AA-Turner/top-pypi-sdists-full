@@ -223,7 +223,7 @@ class ScannerHandler:
         volumeRatio = self.configManager.volumeRatio
         
         if executeOption == 3:
-            userPassedArgs.maxdisplayresults = max(self.configManager.maxdisplayresults, 2000)
+            userPassedArgs.maxdisplayresults = max(self.configManager.maxdisplayresults, 5000)
         elif executeOption == 4:
             daysForLowestVolume = self.handle_scanner_execute_option_4(executeOption, options)
         elif executeOption == 5:

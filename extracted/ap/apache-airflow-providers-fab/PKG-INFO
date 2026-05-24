@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 3.6.3
+Version: 3.6.4
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.4/changelog.html
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
@@ -34,7 +34,7 @@ Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow>=3.0.2
 Requires-Dist: blinker>=1.6.2
 Requires-Dist: cachetools>=6.0
-Requires-Dist: flask-appbuilder==5.2.0
+Requires-Dist: flask-appbuilder==5.2.1
 Requires-Dist: flask-limiter!=3.13,>3
 Requires-Dist: flask-login>=0.6.2; python_version < '3.14'
 Requires-Dist: flask-login>=0.6.3; python_version >= '3.14'
@@ -46,6 +46,7 @@ Requires-Dist: flask>=2.2.1
 Requires-Dist: jmespath>=0.7.0
 Requires-Dist: marshmallow>=3
 Requires-Dist: msgpack>=1.0.0
+Requires-Dist: pyjwt>=2.11.0
 Requires-Dist: werkzeug>=2.2; python_version <= '3.13'
 Requires-Dist: werkzeug>=3.1.6; python_version >= '3.14'
 Requires-Dist: wtforms>=3.0
@@ -80,7 +81,7 @@ Description-Content-Type: text/x-rst
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``3.6.3``
+Release: ``3.6.4``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -93,7 +94,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.4/>`_.
 
 Installation
 ------------
@@ -114,7 +115,8 @@ PIP package                                 Version required
 ``apache-airflow-providers-common-compat``  ``>=1.12.0``
 ``blinker``                                 ``>=1.6.2``
 ``flask``                                   ``>=2.2.1``
-``flask-appbuilder``                        ``==5.2.0``
+``flask-appbuilder``                        ``==5.2.1``
+``pyjwt``                                   ``>=2.11.0``
 ``flask-login``                             ``>=0.6.2; python_version < "3.14"``
 ``flask-login``                             ``>=0.6.3; python_version >= "3.14"``
 ``flask-session``                           ``>=0.8.0``
@@ -161,4 +163,4 @@ Extra         Dependencies
 ============  ===================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.4/changelog.html>`_.

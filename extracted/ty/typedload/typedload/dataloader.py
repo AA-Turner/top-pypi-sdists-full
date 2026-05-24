@@ -27,13 +27,14 @@ import ipaddress
 from itertools import compress, count, repeat
 from pathlib import Path
 import re
-from typing import Any, Callable, Type, TypeVar, get_type_hints
+from collections.abc import Callable
+from typing import Any, Type, TypeVar, get_type_hints
 import uuid
 
 from .exceptions import *
 from .typechecks import *
 from .typechecks import discriminatorliterals
-from .helpers import tname
+from .helpers import tname, mangle_name
 from . import moretypes
 
 try:
@@ -105,6 +106,11 @@ class Loader:
     mangle_key: Defaults to 'name'
         Specifies which key is used into the metadata dictionaries
         to perform name-mangling.
+
+    mangler: Disabled by default
+        Function which inflects dataclass and attrs class identifiers to
+        their mangled forms. Note: if found in metadata, the name specified by
+        mangle_key is used instead.
 
     handlers: This is the list that the loader uses to
         perform its task.
@@ -206,6 +212,9 @@ class Loader:
 
         # Which key is used in metadata to perform name mangling
         self.mangle_key = 'name'
+
+        # Function to mangle names
+        self.mangler = None
 
         # Fail if multiple types work within the union
         self.uniondebugconflict = False
@@ -550,10 +559,9 @@ def _dataclassload(l: Loader, value: dict[str, Any], type_) -> Any:
         # Prepare the list of the needed name changes
         transforms = {}
         for pyname in fields:
-            if type_.__dataclass_fields__[pyname].metadata:
-                name = type_.__dataclass_fields__[pyname].metadata.get(l.mangle_key)
-                if name:
-                    transforms[name] = pyname
+            name = mangle_name(l, type_.__dataclass_fields__[pyname])
+            if name:
+                transforms[name] = pyname
         l._objfieldscache[type_] = (fields, necessary_fields, type_hints, transforms)
 
     if transforms:
@@ -939,7 +947,6 @@ def _get_attr_converter_type(c: "Callable"):
 
 
 def _attrload(l: Loader, value: Any, type_) -> Any:
-
     try:
         fields, necessary_fields, type_hints, namesmap = l._objfieldscache[type_]
     except KeyError:
@@ -958,8 +965,9 @@ def _attrload(l: Loader, value: Any, type_) -> Any:
                 necessary_fields.add(attribute.name)
 
             # Manage name mangling
-            if l.mangle_key in attribute.metadata:
-                namesmap[attribute.metadata[l.mangle_key]] = attribute.name
+            mangled = mangle_name(l, attribute)
+            if mangled:
+                namesmap[mangled] = attribute.name
         l._objfieldscache[type_] = fields, necessary_fields, type_hints, namesmap
 
     if namesmap:

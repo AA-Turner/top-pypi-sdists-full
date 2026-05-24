@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, profile_section, over
+from .._internal import expect, profile_section, over, clamped
 from .._rendering import Pipeline, Camera
 from ..abc import Layer, ParticleEmitter, ParticleModifier
 from ..fx.particle import ParticleRenderer
@@ -15,27 +15,30 @@ class ParticleLayer(Layer):
     """Layer gérant les particules
 
     Args:
-        additive: blending additif ou alpha classique
+        blending: interpolation entre alpha classique et blending additif *[0, 1]*
         scissor: rect de limitation du rendu ``(x, y, width, height)``
         camera: caméra locale
     """
     __slots__ = (
-        "_additive", "_scissor",
+        "_blending", "_scissor",
         "_emitters", "_modifiers",
         "_renderer",
     )
 
     _IS_FX: ClassVar[bool] = True
 
-    def __init__(self, additive: bool = True, camera: Camera = None):
-        # Transtypage
-        additive = bool(additive)
+    def __init__(self, blending: Real = 0.0, camera: Camera = None):
+        # Transtypage et vérifications
+        blending = float(blending)
+
+        if __debug__:
+            clamped(blending)
 
         # Initialisation du layer
         super().__init__(camera)
 
         # Attributs publiques
-        self._additive: bool = additive
+        self._blending: float = blending
         self._scissor: tuple[float, float, float, float] = None
 
         # Attributs internes
@@ -47,14 +50,20 @@ class ParticleLayer(Layer):
 
     # ======================================== PROPERTIES ========================================
     @property
-    def additive(self) -> bool:
-        """Blending additif ou alpha classique"""
-        return self._additive
+    def blending(self) -> float:
+        """Interpolation entre alpha classique et blending additif *[0, 1]*
+        
+        Mettre cette propriété à ``0.0`` pour des particules de matière.
+        Mettre cette propriété à ``1.0`` pour des particules lumineuses.
+        """
+        return self._blending
 
-    @additive.setter
-    def additive(self, value: bool) -> None:
-        value = bool(value)
-        self._additive = value
+    @blending.setter
+    def blending(self, value: Real) -> None:
+        value = float(value)
+        if __debug__:
+            clamped(value)
+        self._blending = value
 
     # ======================================== EMITTERS ========================================
     def add_emitter(self, emitter: ParticleEmitter) -> None:
@@ -185,7 +194,7 @@ class ParticleLayer(Layer):
         """
         ctx = pipeline.scissor_world(*self._scissor) if self._scissor else nullcontext()
         with ctx:
-            self._renderer.render(pipeline, self._emitters, self._additive)
+            self._renderer.render(pipeline, self._emitters, self._blending)
 
 # ======================================== EXPORTS ========================================
 __all__ = [

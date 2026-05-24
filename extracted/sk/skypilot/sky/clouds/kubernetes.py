@@ -94,8 +94,8 @@ class Kubernetes(clouds.Cloud):
             (f'Local disk is not supported on {_REPR}'),
     }
 
-    IMAGE_CPU = 'skypilot:custom-cpu-ubuntu-2004'
-    IMAGE_GPU = 'skypilot:custom-gpu-ubuntu-2004'
+    IMAGE_CPU = 'skypilot:custom-cpu-ubuntu-2204'
+    IMAGE_GPU = 'skypilot:custom-gpu-ubuntu-2204'
 
     PROVISIONER_VERSION = clouds.ProvisionerVersion.SKYPILOT
     STATUS_VERSION = clouds.StatusVersion.SKYPILOT
@@ -875,6 +875,17 @@ class Kubernetes(clouds.Cloud):
 
         deploy_vars['k8s_ipc_lock_capability'] = (
             network_type.requires_ipc_lock_capability())
+
+        # User-specified APT mirror candidates for pod package installs.
+        # None means unset (template uses built-in defaults); an empty list
+        # explicitly disables fallback mirrors.
+        deploy_vars['k8s_apt_mirrors'] = (
+            skypilot_config.get_effective_region_config(
+                cloud='kubernetes',
+                region=context,
+                keys=('apt_mirrors',),
+                default_value=None,
+                override_configs=resources.cluster_config_overrides))
 
         # Docker sidecar (DinD / BuildKit) support.
         raw_docker_cfg = skypilot_config.get_effective_region_config(

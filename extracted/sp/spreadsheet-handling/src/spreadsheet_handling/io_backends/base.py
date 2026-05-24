@@ -9,11 +9,11 @@ import pandas as pd
 @dataclass
 class BackendOptions:
     """
-    Gemeinsame, optionale IO-Policies.
-    - levels: gewuenschte Header-Ebenen beim Lesen/Schreiben (falls relevant)
-    - helper_prefix: Prefix von Helper-Spalten (nur fuer Export-Policy)
-    - drop_helper_columns: beim Schreiben Helper-Spalten verwerfen (z.B. JSON-Export)
-    - extras: backend-spezifische Ergaenzungen, ohne die Signatur zu sprengen
+    Shared optional I/O policies.
+    - levels: requested header levels when reading/writing (if relevant)
+    - helper_prefix: helper-column prefix (export policy only)
+    - drop_helper_columns: drop helper columns during writes (for example JSON export)
+    - extras: backend-specific additions without expanding function signatures
     """
 
     levels: int | None = None
@@ -33,7 +33,7 @@ def coerce_backend_options(
     Otherwise preserve the mapping so backend-specific keys still flow through.
     """
     if opts is None:
-        return cast(BackendOptions, {})
+        return BackendOptions()
     if isinstance(opts, BackendOptions):
         return opts
     if is_dataclass(BackendOptions):

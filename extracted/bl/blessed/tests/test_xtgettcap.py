@@ -335,6 +335,18 @@ def test_parse_xtgettcap_boolean_capability():
     assert capabilities['bce'] == ''
 
 
+def test_parse_xtgettcap_malformed_empty_name():
+    """Parse malformed DCS +r response with empty capability name (VTE/GNOME Terminal)."""
+    raw = '\x1bP0+r\x1b\\'
+    # parse_capabilities skips valid=0 responses.
+    assert not TermcapResponse.parse_capabilities(raw)
+    # The regex must match; sub() must consume the entire string.
+    assert TermcapResponse._RE_XTGETTCAP_RESPONSE.sub('', raw) == ''
+    # The regex must NOT consume unrelated text around the malformed response.
+    mixed = 'abc\x1bP0+r\x1b\\def'
+    assert TermcapResponse._RE_XTGETTCAP_RESPONSE.sub('', mixed) == 'abcdef'
+
+
 def test_does_xtgettcap_with_cached():
     """does_xtgettcap returns True with cached supported result."""
     stream = io.StringIO()
@@ -1164,3 +1176,36 @@ def test_get_xtgettcap_applies_overlay_to_jinxed():
     result = term.get_xtgettcap(timeout=0.1, force=True, caps=['dim'])
     assert result is not None
     assert result['dim'] == '\x1b[2m'
+
+
+def test_xtgettcap_skip_ansicon_env():
+    """XTGETTCAP init probe skipped when ANSICON env var is set."""
+    with mock.patch.dict(os.environ, {'ANSICON': '1'}), \
+            mock.patch('os.isatty', return_value=True), \
+            mock.patch.object(Terminal, '_xtgettcap_batch') as mock_batch:
+        t = Terminal(stream=sys.__stdout__, force_styling=True)
+        mock_batch.assert_not_called()
+        assert any('ansicon' in err for err in t.errors)
+        assert t._xtgettcap_cache.supported is False
+
+
+def test_xtgettcap_skip_conemuansi_env():
+    """XTGETTCAP init probe skipped when ConEmuANSI env var is set."""
+    with mock.patch.dict(os.environ, {'ConEmuANSI': 'ON'}), \
+            mock.patch('os.isatty', return_value=True), \
+            mock.patch.object(Terminal, '_xtgettcap_batch') as mock_batch:
+        t = Terminal(stream=sys.__stdout__, force_styling=True)
+        mock_batch.assert_not_called()
+        assert any('ansicon' in err for err in t.errors)
+        assert t._xtgettcap_cache.supported is False
+
+
+def test_xtgettcap_skip_Terminal_app():
+    """XTGETTCAP init probe skipped when TERM_PROGRAM is 'Apple_Terminal'."""
+    with mock.patch.dict(os.environ, {'TERM_PROGRAM': 'Apple_Terminal'}), \
+            mock.patch('os.isatty', return_value=True), \
+            mock.patch.object(Terminal, '_xtgettcap_batch') as mock_batch:
+        t = Terminal(stream=sys.__stdout__, force_styling=True)
+        mock_batch.assert_not_called()
+        assert any('Terminal.app' in err for err in t.errors)
+        assert t._xtgettcap_cache.supported is False

@@ -5,7 +5,7 @@ from types import TracebackType
 from typing import Callable, TypeAlias, Iterator, Self, ParamSpec, TypeVar, Generic, cast, overload
 
 from testfixtures import diff, compare, not_there, singleton
-from .comparison import split_repr
+from .comparers import split_repr
 
 
 param_docs = """
@@ -88,6 +88,7 @@ class ShouldRaise(Generic[E]):
         return self
 
     def _check_match(self, actual: BaseException) -> None:
+        __tracebackhide__ = True
         if self.match is not None and not re.search(self.match, str(actual)):
             raise AssertionError(
                 f'Pattern did not match:\n{self.match!r} (expected)\n{str(actual)!r} (actual)'
@@ -176,6 +177,7 @@ def ShouldAssert(expected_text: str, show_whitespace: bool = False) -> Iterator[
                             multi-line strings will be replaced with their
                             representations.
     """
+    __tracebackhide__ = True
     try:
         yield
     except AssertionError as e:

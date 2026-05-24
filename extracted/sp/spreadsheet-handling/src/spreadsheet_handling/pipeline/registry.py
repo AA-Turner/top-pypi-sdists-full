@@ -1,136 +1,182 @@
-"""Step registry and configuration binding.
+"""Step registry authority for canonical pipeline step names.
 
-Maps step names (strings) to factory functions and provides
-config-driven pipeline construction from dicts or YAML.
+Maps step names (strings) to factory functions or registrations. Binding
+configuration into executable steps lives in pipeline/build.py.
 """
+
 from __future__ import annotations
 
 import importlib
-import logging
-from typing import Any, Callable, Dict, Iterable, Mapping
+from typing import Dict
 
-from .types import BoundStep, Frames, Step
+from .types import StepFactory, StepRegistration
 
 from .steps import (
+    make_builder_target_step,
+    make_frames_target_step,
     make_identity_step,
     make_validate_step,
     make_apply_fks_step,
     make_drop_helpers_step,
     make_check_fk_helpers_step,
     make_plugin_step,
-    make_flatten_headers_step,
-    make_unflatten_headers_step,
-    make_reorder_helpers_step,
-    make_add_validations_step,
-    make_bootstrap_meta_step,
-    make_apply_overrides_step,
 )
 
-log = logging.getLogger("sheets.pipeline")
-
-
-# ---------------------------------------------------------------------------
-# Pipeline runner
-# ---------------------------------------------------------------------------
-
-def run_pipeline(frames: Frames, steps: Iterable[Step]) -> Frames:
-    out = frames
-    for step in steps:
-        log.debug("-> step: %s config=%s", getattr(step, "name", "<unnamed>"), getattr(step, "config", {}))
-        out = step(out)
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
-
-REGISTRY: Dict[str, Callable[..., BoundStep]] = {
-    "identity":         make_identity_step,
-    "validate":         make_validate_step,
-    "apply_fks":        make_apply_fks_step,
-    "drop_helpers":     make_drop_helpers_step,
-    "check_fk_helpers": make_check_fk_helpers_step,
-    "plugin":           make_plugin_step,
-    "flatten_headers":  make_flatten_headers_step,
-    "unflatten_headers": make_unflatten_headers_step,
-    "reorder_helpers":  make_reorder_helpers_step,
-    "add_validations":  make_add_validations_step,
-    "bootstrap_meta":   make_bootstrap_meta_step,
-    "apply_overrides":  make_apply_overrides_step,
+REGISTRY: Dict[str, StepRegistration | StepFactory] = {
+    "identity": make_identity_step,
+    "validate": make_validate_step,
+    "add_fk_helpers": make_apply_fks_step,
+    "remove_fk_helpers": make_drop_helpers_step,
+    "validate_fk_helpers": make_check_fk_helpers_step,
+    "plugin": make_plugin_step,
+    "flatten_headers": StepRegistration(
+        factory=make_builder_target_step,
+        target="spreadsheet_handling.domain.transformations.helpers:flatten_headers",
+    ),
+    "unflatten_headers": StepRegistration(
+        factory=make_builder_target_step,
+        target="spreadsheet_handling.domain.transformations.helpers:unflatten_headers",
+    ),
+    "reorder_fk_helpers": StepRegistration(
+        factory=make_builder_target_step,
+        target="spreadsheet_handling.domain.transformations.helpers:reorder_helpers_next_to_fk",
+    ),
+    "add_validations": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.validations.validate_columns:add_validations",
+    ),
+    "validate_references": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.validations.reference_validations:validate_references",
+    ),
+    "validate_graph": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.validations.graph_validations:validate_graph",
+    ),
+    "configure_workbook_view": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.workbook_views:configure_workbook_view",
+    ),
+    "apply_workbook_view_sheet_mappings": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.workbook_views:apply_workbook_view_sheet_mappings",
+    ),
+    "configure_lookup_helpers": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.helper_policies:configure_lookup_helpers",
+    ),
+    "configure_fk_helpers": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.helper_policies:configure_fk_helpers",
+    ),
+    "bootstrap_meta": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.meta_bootstrap:bootstrap_meta",
+    ),
+    "apply_overrides": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.yaml_overrides:load_and_apply_overrides",
+    ),
+    "write_structured_yaml": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.structured_yaml:write_structured_yaml",
+    ),
+    "split_by_discriminator": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.discriminator_split:split_by_discriminator",
+    ),
+    "merge_by_discriminator": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.discriminator_split:merge_by_discriminator",
+    ),
+    "extract_frame": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.extractions.frame_extract:extract_frame",
+    ),
+    "pivot_frame": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.tabular_views:pivot_frame",
+    ),
+    "join_frames": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.join_views:join_frames",
+    ),
+    "expand_xref": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.xref_crosstable:expand_xref",
+    ),
+    "contract_xref": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.xref_crosstable:contract_xref",
+    ),
+    "sparse_collapse": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.sparse_defaults:sparse_collapse",
+    ),
+    "sparse_expand": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.sparse_defaults:sparse_expand",
+    ),
+    "normalize_resource_overrides": StepRegistration(
+        factory=make_frames_target_step,
+        target=(
+            "spreadsheet_handling.domain.transformations.resource_overrides:"
+            "normalize_resource_overrides"
+        ),
+    ),
+    "decode_cell_values": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.cell_codec:decode_cell_values",
+    ),
+    "encode_cell_values": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.cell_codec:encode_cell_values",
+    ),
+    "expand_compact_multiaxis": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.compact_multiaxis:expand_compact_multiaxis",
+    ),
+    "contract_compact_multiaxis": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.compact_multiaxis:contract_compact_multiaxis",
+    ),
+    "add_lookup_helpers": StepRegistration(
+        factory=make_frames_target_step,
+        target="spreadsheet_handling.domain.transformations.enrich_lookup:enrich_lookup",
+    ),
+    "write_key_value_resources": StepRegistration(
+        factory=make_frames_target_step,
+        target=(
+            "spreadsheet_handling.domain.key_value_writer:"
+            "write_key_value_resources"
+        ),
+    ),
+    "write_artifact_manifest": StepRegistration(
+        factory=make_frames_target_step,
+        target=(
+            "spreadsheet_handling.domain.artifact_manifest:"
+            "write_artifact_manifest"
+        ),
+    ),
+    "apply_derived_column_policy": StepRegistration(
+        factory=make_frames_target_step,
+        target=(
+            "spreadsheet_handling.domain.transformations.derived_column_policy:"
+            "apply_derived_column_policy"
+        ),
+    ),
 }
 
 
-# ---------------------------------------------------------------------------
-# Config binding
-# ---------------------------------------------------------------------------
-
-def build_steps_from_config(step_specs: Iterable[Mapping[str, Any]]) -> list[BoundStep]:
-    """
-    Build steps from a config list like:
-      - step: validate
-        mode_duplicate_ids: warn
-      - step: my_project.steps:make_extract_subset_step
-        table: Orders
-    Supported 'step' values:
-      1) registry key (see REGISTRY)
-      2) dotted path '<module>:<factory_function>'
-    """
-    def resolve_factory(step_id: str) -> Callable[..., BoundStep] | None:
-        factory = REGISTRY.get(step_id)
-        if factory:
-            return factory
-        if ":" in step_id:
-            mod_name, func_name = step_id.split(":", 1)
-            mod = importlib.import_module(mod_name)
-            factory = getattr(mod, func_name, None)
-            if factory is None:
-                raise AttributeError(f"Factory '{func_name}' not found in module '{mod_name}'")
-            return factory
-        return None
-
-    steps: list[BoundStep] = []
-    for raw in step_specs:
-        spec = dict(raw)
-        step_id = spec.pop("step", None)
-        if not step_id:
-            raise ValueError(f"Step spec missing 'step': {raw}")
-
-        factory = resolve_factory(step_id)
-        if not factory:
-            raise KeyError(f"Unknown step '{step_id}'. Known registry keys: {list(REGISTRY)}")
-
-        name = spec.pop("name", None)
-
-        try:
-            bound = factory(name=name, **spec) if name is not None else factory(**spec)  # type: ignore[arg-type]
-        except TypeError:
-            if name is not None:
-                tmp = factory(**spec)  # type: ignore[arg-type]
-                bound = BoundStep(name=name, config=tmp.config, fn=tmp.fn)
-            else:
-                raise
-        steps.append(bound)
-    return steps
-
-
-# ---------------------------------------------------------------------------
-# YAML convenience
-# ---------------------------------------------------------------------------
-
-try:
-    import yaml
-except Exception:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
-
-
-def build_steps_from_yaml(path: str) -> list[BoundStep]:
-    """Load a pipeline spec from YAML (expects top-level key 'pipeline': [...])."""
-    if yaml is None:
-        raise RuntimeError("PyYAML not installed; install with [dev] or add pyyaml to deps.")
-    with open(path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
-    specs = cfg.get("pipeline")
-    if not isinstance(specs, list):
-        raise ValueError(f"YAML missing 'pipeline' list: {path}")
-    return build_steps_from_config(specs)
+def resolve_registration(step_id: str) -> StepRegistration | None:
+    entry = REGISTRY.get(step_id)
+    if entry:
+        return entry if isinstance(entry, StepRegistration) else StepRegistration(factory=entry)
+    if ":" in step_id:
+        mod_name, func_name = step_id.split(":", 1)
+        mod = importlib.import_module(mod_name)
+        factory = getattr(mod, func_name, None)
+        if factory is None:
+            raise AttributeError(f"Factory '{func_name}' not found in module '{mod_name}'")
+        return StepRegistration(factory=factory)
+    return None

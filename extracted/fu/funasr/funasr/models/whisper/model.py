@@ -31,7 +31,22 @@ from funasr.register import tables
 @tables.register("model_classes", "Whisper-large-v3-turbo")
 @tables.register("model_classes", "WhisperWarp")
 class WhisperWarp(nn.Module):
+    """Whisper: OpenAI Whisper model integration.
+
+    Wraps Whisper for multilingual speech recognition and translation
+    within FunASR's AutoModel interface.
+
+    Supports: whisper-tiny through whisper-large-v3-turbo.
+    Output: {"key": str, "text": str}
+    """
+
     def __init__(self, *args, **kwargs):
+        """Initialize WhisperWarp.
+        
+            Args:
+                *args: Variable positional arguments.
+                **kwargs: Additional keyword arguments.
+            """
         super().__init__()
         hub = kwargs.get("hub", "funasr")
         if hub == "openai":
@@ -51,6 +66,7 @@ class WhisperWarp(nn.Module):
     def forward(
         self,
     ):
+        """Forward pass for training."""
         pass
 
     def inference(
@@ -62,6 +78,16 @@ class WhisperWarp(nn.Module):
         frontend=None,
         **kwargs,
     ):
+        """Run inference on input data.
+        
+            Args:
+                data_in: Input data (audio samples, file paths, or text).
+                data_lengths: Lengths of each input sample in the batch.
+                key: Sample identifiers.
+                tokenizer: Tokenizer instance for text encoding/decoding.
+                frontend: Audio frontend for feature extraction.
+                **kwargs: Additional keyword arguments.
+            """
         if kwargs.get("batch_size", 1) > 1:
             raise NotImplementedError("batch decoding is not implemented")
 

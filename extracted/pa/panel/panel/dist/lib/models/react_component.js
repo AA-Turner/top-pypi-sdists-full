@@ -64,7 +64,9 @@ export class ReactComponentView extends ReactiveESMView {
     model_getter = model_getter;
     model_setter = model_setter;
     react_root = null;
+    mounted = false;
     _force_update_callbacks = [];
+    _mounted_resolve = null;
     _scheduled_removals = [];
     initialize() {
         super.initialize();
@@ -81,6 +83,7 @@ export class ReactComponentView extends ReactiveESMView {
         if (this.model.compiled === null || this.model.render_module === null) {
             return;
         }
+        this._changing = true;
         if (this.model.usesMui) {
             if (this.model.root_node) {
                 this.style_cache = document.head;
@@ -95,9 +98,13 @@ export class ReactComponentView extends ReactiveESMView {
             (this._lifecycle_handlers.get(lf) || []).splice(0);
         }
         this.model.disconnect_watchers(this);
+        const mounted_promise = new Promise((resolve) => {
+            this._mounted_resolve = resolve;
+        });
         this.model.render_module.then((mod) => {
             this.react_root = mod.default.render(this.model.id);
         });
+        this._await_ready(mounted_promise);
     }
     on_force_update(cb) {
         this._force_update_callbacks.push(cb);
@@ -109,6 +116,7 @@ export class ReactComponentView extends ReactiveESMView {
     }
     remove() {
         this._force_update_callbacks = [];
+        this.mounted = false;
         if (this.react_root && this.use_shadow_dom) {
             super.remove();
             this.react_root.then((root) => root && root.unmount());
@@ -161,6 +169,7 @@ export class ReactComponentView extends ReactiveESMView {
             this.react_root.then((root) => root.unmount());
         }
         this._force_update_callbacks = [];
+        this.mounted = false;
         super.render();
     }
     r_after_render() {
@@ -234,6 +243,16 @@ export class ReactComponentView extends ReactiveESMView {
     }
     _on_mounted() {
         this.invalidate_layout();
+        this.mounted = true;
+    }
+    has_finished() {
+        if (!super.has_finished()) {
+            return false;
+        }
+        if (this._changing) {
+            return false;
+        }
+        return true;
     }
     patch_container(container) {
         this.el = this.container = container;
@@ -252,6 +271,21 @@ export class ReactComponentView extends ReactiveESMView {
             }
         }
         this._rendered = true;
+        this._changing = false;
+        if (this._mounted_resolve) {
+            const resolve = this._mounted_resolve;
+            this._mounted_resolve = null;
+            const child_ready = [];
+            for (const child_view of this.child_views) {
+                child_ready.push(child_view.ready);
+            }
+            if (child_ready.length > 0) {
+                Promise.all(child_ready).then(() => resolve());
+            }
+            else {
+                resolve();
+            }
+        }
     }
 }
 export class ReactComponent extends ReactiveESM {
@@ -356,31 +390,29 @@ async function render(id) {
       const view = this.view
       this.render_callback = (new_views) => {
         const view = this.view
-        if (!view) {
+        if (!view || !new_views.includes(view)) {
           return
         }
         this.updateElement()
-        if (new_views.includes(view)) {
-          if (this.use_shadow_dom) {
+        if (this.use_shadow_dom) {
+          for (const view of this.props.parent._scheduled_removals) { view.remove() }
+          this.props.parent._scheduled_removals = []
+          this.props.parent.rerender_(view)
+          this.props.parent._child_rendered.set(view, true)
+        } else {
+          view.patch_container(this.containerRef.current)
+          view.model.render_module.then(async (mod) => {
             for (const view of this.props.parent._scheduled_removals) { view.remove() }
             this.props.parent._scheduled_removals = []
-            this.props.parent.rerender_(view)
-            this.props.parent._child_rendered.set(view, true)
-          } else {
-            view.patch_container(this.containerRef.current)
-            view.model.render_module.then(async (mod) => {
-              for (const view of this.props.parent._scheduled_removals) { view.remove() }
-              this.props.parent._scheduled_removals = []
-              this.setState(
-                {rendered: await mod.default.render(view.model.id)},
-                () => {
-                  this.props.parent.notify_mount(this.props.name, view.model.id)
-                  this.view.r_after_render()
-                  this.view.after_rendered()
-                }
-              )
-            })
-          }
+            this.setState(
+              {rendered: await mod.default.render(view.model.id)},
+              () => {
+                this.props.parent.notify_mount(this.props.name, view.model.id)
+                this.view.r_after_render()
+                this.view.after_rendered()
+              }
+            )
+          })
         }
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
@@ -552,7 +584,6 @@ async function render(id) {
         ${init_code}
         this.forceUpdate()
       })
-      this.props.view._changing = false
       this.props.view.after_rendered()
     }
 
@@ -572,7 +603,6 @@ async function render(id) {
     return rendered
   }
   if (rendered) {
-    view._changing = true
     let container
     if (view.model.root_node) {
       container = document.querySelector(view.model.root_node)

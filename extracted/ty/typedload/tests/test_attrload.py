@@ -24,7 +24,8 @@ import sys
 from attr import attrs, attrib, define, field
 
 from typedload import load, dump, exceptions, typechecks
-from typedload import datadumper
+from typedload import dataloader, datadumper
+from typedload.name_manglers import snake_case_to_camel_case
 
 
 class Hair(Enum):
@@ -195,6 +196,32 @@ class TestMangling(unittest.TestCase):
             a = attrib(type=str, metadata={'name': 'q'})
         with self.assertRaises(exceptions.TypedloadAttributeError):
             load(1, A)
+
+    def test_mangler(self):
+        mload = dataloader.Loader(mangler=snake_case_to_camel_case).load
+        mdump = datadumper.Dumper(mangler=snake_case_to_camel_case).dump
+        @attrs
+        class Mangle:
+            unmangled = attrib(type=int)
+            mangled_name = attrib(type=int)
+            overriden_name = attrib(type=int, metadata={'name': 'OVERRIDEN_NAME'})
+        assert (
+            mload({'unmangled': 2, 'mangledName': 4, 'OVERRIDEN_NAME': 8}, Mangle)
+            == Mangle(2, 4, 8)
+        )
+        assert (
+            mdump(Mangle(2, 4, 8))
+            == {'unmangled': 2, 'mangledName': 4, 'OVERRIDEN_NAME': 8}
+        )
+        for fail_case in [
+                # mangled_name is unmangled
+                {'unmangled': 2, 'mangled_name': 4, 'OVERRIDEN_NAME': 8},
+                # OVERRIDEN_NAME is improperly mangled
+                {'unmangled': 2, 'mangledName': 4, 'overridenName': 8},
+        ]:
+            with self.assertRaises(TypeError):
+                mload(fail_case, Mangle)
+
 
 class TestAttrExceptions(unittest.TestCase):
 

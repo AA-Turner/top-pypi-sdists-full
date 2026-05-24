@@ -16,7 +16,8 @@
 #
 # author Salvo "LtWorf" Tomaselli <tiposchi@tiscali.it>
 
-from typing import Set, TypeVar, Type, Any, Optional, Dict, List, Tuple, Callable, _SpecialForm
+from typing import Set, TypeVar, Type, Any, Optional, Dict, List, Tuple, _SpecialForm
+from collections.abc import Callable
 
 from .dataloader import Loader
 from .datadumper import Dumper
@@ -47,6 +48,7 @@ def load(
     frefs: Optional[Dict[str, Type[Any]]] = ...,
     dictequivalence: bool = ...,
     mangle_key: str = ...,
+    mangler: Callable[[str], str] = ...,
     uniondebugconflict: bool = ...,
     strconstructed: Set[Type[Any]] = ...,
     handlers: List[
@@ -61,6 +63,7 @@ def dump(
     isodates: bool = ...,
     raiseconditionerrors: bool = ...,
     mangle_key: str = ...,
+    mangler: Callable[[str], str] = ...,
     handlers: List[Tuple[Callable[[Any], bool], Callable[['Dumper', Any, Any], Any]|Callable[['Dumper', Any], Any]]] = ...,
     strconstructed: Set[Type[Any]] = ...,
 ) -> Any: ...

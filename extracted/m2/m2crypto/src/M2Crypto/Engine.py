@@ -35,6 +35,7 @@ class Engine(object):
         :raises ValueError: If id is None or if the specified engine is not found.
         """
         self._ptr: C.ENGINE
+        self._initialized: bool = False
         if _ptr is None:
             if id is None:
                 raise ValueError("Trying to search engine by id of None.")
@@ -45,6 +46,36 @@ class Engine(object):
                 raise ValueError("Unknown engine: %s" % id)
         self._ptr = _ptr
         self._pyfree = _pyfree
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """
+        Return True if M2Crypto was built with OpenSSL ENGINE support.
+        """
+        return bool(m2.is_engine_available)
+
+    def __enter__(self) -> "Engine":
+        """
+        Context manager entry.
+
+        Initializes the engine and returns self.
+        """
+        self.init()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        """
+        Context manager exit.
+
+        Ensures the engine is properly finished.
+        """
+        try:
+            if self._initialized:
+                self.finish()
+        except Exception:
+            # Never raise from __exit__
+            pass
+
 
     @staticmethod
     def m2_engine_free(obj: C.ENGINE) -> None:
@@ -62,9 +93,19 @@ class Engine(object):
         Automatically called when the Engine object is garbage collected.
         Frees the underlying ENGINE pointer if the object is responsible
         for managing its lifecycle.
+
+        Best-effort cleanup only; errors are intentionally ignored.
         """
-        if getattr(self, '_pyfree', 0) and self._ptr:
-            m2.engine_free(self._ptr)
+        try:
+            if getattr(self, '_initialized', False):
+                m2.engine_finish(self._ptr)
+        except Exception:
+            pass
+        try:
+            if getattr(self, '_pyfree', 0) and self._ptr:
+                m2.engine_free(self._ptr)
+        except Exception:
+            pass
 
     def init(self) -> int:
         """
@@ -72,7 +113,9 @@ class Engine(object):
 
         :return: 0 on error, non-zero on success.
         """
-        return m2.engine_init(self._ptr)
+        ret = m2.engine_init(self._ptr)
+        self._initialized = bool(ret)
+        return ret
 
     def finish(self) -> int:
         """
@@ -80,7 +123,19 @@ class Engine(object):
 
         :return: 0 on error, non-zero on success.
         """
-        return m2.engine_finish(self._ptr)
+        ret = m2.engine_finish(self._ptr)
+        if ret:
+            self._initialized = False
+        return ret
+
+    def is_initialized(self) -> bool:
+        """
+        Check whether the engine is currently initialized.
+
+        :return: True if ENGINE_init() has succeeded and ENGINE_finish()
+                 has not yet been called.
+        """
+        return self._initialized
 
     def ctrl_cmd_string(
         self,
@@ -100,9 +155,7 @@ class Engine(object):
             cmd = cmd.decode()
         if arg is not None and isinstance(arg, bytes):
             arg = arg.decode()
-        if not m2.engine_ctrl_cmd_string(
-            self._ptr, cmd, arg, optional
-        ):
+        if not m2.engine_ctrl_cmd_string(self._ptr, cmd, arg, optional):
             raise EngineError(Err.get_error())
 
     def get_name(self) -> str:
@@ -125,6 +178,10 @@ class Engine(object):
         """
         Set this engine as the default for specified cryptographic methods.
 
+        WARNING: This sets a process-wide OpenSSL default. All subsequent
+        cryptographic operations in the current process may use this engine
+        for the selected methods.
+
         :param methods: Bitwise OR of method flags (e.g., m2.ENGINE_METHOD_RSA,
                        m2.ENGINE_METHOD_DSA, m2.ENGINE_METHOD_ALL).
         :return: 0 on error, non-zero on success.
@@ -132,10 +189,18 @@ class Engine(object):
         return m2.engine_set_default(self._ptr, methods)
 
     def _engine_load_key(
-        self, func: Callable, name: Union[str, bytes], pin: Union[str, bytes, None] = None
+        self,
+        func: Callable,
+        name: Union[str, bytes],
+        pin: Union[str, bytes, None] = None,
     ) -> EVP.PKey:
         """
         Internal helper function for loading keys from engine.
+
+        NOTE: The callback_data layout used here matches engine-pkcs11.
+        Other engines may ignore or misinterpret this data.
+
+        If pin is None, UI_OpenSSL may prompt on stdin.
 
         :param func: The engine function to call for loading the key.
         :param name: Key identifier or name.
@@ -143,6 +208,9 @@ class Engine(object):
         :return: EVP.PKey object containing the loaded key.
         :raises EngineError: If key loading fails.
         """
+        if not self._initialized:
+            raise EngineError("ENGINE not initialized")
+
         if isinstance(name, bytes):
             name = name.decode()
         if pin is not None and isinstance(pin, bytes):
@@ -152,7 +220,7 @@ class Engine(object):
         try:
             kptr = func(self._ptr, name, ui, cbd)
             if not kptr:
-                raise EngineError(Err.get_error())
+                raise EngineError(Err.get_error() or "ENGINE key load failed")
             key = EVP.PKey(kptr, _pyfree=1)
         finally:
             m2.engine_pkcs11_data_free(cbd)
@@ -170,9 +238,7 @@ class Engine(object):
         :return: EVP.PKey object containing the loaded private key.
         :raises EngineError: If the private key cannot be loaded.
         """
-        return self._engine_load_key(
-            m2.engine_load_private_key, name, pin
-        )
+        return self._engine_load_key(m2.engine_load_private_key, name, pin)
 
     def load_public_key(
         self, name: Union[str, bytes], pin: Union[str, bytes, None] = None
@@ -185,13 +251,14 @@ class Engine(object):
         :return: EVP.PKey object containing the loaded public key.
         :raises EngineError: If the public key cannot be loaded.
         """
-        return self._engine_load_key(
-            m2.engine_load_public_key, name, pin
-        )
+        return self._engine_load_key(m2.engine_load_public_key, name, pin)
 
     def load_certificate(self, name: Union[str, bytes]) -> X509.X509:
         """
         Load a certificate using engine methods.
+
+        NOTE: Certificate loading is engine-specific. Many PKCS#11 engines
+        only expose private keys and do not implement certificate loading.
 
         :param name: Certificate identifier or name.
         :return: X509.X509 object containing the loaded certificate.
@@ -201,13 +268,11 @@ class Engine(object):
             name = name.decode()
         cptr = m2.engine_load_certificate(self._ptr, name)
         if not cptr:
-            raise EngineError("Certificate or card not found")
+            raise EngineError("ENGINE did not return a certificate")
         return X509.X509(cptr, _pyfree=1)
 
 
-def load_dynamic_engine(
-    id: bytes, sopath: Union[str, bytes]
-) -> Engine:
+def load_dynamic_engine(id: bytes, sopath: Union[str, bytes]) -> Engine:
     """
     Load and return a dynamic engine from a shared object path.
 
@@ -216,13 +281,13 @@ def load_dynamic_engine(
     :return: Engine object representing the loaded dynamic engine.
     """
     if isinstance(sopath, str):
-        sopath = sopath.encode('utf8')
+        sopath = sopath.encode("utf8")
     m2.engine_load_dynamic()
-    e = Engine('dynamic')
-    e.ctrl_cmd_string('SO_PATH', sopath)
-    e.ctrl_cmd_string('ID', id)
-    e.ctrl_cmd_string('LIST_ADD', '1')
-    e.ctrl_cmd_string('LOAD', None)
+    e = Engine("dynamic")
+    e.ctrl_cmd_string("SO_PATH", sopath)
+    e.ctrl_cmd_string("ID", id)
+    e.ctrl_cmd_string("LIST_ADD", "1")
+    e.ctrl_cmd_string("LOAD", None)
     return e
 
 

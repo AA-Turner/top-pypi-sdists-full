@@ -1,3 +1,4 @@
+import json
 import re
 import uuid
 from abc import ABC
@@ -7,25 +8,30 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from functools import partial
 from re import compile
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Any
 from unittest import TestCase
 from uuid import uuid4, UUID
 
 from testfixtures import (
     Comparison as C,
+    MappingComparison,
+    Replace,
     Replacer,
+    SequenceComparison,
     ShouldRaise,
     compare,
     generator,
+    safe_pformat,
+    safe_repr,
     singleton,
 )
-from testfixtures.comparison import (
+from testfixtures.comparers import (
     compare_sequence,
     compare_object,
-    Registry,
     compare_text,
-    merge_ignored_attributes, like,
+    merge_ignored_attributes,
 )
+from testfixtures.comparison import Registry, _registry, like, register, registry
 from testfixtures.compat import PY_312_PLUS
 from testfixtures.mock import Mock, call
 from testfixtures.shouldraise import ShouldAssert
@@ -51,6 +57,79 @@ class Lazy:
 
     def __str__(self):
         return self.message
+
+
+class Strict:
+    def __init__(self, value):
+        self.value = value
+    def __eq__(self, other):
+        return isinstance(other, Strict) and self.value == other.value
+    def __hash__(self):
+        return hash(self.value)
+
+
+@dataclass
+class Item:
+    value: int
+
+    def __repr__(self):
+        return f"<item:{self.value}>"
+
+
+@dataclass
+class Sample:
+    id: Item
+    part: Item
+    x: str
+
+
+class Broken:
+    # An object whose __repr__ raises on demand.
+    marker = '<unrepresentable tests.test_compare.Broken: ValueError: boom!>'
+
+    def __init__(self, label='broken', exc=None):
+        self.label = label
+        self._exc = ValueError('boom!') if exc is None else exc
+
+    def __repr__(self):
+        raise self._exc
+
+
+class HashableBroken(Broken):
+    # Hashable + comparable so it can be used as a dict key or set member.
+
+    marker = '<unrepresentable tests.test_compare.HashableBroken: ValueError: boom!>'
+
+    def __init__(self, label='broken', exc=None):
+        super().__init__(label, exc)
+
+    def __hash__(self):
+        return hash(self.label)
+
+    def __eq__(self, other):
+        return isinstance(other, HashableBroken) and self.label == other.label
+
+class TestSampleClasses:
+    # Test coverage for the helper objects above, to make sure the things test below rely on
+    # behave as expected:
+    def test_strict_eq(self):
+
+        @dataclass
+        class Other:
+            value: Any
+
+        assert not Strict('foo') == Other('foo')
+        assert not Strict('foo') == Strict('bar')
+        assert hash(Strict('foo')) == hash('foo')
+
+    def test_hashable_broken_eq(self):
+
+        @dataclass
+        class Other:
+            label: Any
+
+        assert not HashableBroken('foo') == Other('foo')
+        assert not HashableBroken('foo') == Strict('bar')
 
 
 def check_raises(x_=marker, y_=marker, message=None, regex=None,
@@ -970,9 +1049,7 @@ b
         def compare_my_object(x, y, context):
             return '%s != %s' % (x.name, y.name)
 
-        with Replacer() as r:
-            registry = Registry.initial({list: compare_sequence, str: compare_text})
-            r.replace('testfixtures.comparison._registry', registry)
+        with registry({list: compare_sequence, str: compare_text}):
             self.check_raises(
                 [1, MyObject('foo')], [1, MyObject('bar')],
                 "sequence not as expected:\n"
@@ -1556,6 +1633,265 @@ b
             ignore_eq=True
         )
 
+    def test_django_orm_is_horrible_type(self):
+
+        assert self.OrmObj(1) == self.OrmObj(2)
+
+        def query_set():
+            yield self.OrmObj(1)
+            yield self.OrmObj(2)
+
+        self.check_raises(
+            message=(
+                "sequence not as expected:\n"
+                "\n"
+                "same:\n"
+                "(OrmObj: 1,)\n"
+                "\n"
+                "expected:\n"
+                "(OrmObj: 3,)\n"
+                "\n"
+                "actual:\n"
+                "(OrmObj: 2,)\n"
+                '\n'
+                'While comparing [1]: OrmObj not as expected:\n'
+                '\n'
+                'attributes differ:\n'
+                "'a': 3 (expected) != 2 (actual)"
+            ),
+            expected=[self.OrmObj(1), self.OrmObj(3)],
+            actual=query_set(),
+            ignore_eq=self.OrmObj
+        )
+
+    def test_django_orm_is_horrible_iterable(self):
+
+        assert self.OrmObj(1) == self.OrmObj(2)
+
+        def query_set():
+            yield self.OrmObj(1)
+            yield self.OrmObj(2)
+
+        self.check_raises(
+            message=(
+                "sequence not as expected:\n"
+                "\n"
+                "same:\n"
+                "(OrmObj: 1,)\n"
+                "\n"
+                "expected:\n"
+                "(OrmObj: 3,)\n"
+                "\n"
+                "actual:\n"
+                "(OrmObj: 2,)\n"
+                '\n'
+                'While comparing [1]: OrmObj not as expected:\n'
+                '\n'
+                'attributes differ:\n'
+                "'a': 3 (expected) != 2 (actual)"
+            ),
+            expected=[self.OrmObj(1), self.OrmObj(3)],
+            actual=query_set(),
+            ignore_eq=[self.OrmObj]
+        )
+
+    def test_ignore_eq_default_respects_broken_eq(self):
+        compare(self.OrmObj(1), self.OrmObj(2))
+
+    def test_ignore_eq_registered_by_type(self):
+        mock = type(_registry.ignore_eq_types)()
+        # Should have an empty registry primitive?
+        with Replace(_registry.ignore_eq_types, mock, container=_registry, name='ignore_eq_types'):
+            register(self.OrmObj, ignore_eq=True)
+            self.check_raises(
+                message=(
+                    'OrmObj not as expected:\n'
+                    '\n'
+                    'attributes differ:\n'
+                    "'a': 1 (expected) != 2 (actual)"
+                ),
+                expected=self.OrmObj(1),
+                actual=self.OrmObj(2),
+            )
+
+    def test_ignore_eq_mro_matching(self):
+        class SubOrm(self.OrmObj):
+            pass
+
+        self.check_raises(
+            message=(
+                'SubOrm not as expected:\n'
+                '\n'
+                'attributes differ:\n'
+                "'a': 1 (expected) != 2 (actual)"
+            ),
+            expected=SubOrm(1),
+            actual=SubOrm(2),
+            ignore_eq=self.OrmObj,
+        )
+
+    def test_ignore_eq_blocks_shortcut_for_nested_ignored_types(self):
+        # When any per-type ignore is in play, the `x == y` shortcut is
+        # disabled even at the container level — otherwise a list of
+        # OrmObj would have list.__eq__ silently delegate to OrmObj's
+        # broken __eq__ and report equal.
+        self.check_raises(
+            message=(
+                "sequence not as expected:\n"
+                "\n"
+                "same:\n"
+                "[OrmObj: 1]\n"
+                "\n"
+                "expected:\n"
+                "[OrmObj: 3]\n"
+                "\n"
+                "actual:\n"
+                "[OrmObj: 2]\n"
+                '\n'
+                'While comparing [1]: OrmObj not as expected:\n'
+                '\n'
+                'attributes differ:\n'
+                "'a': 3 (expected) != 2 (actual)"
+            ),
+            expected=[self.OrmObj(1), self.OrmObj(3)],
+            actual=[self.OrmObj(1), self.OrmObj(2)],
+            ignore_eq=self.OrmObj,
+        )
+
+    @dataclass(kw_only=True)
+    class Attrs:
+        x: int
+        y: int
+
+        def __repr__(self):
+            return f'{type(self).__name__}(x={self.x}, y={self.y})'
+
+    class OnlyXEq(Attrs):
+        def __eq__(self, other):
+            return self.x == other.x
+
+    class OnlyYEq(Attrs):
+        def __eq__(self, other):
+            return self.y == other.y
+
+    def test_ignore_eq_does_not_disable_other_types_eq(self):
+        # The OnlyYEq does not have its __eq__ ignored, so even though the instances have
+        # differing x attributes, no AssertionError is raised:
+        compare(
+            expected=self.OnlyYEq(x=1, y=3),
+            actual=self.OnlyYEq(x=2, y=3),
+            ignore_eq=self.OnlyXEq,
+        )
+        # The OnlyXEq instances are identical, so the ignore_eq doesn't uncover any attribute
+        # differences that would have been ignored:
+        compare(
+            expected=self.OnlyXEq(x=3, y=1),
+            actual=self.OnlyXEq(x=3, y=1),
+            ignore_eq=self.OnlyXEq,
+        )
+        # Now, we ignore the __eq__ of OnlyXEq, so an AssertionError is raised as the differences
+        # in the y attributes are no longer ignoreed:
+        self.check_raises(
+            message=(
+                "OnlyXEq not as expected:\n\n"
+                "attributes same:\n"
+                "['x']\n\n"
+                "attributes differ:\n"
+                "'y': 1 (expected) != 2 (actual)"
+            ),
+            expected=self.OnlyXEq(x=1, y=1),
+            actual=self.OnlyXEq(x=1, y=2),
+            ignore_eq=self.OnlyXEq,
+        )
+
+    def test_ignore_eq_does_not_disable_other_types_eq_in_sequence(self):
+        self.check_raises(
+            message=(
+                'sequence not as expected:\n\n'
+                'same:\n'
+                '[OnlyXEq(x=1, y=1)]\n\n'
+                'expected:\n'
+                '[OnlyYEq(x=1, y=3)]\n\n'
+                'actual:\n'
+                '[OnlyYEq(x=2, y=3)]\n\n'
+                'While comparing [1]: OnlyYEq not as expected:\n\n'
+                'attributes same:\n'
+                "['y']\n\n"
+                'attributes differ:\n'
+                "'x': 1 (expected) != 2 (actual)"
+            ),
+            # Here, we don't ignore_eq for OnlyXEq, so the two instances compare equal
+            # even though their y attributes differ. We ignore_eq for OnlyYEq, so even though the
+            # two OnlyYEq instances have identical y attributes, we ignore the __eq__ and so we
+            # get an AssertionError for the different in the x attributes.
+            expected=[self.OnlyXEq(x=1, y=1), self.OnlyYEq(x=1, y=3)],
+            actual=[self.OnlyXEq(x=1, y=2), self.OnlyYEq(x=2, y=3)],
+            ignore_eq=self.OnlyYEq,
+        )
+
+    def test_ignore_eq_registry_and_parameter_combine(self):
+
+        class OtherBroken:
+            def __init__(self, a):
+                self.a = a
+            # def __eq__(self, other):
+            #     return True
+            # def __repr__(self):
+            #     return 'OtherBroken: '+str(self.a)
+
+        with registry():
+            register(self.OrmObj, ignore_eq=True)
+            # use empty registry primitive
+            self.check_raises(
+                message=(
+                    'OtherBroken not as expected:\n'
+                    '\n'
+                    'attributes differ:\n'
+                    "'a': 1 (expected) != 2 (actual)"
+                ),
+                expected=OtherBroken(1),
+                actual=OtherBroken(2),
+                ignore_eq=OtherBroken,
+            )
+            self.check_raises(
+                message=(
+                    'OrmObj not as expected:\n'
+                    '\n'
+                    'attributes differ:\n'
+                    "'a': 1 (expected) != 2 (actual)"
+                ),
+                expected=self.OrmObj(1),
+                actual=self.OrmObj(2),
+                ignore_eq=OtherBroken,
+            )
+
+    def test_register_requires_comparer_or_ignore_eq(self):
+        class SomeType:
+            pass
+
+        with ShouldRaise(TypeError(
+            "register() requires either a comparer or ignore_eq=True"
+        )):
+            register(SomeType)
+
+    def test_ignore_eq_per_type_with_shared_instance(self):
+        # When the same object appears at the same position in expected and
+        # actual, AlreadySeen kicks in on the second sighting. Equality must
+        # fall back to identity rather than the type's __eq__ — which is
+        # precisely the operator ignore_eq is asking us to distrust, and
+        # which may not cooperate with unknown operands like AlreadySeen.
+        s = Strict(1)
+        compare(expected=[s], actual=[s], ignore_eq=Strict)
+
+    def test_ignore_eq_registered_with_shared_instance(self):
+        # Same as above but via the registry — guards against a globally
+        # registered ignore_eq type leaking into unrelated comparisons that
+        # happen to reuse instances within a container.
+        with registry():
+            register(Strict, ignore_eq=True)
+            s = Strict(1)
+            compare(expected=[s], actual=[s])
+
     def test_django_orm_is_horrible_part_2(self):
 
         t_compare = partial(compare, ignore_eq=True)
@@ -2033,19 +2369,6 @@ b
 
     def test_self_referential_comparison_object_and_failed(self) -> None:
 
-        @dataclass
-        class Item:
-            value: int
-
-            def __repr__(self):
-                return f"<item:{self.value}>"
-
-        @dataclass
-        class Sample:
-            id: Item
-            part: Item
-            x: str
-
         i = Item(1)
 
         self.check_raises(
@@ -2066,19 +2389,6 @@ b
 
     def test_self_referential_comparison_object_and_succeeded(self) -> None:
 
-        @dataclass
-        class Item:
-            value: int
-
-            def __repr__(self):
-                return f"<item:{self.value}>"
-
-        @dataclass
-        class Sample:
-            id: Item
-            part: Item
-            x: str
-
         i = Item(1)
 
         compare(
@@ -2089,19 +2399,6 @@ b
         )
 
     def test_self_referential_comparison_object_and_same_but_strict(self) -> None:
-
-        @dataclass
-        class Item:
-            value: int
-
-            def __repr__(self):
-                return f"<item:{self.value}>"
-
-        @dataclass
-        class Sample:
-            id: Item
-            part: Item
-            x: str
 
         i = Item(1)
 
@@ -2121,8 +2418,7 @@ b
                 '\n'
                 "While comparing .id: <C:tests.test_compare.Item> "
                 "(<class 'testfixtures.comparison.Comparison'>) (expected) != "
-                "<item:1> (<class 'tests.test_compare.TestCompare."
-                "test_self_referential_comparison_object_and_same_but_strict.<locals>.Item'>)"
+                "<item:1> (<class 'tests.test_compare.Item'>)"
                 " (actual)\n"
                 '\n'
                 "While comparing .x: 'foo' (expected) != 'bar' (actual)"
@@ -2130,19 +2426,6 @@ b
         )
 
     def test_self_referential_comparison_object_and_same_but_ignore_eq(self) -> None:
-
-        @dataclass
-        class Item:
-            value: int
-
-            def __repr__(self):
-                return f"<item:{self.value}>"
-
-        @dataclass
-        class Sample:
-            id: Item
-            part: Item
-            x: str
 
         i = Item(1)
 
@@ -2251,7 +2534,7 @@ b
                 '[<MyList:[1, 2, 3]>]\n'
                 '\n'
                 f"While comparing [1]: <AlreadySeen for [1, 2, 3] at ... "
-                f"(<class 'testfixtures.comparison.AlreadySeen'>) != "
+                f"(<class 'testfixtures.comparers.AlreadySeen'>) != "
                 f"<MyList:[1, 2, 3]> ({type_repr})"
             )
         )
@@ -2482,3 +2765,319 @@ class TestGenericTypes:
             '\n'
             "While comparing .__args__[0]: <class 'int'> != <class 'float'>"
         ))
+
+
+class TestSafeHelpers:
+
+    def test_safe_repr_normal_object(self):
+        compare(safe_repr(42), expected='42')
+        compare(safe_repr('hi'), expected="'hi'")
+        compare(safe_repr([1, 2]), expected='[1, 2]')
+
+    def test_safe_repr_broken_object(self):
+        compare(safe_repr(Broken()), expected=Broken.marker)
+
+    def test_safe_repr_other_exception_class(self):
+        compare(
+            safe_repr(Broken(exc=TypeError('nope'))),
+            expected='<unrepresentable tests.test_compare.Broken: TypeError: nope>',
+        )
+
+    def test_safe_repr_list_with_broken_element(self):
+        compare(
+            safe_repr([1, Broken(), 3]),
+            expected=f'[1, {Broken.marker}, 3]',
+        )
+
+    def test_safe_repr_tuple_with_broken_element(self):
+        compare(
+            safe_repr((1, Broken())),
+            expected=f'(1, {Broken.marker})',
+        )
+
+    def test_safe_repr_single_element_tuple_with_broken(self):
+        compare(
+            safe_repr((Broken(),)),
+            expected=f'({Broken.marker},)',
+        )
+
+    def test_safe_repr_dict_with_broken_value(self):
+        compare(
+            safe_repr({'k': Broken()}),
+            expected=f"{{'k': {Broken.marker}}}",
+        )
+
+    def test_safe_repr_dict_with_broken_key(self):
+        compare(
+            safe_repr({HashableBroken('k1'): 'v'}),
+            expected=f"{{{HashableBroken.marker}: 'v'}}",
+        )
+
+    def test_safe_repr_set_with_broken_element(self):
+        compare(
+            safe_repr({HashableBroken('k1')}),
+            expected='{' + HashableBroken.marker + '}',
+        )
+
+    def test_safe_repr_frozenset_with_broken_element(self):
+        compare(
+            safe_repr(frozenset({HashableBroken('k1')})),
+            expected='frozenset({' + HashableBroken.marker + '})',
+        )
+
+    def test_safe_repr_empty_frozenset_subclass_with_broken_repr(self):
+        # repr() of an empty frozenset never fails naturally, so reach the
+        # empty-frozenset fallback via a subclass whose __repr__ raises.
+        class BrokenFrozenSet(frozenset):
+            def __repr__(self):
+                raise ValueError('boom!')
+
+        compare(safe_repr(BrokenFrozenSet()), expected='BrokenFrozenSet')
+
+    def test_safe_repr_empty_set_subclass_with_broken_repr(self):
+        class BrokenSet(set):
+            def __repr__(self):
+                raise ValueError('boom!')
+
+        compare(safe_repr(BrokenSet()), expected='BrokenSet()')
+
+    def test_safe_repr_propagates_keyboard_interrupt(self):
+        class K(KeyboardInterrupt): pass
+
+        with ShouldRaise(K):
+            safe_repr(Broken(exc=K()))
+
+    def test_safe_repr_handles_exception_with_broken_str(self):
+        class BrokenExc(Exception):
+            def __str__(self):
+                raise RuntimeError('inner-fail')
+
+        # When the exception's __str__ raises, the marker still falls back
+        # to just the exception class name without the message.
+        result = safe_repr(Broken(exc=BrokenExc()))
+        compare(
+            result,
+            expected='<unrepresentable tests.test_compare.Broken: BrokenExc>',
+        )
+
+    def test_safe_pformat_normal_object(self):
+        compare(safe_pformat([1, 2, 3]), expected='[1, 2, 3]')
+
+    def test_safe_pformat_falls_back_to_safe_repr(self):
+        compare(
+            safe_pformat([1, Broken(), 3]),
+            expected=f'[1, {Broken.marker}, 3]',
+        )
+
+    def test_safe_pformat_propagates_keyboard_interrupt(self):
+        class K(KeyboardInterrupt): pass
+
+        with ShouldRaise(K):
+            safe_pformat(Broken(exc=K()))
+
+
+class TestSafeRenderingInComparers:
+
+    def test_compare_simple_broken_x(self):
+        check_raises(
+            Broken(), 42,
+            message=(
+                'not equal:\n'
+                f'{Broken.marker}\n'
+                '42'
+            ),
+        )
+
+    def test_compare_simple_broken_y(self):
+        check_raises(
+            42, Broken(),
+            message=(
+                'not equal:\n'
+                '42\n'
+                f'{Broken.marker}'
+            ),
+        )
+
+    def test_compare_sequence_broken_element(self):
+        check_raises(
+            [1, Broken(), 3], [1, Broken(), 3, 4],
+            message=(
+                'sequence not as expected:\n'
+                '\n'
+                'same:\n'
+                f'[1, {Broken.marker}, 3]\n'
+                '\n'
+                'first:\n'
+                '[]\n'
+                '\n'
+                'second:\n'
+                '[4]'
+            ),
+        )
+
+    def test_compare_dict_broken_value_difference(self):
+        check_raises(
+            {'k': Broken()}, {'k': 99},
+            message=(
+                'dict not as expected:\n'
+                '\n'
+                'values differ:\n'
+                f"'k': {Broken.marker} != 99\n"
+                '\n'
+                "While comparing ['k']: not equal:\n"
+                f'{Broken.marker}\n'
+                '99'
+            ),
+        )
+
+    def test_compare_dict_key_only_on_one_side(self):
+        check_raises(
+            {HashableBroken('only-x'): 1},
+            {HashableBroken('only-y'): 2},
+            message=(
+                'dict not as expected:\n'
+                '\n'
+                'in first but not second:\n'
+                f'{HashableBroken.marker}: 1\n'
+                '\n'
+                'in second but not first:\n'
+                f'{HashableBroken.marker}: 2'
+            ),
+        )
+
+    def test_compare_set_broken_element(self):
+        check_raises(
+            {HashableBroken('a'), 1}, {1},
+            message=(
+                'set not as expected:\n'
+                '\n'
+                'in first but not second:\n'
+                f'[{HashableBroken.marker}]\n'
+                '\n'
+            ),
+        )
+
+    def test_compare_with_type_short_repr_broken(self):
+        check_raises(
+            Broken(), 'hello',
+            strict=True,
+            message=(
+                "<unrepresentable tests.test_co... "
+                "(<class 'tests.test_compare.Broken'>) != "
+                "'hello' (<class 'str'>)"
+            ),
+        )
+
+    def test_already_seen_broken_repr(self):
+        broken = Broken()
+        check_raises(
+            [broken, [1, 2, 3]], [broken, broken],
+            strict=True,
+            message=(
+                'sequence not as expected:\n'
+                '\n'
+                'same:\n'
+                f'[{Broken.marker}]\n'
+                '\n'
+                'first:\n'
+                '[[1, 2, 3]]\n'
+                '\n'
+                'second:\n'
+                f'[{Broken.marker}]\n'
+                '\n'
+                "While comparing [1]: [1, 2, 3] (<class 'list'>) != "
+                "<AlreadySeen for <unrepresenta... "
+                "(<class 'testfixtures.comparers.AlreadySeen'>)"
+            ),
+        )
+
+
+class BrokenStr(Broken):
+    # __str__ AND __repr__ raise on demand
+
+    def __str__(self):
+        raise self._exc
+
+
+class TestSafeRenderingInComparison:
+
+    def test_resolve_lazy_prefix_str_raises(self):
+        # prefix is a callable whose return value's __str__ raises;
+        # _resolve_lazy must not crash compare's diff rendering.
+        check_raises(
+            1, 2,
+            prefix=lambda: BrokenStr(),
+            message=(
+                '<unrepresentable tests.test_compare.BrokenStr: ValueError: boom!>: 1 != 2'
+            ),
+        )
+
+    def test_resolve_lazy_suffix_str_raises(self):
+        check_raises(
+            1, 2,
+            suffix=lambda: BrokenStr(),
+            message=(
+                '1 != 2\n'
+                '<unrepresentable tests.test_compare.BrokenStr: ValueError: boom!>'
+            ),
+        )
+
+    def test_comparison_body_broken_attribute_value(self):
+        # Comparison.body is hit when repr() is called on a fresh Comparison
+        # whose comparison hasn't run yet (self.failed empty).
+        class Holder:
+            pass
+
+        compare(
+            repr(C(Holder, attr=Broken())),
+            expected=f'<C:tests.test_compare.Holder>attr: {Broken.marker}</>',
+        )
+
+    def test_mapping_comparison_body_broken_value(self):
+        compare(
+            repr(MappingComparison(k=Broken())),
+            expected=(
+                '<MappingComparison(ordered=False, partial=False)>'
+                f"'k': {Broken.marker}</>"
+            ),
+        )
+
+    def test_sequence_comparison_body_broken_value(self):
+        compare(
+            repr(SequenceComparison(Broken())),
+            expected=(
+                '<SequenceComparison(ordered=True, partial=False)>'
+                f'{Broken.marker},</>'
+            ),
+        )
+
+
+@dataclass(repr=False)
+class JsonReprThing:
+    name: str
+
+    def __repr__(self) -> str:
+        # blow up if we get a Comparison for one of our attributes:
+        return json.dumps(vars(self))
+
+
+class TestSafeRendering:
+
+    def test_json_repr(self):
+        check_raises(
+            expected=[JsonReprThing(name=like(str))],
+            actual=[JsonReprThing(name='hello'), JsonReprThing(name='extra')],
+            message=(
+                'sequence not as expected:\n'
+                '\n'
+                'same:\n'
+                '[<unrepresentable tests.test_compare.JsonReprThing: '
+                'TypeError: Object of type Comparison is not JSON serializable>]\n'
+                '\n'
+                'expected:\n'
+                '[]\n'
+                '\n'
+                'actual:\n'
+                '[{"name": "extra"}]'
+            ),
+        )

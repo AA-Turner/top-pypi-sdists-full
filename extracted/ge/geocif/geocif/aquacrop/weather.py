@@ -77,7 +77,7 @@ class RasterCache:
             try:
                 ds = rasterio.open(key)
             except (rasterio.RasterioIOError, OSError) as exc:
-                logger.warning("Cannot open %s: %s", key, exc)
+                logger.warning(f"Cannot open {key}: {exc}")
                 return None
             self._cache[key] = ds
         else:
@@ -153,8 +153,7 @@ def _read_pixel(
             return None
         return float(val)
     except (ValueError, IndexError, rasterio.RasterioIOError) as exc:
-        logger.debug("Pixel read failed at (%.3f, %.3f) in %s: %s",
-                     lon, lat, path.name, exc)
+        logger.debug(f"Pixel read failed at ({lon:.3f}, {lat:.3f}) in {path.name}: {exc}")
         return None
 
 
@@ -320,7 +319,7 @@ class WeatherReader:
                 cube = np.full((len(dates), h, w), np.nan, dtype=np.float32)
                 cube[0] = first_arr
         except (rasterio.RasterioIOError, OSError) as exc:
-            logger.warning("Cube load failed for %s/%d: %s", var, year, exc)
+            logger.warning(f"Cube load failed for {var}/{year}: {exc}")
             return None
 
         for i, ts in enumerate(dates[1:], start=1):
@@ -437,8 +436,8 @@ class WeatherReader:
         valid_precip = np.sum(np.isfinite(precip))
         if valid_temp < 0.9 * n or valid_precip < 0.9 * n:
             logger.debug(
-                "Insufficient weather at (%.3f, %.3f): %d/%d temp, %d/%d precip",
-                lon, lat, valid_temp, n, valid_precip, n,
+                f"Insufficient weather at ({lon:.3f}, {lat:.3f}): "
+                f"{valid_temp}/{n} temp, {valid_precip}/{n} precip"
             )
             return None
 

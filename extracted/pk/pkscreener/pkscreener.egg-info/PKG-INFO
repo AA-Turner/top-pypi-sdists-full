@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pkscreener
-Version: 0.46.20260522.923
+Version: 0.46.20260523.925
 Summary: A Python-based stock screener for NSE, India with alerts to Telegram Channel (pkscreener)
 Home-page: https://github.com/pkjmesra/pkscreener
-Download-URL: https://github.com/pkjmesra/pkscreener/archive/v0.46.20260522.923.zip
+Download-URL: https://github.com/pkjmesra/pkscreener/archive/v0.46.20260523.925.zip
 Author: pkjmesra
 Author-email: pkjmesra@gmail.com
 License: OSI Approved (MIT)
@@ -442,15 +442,15 @@ If you are a 3rd year or final year engineering graduate or pursuing masters in 
 [MADE-IN-INDIA-badge]: https://img.shields.io/badge/MADE%20WITH%20%E2%9D%A4%20IN-INDIA-orange
 [MADE-IN-INDIA]: https://en.wikipedia.org/wiki/India
 [Windows-badge]: https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white
-[Windows]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260522.922/pkscreenercli.exe
+[Windows]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260523.924/pkscreenercli.exe
 [Linux-badge_x64]: https://img.shields.io/badge/Linux(x64)-FCC624?logo=linux&logoColor=black
-[Linux_x64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260522.922/pkscreenercli_x64.bin
+[Linux_x64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260523.924/pkscreenercli_x64.bin
 [Linux-badge_arm64]: https://img.shields.io/badge/Linux(arm64)-FCC624?logo=linux&logoColor=black
-[Linux_arm64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260522.922/pkscreenercli_arm64.bin
+[Linux_arm64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260523.924/pkscreenercli_arm64.bin
 [Mac OS-badge_x64]: https://img.shields.io/badge/mac%20os(x64)-D3D3D3?logo=apple&logoColor=000000
-[Mac OS_x64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260522.922/pkscreenercli_x64.run
+[Mac OS_x64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260523.924/pkscreenercli_x64.run
 [Mac OS-badge_arm64]: https://img.shields.io/badge/mac%20os(arm64)-D3D3D3?logo=apple&logoColor=000000
-[Mac OS_arm64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260522.922/pkscreenercli_arm64.run
+[Mac OS_arm64]: https://github.com/pkjmesra/PKScreener/releases/download/0.46.20260523.924/pkscreenercli_arm64.run
 [GitHub release (latest by date)-badge]: https://img.shields.io/github/v/release/pkjmesra/PKScreener
 [GitHub release (latest by date)]: https://github.com/pkjmesra/PKScreener/releases/latest
 [pypi-badge]: https://img.shields.io/pypi/v/pkscreener.svg?style=flat-square

@@ -42,7 +42,6 @@ from M2Crypto import (
     m2,
     m2urllib2,
     m2xmlrpclib,
-    util,
 )
 from M2Crypto.SSL.timeout import DEFAULT_TIMEOUT
 from tests import unittest
@@ -50,9 +49,7 @@ from tests.fips import fips_mode
 
 log = logging.getLogger("test_SSL")
 
-IS_DEBIAN=os.path.exists('/etc/debian_version')
-
-IS_DEBIAN=os.path.exists('/etc/debian_version')
+IS_DEBIAN = os.path.exists("/etc/debian_version")
 
 # FIXME
 # It would be probably better if the port was randomly selected.
@@ -65,7 +62,7 @@ def allocate_srv_port():
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((srv_host, 0))
-        (host, port) = s.getsockname()
+        host, port = s.getsockname()
     finally:
         s.close()
     return port
@@ -76,7 +73,7 @@ def verify_cb_new_function(ok, store):
     # If err is X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE, then instead of
     # aborting, this callback is called to retrieve additional error
     # information.  In this case, ok might not be False.
-    # See https://github.com/openssl/openssl/commit/2e06150e3928daa06d5ff70c32bffad8088ebe58
+    # See https://github.com/openssl/openssl/commit/2e06150e3928
     if err != m2.X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE:
         assert not ok
     assert err in [
@@ -267,6 +264,30 @@ class HttpslibSSLClientTestCase(BaseSSLClientTestCase):
             c.close()
         finally:
             self.stop_server(pid)
+
+    def test_idn_hostname(self):
+        idn_hostname = "xn--bcher-kva.example"
+        args = [
+            "s_server",
+            "-www",
+            "-cert",
+            "idn_server.pem",
+            "-accept",
+            str(self.srv_port),
+        ]
+        pid = self.start_server(args)
+        try:
+            self.ctx.set_verify(SSL.verify_peer | SSL.verify_fail_if_no_peer_cert, 9)
+            self.ctx.load_verify_locations("tests/ca.pem")
+            s = SSL.Connection(self.ctx)
+            s.set_tlsext_host_name(idn_hostname)
+            s.set1_host(idn_hostname.encode("ascii"))
+            s.connect(self.srv_addr)
+            data = self.http_get(s)
+            s.close()
+        finally:
+            self.stop_server(pid)
+        self.assertIn(self.test_output, data)
 
     def test_HTTPSConnection_illegalkeywordarg(self):
         with self.assertRaises(ValueError):
@@ -483,11 +504,6 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
         finally:
             self.stop_server(pid)
 
-    # the test for musl libc based on the unresolved bug in CPython gh#python/cpython#87414
-    @unittest.skipIf(
-        (util.is_32bit() and platform.libc_ver() == ("", "")),
-        "socket.setsockopt() on musl libc fails (srht#mcepl/m2crypto#341)",
-    )
     def test_server_simple_timeouts(self):
         pid = self.start_server(self.args)
         # Arbitrary value:
@@ -1213,12 +1229,12 @@ class ChunkedHTTPSServer(threading.Thread):
                     b"Content-Type: text/plain\r\n"
                     b"Transfer-Encoding: chunked\r\n"
                     b"\r\n"
-                    b"4\r\n"      # Chunk size: 4 bytes
+                    b"4\r\n"  # Chunk size: 4 bytes
                     b"foo\n\r\n"  # Data: "foo\n"
-                    b"7\r\n"      # Chunk size: 7 bytes
+                    b"7\r\n"  # Chunk size: 7 bytes
                     b"foobar\n\r\n"  # Data: "foobar\n"
-                    b"0\r\n"      # Last chunk (size 0)
-                    b"\r\n"       # Final CRLF
+                    b"0\r\n"  # Last chunk (size 0)
+                    b"\r\n"  # Final CRLF
                 )
                 ssl_conn.sendall(response)
                 ssl_conn.close()
@@ -1273,6 +1289,7 @@ class Urllib2TEChunkedSSLClientTestCase(BaseSSLClientTestCase):
         u.close()
 
         self.assertEqual(b"foo\nfoobar\n", data)
+
 
 @unittest.skip("Twisted integration has been temporarily switched off.")
 class TwistedSSLClientTestCase(BaseSSLClientTestCase):

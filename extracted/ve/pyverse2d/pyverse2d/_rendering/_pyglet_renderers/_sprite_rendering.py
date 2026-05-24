@@ -5,17 +5,11 @@ from ..._core import Transform
 from ...asset import Color, Image
 from ...math import Vector
 
-from .. import Pipeline
+from .. import Pipeline, ImageLoader
 
 import pyglet
 import pyglet.sprite
-from pyglet.gl import (
-    glBindTexture, glTexParameteri,
-    GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE
-)
 from pyglet.graphics import Group
-
-import os
 
 # ======================================== CONSTANTS ========================================
 _UNSET: object = object()   # élément non défini
@@ -74,25 +68,6 @@ class PygletSpriteRenderer:
         self._sprite: pyglet.sprite.Sprite = None
         self._build()
 
-    # ======================================== LOADING ========================================
-    @classmethod
-    def _load_image(cls, path: str) -> pyglet.image.AbstractImage | None:
-        """Charge  une texture depuis son chemin"""
-        directory = os.path.dirname(os.path.abspath(path))
-        if directory not in pyglet.resource.path:
-            pyglet.resource.path.append(directory)
-            pyglet.resource.reindex()
-
-        try:
-            raw = pyglet.resource.image(os.path.basename(path), atlas=False)
-            glBindTexture(GL_TEXTURE_2D, raw.get_texture().id)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-            return raw
-        except pyglet.resource.ResourceNotFoundException:
-            print(f"[PygletSpriteRenderer] Cannot load image: {path}")
-            return None
-
     # ======================================== BUILD ========================================
     def _build(self) -> None:
         """Construit le sprite pyglet"""
@@ -101,7 +76,7 @@ class PygletSpriteRenderer:
         a = int(a * self._opacity)
 
         # Image brute
-        raw = self._load_image(self._image.path)
+        raw = ImageLoader.load(self._image.path)
         if raw is None:
             return
  

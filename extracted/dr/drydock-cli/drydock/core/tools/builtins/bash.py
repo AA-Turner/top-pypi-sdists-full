@@ -530,9 +530,152 @@ class Bash(
         )
         return any(c.startswith(p) for p in prefixes)
 
+    @staticmethod
+    def _detect_sed_multifile_rename(command: str) -> str | None:
+        """Pre-execution check: is this bash command a multi-file rename
+        cascade that should use `mechanical_rename` instead?
+
+        Catches `sed -i 's/X/Y/[g]?'` patterns where X is a Python
+        identifier present in 2+ .py files of the cwd's Python package.
+        Gemma 4 was bypassing the search_replace interception (shipped at
+        badcbea) by reaching for bash sed for the same task — this is
+        the symmetric defense.
+
+        Gated by DRYDOCK_MULTIFILE_INTERCEPT=1 (default off).
+        """
+        import os as _os
+        if _os.environ.get(
+            "DRYDOCK_MULTIFILE_INTERCEPT", "0"
+        ).strip().lower() not in ("1", "true", "yes"):
+            return None
+
+        # Quick reject: must contain `sed` AND `-i` AND a substitution.
+        if "sed" not in command or "-i" not in command or "s/" not in command:
+            return None
+
+        import re as _re
+        # Match s/OLD/NEW/[gIm]? — OLD and NEW are arbitrary; we care
+        # when OLD is a Python identifier. Allow `,` as separator too.
+        # Also handle quoted forms: 's/.../.../', "s/.../.../",
+        # and unquoted (e.g., sed -e s/foo/bar/g).
+        # Match: word-bound s, then 3 fields separated by / (or , or |).
+        sub_pat = _re.compile(
+            r"\bs([/,|])(?P<old>[^\1]+?)\1(?P<new>[^\1]*?)\1([gIimsxe]*)",
+        )
+        # Simpler: just match s/X/Y/ where X is a Python identifier.
+        ident_sub = _re.compile(
+            r"\bs/(?P<old>[A-Za-z_][A-Za-z0-9_]*)/(?P<new>[A-Za-z_][A-Za-z0-9_]*)/[gIm]*"
+        )
+        match = ident_sub.search(command)
+        if not match:
+            return None
+        old_name = match.group("old")
+        new_name = match.group("new")
+        if old_name == new_name or len(old_name) < 4:
+            return None
+
+        # Skip Python keywords + common stdlib tokens (same list as
+        # search_replace.py).
+        _NOISE = {
+            "self", "cls", "True", "False", "None", "and", "or", "not",
+            "if", "else", "elif", "for", "while", "try", "except",
+            "import", "from", "as", "def", "class", "return", "in", "is",
+            "lambda", "with", "yield", "pass", "break", "continue",
+            "int", "str", "float", "bool", "list", "dict", "set", "tuple",
+            "len", "range", "print", "open", "type", "isinstance",
+            "Path", "json", "os", "re", "sys",
+        }
+        if old_name in _NOISE:
+            return None
+
+        # Find the package root from cwd.
+        from pathlib import Path as _Path
+        cwd = _Path.cwd().resolve()
+        pkg_root = None
+        current = cwd
+        for _ in range(6):
+            if (current / "__init__.py").is_file():
+                pkg_root = current
+                while (current.parent / "__init__.py").is_file():
+                    current = current.parent
+                    pkg_root = current
+                break
+            # also scan one level down for an obvious package dir
+            if current == cwd:
+                for sub in cwd.iterdir() if cwd.is_dir() else []:
+                    if sub.is_dir() and (sub / "__init__.py").is_file():
+                        pkg_root = sub
+                        break
+                if pkg_root:
+                    break
+            current = current.parent
+            if current == current.parent:
+                break
+        if pkg_root is None:
+            return None
+
+        # Count .py files containing old_name (word-bound).
+        pat = _re.compile(rf"\b{_re.escape(old_name)}\b")
+        matching_files: list[_Path] = []
+        scanned = 0
+        for fp in pkg_root.rglob("*.py"):
+            scanned += 1
+            if scanned > 30:
+                break
+            try:
+                if pat.search(fp.read_text(errors="replace")):
+                    matching_files.append(fp)
+            except OSError:
+                continue
+            if len(matching_files) >= 6:
+                break
+
+        if len(matching_files) < 2:
+            return None
+
+        other_files = ", ".join(
+            str(fp.relative_to(pkg_root.parent)) for fp in matching_files[:5]
+        )
+        more = f" (+{len(matching_files)-5} more)" if len(matching_files) > 5 else ""
+
+        return (
+            f"REFUSED: this bash command runs `sed -i s/{old_name}/{new_name}/...` "
+            f"as an in-place multi-file rename. The identifier `{old_name}` "
+            f"appears in {len(matching_files)} .py files across the "
+            f"`{pkg_root.name}` package ({other_files}{more}). "
+            f"Bash sed for multi-file rename historically loses track and "
+            f"breaks pytest — use `mechanical_rename` instead, which runs "
+            f"pytest after the rename and rolls back atomically if the "
+            f"suite goes red.\n\n"
+            f"Suggested call:\n"
+            f"  mechanical_rename(\n"
+            f"      old_name=\"{old_name}\",\n"
+            f"      new_name=\"{new_name}\",\n"
+            f"      scope=\"{pkg_root.name}/\",\n"
+            f"      kind=\"field\",  # or function/class — pick based on what {old_name} is\n"
+            f"  )"
+        )
+
     async def run(
         self, args: BashArgs, ctx: InvokeContext | None = None
     ) -> AsyncGenerator[ToolStreamEvent | BashResult, None]:
+        # Multi-file rename interception via the bash escape hatch.
+        # When the model emits `sed -i 's/X/Y/g' ...` and X is a Python
+        # identifier present in 2+ .py files of the cwd's package, this
+        # is the same multi-file rename pattern search_replace.py
+        # intercepts — but Gemma 4 was bypassing that by using bash sed
+        # instead. Refuse with the same redirect.
+        # Gated by DRYDOCK_MULTIFILE_INTERCEPT=1 (default off).
+        redirect = self._detect_sed_multifile_rename(args.command)
+        if redirect:
+            yield BashResult(
+                command=args.command,
+                exit_code=2,
+                stdout="",
+                stderr=redirect,
+            )
+            return
+
         if args.timeout:
             timeout = args.timeout
         elif self._looks_long_running(args.command):

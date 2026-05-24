@@ -26,6 +26,9 @@ scm:
                 tag-includes: "bar*"
                 branch-excludes: "baz*"
                 tag-excludes: "*qaz"
+        filter-by-name-wildcard:
+            includes: '*'
+            excludes: 'master'
         property-strategies:
             all-branches:
                 - suppress-scm-triggering: true

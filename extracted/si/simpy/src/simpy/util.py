@@ -5,6 +5,7 @@ A collection of utility functions:
    start_delayed
 
 """
+
 from typing import Generator
 
 from simpy.core import Environment, SimTime

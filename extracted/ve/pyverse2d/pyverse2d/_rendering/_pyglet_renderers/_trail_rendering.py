@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from ...asset import Image, Color
-from ..._rendering import Pipeline
 from ...math.easing import EasingFunc
+
+from .. import Pipeline, ImageLoader
 
 from collections import deque
 from typing import ClassVar
@@ -12,11 +13,6 @@ import pyglet
 import pyglet.gl as gl
 from pyglet.graphics import Group
 from pyglet.graphics.shader import Shader, ShaderProgram
-from pyglet.gl import (
-    glBindTexture, glTexParameteri,
-    GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
-    GL_CLAMP_TO_EDGE, GL_REPEAT,
-)
 
 import math
 
@@ -155,35 +151,6 @@ class PygletTrailRenderer:
             )
         return cls._tex_program
 
-    @classmethod
-    def _load_texture(cls, path: str, tiling: bool) -> int:
-        """Charge (ou retourne depuis le cache) une texture GL depuis un chemin
-
-        Args:
-            path: chemin du fichier image
-            tiling: active GL_REPEAT sur les deux axes
-
-        Returns:
-            identifiant GL de la texture
-        """
-        cache_key = f"{path}|{'repeat' if tiling else 'clamp'}"
-        if cache_key in cls._texture_cache:
-            return cls._texture_cache[cache_key].id
-
-        try:
-            img = pyglet.image.load(path)
-            texture = img.get_texture()
-            wrap_mode = GL_REPEAT if tiling else GL_CLAMP_TO_EDGE
-            glBindTexture(GL_TEXTURE_2D, texture.id)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_mode)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_mode)
-            glBindTexture(GL_TEXTURE_2D, 0)
-            cls._texture_cache[cache_key] = texture
-            return texture.id
-        except Exception as e:
-            print(f"[PygletTrailRenderer] Cannot load texture: {path} ({e})")
-            return 0
-
     def __init__(
         self,
         max_points: int,
@@ -227,7 +194,7 @@ class PygletTrailRenderer:
     def _build(self) -> None:
         """Alloue le VAO/VBO, configure les attributs, et s'enregistre dans le batch"""
         self._textured: bool = self._image is not None
-        self._texture_id: int = self._load_texture(self._image.path, self._tiling) if self._image is not None else 0
+        self._texture_id: int = ImageLoader.get_id(self._image.path, self._tiling) if self._image is not None else 0
         self._floats_per_vert: int = 5 if self._textured else 6
 
         # VAO / VBO

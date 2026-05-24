@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import ast
+import csv
+import io
 import json
 from pathlib import Path
 import re
 from typing import Any
 
 import openpyxl
+from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from spreadsheet_handling.io_backends.xlsx.parser_interpretation import (
@@ -19,6 +22,7 @@ from spreadsheet_handling.rendering.ir import (
     SheetIR,
     WorkbookIR,
 )
+from spreadsheet_handling.core.formulas import ListLiteralFormulaSpec
 
 
 def parse_workbook(path: str | Path) -> WorkbookIR:
@@ -35,6 +39,7 @@ def parse_workbook(path: str | Path) -> WorkbookIR:
         ir = WorkbookIR()
 
         embedded_meta = _read_meta_sheet(wb)
+        width_meta_changed = False
 
         for ws_name in wb.sheetnames:
             ws = wb[ws_name]
@@ -42,17 +47,35 @@ def parse_workbook(path: str | Path) -> WorkbookIR:
                 ir.hidden_sheets[ws_name] = _parse_hidden_sheet(ws)
                 continue
 
+            column_widths = _extract_column_widths(ws)
+            legend_hints = _legend_table_hints(embedded_meta, sheet_name=ws_name)
+            legend_anchors = [
+                (hint["top"], hint["left"])
+                for hint in legend_hints
+                if isinstance(hint.get("top"), int) and isinstance(hint.get("left"), int)
+            ]
+            anchors = [(1, 1), *legend_anchors] if legend_anchors else None
             meta_hints = build_sheet_meta_hints(embedded_meta, sheet_name=ws_name)
-            ir.sheets[ws_name] = _parse_visible_sheet(
+            sheet_ir = _parse_visible_sheet(
                 ws,
                 sheet_name=ws_name,
-                anchors=None,
+                anchors=anchors,
                 meta_hints=meta_hints,
                 stop_on_empty_row=True,
-                stop_on_empty_col=False,
+                stop_on_empty_col=bool(legend_anchors),
             )
+            if column_widths:
+                sheet_ir.meta["__column_widths"] = column_widths
+                width_meta_changed = (
+                    _merge_column_width_meta(embedded_meta, ws_name, column_widths)
+                    or width_meta_changed
+                )
+            ir.sheets[ws_name] = sheet_ir
+            _apply_legend_table_hints(sheet_ir, legend_hints)
 
         _extract_named_ranges(wb, ir)
+        if width_meta_changed:
+            _store_workbook_meta(ir, embedded_meta)
         return ir
     finally:
         wb.close()
@@ -78,10 +101,11 @@ def _read_meta_sheet(wb: openpyxl.Workbook) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             pass
         try:
+            # legacy: pre-JSON repr format
             result = ast.literal_eval(blob_str)
             if isinstance(result, dict):
                 return result
-        except (ValueError, SyntaxError):
+        except (ValueError, SyntaxError, TypeError):
             pass
 
     return kv
@@ -97,6 +121,110 @@ def _parse_hidden_sheet(ws: Worksheet) -> SheetIR:
         if key is not None:
             sh.meta[str(key)] = str(val) if val is not None else ""
     return sh
+
+
+def _extract_column_widths(ws: Worksheet) -> dict[str, dict[str, Any]]:
+    """Extract explicitly authored XLSX column widths by Excel column letter."""
+    widths: dict[str, dict[str, Any]] = {}
+    for key, dim in ws.column_dimensions.items():
+        if not getattr(dim, "customWidth", False):
+            continue
+        width = dim.width
+        if width is None:
+            continue
+        try:
+            numeric_width = float(width)
+        except (TypeError, ValueError):
+            continue
+        if numeric_width <= 0:
+            continue
+
+        min_col = dim.min or column_index_from_string(str(key))
+        max_col = dim.max or min_col
+        for col_idx in range(int(min_col), int(max_col) + 1):
+            widths[get_column_letter(col_idx)] = {
+                "width": numeric_width,
+                "source": "workbook",
+            }
+    return widths
+
+
+def _merge_column_width_meta(
+    workbook_meta: dict[str, Any],
+    sheet_name: str,
+    column_widths: dict[str, dict[str, Any]],
+) -> bool:
+    if not column_widths:
+        return False
+
+    raw_sheets = workbook_meta.setdefault("sheets", {})
+    if not isinstance(raw_sheets, dict):
+        raw_sheets = {}
+        workbook_meta["sheets"] = raw_sheets
+
+    raw_sheet_meta = raw_sheets.setdefault(sheet_name, {})
+    if not isinstance(raw_sheet_meta, dict):
+        raw_sheet_meta = {}
+        raw_sheets[sheet_name] = raw_sheet_meta
+
+    if raw_sheet_meta.get("column_widths") == column_widths:
+        return False
+    raw_sheet_meta["column_widths"] = column_widths
+    return True
+
+
+def _store_workbook_meta(ir: WorkbookIR, workbook_meta: dict[str, Any]) -> None:
+    meta_sheet = ir.hidden_sheets.setdefault("_meta", SheetIR(name="_meta"))
+    meta_sheet.meta["_hidden"] = True
+    meta_sheet.meta["workbook_meta_blob"] = json.dumps(
+        workbook_meta, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+
+def _legend_table_hints(
+    workbook_meta: dict[str, Any],
+    *,
+    sheet_name: str,
+) -> list[dict[str, Any]]:
+    raw = workbook_meta.get("legend_blocks") if isinstance(workbook_meta, dict) else None
+    if not isinstance(raw, dict):
+        return []
+
+    hints: list[dict[str, Any]] = []
+    for legend_name, spec in raw.items():
+        if not isinstance(spec, dict):
+            continue
+        resolved = spec.get("resolved")
+        if not isinstance(resolved, dict):
+            continue
+        if str(resolved.get("sheet")) != sheet_name:
+            continue
+        try:
+            hints.append({
+                "name": str(legend_name),
+                "frame_name": str(resolved.get("frame_name") or f"legend_{legend_name}"),
+                "top": int(resolved["top"]),
+                "left": int(resolved["left"]),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+    return hints
+
+
+def _apply_legend_table_hints(sheet: SheetIR, hints: list[dict[str, Any]]) -> None:
+    if not hints:
+        return
+    by_position = {
+        (int(hint["top"]), int(hint["left"])): hint
+        for hint in hints
+    }
+    sheet.meta["__legend_blocks"] = list(hints)
+    for table in sheet.tables:
+        hint = by_position.get((table.top, table.left))
+        if not hint:
+            continue
+        table.kind = "legend"
+        table.frame_name = str(hint["frame_name"])
 
 
 def _parse_visible_sheet(
@@ -128,7 +256,9 @@ def _extract_validations(ws: Worksheet) -> list[DataValidationSpec]:
     for dv in ws.data_validations.dataValidation:
         if dv.type != "list":
             continue
-        formula = str(dv.formula1) if dv.formula1 else ""
+        formula = _parse_xlsx_list_literal_formula(str(dv.formula1) if dv.formula1 else "")
+        if formula is None:
+            continue
         allow_empty = bool(dv.allow_blank) if dv.allow_blank is not None else True
         for cell_range in dv.sqref.ranges:
             specs.append(
@@ -145,6 +275,21 @@ def _extract_validations(ws: Worksheet) -> list[DataValidationSpec]:
                 )
             )
     return specs
+
+
+def _parse_xlsx_list_literal_formula(formula: str) -> ListLiteralFormulaSpec | None:
+    text = str(formula or "")
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        text = text[1:-1]
+    elif text:
+        return None
+    if not text:
+        return ListLiteralFormulaSpec(())
+    try:
+        values = next(csv.reader(io.StringIO(text), delimiter=",", quotechar='"'))
+    except csv.Error:
+        return None
+    return ListLiteralFormulaSpec(tuple(values))
 
 
 def _extract_freeze(ws: Worksheet) -> dict[str, int] | None:

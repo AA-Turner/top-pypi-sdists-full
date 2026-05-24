@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-markdownx
-Version: 4.0.10
+Version: 4.0.11
 Summary: A comprehensive Markdown editor built for Django.
 Home-page: https://github.com/neutronX/django-markdownx
 Maintainer: Adi, Pouria Hadjibagheri
@@ -10,9 +10,9 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Text Processing :: Markup

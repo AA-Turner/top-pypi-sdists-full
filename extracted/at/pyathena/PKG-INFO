@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.30.1
+Version: 3.31.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/pyathena-dev/PyAthena/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
@@ -38,8 +38,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
 Requires-Python: >=3.10
-Requires-Dist: boto3>=1.26.4
-Requires-Dist: botocore>=1.29.4
+Requires-Dist: boto3>=1.38.2
+Requires-Dist: botocore>=1.41.2
 Requires-Dist: fsspec
 Requires-Dist: python-dateutil
 Requires-Dist: tenacity>=4.1.0
@@ -80,7 +80,7 @@ PyAthena is a Python [DB API 2.0 (PEP 249)](https://www.python.org/dev/peps/pep-
 
 ## Requirements
 
-* Python
+- Python
 
   - CPython 3.10, 3.11, 3.12, 3.13, 3.14
 
@@ -136,10 +136,10 @@ Many of the implementations in this library are based on [PyHive](https://github
 
 ## Links
 
-- Documentation: https://pyathena.dev/
-- PyPI Releases: https://pypi.org/project/PyAthena/
-- Source Code: https://github.com/pyathena-dev/PyAthena/
-- Issue Tracker: https://github.com/pyathena-dev/PyAthena/issues
+- Documentation: <https://pyathena.dev/>
+- PyPI Releases: <https://pypi.org/project/PyAthena/>
+- Source Code: <https://github.com/pyathena-dev/PyAthena/>
+- Issue Tracker: <https://github.com/pyathena-dev/PyAthena/issues>
 
 ## Logo
 

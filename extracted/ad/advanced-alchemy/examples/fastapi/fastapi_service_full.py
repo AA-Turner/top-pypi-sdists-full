@@ -24,7 +24,7 @@ from advanced_alchemy.extensions.fastapi import (
     repository,
     service,
 )
-from advanced_alchemy.service.typing import ModelDictT, is_dict, schema_dump
+from advanced_alchemy.utils.serialization import ModelDictT, is_dict, schema_dump
 
 alchemy_config = SQLAlchemyAsyncConfig(
     connection_string="sqlite+aiosqlite:///test.sqlite",
@@ -143,7 +143,7 @@ async def list_authors(
         ),
     ],
 ) -> service.OffsetPagination[Author]:
-    results, total = await authors_service.list_and_count(*filters)
+    results, total = await authors_service.get_many_and_count(*filters)
     return authors_service.to_schema(results, total, filters=filters, schema_type=Author)
 
 

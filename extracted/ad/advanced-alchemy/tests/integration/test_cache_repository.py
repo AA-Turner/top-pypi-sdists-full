@@ -324,12 +324,12 @@ async def test_async_repository_list_uses_cache_and_invalidates_on_commit(
             version_before = memory_cache_manager.get_model_version_sync(model_name)
 
             query_count = 0
-            authors_1 = await repo.list()
+            authors_1 = await repo.get_many()
             assert len(authors_1) == 1
             assert query_count > 0
 
             query_count = 0
-            authors_2 = await repo.list()
+            authors_2 = await repo.get_many()
             assert len(authors_2) == 1
             assert query_count == 0
 
@@ -349,7 +349,7 @@ async def test_async_repository_list_uses_cache_and_invalidates_on_commit(
             assert version_after != version_before
 
             query_count = 0
-            authors_3 = await repo.list()
+            authors_3 = await repo.get_many()
             assert len(authors_3) == 1
             assert query_count > 0
 
@@ -400,13 +400,13 @@ async def test_async_repository_list_and_count_uses_cache(
             await session.commit()
 
             query_count = 0
-            items_1, count_1 = await repo.list_and_count()
+            items_1, count_1 = await repo.get_many_and_count()
             assert count_1 == 2
             assert len(items_1) == 2
             assert query_count > 0
 
             query_count = 0
-            items_2, count_2 = await repo.list_and_count()
+            items_2, count_2 = await repo.get_many_and_count()
             assert count_2 == 2
             assert len(items_2) == 2
             assert query_count == 0
@@ -551,5 +551,204 @@ def test_sync_repository_without_cache_manager_works(
             retrieved = repo.get(author.id)
             assert retrieved.name == "No Cache Sync"
 
+    finally:
+        CachedAuthor.metadata.drop_all(sqlite_engine)
+
+
+# Config-driven cache_config integration (issue #730)
+
+
+@pytest.mark.asyncio
+@pytest.mark.aiosqlite
+@pytest.mark.skipif(not DOGPILE_CACHE_INSTALLED, reason="dogpile.cache not installed")
+async def test_async_config_cache_config_repo_auto_pickup(
+    aiosqlite_engine: AsyncEngine,
+    request: pytest.FixtureRequest,
+) -> None:
+    """SQLAlchemyAsyncConfig(cache_config=...) wires session.info so the second get() is a cache hit."""
+    from sqlalchemy import text
+
+    from advanced_alchemy.config import SQLAlchemyAsyncConfig
+
+    worker_id = get_worker_id(request)
+    CachedAuthor = get_cached_author_model("aiosqlite_cfg", worker_id)
+    table_name = CachedAuthor.__tablename__
+
+    async with aiosqlite_engine.begin() as conn:
+        await conn.run_sync(CachedAuthor.metadata.create_all)
+
+    try:
+        config = SQLAlchemyAsyncConfig(
+            engine_instance=aiosqlite_engine,
+            cache_config=CacheConfig(backend="dogpile.cache.memory", expiration_time=300, key_prefix="cfg:"),
+        )
+
+        class CachedAuthorRepository(SQLAlchemyAsyncRepository[Any]):
+            model_type = CachedAuthor
+
+        async with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            assert repo._cache_manager is config.cache_manager
+
+            author = CachedAuthor(name="Cfg Async")
+            await repo.add(author)
+            await session.commit()
+            author_id = author.id
+
+            first = await repo.get(author_id)
+            assert first.name == "Cfg Async"
+            assert config.cache_manager is not None
+            cached_region = config.cache_manager.get_entity_sync(table_name, author_id, CachedAuthor)
+            assert cached_region is not None and cached_region.name == "Cfg Async"
+
+        # Delete the row out from under SQLAlchemy. Cache survives, so the next get() can only
+        # succeed if it's served from the cache region, not the DB.
+        async with aiosqlite_engine.begin() as conn:
+            await conn.execute(text(f"DELETE FROM {table_name}"))
+
+        async with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            from_cache = await repo.get(author_id)
+            assert from_cache.name == "Cfg Async"
+    finally:
+        async with aiosqlite_engine.begin() as conn:
+            await conn.run_sync(CachedAuthor.metadata.drop_all)
+
+
+@pytest.mark.asyncio
+@pytest.mark.aiosqlite
+@pytest.mark.skipif(not DOGPILE_CACHE_INSTALLED, reason="dogpile.cache not installed")
+async def test_async_config_cache_config_same_session_double_get(
+    aiosqlite_engine: AsyncEngine,
+    request: pytest.FixtureRequest,
+) -> None:
+    """Documented example: two consecutive get() calls in one session — second is a cache hit.
+
+    Cache hit serves a freshly deserialized instance, so identity differs from the first call.
+    """
+    from advanced_alchemy.config import SQLAlchemyAsyncConfig
+
+    worker_id = get_worker_id(request)
+    CachedAuthor = get_cached_author_model("aiosqlite_same_session", worker_id)
+
+    async with aiosqlite_engine.begin() as conn:
+        await conn.run_sync(CachedAuthor.metadata.create_all)
+
+    try:
+        config = SQLAlchemyAsyncConfig(
+            engine_instance=aiosqlite_engine,
+            cache_config=CacheConfig(backend="dogpile.cache.memory", expiration_time=300, key_prefix="same:"),
+        )
+
+        class CachedAuthorRepository(SQLAlchemyAsyncRepository[Any]):
+            model_type = CachedAuthor
+
+        async with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            author = CachedAuthor(name="Same Session Async")
+            await repo.add(author)
+            await session.commit()
+            author_id = author.id
+
+        async with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            first = await repo.get(author_id)
+            second = await repo.get(author_id)
+            assert first.name == second.name == "Same Session Async"
+            # Cache hit returns a freshly deserialized instance, not the same Python object.
+            assert first is not second
+    finally:
+        async with aiosqlite_engine.begin() as conn:
+            await conn.run_sync(CachedAuthor.metadata.drop_all)
+
+
+@pytest.mark.sqlite
+@pytest.mark.skipif(not DOGPILE_CACHE_INSTALLED, reason="dogpile.cache not installed")
+def test_sync_config_cache_config_repo_auto_pickup(
+    sqlite_engine: Engine,
+    request: pytest.FixtureRequest,
+) -> None:
+    """SQLAlchemySyncConfig(cache_config=...) wires session.info so the second get() is a cache hit."""
+    from sqlalchemy import text
+
+    from advanced_alchemy.config import SQLAlchemySyncConfig
+
+    worker_id = get_worker_id(request)
+    CachedAuthor = get_cached_author_model("sqlite_cfg", worker_id)
+    table_name = CachedAuthor.__tablename__
+
+    CachedAuthor.metadata.create_all(sqlite_engine)
+
+    try:
+        config = SQLAlchemySyncConfig(
+            engine_instance=sqlite_engine,
+            cache_config=CacheConfig(backend="dogpile.cache.memory", expiration_time=300, key_prefix="cfg:"),
+        )
+
+        class CachedAuthorRepository(SQLAlchemySyncRepository[Any]):
+            model_type = CachedAuthor
+
+        with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            assert repo._cache_manager is config.cache_manager
+
+            author = CachedAuthor(name="Cfg Sync")
+            repo.add(author)
+            session.commit()
+            author_id = author.id
+
+            first = repo.get(author_id)
+            assert first.name == "Cfg Sync"
+            assert config.cache_manager is not None
+            cached_region = config.cache_manager.get_entity_sync(table_name, author_id, CachedAuthor)
+            assert cached_region is not None and cached_region.name == "Cfg Sync"
+
+        with sqlite_engine.begin() as conn:
+            conn.execute(text(f"DELETE FROM {table_name}"))
+
+        with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            from_cache = repo.get(author_id)
+            assert from_cache.name == "Cfg Sync"
+    finally:
+        CachedAuthor.metadata.drop_all(sqlite_engine)
+
+
+@pytest.mark.sqlite
+@pytest.mark.skipif(not DOGPILE_CACHE_INSTALLED, reason="dogpile.cache not installed")
+def test_sync_config_cache_config_same_session_double_get(
+    sqlite_engine: Engine,
+    request: pytest.FixtureRequest,
+) -> None:
+    """Documented example: two consecutive get() calls in one session — second is a cache hit."""
+    from advanced_alchemy.config import SQLAlchemySyncConfig
+
+    worker_id = get_worker_id(request)
+    CachedAuthor = get_cached_author_model("sqlite_same_session", worker_id)
+
+    CachedAuthor.metadata.create_all(sqlite_engine)
+
+    try:
+        config = SQLAlchemySyncConfig(
+            engine_instance=sqlite_engine,
+            cache_config=CacheConfig(backend="dogpile.cache.memory", expiration_time=300, key_prefix="same:"),
+        )
+
+        class CachedAuthorRepository(SQLAlchemySyncRepository[Any]):
+            model_type = CachedAuthor
+
+        with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            author = CachedAuthor(name="Same Session Sync")
+            repo.add(author)
+            session.commit()
+            author_id = author.id
+
+        with config.get_session() as session:
+            repo = CachedAuthorRepository(session=session, auto_expunge=True)
+            first = repo.get(author_id)
+            second = repo.get(author_id)
+            assert first.name == second.name == "Same Session Sync"
+            assert first is not second
     finally:
         CachedAuthor.metadata.drop_all(sqlite_engine)

@@ -1,8 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._rendering import Pipeline
-
+from ..._rendering import Pipeline, ImageLoader
 from ...abc import ParticleEmitter
 
 import pyglet.gl as gl
@@ -29,8 +28,7 @@ layout(location = 2) in float in_rotation;
 layout(location = 3) in float in_size;
 layout(location = 4) in vec4 in_color;
 
-uniform mat4 u_projection;
-uniform mat4 u_view;
+uniform mat4 u_mvp;
 
 out vec2 v_local;
 out vec4 v_color;
@@ -43,13 +41,13 @@ void main() {
         in_corner.x * s + in_corner.y * c
     );
     vec2 world = in_position + rotated * in_size;
-    gl_Position = u_projection * u_view * vec4(world, 0.0, 1.0);
+    gl_Position = u_mvp * vec4(world, 0.0, 1.0);
     v_local = in_corner;
     v_color = in_color;
 }
 """
 
-_FRAG = """
+_FRAG_BLOB = """
 #version 330 core
 in vec2 v_local;
 in vec4 v_color;
@@ -62,22 +60,44 @@ void main() {
 }
 """
 
+_FRAG_TEX = """
+#version 330 core
+uniform sampler2D u_texture;
+in vec2 v_local;
+in vec4 v_color;
+out vec4 out_color;
+
+void main() {
+    vec2 uv = v_local + 0.5;
+    vec4 tex = texture(u_texture, uv);
+    out_color = vec4(v_color.rgb * tex.rgb, v_color.a * tex.a);
+}
+"""
+
 # ======================================== RENDERER ========================================
 class ParticleRenderer:
     """Renderer de particules"""
 
-    _program: ClassVar[ShaderProgram] = None
+    _program_blob: ClassVar[ShaderProgram] = None
+    _program_tex: ClassVar[ShaderProgram] = None
     _vao: ClassVar[gl.GLuint] = None
     _quad_vbo: ClassVar[gl.GLuint] = None
     _inst_vbo: ClassVar[gl.GLuint] = None
     _inst_capacity: ClassVar[int] = 0
 
     @classmethod
-    def _get_program(cls) -> ShaderProgram:
-        """Renvoie le programme de shader des particules"""
-        if cls._program is None:
-            cls._program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG, 'fragment'))
-        return cls._program
+    def _get_program_blob(cls) -> ShaderProgram:
+        """Renvoie le programme de shader blob"""
+        if cls._program_blob is None:
+            cls._program_blob = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOB, 'fragment'))
+        return cls._program_blob
+
+    @classmethod
+    def _get_program_tex(cls) -> ShaderProgram:
+        """Renvoie le programme de shader texturé"""
+        if cls._program_tex is None:
+            cls._program_tex = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_TEX, 'fragment'))
+        return cls._program_tex
 
     @classmethod
     def _ensure_vao(cls) -> None:
@@ -110,7 +130,7 @@ class ParticleRenderer:
     @classmethod
     def _upload(cls, data: np.ndarray) -> None:
         """Passe les données au GPU
-        
+
         Args:
             data: données à passer
         """
@@ -123,50 +143,78 @@ class ParticleRenderer:
             gl.glBufferSubData(gl.GL_ARRAY_BUFFER, 0, data.nbytes, data.ctypes.data_as(ctypes.POINTER(gl.GLfloat)))
 
     # ======================================== INTERFACE ========================================
-    def render(self, pipeline: Pipeline, emitters: list[ParticleEmitter], additive: bool) -> None:
+    def render(self, pipeline: Pipeline, emitters: list[ParticleEmitter], blending: float) -> None:
         """Rendu instancié de toutes les particules
 
         Args:
             pipeline: Pipeline courant
             emitters: émetteurs à rendre
-            additive: blending additif ou alpha classique
+            blending: interpolation entre alpha classique et blending additif *[0, 1]*
         """
-        chunks = [r for e in emitters if (r := e.collect()) is not None]
-        if not chunks:
+        # Grouper par texture
+        groups: dict = {}
+        for emitter in emitters:
+            tex = emitter.particle.texture
+            key = tex.path if tex is not None else None
+            if key not in groups:
+                groups[key] = (tex, [])
+            r = emitter.collect()
+            if r is not None:
+                groups[key][1].append(r)
+
+        if not any(chunks for _, chunks in groups.values()):
             return
 
-        positions = np.concatenate([c[0] for c in chunks])
-        rotations = np.concatenate([c[1] for c in chunks])
-        sizes = np.concatenate([c[2] for c in chunks])
-        colors = np.concatenate([c[3] for c in chunks])
-        count = len(positions)
-
-        data = np.empty((count, 8), dtype=np.float32)
-        data[:, 0:2] = positions
-        data[:, 2] = rotations
-        data[:, 3] = sizes
-        data[:, 4:8] = colors
-
         self._ensure_vao()
-        self._upload(data)
-
-        program = self._get_program()
-        program.use()
-        program['u_projection'] = pipeline.static_matrix
-        program['u_view'] = pipeline.view_matrix
 
         gl.glEnable(gl.GL_BLEND)
-        if additive:
+        if blending >= 1.0:
             gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
-        else:
+        elif blending <= 0.0:
             gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        else:
+            gl.glBlendFuncSeparate(
+                gl.GL_SRC_ALPHA,
+                gl.GL_ONE_MINUS_SRC_ALPHA,
+                gl.GL_ONE,
+                gl.GL_ONE_MINUS_SRC_ALPHA
+            )
 
         gl.glBindVertexArray(ParticleRenderer._vao)
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 6, count)
-        gl.glBindVertexArray(0)
 
+        for tex, chunks in groups.values():
+            if not chunks:
+                continue
+
+            positions = np.concatenate([c[0] for c in chunks])
+            rotations = np.concatenate([c[1] for c in chunks])
+            sizes = np.concatenate([c[2] for c in chunks])
+            colors = np.concatenate([c[3] for c in chunks])
+            count = len(positions)
+
+            data = np.empty((count, 8), dtype=np.float32)
+            data[:, 0:2] = positions
+            data[:, 2] = rotations
+            data[:, 3] = sizes
+            data[:, 4:8] = colors
+            self._upload(data)
+
+            if tex is None:
+                program = self._get_program_blob()
+                program.use()
+            else:
+                program = self._get_program_tex()
+                program.use()
+                gl.glActiveTexture(gl.GL_TEXTURE0)
+                gl.glBindTexture(gl.GL_TEXTURE_2D, ImageLoader.get_id(tex.path))
+                program['u_texture'] = 0
+
+            program['u_mvp'] = pipeline.full_matrix
+            gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 6, count)
+            program.stop()
+
+        gl.glBindVertexArray(0)
         gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
-        program.stop()
 
 # ======================================== EXPORTS ========================================
 __all__ = [

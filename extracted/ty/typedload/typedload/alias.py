@@ -6,7 +6,7 @@ You should not import this module before python3.12
 It is meant to deal with TypeAliasType defined in PEP 695.
 """
 
-# Copyright (C) 2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2024-2026 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,6 @@ It is meant to deal with TypeAliasType defined in PEP 695.
 # author Salvo "LtWorf" Tomaselli <tiposchi@tiscali.it>
 
 from functools import lru_cache, reduce
-from typing import List, Set, Tuple, FrozenSet
 from .typechecks import *
 
 # From 3.12 onwards
@@ -50,7 +49,6 @@ else:
         '''
         return False
 
-_TUPLETYPE = Tuple[int]
 
 @lru_cache
 def unalias(t):
@@ -63,7 +61,7 @@ def unalias(t):
 
     will be converted into the actual
 
-    Tuple[List[Union[int, float]], ...]
+    tuple[list[int | float]], ...]
 
     that is possible to match with type handlers.
     '''
@@ -72,19 +70,13 @@ def unalias(t):
         # This creates a real union at runtime
         t = reduce((lambda a, b: a | b), (unalias(i) for i in t.__args__))
     elif is_list(t):
-        t = List[unalias(t.__args__[0])]  # type: ignore
+        t = list[unalias(t.__args__[0])]  # type: ignore
     elif is_set(t):
-        t = Set[unalias(t.__args__[0])]  # type: ignore
+        t = set[unalias(t.__args__[0])]  # type: ignore
     elif is_tuple(t):
-        # This is an horrible hack to create a Tuple type
-        # with the parameters I want.
-        #
-        # TODO
-        # From 3.11 this can be replaced with Tuple[*args]
-        args = tuple((unalias(i) for i in t.__args__))
-        t = _TUPLETYPE.copy_with(args)  # type: ignore
+        t = tuple[*(unalias(i) for i in t.__args__)]  # type: ignore
     elif is_frozenset(t):
-        t = FrozenSet[unalias(t.__args__[0])]  # type: ignore
+        t = frozenset[unalias(t.__args__[0])]  # type: ignore
     elif is_alias(t):
         t = unalias(t.__value__)
 

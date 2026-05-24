@@ -232,7 +232,7 @@ export class ReactiveESMView extends HTMLBoxView {
         });
         const child_props = this.model.children.map((child) => this.model.data.properties[child]);
         for (const cp of child_props) {
-            cp.change.connect(() => this.update_children());
+            this.connect(cp.change, () => this.update_children());
         }
         this.on_change([], () => {
             if (this.model.render_policy !== "manual") {
@@ -403,7 +403,8 @@ export class ReactiveESMView extends HTMLBoxView {
             (this._lifecycle_handlers.get(lf) || []).splice(0);
         }
         this.model.disconnect_watchers(this);
-        this.model.render_module.then((mod) => mod.default.render(this.model.id));
+        const render_promise = this.model.render_module.then((mod) => mod.default.render(this.model.id));
+        this._await_ready(render_promise);
     }
     render_children() {
         for (const child of this.accessed_children) {
@@ -624,11 +625,34 @@ export class ReactiveESM extends HTMLBox {
                             check();
                         });
                     }
-                    orig_cb();
                     if (view && this.render_policy === "manual") {
+                        let resolve_ready;
+                        view.root._await_ready(new Promise((r) => { resolve_ready = r; }));
+                        orig_cb();
                         view.render_children();
                         view._update_children();
                         view.invalidate_layout();
+                        // Collect ready promises from all newly rendered descendants
+                        const collect_ready = (v) => {
+                            const promises = [v.ready];
+                            for (const child of v.child_views || []) {
+                                promises.push(...collect_ready(child));
+                            }
+                            return promises;
+                        };
+                        const all_ready = [];
+                        for (const child_view of view.child_views) {
+                            all_ready.push(...collect_ready(child_view));
+                        }
+                        if (all_ready.length > 0) {
+                            Promise.all(all_ready).then(() => resolve_ready());
+                        }
+                        else {
+                            resolve_ready();
+                        }
+                    }
+                    else {
+                        orig_cb();
                     }
                 };
             }

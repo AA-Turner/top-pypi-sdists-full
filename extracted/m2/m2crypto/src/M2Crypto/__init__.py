@@ -16,24 +16,35 @@ Copyright (C) 2004-2007 OSAF. All Rights Reserved.
 Copyright 2008-2011 Heikki Toivonen. All rights reserved.
 """
 
-__version__: str = "0.47.0"
+from typing import Any, Callable, Optional, Tuple, cast
+
+__version__: str = "0.48.0"
 version: str = __version__
 
+VersionCtor: Optional[Callable[[str], Any]]
+
 try:
-    from packaging.version import Version
+    from packaging.version import Version as _PackagingVersion
+
+    VersionCtor = _PackagingVersion
 except ImportError:
     try:
-        from distutils.version import StrictVersion as Version  # type: ignore [no-redef, import-not-found]
-    except ImportError:
-        Version = None  # type: ignore[misc, assignment]
+        from distutils.version import StrictVersion as _StrictVersion  # type: ignore[import-not-found]
 
-if Version is not None:
-    version_info: tuple = (0, 0, 0)
-    __ver: Version = Version(__version__)
-    if hasattr(__ver, "_version"):
-        version_info = tuple(__ver._version[1])
-    elif hasattr(__ver, "version"):
-        version_info = __ver.version
+        VersionCtor = _StrictVersion
+    except ImportError:
+        VersionCtor = None
+if VersionCtor is not None:
+    version_info: Tuple[int, int, int] = (0, 0, 0)
+    __ver = VersionCtor(__version__)
+    release = getattr(__ver, "release", None)
+    if release is not None:
+        release_tuple = tuple(release)
+        version_info = cast(Tuple[int, int, int], (release_tuple + (0, 0, 0))[:3])
+    else:
+        strict_version = getattr(__ver, "version", None)
+        if strict_version is not None:
+            version_info = cast(Tuple[int, int, int], strict_version)
 
 from M2Crypto import m2
 

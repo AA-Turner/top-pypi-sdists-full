@@ -1,42 +1,52 @@
 # src/spreadsheet_handling/pipeline/runner.py
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, Tuple, List
+from typing import Any
 
 from ..io_backends.router import get_loader, get_saver
-from .config import AppConfig, PipelineConfig
-from .registry import run_pipeline as _run_pipeline, build_steps_from_config
+from .build import build_steps_from_config
+from .config import AppConfig
+from .execution import run_pipeline as _run_pipeline
 
 
-def run_pipeline(app: AppConfig, run_id: str | None = None, **_: object) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+def run_app(app: AppConfig, run_id: str | None = None, **_: object) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
     """
-    Führt I/O + optionale Steps aus.
+    Run I/O and optional pipeline steps.
     Returns: (frames, meta, issues)
     """
     io = app.io
 
-    # --- Input wählen (wir nehmen den ersten benannten Input) ---
+    # --- Select input (use the first named input) ---
     if not io.inputs:
         raise SystemExit("No inputs configured.")
     inp_name, inp = next(iter(io.inputs.items()))
-    loader = get_loader(inp.kind)
+    try:
+        loader = get_loader(inp.kind)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported input kind: {inp.kind!r}") from exc
 
-    # Loader darf 'options' entgegennehmen; Backends ignorieren None selbst.
-    frames = loader(inp.path, options=getattr(inp, "options", None))
+    # Loaders may accept 'options'; backends handle None themselves.
+    frames = loader(
+        inp.path,
+        options=getattr(inp, "options", None),
+        header_levels=getattr(inp, "header_levels", 1),
+    )
 
-    # --- Steps binden (können leer sein) ---
-    step_specs = (app.pipeline.steps if app.pipeline else []) or []
+    # --- Bind steps (may be empty) ---
+    step_specs = app.pipeline or []
     bound_steps = build_steps_from_config(step_specs) if step_specs else []
 
-    # --- Ausführen (nur wenn Steps vorhanden) ---
+    # --- Execute only when steps are present ---
     if bound_steps:
         frames = _run_pipeline(frames, bound_steps)
 
-    # --- Output schreiben ---
+    # --- Write output ---
     out = io.output
-    saver = get_saver(out.kind)
+    try:
+        saver = get_saver(out.kind)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported output kind: {out.kind!r}") from exc
     saver(frames, out.path, options=getattr(out, "options", None))
 
-    # (Meta/Issues aktuell noch leer - API bleibt)
+    # Meta/issues are still empty; keep the API stable.
     return frames, {}, []

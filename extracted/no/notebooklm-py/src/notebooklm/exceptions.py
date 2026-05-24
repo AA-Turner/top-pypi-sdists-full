@@ -14,7 +14,29 @@ Example:
 
 from __future__ import annotations
 
+import os
+import re
 from typing import Any
+
+from ._env import DEFAULT_BASE_URL, get_base_url
+from ._logging import scrub_secrets
+
+
+def _truncate_response_preview(raw: str | None) -> str | None:
+    """Truncate a raw RPC response preview for safe display in error contexts.
+
+    Default behavior keeps the preview compact (80 chars + ``"..."`` suffix) so
+    error logs and CLI output stay readable. Set ``NOTEBOOKLM_DEBUG=1`` to opt
+    into the full untruncated body for deep debugging.
+    """
+    if raw is None:
+        return None
+    if os.environ.get("NOTEBOOKLM_DEBUG") == "1":
+        return raw
+    if len(raw) > 80:
+        return raw[:80] + "..."
+    return raw
+
 
 __all__ = [
     # Base
@@ -29,16 +51,22 @@ __all__ = [
     "DecodingError",
     "UnknownRPCMethodError",
     "AuthError",
+    "AuthExtractionError",
     "RateLimitError",
     "ServerError",
     "ClientError",
     "RPCTimeoutError",
+    "RPCResponseTooLargeError",
+    # Idempotency
+    "NonIdempotentRetryError",
+    "IdempotencyVariantError",
     # Domain: Notebooks
     "NotebookError",
     "NotebookNotFoundError",
     "NotebookLimitError",
     # Domain: Chat
     "ChatError",
+    "ChatResponseParseError",
     # Domain: Sources
     "SourceError",
     "SourceAddError",
@@ -51,6 +79,8 @@ __all__ = [
     "ArtifactNotReadyError",
     "ArtifactParseError",
     "ArtifactDownloadError",
+    # Domain: Research
+    "ResearchTaskMismatchError",
 ]
 
 
@@ -118,9 +148,21 @@ class NetworkError(NotebookLMError):
 class RPCError(NotebookLMError):
     """Base for RPC-specific failures after connection established.
 
+    Note:
+        A small number of domain-level exceptions also inherit from
+        :class:`RPCError` so that ``except RPCError`` keeps catching them at
+        transport-level call sites. Currently :class:`NotebookNotFoundError`
+        is one such case — the underlying RPC call succeeded but returned a
+        degenerate payload, and historic callers relied on ``except RPCError``
+        to handle it. When writing new ``except RPCError`` clauses, be aware
+        these domain errors may also flow through; catch the specific domain
+        type first if you want to handle it differently.
+
     Attributes:
         method_id: The RPC method ID (e.g., "abc123") for debugging.
-        raw_response: First 500 chars of raw response for debugging.
+        raw_response: First 80 chars of raw response for debugging
+            (with ``"..."`` suffix if truncated). Set ``NOTEBOOKLM_DEBUG=1`` to
+            preserve the full body.
         rpc_code: Google's internal error code if available.
         found_ids: List of RPC IDs found in the response (for debugging).
     """
@@ -136,33 +178,29 @@ class RPCError(NotebookLMError):
     ):
         super().__init__(message)
         self.method_id = method_id
-        self.raw_response = raw_response[:500] if raw_response else None
+        self.raw_response = _truncate_response_preview(raw_response)
         self.rpc_code = rpc_code
         self.found_ids = found_ids or []
 
     # Backward compatibility aliases
     @property
     def rpc_id(self) -> str | None:
-        """Alias for method_id (deprecated, use method_id instead)."""
-        import warnings
+        """Permanent backward-compatibility alias for ``method_id``.
 
-        warnings.warn(
-            "The 'rpc_id' attribute is deprecated, use 'method_id' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        Exception diagnostic aliases are exempt from the standard deprecation
+        cycle because removal can mask the original exception inside
+        ``except`` handlers.
+        """
         return self.method_id
 
     @property
     def code(self) -> str | int | None:
-        """Alias for rpc_code (deprecated, use rpc_code instead)."""
-        import warnings
+        """Permanent backward-compatibility alias for ``rpc_code``.
 
-        warnings.warn(
-            "The 'code' attribute is deprecated, use 'rpc_code' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        Exception diagnostic aliases are exempt from the standard deprecation
+        cycle because removal can mask the original exception inside
+        ``except`` handlers.
+        """
         return self.rpc_code
 
 
@@ -177,7 +215,95 @@ class UnknownRPCMethodError(DecodingError):
     """RPC response structure doesn't match expectations.
 
     This often indicates Google has changed the API. Check for library updates.
+
+    Carries structured context to help diagnose schema drift:
+
+    Attributes:
+        method_id: The RPC method ID that was requested (or that drifted).
+        path: Index path inside the decoded payload at which descent failed
+            (empty tuple for top-level drift, ``(0, 2)`` for nested, etc.).
+        source: Caller-provided label identifying which decoder/helper raised
+            this error (e.g. ``"_notebooks.list"``).
+        found_ids: When raised by the response-level decoder, the list of RPC
+            IDs actually present in the response.
+        raw_response: First 80 chars of the raw response, when available
+            (``NOTEBOOKLM_DEBUG=1`` preserves the full body).
+        data_at_failure: Truncated repr (~200 chars) of the data the helper
+            was attempting to index into when descent failed.
     """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        method_id: str | int | None = None,
+        path: tuple[int, ...] | None = None,
+        source: str | None = None,
+        found_ids: list[int | str] | None = None,
+        raw_response: Any | None = None,
+        data_at_failure: Any | None = None,
+        rpc_code: str | int | None = None,
+    ):
+        # Coerce method_id to str for the base RPCError contract while
+        # preserving the original (possibly int) value on this subclass.
+        base_method_id = str(method_id) if method_id is not None else None
+        # Normalize found_ids to list[str] for the base contract while
+        # keeping the typed list[int | str] on this subclass.
+        base_found_ids: list[str] | None = (
+            None if found_ids is None else [str(item) for item in found_ids]
+        )
+        # raw_response on RPCError is str | None; only forward when stringy.
+        base_raw_response = raw_response if isinstance(raw_response, str) else None
+        super().__init__(
+            message,
+            method_id=base_method_id,
+            raw_response=base_raw_response,
+            rpc_code=rpc_code,
+            found_ids=base_found_ids,
+        )
+        # Preserve original typed values on this subclass.
+        self.method_id = method_id  # type: ignore[assignment]
+        self.path = path
+        self.source = source
+        # Override base found_ids with the typed list (may contain ints).
+        if found_ids is not None:
+            self.found_ids = found_ids  # type: ignore[assignment]
+        # The base class already truncated the string branch via
+        # ``_truncate_response_preview`` (see ``base_raw_response`` above).
+        # Only override here for non-string payloads (dict/list/etc) supported
+        # by this subclass's widened ``Any`` type — those bypass the base
+        # class's ``str | None`` contract entirely.
+        if not isinstance(raw_response, str):
+            self.raw_response = raw_response
+        self.data_at_failure = data_at_failure
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        extras: list[str] = []
+        if self.method_id is not None:
+            extras.append(f"method_id={self.method_id!r}")
+        if self.path is not None:
+            extras.append(f"path={self.path!r}")
+        if self.source is not None:
+            extras.append(f"source={self.source!r}")
+        if self.found_ids:
+            extras.append(f"found_ids={self.found_ids!r}")
+        if self.data_at_failure is not None:
+            extras.append(f"data_at_failure={self.data_at_failure!r}")
+        if not extras:
+            return base
+        return f"{base} [{', '.join(extras)}]" if base else ", ".join(extras)
+
+    def __repr__(self) -> str:
+        return (
+            f"UnknownRPCMethodError("
+            f"message={super().__str__()!r}, "
+            f"method_id={self.method_id!r}, "
+            f"path={self.path!r}, "
+            f"source={self.source!r}, "
+            f"found_ids={self.found_ids!r}, "
+            f"data_at_failure={self.data_at_failure!r})"
+        )
 
 
 class AuthError(RPCError):
@@ -188,6 +314,65 @@ class AuthError(RPCError):
     """
 
     recoverable: bool = False
+
+
+class AuthExtractionError(RPCError):
+    """Failed to extract a required field from the NotebookLM HTML response.
+
+    Raised when token extraction (e.g., ``SNlM0e``, ``FdrFJe``) cannot locate
+    the expected ``WIZ_global_data`` key. Most commonly indicates that Google
+    has changed the embedded JavaScript structure on the homepage — i.e.
+    schema drift — and the regex patterns must be updated.
+
+    Carries a sanitized preview of the HTML response so operators can diagnose
+    drift without re-running the CLI to capture the page.
+
+    Attributes:
+        key: The ``WIZ_global_data`` field name that could not be extracted
+            (e.g., ``"SNlM0e"`` or ``"FdrFJe"``).
+        payload_preview: First 200 characters of the response HTML used to
+            attempt extraction. Whitespace is collapsed for readability.
+    """
+
+    PREVIEW_LENGTH = 200
+
+    def __init__(
+        self,
+        key: str,
+        payload_preview: str,
+        *,
+        message: str | None = None,
+    ):
+        self.key = key
+        # Two-stage slice with the scrub in the middle, so we bound regex work
+        # without giving up boundary-straddle safety:
+        #
+        # 1. Pre-slice to a generous 10x cap. Bounds the scrub at O(2000 chars)
+        #    instead of O(len(payload)) — a multi-MB HTML body would otherwise
+        #    cost ~7 regex passes over the whole thing just to throw most away.
+        # 2. Scrub the slice. A secret straddling the 10x boundary is
+        #    theoretically possible but the 2000-char window gives ~19x more
+        #    slack than the 5x preview limit, so any realistic ``f.sid=``,
+        #    ``Bearer ...``, or ``Set-Cookie:`` value fits well inside.
+        # 3. Re-slice to 5x. The scrub already neutralized anything that would
+        #    have leaked from the 5x cut, including secrets that originally
+        #    straddled the 5x boundary inside the 10x window.
+        pre_sliced = payload_preview[: self.PREVIEW_LENGTH * 10]
+        scrubbed = scrub_secrets(pre_sliced)
+        head = scrubbed[: self.PREVIEW_LENGTH * 5]
+        # Collapse runs of whitespace so the preview stays compact and useful
+        # even when the upstream HTML is heavily indented or contains newlines.
+        collapsed = re.sub(r"\s+", " ", head).strip()
+        self.payload_preview = collapsed[: self.PREVIEW_LENGTH]
+        # Default message is human-readable and includes both the failing key
+        # and the sanitized preview — this is the diagnostic that operators
+        # see in logs and exception traces.
+        rendered = message or (
+            f"Failed to extract {key!r} from NotebookLM HTML response. "
+            f"This usually means Google changed the page structure. "
+            f"Preview: {self.payload_preview!r}"
+        )
+        super().__init__(rendered)
 
 
 class RateLimitError(RPCError):
@@ -296,6 +481,69 @@ class RPCTimeoutError(NetworkError):
         self.timeout_seconds = timeout_seconds
 
 
+class RPCResponseTooLargeError(RPCError):
+    """RPC response body exceeded the configured maximum size.
+
+    Raised by the streaming transport when a response body grows past
+    ``MAX_RPC_RESPONSE_BYTES`` (currently 50 MiB) while being read. The guard
+    aborts the read mid-stream rather than buffering an unbounded body, so a
+    runaway or hostile server can't exhaust process memory.
+
+    Attributes:
+        limit_bytes: The configured maximum (in bytes) that was exceeded.
+        bytes_read: Number of bytes already buffered when the guard fired
+            (always strictly greater than ``limit_bytes``).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        limit_bytes: int | None = None,
+        bytes_read: int | None = None,
+        method_id: str | None = None,
+    ):
+        super().__init__(message, method_id=method_id)
+        self.limit_bytes = limit_bytes
+        self.bytes_read = bytes_read
+
+
+# =============================================================================
+# Idempotency
+# =============================================================================
+
+
+class NonIdempotentRetryError(NotebookLMError):
+    """Raised when an opt-in idempotent call cannot guarantee single-write semantics.
+
+    Some create RPCs (notably ``SourcesAPI.add_text``) lack a reliable
+    server-side dedupe key, so a probe-then-retry strategy cannot
+    guarantee single-write semantics under transport failures. Callers
+    that opt in via ``idempotent=True`` get this error rather than a
+    silent duplicate-resource on retry.
+
+    See ``docs/python-api.md#idempotency`` for guidance on building
+    idempotent text-source workflows.
+    """
+
+
+class IdempotencyVariantError(NotebookLMError):
+    """Raised when an unknown ``operation_variant`` is requested for an RPC
+    that has explicit variant-table entries.
+
+    The mutating-RPC idempotency registry keys policies on
+    ``(RPCMethod, operation_variant | None)``. When a method has variant
+    entries (e.g. ``"upsert"``, ``"overwrite"``) AND the caller supplies a
+    variant name that is not in that table, the registry MUST raise this
+    error rather than silently falling back to the ``(method, None)``
+    default — silent fallback would hide caller typos and API drift.
+
+    Methods that only have a ``(method, None)`` entry tolerate any variant
+    name (the variant table is effectively empty, so there is no typo to
+    catch). See :func:`notebooklm._idempotency.IdempotencyRegistry.get_entry`.
+    """
+
+
 # =============================================================================
 # Domain: Notebooks
 # =============================================================================
@@ -305,16 +553,36 @@ class NotebookError(NotebookLMError):
     """Base for notebook operations."""
 
 
-class NotebookNotFoundError(NotebookError):
+class NotebookNotFoundError(RPCError, NotebookError):
     """Notebook not found.
+
+    Inherits from both :class:`RPCError` and :class:`NotebookError` so callers
+    can catch either base. The RPC base is what ``client.notebooks.get`` raises
+    when the server returns an empty / degenerate payload for a missing ID, so
+    ``except RPCError`` keeps working at call sites that handle transport-level
+    failures. ``except NotebookError`` continues to work at domain-level call
+    sites that don't care about the RPC layer.
 
     Attributes:
         notebook_id: The ID that was not found.
+        method_id: The RPC method ID (inherited from :class:`RPCError`).
+        raw_response: First 80 chars of the raw response, if any
+            (``NOTEBOOKLM_DEBUG=1`` preserves the full body).
     """
 
-    def __init__(self, notebook_id: str):
+    def __init__(
+        self,
+        notebook_id: str,
+        *,
+        method_id: str | None = None,
+        raw_response: str | None = None,
+    ):
         self.notebook_id = notebook_id
-        super().__init__(f"Notebook not found: {notebook_id}")
+        super().__init__(
+            f"Notebook not found: {notebook_id}",
+            method_id=method_id,
+            raw_response=raw_response,
+        )
 
 
 class NotebookLimitError(NotebookError):
@@ -345,10 +613,14 @@ class NotebookLimitError(NotebookError):
             count_text = f"{current_count}/{limit}"
 
         known_text = ", ".join(str(value) for value in known_limits)
+        try:
+            base_url = get_base_url()
+        except ValueError:
+            base_url = DEFAULT_BASE_URL
         message = (
             "Cannot create notebook: account appears to be at or very near the "
             f"NotebookLM notebook limit ({count_text} owned notebooks reported). "
-            "Delete old notebooks at https://notebooklm.google.com and try again."
+            f"Delete old notebooks at {base_url} and try again."
         )
         if known_limits:
             message += f" Known NotebookLM limits include: {known_text}."
@@ -379,6 +651,24 @@ class NotebookLimitError(NotebookError):
 
 class ChatError(NotebookLMError):
     """Base for chat operations."""
+
+
+class ChatResponseParseError(ChatError):
+    """The streaming chat response yielded no parseable chunks.
+
+    Raised when :func:`notebooklm._chat_protocol.parse_streaming_chat_response`
+    iterates the streamed response and finds zero ``wrb.fr`` envelopes it
+    could decode — that is, the wire protocol drifted or the response body
+    was empty/malformed.
+
+    This is distinct from "the model returned an empty answer": a real
+    empty answer still produces at least one parseable ``wrb.fr`` chunk
+    (with empty answer text), in which case the parser returns a
+    ``StreamingChatParseResult("", [], conv_id)`` rather than raising.
+
+    Inherits from :class:`ChatError` so existing chat-domain ``except
+    ChatError`` clauses continue to catch it without modification.
+    """
 
 
 # =============================================================================
@@ -554,6 +844,10 @@ class ArtifactDownloadError(ArtifactError):
         artifact_id: The ID (if known).
         details: Additional error details.
         cause: The underlying exception.
+        status_code: HTTP status code from the failed response, when the
+            failure was an HTTP-level error (e.g. 401, 403, 500). ``None`` for
+            transport-level failures (timeouts, DNS, connection resets) where
+            no response was received.
     """
 
     def __init__(
@@ -562,14 +856,52 @@ class ArtifactDownloadError(ArtifactError):
         details: str | None = None,
         artifact_id: str | None = None,
         cause: Exception | None = None,
+        status_code: int | None = None,
     ):
         self.artifact_type = artifact_type
         self.artifact_id = artifact_id
         self.details = details
         self.cause = cause
+        self.status_code = status_code
         msg = f"Failed to download {artifact_type} artifact"
         if artifact_id:
             msg += f" {artifact_id}"
         if details:
             msg += f": {details}"
         super().__init__(msg)
+
+
+# =============================================================================
+# Domain: Research
+# =============================================================================
+
+
+class ResearchTaskMismatchError(ValidationError):
+    """Per-source ``research_task_id`` does not match the caller's ``task_id``.
+
+    Raised by :meth:`ResearchAPI.import_sources` when one of the supplied
+    sources carries a ``research_task_id`` that differs from the
+    discriminator ``task_id`` passed by the caller. This is the wire-crossing
+    bug: the caller intends to import results for task A, but one of the
+    source entries was actually discovered under task B. Importing under
+    the wrong task would mis-attribute provenance, so this check fails
+    loud before any RPC traffic is issued.
+
+    Inherits from :class:`ValidationError` so existing ``except
+    ValidationError`` clauses on ``import_sources`` continue to catch it.
+
+    Attributes:
+        task_id: The discriminator ``task_id`` passed by the caller.
+        source_research_task_id: The ``research_task_id`` carried by the
+            offending source dict.
+    """
+
+    def __init__(self, *, task_id: str, source_research_task_id: str):
+        self.task_id = task_id
+        self.source_research_task_id = source_research_task_id
+        super().__init__(
+            f"research_task_id mismatch: source carries "
+            f"research_task_id={source_research_task_id!r} but caller passed "
+            f"task_id={task_id!r}. Sources discovered under one research "
+            f"task cannot be imported under another."
+        )

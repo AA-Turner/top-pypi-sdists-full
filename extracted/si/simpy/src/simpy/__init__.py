@@ -8,6 +8,7 @@ The following tables list all the available components in this module.
 {toc}
 
 """
+
 from __future__ import annotations
 
 import importlib.metadata

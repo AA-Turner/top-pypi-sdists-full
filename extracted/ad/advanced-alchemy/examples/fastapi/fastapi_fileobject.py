@@ -37,12 +37,16 @@ alchemy_config = SQLAlchemyAsyncConfig(
 app = FastAPI()
 alchemy = AdvancedAlchemy(config=alchemy_config, app=app)
 document_router = APIRouter()
+# For local development, run an S3-compatible storage service (e.g., RustFS or MinIO) on port 9000 and create the 'static-files' bucket first.
+# Defaults below match pytest-databases >=0.19.0 RustFS fixture credentials; override via env when running real services.
 s3_backend = ObstoreBackend(
     key="local",
     fs="s3://static-files/",
     aws_endpoint="http://localhost:9000",
-    aws_access_key_id="minioadmin",
-    aws_secret_access_key="minioadmin",  # noqa: S106
+    aws_access_key_id="pytest-databases-rustfs",
+    aws_secret_access_key="pytest-databases-rustfs-secret",  # noqa: S106
+    aws_virtual_hosted_style_request=False,
+    client_options={"allow_http": True},
 )
 storages.register_backend(s3_backend)
 
@@ -99,7 +103,7 @@ async def list_documents(
         ),
     ],
 ) -> service.OffsetPagination[Document]:
-    results, total = await documents_service.list_and_count(*filters)
+    results, total = await documents_service.get_many_and_count(*filters)
     return documents_service.to_schema(results, total, filters=filters, schema_type=Document)
 
 

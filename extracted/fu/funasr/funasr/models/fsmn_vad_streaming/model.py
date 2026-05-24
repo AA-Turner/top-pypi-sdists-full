@@ -86,6 +86,40 @@ class VADXOptions:
         frame_length_ms: int = 25,
         **kwargs,
     ):
+        """Initialize VADXOptions.
+        
+            Args:
+                sample_rate: TODO.
+                detect_mode: TODO.
+                snr_mode: TODO.
+                max_end_silence_time: TODO.
+                max_start_silence_time: TODO.
+                do_start_point_detection: TODO.
+                do_end_point_detection: TODO.
+                window_size_ms: TODO.
+                sil_to_speech_time_thres: TODO.
+                speech_to_sil_time_thres: TODO.
+                speech_2_noise_ratio: TODO.
+                do_extend: TODO.
+                lookback_time_start_point: TODO.
+                lookahead_time_end_point: TODO.
+                max_single_segment_time: TODO.
+                nn_eval_block_size: Size/dimension parameter.
+                dcd_block_size: Size/dimension parameter.
+                snr_thres: TODO.
+                noise_frame_num_used_for_snr: TODO.
+                decibel_thres: TODO.
+                speech_noise_thres: TODO.
+                fe_prior_thres: TODO.
+                silence_pdf_num: TODO.
+                sil_pdf_ids: TODO.
+                speech_noise_thresh_low: TODO.
+                speech_noise_thresh_high: TODO.
+                output_frame_probs: TODO.
+                frame_in_ms: TODO.
+                frame_length_ms: TODO.
+                **kwargs: Additional keyword arguments.
+            """
         self.sample_rate = sample_rate
         self.detect_mode = detect_mode
         self.snr_mode = snr_mode
@@ -125,6 +159,7 @@ class E2EVadSpeechBufWithDoa(object):
     """
 
     def __init__(self):
+        """Initialize E2EVadSpeechBufWithDoa."""
         self.start_ms = 0
         self.end_ms = 0
         self.buffer = []
@@ -133,6 +168,7 @@ class E2EVadSpeechBufWithDoa(object):
         self.doa = 0
 
     def Reset(self):
+        """Reset."""
         self.start_ms = 0
         self.end_ms = 0
         self.buffer = []
@@ -149,6 +185,7 @@ class E2EVadFrameProb(object):
     """
 
     def __init__(self):
+        """Initialize E2EVadFrameProb."""
         self.noise_prob = 0.0
         self.speech_prob = 0.0
         self.score = 0.0
@@ -170,6 +207,14 @@ class WindowDetector(object):
         speech_to_sil_time: int,
         frame_size_ms: int,
     ):
+        """Initialize WindowDetector.
+        
+            Args:
+                window_size_ms: TODO.
+                sil_to_speech_time: TODO.
+                speech_to_sil_time: TODO.
+                frame_size_ms: TODO.
+            """
         self.window_size_ms = window_size_ms
         self.sil_to_speech_time = sil_to_speech_time
         self.speech_to_sil_time = speech_to_sil_time
@@ -190,6 +235,7 @@ class WindowDetector(object):
         self.hydre_frame_count = 0
 
     def Reset(self) -> None:
+        """Reset."""
         self.cur_win_pos = 0
         self.win_sum = 0
         self.win_state = [0] * self.win_size_frame
@@ -200,11 +246,21 @@ class WindowDetector(object):
         self.hydre_frame_count = 0
 
     def GetWinSize(self) -> int:
+        """Getwinsize."""
         return int(self.win_size_frame)
 
     def DetectOneFrame(
-        self, frameState: FrameState, frame_count: int, cache: dict = {}
+        self, frameState: FrameState, frame_count: int, cache: dict = None
     ) -> AudioChangeState:
+        """Detectoneframe.
+        
+            Args:
+                frameState: TODO.
+                frame_count: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         cur_frame_state = FrameState.kFrameStateSil
         if frameState == FrameState.kFrameStateSpeech:
             cur_frame_state = 1
@@ -238,6 +294,7 @@ class WindowDetector(object):
         return AudioChangeState.kChangeStateInvalid
 
     def FrameSizeMs(self) -> int:
+        """Framesizems."""
         return int(self.frame_size_ms)
 
 
@@ -248,6 +305,13 @@ class Stats(object):
         max_end_sil_frame_cnt_thresh,
         speech_noise_thres,
     ):
+        """Initialize Stats.
+        
+            Args:
+                sil_pdf_ids: TODO.
+                max_end_sil_frame_cnt_thresh: TODO.
+                speech_noise_thres: TODO.
+            """
         self.data_buf_start_frame = 0
         self.frm_cnt = 0
         self.latest_confirmed_speech_frame = 0
@@ -279,7 +343,14 @@ class Stats(object):
 
 @tables.register("model_classes", "FsmnVADStreaming")
 class FsmnVADStreaming(nn.Module):
-    """
+    """FSMN-based Voice Activity Detection (streaming/offline).
+
+    Detects speech segments in audio, returning start/end timestamps (milliseconds).
+    Supports both offline (full audio) and streaming (chunk-by-chunk) modes.
+
+    Offline output: [{"key": "...", "value": [[start_ms, end_ms], ...]}]
+    Streaming output: [[beg, -1]] (start), [[-1, end]] (end), [[beg, end]] (complete), [] (no event)
+
     Author: Speech Lab of DAMO Academy, Alibaba Group
     Deep-FSMN for Large Vocabulary Continuous Speech Recognition
     https://arxiv.org/abs/1803.05030
@@ -292,6 +363,14 @@ class FsmnVADStreaming(nn.Module):
         vad_post_args: Dict[str, Any] = None,
         **kwargs,
     ):
+        """Initialize FsmnVADStreaming.
+        
+            Args:
+                encoder: TODO.
+                encoder_conf: Configuration dict for encoder.
+                vad_post_args: TODO.
+                **kwargs: Additional keyword arguments.
+            """
         super().__init__()
         self.vad_opts = VADXOptions(**kwargs)
 
@@ -300,7 +379,14 @@ class FsmnVADStreaming(nn.Module):
         self.encoder = encoder
         self.encoder_conf = encoder_conf
 
-    def ResetDetection(self, cache: dict = {}):
+    def ResetDetection(self, cache: dict = None):
+        """Resetdetection.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         cache["stats"].continous_silence_frame_count = 0
         cache["stats"].latest_confirmed_speech_frame = 0
         cache["stats"].lastest_confirmed_silence_frame = -1
@@ -323,7 +409,14 @@ class FsmnVADStreaming(nn.Module):
             cache["stats"].decibel = cache["stats"].decibel[real_drop_frames:]
             cache["stats"].scores = cache["stats"].scores[:, real_drop_frames:, :]
 
-    def ComputeDecibel(self, cache: dict = {}) -> None:
+    def ComputeDecibel(self, cache: dict = None) -> None:
+        """Computedecibel.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         frame_sample_length = int(self.vad_opts.frame_length_ms * self.vad_opts.sample_rate / 1000)
         frame_shift_length = int(self.vad_opts.frame_in_ms * self.vad_opts.sample_rate / 1000)
         if cache["stats"].data_buf_all is None:
@@ -347,8 +440,16 @@ class FsmnVADStreaming(nn.Module):
         cache["stats"].decibel.extend(decibel_numpy)
 
 
-    def ComputeScores(self, feats: torch.Tensor, cache: dict = {}) -> None:
-        scores = self.encoder(feats, cache=cache["encoder"]).to("cpu")  # return B * T * D
+    def ComputeScores(self, feats: torch.Tensor, cache: dict = None) -> None:
+        """Computescores.
+        
+            Args:
+                feats: Feature tensor (e.g., fbank), shape (batch, frames, dim).
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
+        scores = self.encoder(feats, cache=cache["encoder"])  # return B * T * D
         assert (
             scores.shape[1] == feats.shape[1]
         ), "The shape between feats and scores does not match"
@@ -359,11 +460,19 @@ class FsmnVADStreaming(nn.Module):
         else:
             cache["stats"].scores = torch.cat((cache["stats"].scores, scores), dim=1)
 
-    def PopDataBufTillFrame(self, frame_idx: int, cache: dict = {}) -> None:  # need check again
+    def PopDataBufTillFrame(self, frame_idx: int, cache: dict = None) -> None:  # need check again
+        """Popdatabuftillframe.
+        
+            Args:
+                frame_idx: TODO.
+                cache: State cache dict for streaming inference.
+            """
         while cache["stats"].data_buf_start_frame < frame_idx:
             if len(cache["stats"].data_buf) >= int(
                 self.vad_opts.frame_in_ms * self.vad_opts.sample_rate / 1000
             ):
+                if cache is None:
+                    cache = {}
                 cache["stats"].data_buf_start_frame += 1
                 cache["stats"].data_buf = cache["stats"].data_buf_all[
                     (cache["stats"].data_buf_start_frame - cache["stats"].last_drop_frames)
@@ -377,8 +486,20 @@ class FsmnVADStreaming(nn.Module):
         first_frm_is_start_point: bool,
         last_frm_is_end_point: bool,
         end_point_is_sent_end: bool,
-        cache: dict = {},
+        cache: dict = None,
     ) -> None:
+        """Popdatatooutputbuf.
+        
+            Args:
+                start_frm: TODO.
+                frm_cnt: TODO.
+                first_frm_is_start_point: TODO.
+                last_frm_is_end_point: TODO.
+                end_point_is_sent_end: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         self.PopDataBufTillFrame(start_frm, cache=cache)
         expected_sample_number = int(
             frm_cnt * self.vad_opts.sample_rate * self.vad_opts.frame_in_ms / 1000
@@ -428,7 +549,15 @@ class FsmnVADStreaming(nn.Module):
         if last_frm_is_end_point:
             cur_seg.contain_seg_end_point = True
 
-    def OnSilenceDetected(self, valid_frame: int, cache: dict = {}):
+    def OnSilenceDetected(self, valid_frame: int, cache: dict = None):
+        """Onsilencedetected.
+        
+            Args:
+                valid_frame: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         cache["stats"].lastest_confirmed_silence_frame = valid_frame
         if cache["stats"].vad_state_machine == VadStateMachine.kVadInStateStartPointNotDetected:
             self.PopDataBufTillFrame(valid_frame, cache=cache)
@@ -436,11 +565,28 @@ class FsmnVADStreaming(nn.Module):
     # silence_detected_callback_
     # pass
 
-    def OnVoiceDetected(self, valid_frame: int, cache: dict = {}) -> None:
+    def OnVoiceDetected(self, valid_frame: int, cache: dict = None) -> None:
+        """Onvoicedetected.
+        
+            Args:
+                valid_frame: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         cache["stats"].latest_confirmed_speech_frame = valid_frame
         self.PopDataToOutputBuf(valid_frame, 1, False, False, False, cache=cache)
 
-    def OnVoiceStart(self, start_frame: int, fake_result: bool = False, cache: dict = {}) -> None:
+    def OnVoiceStart(self, start_frame: int, fake_result: bool = False, cache: dict = None) -> None:
+        """Onvoicestart.
+        
+            Args:
+                start_frame: TODO.
+                fake_result: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         if self.vad_opts.do_start_point_detection:
             pass
         if cache["stats"].confirmed_start_frame != -1:
@@ -457,8 +603,18 @@ class FsmnVADStreaming(nn.Module):
             )
 
     def OnVoiceEnd(
-        self, end_frame: int, fake_result: bool, is_last_frame: bool, cache: dict = {}
+        self, end_frame: int, fake_result: bool, is_last_frame: bool, cache: dict = None
     ) -> None:
+        """Onvoiceend.
+        
+            Args:
+                end_frame: TODO.
+                fake_result: TODO.
+                is_last_frame: Boolean flag for last frame.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         for t in range(cache["stats"].latest_confirmed_speech_frame + 1, end_frame):
             self.OnVoiceDetected(t, cache=cache)
         if self.vad_opts.do_end_point_detection:
@@ -475,23 +631,56 @@ class FsmnVADStreaming(nn.Module):
         cache["stats"].number_end_time_detected += 1
 
     def MaybeOnVoiceEndIfLastFrame(
-        self, is_final_frame: bool, cur_frm_idx: int, cache: dict = {}
+        self, is_final_frame: bool, cur_frm_idx: int, cache: dict = None
     ) -> None:
+        """Maybeonvoiceendiflastframe.
+        
+            Args:
+                is_final_frame: Boolean flag for final frame.
+                cur_frm_idx: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         if is_final_frame:
             self.OnVoiceEnd(cur_frm_idx, False, True, cache=cache)
             cache["stats"].vad_state_machine = VadStateMachine.kVadInStateEndPointDetected
 
-    def GetLatency(self, cache: dict = {}) -> int:
+    def GetLatency(self, cache: dict = None) -> int:
+        """Getlatency.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         return int(self.LatencyFrmNumAtStartPoint(cache=cache) * self.vad_opts.frame_in_ms)
 
-    def LatencyFrmNumAtStartPoint(self, cache: dict = {}) -> int:
+    def LatencyFrmNumAtStartPoint(self, cache: dict = None) -> int:
+        """Latencyfrmnumatstartpoint.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         vad_latency = cache["windows_detector"].GetWinSize()
         if self.vad_opts.do_extend:
             vad_latency += int(self.vad_opts.lookback_time_start_point / self.vad_opts.frame_in_ms)
         return vad_latency
 
-    def GetFrameState(self, t: int, cache: dict = {}):
+    def GetFrameState(self, t: int, cache: dict = None):
+        """Getframestate.
+        
+            Args:
+                t: TODO.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         frame_state = FrameState.kFrameStateInvalid
+        if t >= len(cache["stats"].decibel):
+            return FrameState.kFrameStateSil
         cur_decibel = cache["stats"].decibel[t]
         cur_snr = cur_decibel - cache["stats"].noise_average_decibel
         # for each frame, calc log posterior probability of each state
@@ -549,10 +738,21 @@ class FsmnVADStreaming(nn.Module):
         self,
         feats: torch.Tensor,
         waveform: torch.tensor,
-        cache: dict = {},
+        cache: dict = None,
         is_final: bool = False,
         **kwargs,
     ):
+        """Forward pass for training.
+        
+            Args:
+                feats: Feature tensor (e.g., fbank), shape (batch, frames, dim).
+                waveform: TODO.
+                cache: State cache dict for streaming inference.
+                is_final: Whether this is the final chunk in streaming.
+                **kwargs: Additional keyword arguments.
+            """
+        if cache is None:
+            cache = {}
         # if len(cache) == 0:
         #     self.AllResetDetection()
         # self.waveform = waveform  # compute decibel for each frame
@@ -617,7 +817,15 @@ class FsmnVADStreaming(nn.Module):
         #     self.AllResetDetection()
         return segments
 
-    def init_cache(self, cache: dict = {}, **kwargs):
+    def init_cache(self, cache: dict = None, **kwargs):
+        """Init cache.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+                **kwargs: Additional keyword arguments.
+            """
+        if cache is None:
+            cache = {}
 
         cache["frontend"] = {}
         cache["prev_samples"] = torch.empty(0)
@@ -655,6 +863,17 @@ class FsmnVADStreaming(nn.Module):
         cache: dict = None,
         **kwargs,
     ):
+        """Run inference on input data.
+        
+            Args:
+                data_in: Input data (audio samples, file paths, or text).
+                data_lengths: Lengths of each input sample in the batch.
+                key: Sample identifiers.
+                tokenizer: Tokenizer instance for text encoding/decoding.
+                frontend: Audio frontend for feature extraction.
+                cache: State cache dict for streaming inference.
+                **kwargs: Additional keyword arguments.
+            """
         if cache is None:
             cache = {}
         if len(cache) == 0:
@@ -686,6 +905,8 @@ class FsmnVADStreaming(nn.Module):
         is_streaming_input = cfg["is_streaming_input"]
         time2 = time.perf_counter()
         meta_data["load_data"] = f"{time2 - time1:0.3f}"
+        if len(audio_sample_list) == 0 or (hasattr(audio_sample_list[0], '__len__') and len(audio_sample_list[0]) == 0):
+            return [{"key": key[0] if key else "", "value": []}], meta_data
         assert len(audio_sample_list) == 1, "batch_size must be set 1"
 
         audio_sample = torch.cat((cache["prev_samples"], audio_sample_list[0]))
@@ -748,12 +969,24 @@ class FsmnVADStreaming(nn.Module):
 
     def export(self, **kwargs):
 
+        """Export.
+        
+            Args:
+                **kwargs: Additional keyword arguments.
+            """
         from .export_meta import export_rebuild_model
 
         models = export_rebuild_model(model=self, **kwargs)
         return models
 
-    def DetectCommonFrames(self, cache: dict = {}) -> int:
+    def DetectCommonFrames(self, cache: dict = None) -> int:
+        """Detectcommonframes.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         if cache["stats"].vad_state_machine == VadStateMachine.kVadInStateEndPointDetected:
             return 0
         for i in range(self.vad_opts.nn_eval_block_size - 1, -1, -1):
@@ -765,7 +998,14 @@ class FsmnVADStreaming(nn.Module):
 
         return 0
 
-    def DetectLastFrames(self, cache: dict = {}) -> int:
+    def DetectLastFrames(self, cache: dict = None) -> int:
+        """Detectlastframes.
+        
+            Args:
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         if cache["stats"].vad_state_machine == VadStateMachine.kVadInStateEndPointDetected:
             return 0
         for i in range(self.vad_opts.nn_eval_block_size - 1, -1, -1):
@@ -781,8 +1021,18 @@ class FsmnVADStreaming(nn.Module):
         return 0
 
     def DetectOneFrame(
-        self, cur_frm_state: FrameState, cur_frm_idx: int, is_final_frame: bool, cache: dict = {}
+        self, cur_frm_state: FrameState, cur_frm_idx: int, is_final_frame: bool, cache: dict = None
     ) -> None:
+        """Detectoneframe.
+        
+            Args:
+                cur_frm_state: TODO.
+                cur_frm_idx: TODO.
+                is_final_frame: Boolean flag for final frame.
+                cache: State cache dict for streaming inference.
+            """
+        if cache is None:
+            cache = {}
         tmp_cur_frm_state = FrameState.kFrameStateInvalid
         if cur_frm_state == FrameState.kFrameStateSpeech:
             if math.fabs(1.0) > self.vad_opts.fe_prior_thres:

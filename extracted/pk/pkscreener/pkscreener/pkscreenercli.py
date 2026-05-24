@@ -825,7 +825,7 @@ class ApplicationRunner:
                 choices = f"P_1_{str(index_num + 1)}_{str(selected_index_option)}" if ">|" in choices else choices
                 self.args.progressstatus = f"  [+] {choices} => Running {choices}"
                 self.args.usertag = PREDEFINED_SCAN_MENU_TEXTS[index_num]
-                self.args.maxdisplayresults = 2000
+                self.args.maxdisplayresults = 5000
         except:
             choices = ""
         return self.args, choices
@@ -944,7 +944,7 @@ class ApplicationRunner:
         self.result_stocks = None
         
         if self.args is not None and ((self.args.options is not None and "|" in self.args.options) or self.args.systemlaunched):
-            self.args.maxdisplayresults = 2000
+            self.args.maxdisplayresults = 5000
         
         cli_runner.update_config_durations()
         cli_runner.update_config()

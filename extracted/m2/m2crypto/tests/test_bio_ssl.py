@@ -5,7 +5,6 @@
 Copyright (c) 1999-2002 Ng Pheng Siong. All rights reserved."""
 
 import socket
-import sys
 import threading
 
 from M2Crypto import BIO
@@ -17,6 +16,10 @@ from M2Crypto import threading as m2threading
 from tests import unittest
 from tests.test_ssl import srv_host, allocate_srv_port
 
+# Timeout (seconds) for blocking socket operations in the handshake test.
+# Prevents the test from hanging indefinitely if the handshake deadlocks.
+_HANDSHAKE_TIMEOUT = 10
+
 
 class HandshakeClient(threading.Thread):
 
@@ -24,43 +27,47 @@ class HandshakeClient(threading.Thread):
         threading.Thread.__init__(self)
         self.host = host
         self.port = port
+        self.error = None
 
     def run(self):
-        ctx = SSL.Context()
-        ctx.load_cert_chain("tests/server.pem")
-        conn = SSL.Connection(ctx)
-        cipher_list = conn.get_cipher_list()
-        sslbio = BIO.SSLBio()
-        readbio = BIO.MemoryBuffer()
-        writebio = BIO.MemoryBuffer()
-        sslbio.set_ssl(conn)
-        conn.set_bio(readbio, writebio)
-        conn.set_connect_state()
         sock = socket.socket()
-        sock.connect((self.host, self.port))
+        try:
+            ctx = SSL.Context()
+            ctx.load_cert_chain("tests/server.pem")
+            conn = SSL.Connection(ctx)
+            sslbio = BIO.SSLBio()
+            readbio = BIO.MemoryBuffer()
+            writebio = BIO.MemoryBuffer()
+            sslbio.set_ssl(conn)
+            conn.set_bio(readbio, writebio)
+            conn.set_connect_state()
+            sock.settimeout(_HANDSHAKE_TIMEOUT)
+            sock.connect((self.host, self.port))
 
-        handshake_complete = False
-        while not handshake_complete:
-            ret = sslbio.do_handshake()
-            if ret <= 0:
-                if not sslbio.should_retry() or not sslbio.should_read():
+            handshake_complete = False
+            while not handshake_complete:
+                ret = sslbio.do_handshake()
+                output_token = writebio.read()
+                if output_token is not None:
+                    sock.sendall(output_token)
+
+                if ret > 0:
+                    handshake_complete = True
+                elif not sslbio.should_retry():
                     err_string = Err.get_error()
                     print(err_string)
-                    sys.exit("unrecoverable error in handshake - client")
-                else:
-                    output_token = writebio.read()
-                    if output_token is not None:
-                        sock.sendall(output_token)
-                    else:
-                        input_token = sock.recv(1024)
-                        readbio.write(input_token)
-            else:
-                handshake_complete = True
-
-        output_token = writebio.read()
-        if output_token is not None:
-            sock.sendall(output_token)
-        sock.close()
+                    self.error = "unrecoverable error in handshake - client"
+                    return
+                elif output_token is None and sslbio.should_read():
+                    input_token = sock.recv(1024)
+                    if not input_token:
+                        self.error = "connection closed during handshake - client"
+                        return
+                    readbio.write(input_token)
+        except OSError as exc:
+            self.error = str(exc)
+        finally:
+            sock.close()
 
 
 class SSLTestCase(unittest.TestCase):
@@ -123,29 +130,39 @@ class SSLTestCase(unittest.TestCase):
         handshake_complete = False
         srv_port = allocate_srv_port()
         sock = socket.socket()
+        sock.settimeout(_HANDSHAKE_TIMEOUT)
         sock.bind((srv_host, srv_port))
         sock.listen(5)
         handshake_client = HandshakeClient(srv_host, srv_port)
-        handshake_client.start()
-        new_sock, _ = sock.accept()
-        while not handshake_complete:
-            input_token = new_sock.recv(1024)
-            readbio.write(input_token)
+        try:
+            handshake_client.start()
+            new_sock, _ = sock.accept()
+            new_sock.settimeout(_HANDSHAKE_TIMEOUT)
+            try:
+                while not handshake_complete:
+                    ret = self.sslbio.do_handshake()
+                    output_token = writebio.read()
+                    if output_token is not None:
+                        new_sock.sendall(output_token)
 
-            ret = self.sslbio.do_handshake()
-            if ret <= 0:
-                if not self.sslbio.should_retry() or not self.sslbio.should_read():
-                    sys.exit("unrecoverable error in handshake - server")
-            else:
-                handshake_complete = True
-
-            output_token = writebio.read()
-            if output_token is not None:
-                new_sock.sendall(output_token)
-
-        handshake_client.join()
-        sock.close()
-        new_sock.close()
+                    if ret > 0:
+                        handshake_complete = True
+                    elif not self.sslbio.should_retry():
+                        self.fail("unrecoverable error in handshake - server")
+                    elif output_token is None and self.sslbio.should_read():
+                        input_token = new_sock.recv(1024)
+                        if not input_token:
+                            self.fail("connection closed during handshake - server")
+                        readbio.write(input_token)
+            finally:
+                new_sock.close()
+        finally:
+            sock.close()
+            handshake_client.join(_HANDSHAKE_TIMEOUT)
+        if handshake_client.is_alive():
+            self.fail("client handshake thread did not finish")
+        if handshake_client.error is not None:
+            self.fail(handshake_client.error)
 
 
 def suite():

@@ -1,22 +1,32 @@
 """
-calibration.py — LOOCV pan-Africa region_anomaly bias correction of
-AquaCrop predictions against HarvestStat observed yields.
+calibration.py — LOOCV region_anomaly bias correction of AquaCrop
+predictions against observed yields.
 
-Mirrors geocif's ``target_mode = region_anomaly`` pattern from
-``ml/trainers.py``: subtract per-region train-mean from y, predict
-deviation, add back at inference. Here we apply the same principle to
-AquaCrop's raw outputs since AquaCrop has known systematic biases vs
-smallholder African yields (typically overpredicts due to no fertility/
-weed/pest stress modeling).
+Despite the filename, no internal AquaCrop parameter (HI, WP, CCx, ...)
+is being calibrated. AquaCrop runs with its built-in default parameter
+set for the canonical crop name passed (Maize, Wheat, PaddyRice, ...).
+What this module does is fit a single additive offset per admin region
+on top of the raw AquaCrop output:
 
-Pool: pan_africa — per-region anomalies are demeaned using the pooled
-distribution of (HarvestStat - AquaCrop) residuals across ALL configured
-countries except the forecast region's own country in the forecast year.
-This is more stable than within-country pooling for data-sparse regions.
+    calibrated = raw_aquacrop_yield + region_offset
+
+It mirrors geocif's ``target_mode = region_anomaly`` pattern from
+``ml/trainers.py``: subtract per-region train-mean from y, predict the
+deviation, add back at inference. AquaCrop's systematic biases against
+smallholder yields are dominated by effects AquaCrop cannot model
+(fertilizer scarcity, weed/pest pressure, harvest losses); an additive
+offset absorbs all of those in one number per region.
+
+Pool options:
+- ``cross_country`` — Empirical-Bayes shrinkage of each per-region mean
+  residual toward the pooled mean across ALL countries in the training
+  set. Stable for data-sparse regions.
+- ``within_country`` — pure per-(country, region) mean, no cross-country
+  pooling.
 
 LOOCV: for each forecast year Y, training data = all (region, year)
-combinations EXCEPT year Y. Calibration is applied separately for each
-forecast year so the calibration set never contains the held-out year.
+rows except year Y. Calibration is fit separately for each forecast
+year so the training set never contains the held-out year.
 """
 
 from __future__ import annotations
@@ -34,7 +44,7 @@ def fit_region_anomaly_calibration(
     historical_df: pd.DataFrame,
     *,
     forecast_year: int,
-    pool: str = "pan_africa",
+    pool: str = "cross_country",
 ) -> dict:
     """Fit a LOOCV region_anomaly calibration model.
 
@@ -45,7 +55,7 @@ def fit_region_anomaly_calibration(
             the forecast year (the caller is responsible for excluding it).
         forecast_year: Held-out year — used only to verify it's not in the
             training data; not used for fitting.
-        pool: 'pan_africa' or 'within_country'.
+        pool: 'cross_country' or 'within_country'.
 
     Returns:
         Dict with:
@@ -61,8 +71,7 @@ def fit_region_anomaly_calibration(
     # Sanity: no forecast-year rows in training data
     if (df["Harvest Year"] == forecast_year).any():
         logger.warning(
-            "Calibration training set contains forecast year %d rows — dropping",
-            forecast_year,
+            f"Calibration training set contains forecast year {forecast_year} rows — dropping"
         )
         df = df[df["Harvest Year"] != forecast_year]
 
@@ -84,7 +93,8 @@ def fit_region_anomaly_calibration(
         - df["Predicted Yield (tn per ha)"]
     )
 
-    # Global fallback offset — pan-Africa mean of all residuals
+    # Global fallback offset — mean residual across all (region, year)
+    # pairs in the training set.
     global_offset = float(df["_resid"].mean())
 
     sum_per_region = df.groupby(["Country", "Region"])["_resid"].sum()
@@ -93,25 +103,25 @@ def fit_region_anomaly_calibration(
     if pool == "within_country":
         # Pure per-(country, region) mean — no cross-country pooling.
         region_offsets = sum_per_region / n_per_region
-    elif pool == "pan_africa":
-        # Empirical-Bayes shrinkage toward the pan-Africa global offset:
+    elif pool == "cross_country":
+        # Empirical-Bayes shrinkage toward the cross-country pooled offset:
         #   posterior = (n * sample_mean + k * global_offset) / (n + k)
         # k acts as a prior weight in "equivalent observations". k=3 is
         # mild — regions with N≥15 keep ~83% of their own signal; regions
-        # with N=2 are pulled ~60% toward the pan-Africa mean. This is
-        # what makes 'pan_africa' meaningfully different from
+        # with N=2 are pulled ~60% toward the cross-country mean. This is
+        # what makes 'cross_country' meaningfully different from
         # 'within_country' for data-sparse regions.
         k = 3.0
         region_offsets = (sum_per_region + k * global_offset) / (n_per_region + k)
     else:
         raise ValueError(f"Unknown pool: {pool!r}")
 
+    _r_min = region_offsets.min() if not region_offsets.empty else 0.0
+    _r_max = region_offsets.max() if not region_offsets.empty else 0.0
     logger.info(
-        "Calibration fitted: %d regions, global offset %+.3f tn/ha, "
-        "region offset range [%+.3f, %+.3f]",
-        len(region_offsets), global_offset,
-        region_offsets.min() if not region_offsets.empty else 0.0,
-        region_offsets.max() if not region_offsets.empty else 0.0,
+        f"Calibration fitted: {len(region_offsets)} regions, "
+        f"global offset {global_offset:+.3f} tn/ha, "
+        f"region offset range [{_r_min:+.3f}, {_r_max:+.3f}]"
     )
 
     return {
@@ -171,7 +181,7 @@ def apply_region_anomaly_calibration(
 def loocv_calibrate(
     df_all_years: pd.DataFrame,
     *,
-    pool: str = "pan_africa",
+    pool: str = "cross_country",
     pred_col: str = "Predicted Yield (tn per ha)",
 ) -> pd.DataFrame:
     """Apply LOOCV region_anomaly calibration year-by-year.
@@ -183,7 +193,7 @@ def loocv_calibrate(
     Args:
         df_all_years: DataFrame with columns Country, Region, Harvest Year,
             Predicted (raw), Observed.
-        pool: Calibration pool — 'pan_africa' or 'within_country'.
+        pool: Calibration pool — 'cross_country' or 'within_country'.
 
     Returns:
         DataFrame with the calibrated prediction column overwriting the

@@ -12,11 +12,13 @@ Root causes:
 3. Failed artifacts had no error message surfaced to the caller.
 """
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from notebooklm._artifacts import ArtifactsAPI
+from notebooklm._polling_registry import PollRegistry
 from notebooklm.rpc.types import ArtifactStatus
 from notebooklm.types import GenerationStatus
 
@@ -26,14 +28,32 @@ from notebooklm.types import GenerationStatus
 
 
 def _make_api():
-    """Return an ArtifactsAPI with mocked core + notes."""
+    """Return an ArtifactsAPI with mocked runtime + mind-map services."""
+    from notebooklm._mind_map import NoteBackedMindMapService
+    from notebooklm._note_service import NoteService
+
     core = MagicMock()
     core.rpc_call = AsyncMock()
-    core.get_source_ids = AsyncMock(return_value=[])
-    notes = MagicMock()
-    notes.list_mind_maps = AsyncMock(return_value=[])
-    notes.create = AsyncMock(return_value=MagicMock(id="note_1"))
-    return ArtifactsAPI(core, notes_api=notes)
+    # Real registry backing so wait_for_completion can ``dict.get(key)``.
+    core.poll_registry = PollRegistry()
+    core.operation_scope = MagicMock(side_effect=lambda _label: _noop_operation_scope())
+    core.bound_loop = None
+    core.assert_bound_loop = MagicMock(return_value=None)
+    mind_maps = MagicMock(spec=NoteBackedMindMapService)
+    note_service = MagicMock(spec=NoteService)
+    notebooks = MagicMock()
+    notebooks.get_source_ids = AsyncMock(return_value=[])
+    return ArtifactsAPI(
+        core,
+        notebooks=notebooks,
+        mind_maps=mind_maps,
+        note_service=note_service,
+    )
+
+
+@asynccontextmanager
+async def _noop_operation_scope():
+    yield None
 
 
 def _art(artifact_id: str, status: int, artifact_type: int = 1, error_at_3: str | None = None):

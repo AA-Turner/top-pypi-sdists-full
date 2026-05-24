@@ -48,9 +48,19 @@ SOILGRIDS_CONV = {
 OC_TO_OM = 1.724
 
 
-def _soilgrids_path(intermed_dir: Path, var: str, depth_cm: int) -> Path:
-    """Construct path for SoilGrids 5 km product."""
-    return intermed_dir / "soilgrids" / "tif" / f"{var}_0-{depth_cm}cm.tif"
+def _country_slug(country: str) -> str:
+    """Mirror of geoprepare.datasets.SOILGRIDS._country_slug."""
+    return country.lower().replace(" ", "_")
+
+
+def _soilgrids_path(
+    intermed_dir: Path, country: str, var: str, depth_cm: int,
+) -> Path:
+    """Construct path for SoilGrids 5 km product (per-country, geoprepare 0.6.242+)."""
+    return (
+        intermed_dir / "soilgrids" / _country_slug(country) / "tif"
+        / f"{var}_0-{depth_cm}cm.tif"
+    )
 
 
 class SoilReader:
@@ -60,22 +70,27 @@ class SoilReader:
     for the cell-by-cell loop. Cheap to construct, holds 4 file handles.
     """
 
-    def __init__(self, parser):
+    def __init__(self, parser, country: str):
+        # Initialize FIRST so __del__ → close() never races a partial init
+        # (if any subsequent parser.get / getint raises before this attr is
+        # set, __del__ would otherwise hit AttributeError and bury the real
+        # traceback).
+        self._datasets: dict[str, Optional[rasterio.DatasetReader]] = {}
         self.parser = parser
+        self.country = country
         self.dir_intermed = Path(parser.get("PATHS", "dir_intermed"))
         self.depth = parser.getint("AQUACROP", "soil_depth_cm", fallback=30)
 
-        self._datasets: dict[str, Optional[rasterio.DatasetReader]] = {}
         for var in ("sand", "clay", "soc", "bdod"):
-            path = _soilgrids_path(self.dir_intermed, var, self.depth)
+            path = _soilgrids_path(self.dir_intermed, country, var, self.depth)
             if not path.is_file():
-                logger.warning("SoilGrids missing: %s", path)
+                logger.warning(f"SoilGrids missing: {path}")
                 self._datasets[var] = None
                 continue
             try:
                 self._datasets[var] = rasterio.open(path)
             except (rasterio.RasterioIOError, OSError) as exc:
-                logger.warning("Cannot open %s: %s", path, exc)
+                logger.warning(f"Cannot open {path}: {exc}")
                 self._datasets[var] = None
 
     def close(self) -> None:
@@ -123,8 +138,8 @@ class SoilReader:
         # Plausibility: sand+clay should be < 100, OM < 30, BD in 0.5-2.0.
         if sand + clay > 100 or not 0 < om < 30 or not 0.5 < bd < 2.0:
             logger.debug(
-                "Implausible soil at (%.3f, %.3f): sand=%.1f clay=%.1f "
-                "OM=%.2f BD=%.2f", lon, lat, sand, clay, om, bd,
+                f"Implausible soil at ({lon:.3f}, {lat:.3f}): "
+                f"sand={sand:.1f} clay={clay:.1f} OM={om:.2f} BD={bd:.2f}"
             )
             return None
 

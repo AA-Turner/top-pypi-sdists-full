@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jinxed
-Version: 2.0.3
+Version: 2.0.4
 Summary: Jinxed Terminal Library
 Home-page: https://github.com/Rockhopper-Technologies/jinxed
 Author: Avram Lubkin
@@ -32,6 +32,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Terminals
 License-File: LICENSE
+License-File: LICENSE.ncurses
 Requires-Dist: ansicon; platform_system == "Windows"
 Dynamic: author
 Dynamic: author-email

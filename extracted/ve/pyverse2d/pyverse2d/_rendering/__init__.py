@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from ._fbo import Framebuffer
 from ._quad import ScreenQuad
+from ._image_loader import ImageLoader
 
 from ._spaces import (
     Window,
@@ -23,6 +24,7 @@ from ._pyglet_renderers import (
 __all__ = [
     "Framebuffer",
     "ScreenQuad",
+    "ImageLoader",
 
     "Window",
     "LogicalScreen",

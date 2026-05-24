@@ -7,6 +7,13 @@ cdef double _AUTO_REDISCOVERY_INTERVAL
 cdef double _AUTO_REDISCOVERY_SWEEP_DURATION
 cdef double _AUTO_WINDOW_MAX_DURATION
 cdef double _AUTO_WINDOW_MIN_DURATION
+cdef double _AUTO_CONNECTING_DEFER
+cdef double _AUTO_COALESCE_LOOKAHEAD
+cdef double _ON_DEMAND_EXTENSION_SLOP
+cdef int NO_RSSI_VALUE
+
+
+cdef double _clamp_window_duration(double duration) noexcept
 
 
 cdef class ActiveScanRequest:
@@ -26,12 +33,15 @@ cdef class _ScannerWorker:
     cdef public double _window_end
     cdef public double _sweep_last_completed
     cdef public bint _failed_window
+    cdef public bint _warned_no_fallback
 
     cpdef void start(self, object loop, double initial_offset=*)
 
     cpdef void stop(self)
 
     cpdef void wake(self)
+
+    cpdef void note_window_dispatched(self, double window_end, double now)
 
     @cython.locals(
         source=str,
@@ -51,10 +61,14 @@ cdef class _ScannerWorker:
         due=list,
         due_buckets=list,
         all_due=list,
+        threshold=double,
+        any_immediate=bint,
+        t=double,
     )
     cpdef tuple _collect_due_buckets(self, double now)
 
     @cython.locals(
+        _address=str,
         entries=dict,
         due=list,
         request=ActiveScanRequest,
@@ -70,6 +84,8 @@ cdef class AutoScanScheduler:
     cdef public dict _workers
     cdef public object _loop
     cdef public bint _running
+    cdef public object _on_demand_sweep_future
+    cdef public double _on_demand_sweep_end
 
     @cython.locals(
         existing=dict,
@@ -103,3 +119,14 @@ cdef class AutoScanScheduler:
     cpdef void start(self, object loop)
 
     cpdef void stop(self)
+
+    @cython.locals(
+        best_rssi=int,
+        rssi=int,
+        adv_rssi=object,
+        scanner=object,
+        mode=object,
+    )
+    cpdef tuple _resolve_fallback_for_address(
+        self, str address, str exclude_source
+    )

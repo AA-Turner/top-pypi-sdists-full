@@ -13,6 +13,7 @@ used, there are several specialized subclasses of it.
     ~simpy.events.AllOf
 
 """
+
 from __future__ import annotations
 
 from typing import (
@@ -171,7 +172,7 @@ class Event:
         """Set the event's value, mark it as successful and schedule it for
         processing by the environment. Returns the event instance.
 
-        Raises :exc:`RuntimeError` if this event has already been triggerd.
+        Raises :exc:`RuntimeError` if this event has already been triggered.
 
         """
         if self._value is not PENDING:
@@ -440,7 +441,7 @@ class Process(Event):
                     raise
 
                 msg = f'Invalid yield value "{event}"'
-                descr = _describe_frame(self._generator.gi_frame)
+                descr = _describe_frame(self._generator.gi_frame)  # type: ignore[attr-defined]
                 raise RuntimeError(f'\n{descr}{msg}') from None
 
         self._target = event
@@ -471,6 +472,8 @@ class ConditionValue:
             return self.todict() == other
         else:
             return NotImplemented
+
+    __hash__ = None  # type: ignore[assignment]
 
     def __repr__(self) -> str:
         return f'<ConditionValue {self.todict()}>'

@@ -27,10 +27,10 @@ Can be treated more easily if loaded into this:
 class User(NamedTuple):
    username: str
    shell: str = 'bash'
-   sessions: List[str] = []
+   sessions: list[str] = []
 
 class Logins(NamedTuple):
-   users: List[User]
+   users: list[User]
 
 And can then be loaded with
 
@@ -55,25 +55,28 @@ Supported datatypes
 ===================
 
 There is support for:
-    * Basic python types (int, str, bool, float, NoneType)
-    * NamedTuple
-    * Enum
-    * Optional[SomeType]
-    * List[SomeType]
-    * Dict[TypeA, TypeB]
-    * Tuple[TypeA, TypeB, TypeC]
-    * Tuple[SomeType, ...]
-    * Set[SomeType]
-    * Union[TypeA, TypeB]
-    * ForwardRef
-    * Literal
-    * Dataclass
-    * attrs
-    * TypedDict
-    * datetime
-    * re.Pattern
-    * Path
-    * IPv4Address, IPv6Address
+ * Basic python types (int, str, bool, float, NoneType)
+ * NamedTuple
+ * Enum
+ * Optional[SomeType]
+ * list[SomeType]
+ * dict[TypeA, TypeB]
+ * tuple[TypeA, TypeB, TypeC] and tuple[SomeType, ...]
+ * set[SomeType]
+ * TypeA | TypeB
+ * dataclass
+ * attr.s
+ * ForwardRef (Refer to the type in its own definition)
+ * Literal
+ * TypedDict
+ * datetime.date, datetime.time, datetime.datetime
+ * re.Pattern
+ * Path
+ * IPv4Address, IPv6Address
+ * typing.Any
+ * typing.NewType
+ * uuid.UUID
+ * typedload.moretypes
 
 Handlers
 ========
@@ -213,6 +216,9 @@ def dump(value: Any, **kwargs) -> Any:
 
     It is useful to avoid creating the Dumper object,
     in case only the default parameters are used.
+
+    For repeated calls this function will be slower than re-using
+    a dumper object.
     """
     from . import datadumper
     dumper = datadumper.Dumper(**kwargs)

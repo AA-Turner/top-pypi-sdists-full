@@ -636,6 +636,7 @@ class SearchReplace(
             search_replace_blocks,
             file_path,
             self.config.fuzzy_threshold,
+            read_state,
         )
 
         if block_result.errors:
@@ -1110,10 +1111,15 @@ class SearchReplace(
         try:
             loop = asyncio.get_running_loop()
             return await asyncio.wait_for(
-                loop.run_in_executor(None, _sync_read), timeout=10,
+                loop.run_in_executor(None, _sync_read), timeout=30,
             )
         except asyncio.TimeoutError:
-            raise ToolError(f"Timed out reading {file_path} after 10s.")
+            raise ToolError(
+                f"Timed out reading {file_path} after 30s. "
+                f"The file may be very large or the system is under load. "
+                f"Do NOT retry search_replace — use read_file on {file_path.name} "
+                f"first to verify the file exists and see its current content."
+            )
         except UnicodeDecodeError as e:
             raise ToolError(f"Unicode decode error reading {file_path}: {e}") from e
         except PermissionError:
@@ -1134,10 +1140,10 @@ class SearchReplace(
         try:
             loop = asyncio.get_running_loop()
             await asyncio.wait_for(
-                loop.run_in_executor(None, _sync_write), timeout=10,
+                loop.run_in_executor(None, _sync_write), timeout=30,
             )
         except asyncio.TimeoutError:
-            raise ToolError(f"Timed out writing {file_path} after 10s.")
+            raise ToolError(f"Timed out writing {file_path} after 30s.")
         except PermissionError:
             raise ToolError(f"Permission denied writing to file: {file_path}")
         except OSError as e:
@@ -1147,16 +1153,178 @@ class SearchReplace(
 
     @final
     @staticmethod
+    def _detect_multifile_rename(
+        search: str, replace: str, filepath: Path,
+    ) -> str | None:
+        """Pre-execution check: is this SEARCH→REPLACE a multi-file rename
+        in disguise that should use `mechanical_rename` instead?
+
+        Detection (v2, token-based — v1 required identical SEARCH text in
+        2+ files which never triggered because Gemma 4 tailors per-file
+        context):
+
+        1. Compute the set of identifier tokens in SEARCH but NOT REPLACE
+           (the "removed" tokens — the bug being renamed away).
+        2. Compute the set of tokens in REPLACE but NOT SEARCH (the
+           "added" tokens — what's replacing it).
+        3. If there's exactly one removed token and the removed token
+           appears in 2+ .py files of the same Python package
+           (word-bounded), this is a multi-file identifier rename.
+
+        Returns the redirect error string when the pattern matches; returns
+        None to let the search_replace proceed normally.
+
+        Gated by DRYDOCK_MULTIFILE_INTERCEPT=1 (default off).
+        """
+        import os as _os
+        if _os.environ.get(
+            "DRYDOCK_MULTIFILE_INTERCEPT", "0"
+        ).strip().lower() not in ("1", "true", "yes"):
+            return None
+
+        # Need some meaningful diff to analyze — skip trivial edits.
+        if len(search.strip()) < 30 or len(replace.strip()) < 5:
+            return None
+
+        # Locate the package root.
+        pkg_root = None
+        current = filepath.parent.resolve()
+        for _ in range(6):
+            if (current / "__init__.py").is_file():
+                pkg_root = current
+                # Walk up further while parent ALSO has __init__.py
+                while (current.parent / "__init__.py").is_file():
+                    current = current.parent
+                    pkg_root = current
+                break
+            current = current.parent
+            if current == current.parent:
+                break
+        if pkg_root is None:
+            return None
+
+        import re as _re
+        s_tokens = set(_re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", search))
+        r_tokens = set(_re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", replace))
+        only_in_search = s_tokens - r_tokens
+        only_in_replace = r_tokens - s_tokens
+
+        # Filter out trivial tokens — too short or stdlib/keyword.
+        _NOISE_TOKENS = {
+            "self", "cls", "True", "False", "None", "and", "or", "not",
+            "if", "else", "elif", "for", "while", "try", "except",
+            "import", "from", "as", "def", "class", "return", "in", "is",
+            "lambda", "with", "yield", "pass", "break", "continue",
+            "int", "str", "float", "bool", "list", "dict", "set", "tuple",
+            "len", "range", "print", "open", "type", "isinstance",
+            "Path", "json", "os", "re", "sys",
+        }
+        candidates = {
+            t for t in only_in_search
+            if len(t) >= 4 and t not in _NOISE_TOKENS
+        }
+        if not candidates:
+            return None
+
+        # Pick the candidate that appears in the most OTHER .py files
+        # within the package. If multiple, prefer the rarest in REPLACE
+        # (most likely to be the actual identifier being renamed).
+        best_token = None
+        best_count = 0
+        best_files: list[Path] = []
+        scanned = 0
+        for token in candidates:
+            files_with_token: list[Path] = []
+            scanned = 0
+            pat = _re.compile(rf"\b{_re.escape(token)}\b")
+            for fp in pkg_root.rglob("*.py"):
+                scanned += 1
+                if scanned > 30:
+                    break
+                if fp.resolve() == filepath.resolve():
+                    continue
+                try:
+                    if pat.search(fp.read_text(errors="replace")):
+                        files_with_token.append(fp)
+                except OSError:
+                    continue
+                if len(files_with_token) >= 6:
+                    break
+            if len(files_with_token) > best_count:
+                best_token = token
+                best_count = len(files_with_token)
+                best_files = files_with_token
+
+        if best_count < 2:
+            return None  # the removed token isn't in 2+ other files — proceed
+
+        # Build the suggestion. If there's exactly one added token,
+        # propose old→new explicitly.
+        added_candidates = {
+            t for t in only_in_replace
+            if len(t) >= 4 and t not in _NOISE_TOKENS
+        }
+        suggestion = ""
+        if len(added_candidates) == 1:
+            new_name = next(iter(added_candidates))
+            rel_root = pkg_root.name
+            suggestion = (
+                f"\n\nSuggested call (the rename appears to be "
+                f"`{best_token}` → `{new_name}`):\n"
+                f"  mechanical_rename(\n"
+                f"      old_name=\"{best_token}\",\n"
+                f"      new_name=\"{new_name}\",\n"
+                f"      scope=\"{rel_root}/\",\n"
+                f"      kind=\"field\",  # or function/class — pick based on what {best_token} is\n"
+                f"  )"
+            )
+
+        other_files_summary = ", ".join(
+            str(fp.relative_to(pkg_root.parent)) for fp in best_files[:5]
+        )
+        more = f" (+{best_count-5} more)" if best_count > 5 else ""
+
+        return (
+            f"REFUSED: this search_replace removes the identifier "
+            f"`{best_token}`, which appears in {best_count+1} files across "
+            f"the `{pkg_root.name}` package ({filepath.name}, "
+            f"{other_files_summary}{more}). That's a multi-file identifier "
+            f"rename — search_replace will fix only ONE file at a time, "
+            f"and the model historically loses track after 3-4 files. "
+            f"Use `mechanical_rename` instead — it applies the rename "
+            f"atomically across the package, runs pytest, and rolls back "
+            f"if the suite goes red.{suggestion}"
+        )
+
+    @staticmethod
     def _apply_blocks(
         content: str,
         blocks: list[SearchReplaceBlock],
         filepath: Path,
         fuzzy_threshold: float = 0.9,
+        read_state: dict | None = None,
     ) -> BlockApplyResult:
         applied = 0
         errors: list[str] = []
         warnings: list[str] = []
         current_content = content
+
+        # Multi-file rename interception (DRYDOCK_MULTIFILE_INTERCEPT=1).
+        # If ANY block's SEARCH text also appears in other .py files of the
+        # same package, refuse all blocks and tell the model to use
+        # mechanical_rename. Fast-fail before any disk write so we don't
+        # leave the file half-edited.
+        for search, replace in blocks:
+            redirect = SearchReplace._detect_multifile_rename(
+                search, replace, filepath,
+            )
+            if redirect:
+                return BlockApplyResult(
+                    content=content,
+                    applied=0,
+                    errors=[redirect],
+                    warnings=[],
+                )
 
         for i, (search, replace) in enumerate(blocks, 1):
             if search not in current_content:
@@ -1168,13 +1336,54 @@ class SearchReplace(
                 if (replace and replace.strip()
                         and len(replace.strip()) >= 10
                         and replace.strip() in current_content):
-                    warnings.append(
-                        f"Block {i}: ALREADY APPLIED — the replacement text already "
-                        f"exists in {filepath.name}. The search text is gone because "
-                        f"a previous edit already made this change. "
-                        f"Move on to the next task."
-                    )
-                    # Count as "applied" so we don't error — the file is correct
+                    # 2026-05-23: previously the message said "Move on to the
+                    # next task" — but when the original buggy pattern had
+                    # MULTIPLE identical occurrences in the file, fixing one
+                    # via search_replace doesn't fix the others. Telling the
+                    # model to stop after the first match leaves the other
+                    # instances broken (operator hit this in slides_gui/app.py
+                    # where lines 101 and 124 had the same Path+str bug; only
+                    # 101 got fixed, model loop-stopped after the warning).
+                    #
+                    # Heuristic: extract the "bug signature" — lines that
+                    # appear in SEARCH but not in REPLACE — and check if any
+                    # of them still occur in the file. If yes, the bug
+                    # remains at another site.
+                    bug_signatures = [
+                        ln.strip() for ln in search.splitlines()
+                        if ln.strip() and ln.strip() not in replace
+                        and len(ln.strip()) >= 15      # avoid one-token false matches
+                    ]
+                    remaining_sites: list[tuple[str, int]] = []
+                    for sig in bug_signatures:
+                        # Count exact-line occurrences in the file.
+                        occ = current_content.count(sig)
+                        if occ > 0:
+                            # Find first line number for the operator/model.
+                            for ln_no, ln in enumerate(current_content.splitlines(), start=1):
+                                if sig in ln:
+                                    remaining_sites.append((sig[:60], ln_no))
+                                    break
+                    if remaining_sites:
+                        sites_desc = "; ".join(
+                            f"line {ln}: {sig!r}" for sig, ln in remaining_sites[:3]
+                        )
+                        warnings.append(
+                            f"Block {i}: PARTIAL APPLY — the replacement was applied to "
+                            f"ONE site but the original buggy pattern still appears at "
+                            f"{len(remaining_sites)} other location(s) in {filepath.name}: "
+                            f"{sites_desc}. Emit another search_replace with more "
+                            f"surrounding context to target each remaining site, or "
+                            f"re-read the file and verify what still needs fixing."
+                        )
+                    else:
+                        warnings.append(
+                            f"Block {i}: ALREADY APPLIED — the replacement text already "
+                            f"exists in {filepath.name} and no other instances of the "
+                            f"original pattern remain. Re-read the file to verify "
+                            f"completeness before declaring done."
+                        )
+                    # Count as "applied" so we don't error — at least one site is correct.
                     applied += 1
                     continue
                 # Also detect deletion that already happened (search text removed,
@@ -1259,18 +1468,18 @@ class SearchReplace(
                 # just retries with the same wrong text.
                 try:
                     if read_state is not None:
-                        prior = read_state.get(str(file_path))
+                        prior = read_state.get(str(filepath))
                         if (prior
                                 and prior.get("content")
                                 and search not in prior["content"]):
                             error_msg += (
                                 "\n\n[POSSIBLE STALE SEARCH: you have edited "
-                                f"{file_path.name} since your last read_file "
+                                f"{filepath.name} since your last read_file "
                                 "on it — the SEARCH text doesn't appear in "
                                 "the file's CURRENT state. The text you're "
                                 "looking for may have been replaced by an "
                                 "earlier edit this session. read_file "
-                                f"{file_path.name} again to see the current "
+                                f"{filepath.name} again to see the current "
                                 "content before retrying.]"
                             )
                 except Exception:

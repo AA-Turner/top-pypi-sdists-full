@@ -57,7 +57,7 @@ UNAVAILABLE_TRACK_SECONDS: Final = 60 * 5
 # AUTO scanning mode: each scanner gets its first sweep
 # AUTO_INITIAL_SWEEP_DELAY after joining, then every
 # AUTO_REDISCOVERY_INTERVAL, serialized across scanners.
-AUTO_INITIAL_SWEEP_DELAY: Final = 60 * 10
+AUTO_INITIAL_SWEEP_DELAY: Final = 60 * 4
 AUTO_REDISCOVERY_INTERVAL: Final = 60 * 60 * 12
 AUTO_REDISCOVERY_SWEEP_DURATION: Final = 15.0
 
@@ -66,6 +66,15 @@ AUTO_REDISCOVERY_SWEEP_DURATION: Final = 15.0
 # the longest single ACTIVE flip we'll ever do for one device tick.
 AUTO_WINDOW_MIN_DURATION: Final = 5.0
 AUTO_WINDOW_MAX_DURATION: Final = 30.0
+
+# Per-device entries due within AUTO_COALESCE_LOOKAHEAD of now are
+# pulled into the current window so staggered registrations sync up
+# instead of triggering back-to-back active flips. Must exceed
+# AUTO_WINDOW_MAX_DURATION so a window can never outlive its
+# lookahead; the slop absorbs loop.time drift between bucket
+# collection and window open under a blocked event loop.
+AUTO_COALESCE_LOOKAHEAD_SLOP: Final = 5.0
+AUTO_COALESCE_LOOKAHEAD: Final = AUTO_WINDOW_MAX_DURATION + AUTO_COALESCE_LOOKAHEAD_SLOP
 
 # Minimum values accepted by async_register_active_scan. Anything
 # shorter would just churn the radio without giving the device time to
@@ -81,6 +90,12 @@ MIN_ACTIVE_SCAN_DURATION: Final = 5.0
 # scan_interval explicitly.
 DEFAULT_ACTIVE_SCAN_INTERVAL: Final = 300.0
 DEFAULT_ACTIVE_SCAN_DURATION: Final = 10.0
+
+# Default duration for an on-demand sweep triggered by
+# BluetoothManager.async_request_active_scan (HA config-flow discovery).
+# 10s gives every device on the bus a chance to advertise during the
+# window without holding the caller too long.
+DEFAULT_ON_DEMAND_SWEEP_DURATION: Final = 10.0
 
 
 FAILED_ADAPTER_MAC = "00:00:00:00:00:00"

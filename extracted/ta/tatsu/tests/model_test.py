@@ -158,7 +158,7 @@ def test_model_repr():
         g.Named()
 
     named = g.Named(name='foo')
-    assert repr(named) == f"Named(name='foo', exp={g.NULL.__name__}())"
+    assert repr(named) == f"Named(name='foo', exp={g.NIL.__name__}())"
 
     named = g.Named(name='foo', ast='bar')
     assert repr(named) == "Named(name='foo', exp='bar')"
@@ -217,7 +217,7 @@ def test_calc_repr():
               is_tokn=False,
               no_memo=False,
               no_stak=False,
-              is_memo=False,
+              is_memo=True,
               is_lrec=False
             ),
             Rule(

@@ -114,7 +114,7 @@ class PKCliRunner:
                 choices = f"P_1_{str(index_num + 1)}_{str(selected_index_option)}" if ">|" in choices else choices
                 self.args.progressstatus = f"  [+] {choices} => Running {choices}"
                 self.args.usertag = PREDEFINED_SCAN_MENU_TEXTS[index_num]
-                self.args.maxdisplayresults = 2000
+                self.args.maxdisplayresults = 5000
         except Exception as e:
             default_logger().debug(f"Error handling predefined scan: {e}")
             choices = ""
@@ -346,7 +346,7 @@ class IntradayAnalysisRunner:
         
         # Save and set max display results
         max_display_results = self.config_manager.maxdisplayresults
-        self.config_manager.maxdisplayresults = 2000
+        self.config_manager.maxdisplayresults = 5000
         self.config_manager.setConfig(ConfigManager.parser, default=True, showFileCreatedText=False)
         
         run_options = []

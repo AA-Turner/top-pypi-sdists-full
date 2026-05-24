@@ -2,10 +2,13 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
+
 import platform
 import re
+import sys
 import textwrap
 import traceback
+from io import StringIO
 
 import pytest
 
@@ -134,6 +137,9 @@ def test_exception_chaining(env):
             .replace(r'\{path\}', r'.*')
         )
 
+        # Allow optional PEP 657 (Python 3.11+) caret/tilde underline lines.
+        expected = expected.replace('\n', '\n' + r'(?:[ \t]+[~^]+\n)?')
+
         if platform.system() == 'Windows':
             expected = expected.replace(r'\/', r'\\')
 
@@ -201,7 +207,6 @@ def test_process_exception_chaining(env):
     traceback of the exception gets modified by a process.
 
     See https://bitbucket.org/simpy/simpy/issue/60 for more details."""
-    import traceback
 
     def process_a(event):
         try:
@@ -245,9 +250,6 @@ def test_sys_excepthook(env):
     except BaseException:
         # Let the default exception hook print the traceback to the redirected
         # standard error channel.
-        import sys
-        from io import StringIO
-
         stderr, sys.stderr = sys.stderr, StringIO()
 
         typ, e, tb = sys.exc_info()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typedload
-Version: 2.40
+Version: 2.41
 Summary: Load and dump data from json-like format into typed data structures
 Home-page: https://ltworf.codeberg.page/typedload/
 Author: Salvo 'LtWorf' Tomaselli
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -120,6 +121,7 @@ The following things are supported:
  * typing.Any
  * typing.NewType
  * uuid.UUID
+ * typedload.moretypes
 
 Unions
 ------

@@ -1,8 +1,8 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import positive, under, expect_callable
-from ...asset import Color
+from ..._internal import positive, under, expect_callable, expect
+from ...asset import Color, Image
 from ...math.easing import linear
 from ...typing import EasingFunc
 
@@ -24,6 +24,7 @@ class Particle:
         color_start: couleur initiale
         color_end: couleur finale
         easing: fonction d'atténuation temporelle
+        texture: texture des particules *(None = blob circulaire)*
     """
     lifetime: Tuple[Real, Real] = (1.0, 2.0)
     speed: Tuple[Real, Real] = (50.0, 150.0)
@@ -33,6 +34,7 @@ class Particle:
     color_start: Color = None
     color_end: Color = None
     easing: EasingFunc = linear
+    texture: Image = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'lifetime', (float(self.lifetime[0]), float(self.lifetime[1])))
@@ -55,6 +57,7 @@ class Particle:
             under(self.size[0], self.size[1])
             positive(self.size_end)
             expect_callable(self.easing)
+            expect(self.texture, (Image, None))
 
 # ======================================== EXPORTS ========================================
 __all__ = [

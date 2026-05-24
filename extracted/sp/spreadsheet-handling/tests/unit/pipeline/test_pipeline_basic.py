@@ -1,11 +1,13 @@
 import pandas as pd
 
-from spreadsheet_handling.pipeline.pipeline import (
+from spreadsheet_handling.pipeline import (
+    build_steps_from_config,
     run_pipeline,
+)
+from spreadsheet_handling.pipeline.steps import (
     make_validate_step,
     make_apply_fks_step,
     make_drop_helpers_step,
-    build_steps_from_config,
 )
 
 # Helpers to build tiny frames
@@ -36,14 +38,14 @@ def test_pipeline_validate_apply_drop_roundtrip():
 
     out = run_pipeline(frames, steps)
 
-    # Structure still there
-    assert set(out.keys()) == {"A", "B"}
+    # Structure still there (_meta may appear from helper provenance)
+    assert {"A", "B"} <= set(out.keys())
 
     # A unchanged
     pd.testing.assert_frame_equal(out["A"], frames["A"])
 
     # B should have no helper columns after drop
-    assert all(not str(c).startswith("_") for c in out["B"].columns)
+    assert list(out["B"].columns) == ["id_(A)"]
 
     # FK column is untouched
     assert "id_(A)" in out["B"].columns
@@ -58,8 +60,8 @@ def test_pipeline_build_from_config_registry():
             "mode_missing_fk": "warn",
             "defaults": {"id_field": "id", "label_field": "name", "detect_fk": True, "helper_prefix": "_"},
         },
-        {"step": "apply_fks", "defaults": {"id_field": "id", "label_field": "name", "detect_fk": True}},
-        {"step": "drop_helpers", "prefix": "_"},
+        {"step": "add_fk_helpers", "defaults": {"id_field": "id", "label_field": "name", "detect_fk": True}},
+        {"step": "remove_fk_helpers", "prefix": "_"},
     ]
 
     steps = build_steps_from_config(cfg_pipeline)
@@ -69,4 +71,30 @@ def test_pipeline_build_from_config_registry():
     assert "A" in out and "B" in out
     assert "id_(A)" in out["B"].columns
     # helpers should be dropped at the end
-    assert all(not str(c).startswith("_") for c in out["B"].columns)
+    assert list(out["B"].columns) == ["id_(A)"]
+
+
+def test_pipeline_reorder_multi_helpers_next_to_fk_in_configured_order():
+    frames = {
+        "A": pd.DataFrame({"id": ["1", "2"], "name": ["Alpha", "Beta"], "category": ["A", "B"]}),
+        "B": pd.DataFrame({"id": ["10", "20"], "value": ["x", "y"], "id_(A)": ["2", "1"]}),
+    }
+    defaults = {
+        "id_field": "id",
+        "label_field": "name",
+        "detect_fk": True,
+        "helper_prefix": "_",
+        "levels": 3,
+        "helper_fields_by_fk": {"id_(A)": ["category", "name"]},
+    }
+
+    out = run_pipeline(
+        frames,
+        [
+            make_apply_fks_step(defaults=defaults),
+            build_steps_from_config([{"step": "reorder_fk_helpers", "helper_prefix": "_"}])[0],
+        ],
+    )
+
+    lvl0 = [c[0] if isinstance(c, tuple) else c for c in out["B"].columns]
+    assert lvl0 == ["id", "value", "id_(A)", "_A_category", "_A_name"]

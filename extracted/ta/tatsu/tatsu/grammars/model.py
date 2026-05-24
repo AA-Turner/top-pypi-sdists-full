@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import weakref
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from copy import copy
 from dataclasses import field
 from functools import cached_property
@@ -147,10 +147,6 @@ class Model(Node, CanParse):
     def _nullable(self) -> bool:
         return False
 
-    # list of Model that can be invoked at the same position
-    def callable_at_same_pos(self) -> list[Model]:
-        return []
-
     def nodecount(self) -> int:
         return 1
 
@@ -173,12 +169,12 @@ class Model(Node, CanParse):
 
 
 @nodedataclass
-class NULL(Model):
+class NIL(Model):
     def _parse(self, ctx: Ctx) -> Any:
         return ctx.fail() or ()
 
     def _pretty(self, lean=False):
-        return NULL.__name__
+        return NIL.__name__
 
     @cached_property
     def _nullable(self) -> bool:
@@ -201,17 +197,17 @@ class Void(Model):
 @nodedataclass
 class Box(Model):
     name: str | None = field(init=False, default=None)
-    exp: Model = field(default_factory=NULL)
+    exp: Model = field(default_factory=NIL)
 
     def __post_init__(self):
-        noexp = not self.exp or isinstance(self.exp, NULL)
+        noexp = not self.exp or isinstance(self.exp, NIL)
         if noexp and not isinstance(self.ast, AST):
             self.exp = self.ast
         super().__post_init__()
         if isinstance(self.ast, AST):
             assert self.exp == self.ast.exp
-        # assert not isinstance(self.exp, NULL), self.ast
-        self.exp = self.exp if self.exp is not None else NULL()
+        # assert not isinstance(self.exp, NIL), self.ast
+        self.exp = self.exp if self.exp is not None else NIL()
         assert self.exp is not None, f'{typename(self)}({self.exp})'
         assert self.exp, repr(self)
 
@@ -248,12 +244,6 @@ class Box(Model):
     @cached_property
     def _nullable(self) -> bool:
         return self.exp._nullable
-
-    def callable_at_same_pos(
-        self,
-        rulemap: Mapping[str, Rule] | None = None,
-    ) -> list[Model]:
-        return [self.exp]
 
     def optimized(self) -> Model:
         return self.clone(exp=self.exp.optimized())
@@ -373,7 +363,7 @@ class Rule(NamedBox):
             skwparams = ''
             if self.kwparams:
                 skwparams = ', '.join(
-                    f'{k}={self.param_repr(v)}' for (k, v) in self.kwparams.items()
+                    (f'{k}={self.param_repr(v)}' for (k, v) in self.kwparams.items()),
                 )
 
             if params and skwparams:
@@ -468,6 +458,18 @@ class Grammar(Model):
         self._config.merge_config(config)
         self._config.merge(**settings)
 
+    @staticmethod
+    def load(value: Any) -> Grammar:
+        from .json import load_grammar
+
+        return load_grammar(value)
+
+    @staticmethod
+    def loads(value: str) -> Grammar:
+        from .json import loads_grammar
+
+        return loads_grammar(value)
+
     def _update_patterns(self):
         if not hasattr(self, 'patterns'):
             self.patterns = Patterns()
@@ -530,15 +532,15 @@ class Grammar(Model):
         return name
 
     def _mark_left_recursion(self):
-        from .leftrec import mark_left_recursion
+        from .leftrec.pegen_leftrec import mark_left_recursion_pegen
 
-        leftrect_rules = mark_left_recursion(self.rules)
+        leftrect_rules = mark_left_recursion_pegen(self.rules)
         if leftrect_rules and not self.config.left_recursion:
             config = self.config
             raise GrammarError(
                 f'{config.left_recursion=}'
                 f' but found left-recursive rules'
-                f' {', '.join(repr(r.name) for r in leftrect_rules)}!'
+                f' {', '.join(repr(r.name) for r in leftrect_rules)}!',
             )
 
     def _used_rule_names(self) -> set[str]:

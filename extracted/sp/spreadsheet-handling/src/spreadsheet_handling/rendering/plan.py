@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Union, Iterable
 
+from spreadsheet_handling.core.formulas import FormulaSpec
+
 # ----- Render Operations -----
 
 @dataclass(frozen=True)
@@ -48,6 +50,12 @@ class SetFreeze:
     col: int
 
 @dataclass(frozen=True)
+class SetColumnWidth:
+    sheet: str
+    col: int
+    width: float
+
+@dataclass(frozen=True)
 class AddValidation:
     sheet: str
     kind: str  # spreadsheet-neutral validation kind, e.g. "list"
@@ -55,7 +63,7 @@ class AddValidation:
     c1: int
     r2: int
     c2: int
-    formula: str  # adapter-facing validation expression derived from meta_canonical["constraints"]
+    formula: FormulaSpec  # backend-neutral validation intent
     allow_empty: bool = True
 
 @dataclass(frozen=True)
@@ -92,6 +100,24 @@ class DefineNamedRange:
     r2: int
     c2: int
 
+
+@dataclass(frozen=True)
+class SetSheetProtection:
+    """Enable sheet protection so locked cells cannot be edited."""
+    sheet: str
+    password: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ApplyCellLock:
+    """Set the locked/unlocked state for a column range of cells."""
+    sheet: str
+    col: int          # 1-based column index
+    from_row: int     # first row (header or data)
+    to_row: int       # last row
+    locked: bool = True
+
+
 RenderOp = Union[
     DefineSheet,
     SetHeader,
@@ -100,10 +126,13 @@ RenderOp = Union[
     ApplyColumnStyle,
     SetAutoFilter,
     SetFreeze,
+    SetColumnWidth,
     AddValidation,
     WriteDataBlock,
     WriteMeta,
     DefineNamedRange,
+    SetSheetProtection,
+    ApplyCellLock,
 ]
 
 # ----- Render Plan -----

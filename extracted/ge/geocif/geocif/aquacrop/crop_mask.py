@@ -71,11 +71,11 @@ def resolve_mask_path(parser, country: str, crop: str) -> Path:
             # 'sorghum' is the conventional fallback in crops.txt.
             fname = parser.get("sorghum", "mask")
         logger.debug(
-            "%s/%s: use_cropland_mask=True → %s", country, crop, fname,
+            f"{country}/{crop}: use_cropland_mask=True → {fname}"
         )
     else:
         fname = parser.get(crop, "mask")
-        logger.debug("%s/%s: crop-specific mask → %s", country, crop, fname)
+        logger.debug(f"{country}/{crop}: crop-specific mask → {fname}")
 
     path = dir_crop_masks / fname
     if not path.is_file():
@@ -128,7 +128,7 @@ def read_mask_array(
     finite_max = np.nanmax(arr) if np.any(np.isfinite(arr)) else 0.0
     if finite_max > 1.5:
         arr = arr / 100.0
-        logger.debug("Mask %s rescaled from 0-100%% to 0-1", path.name)
+        logger.debug(f"Mask {path.name} rescaled from 0-100% to 0-1")
 
     arr = np.clip(arr, 0.0, 1.0)
     return arr, profile

@@ -117,7 +117,7 @@ def enum_expanded_paths(path_list):
         if is_stdin(path):
             yield path
         elif path.is_dir():
-            for p in path.iterdir():
+            for p in sorted(path.iterdir()):
                 if p.suffix in {".yml", ".yaml"}:
                     yield from real(p)
         else:

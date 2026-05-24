@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.224
+Version: 0.3.225
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -20,6 +20,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: agent-client-protocol>=0.9.0
 Requires-Dist: aioboto3>=13.0.0
 Requires-Dist: anyio>=4.8.0
 Requires-Dist: beautifulsoup4>=4.10.0
@@ -51,7 +52,7 @@ Requires-Dist: semver>=3.0.0
 Requires-Dist: shortuuid
 Requires-Dist: sniffio
 Requires-Dist: tenacity
-Requires-Dist: textual>=2.1.0
+Requires-Dist: textual>=6.2.0
 Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: typing_extensions>=4.14.0
 Requires-Dist: universal-pathlib>=0.2.6
@@ -68,7 +69,7 @@ Requires-Dist: google-genai>=1.69.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"
-Requires-Dist: inspect-scout>=0.4.34; extra == "dev"
+Requires-Dist: inspect-scout>=0.4.37; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: jsonpath-ng; extra == "dev"
 Requires-Dist: markdown; extra == "dev"
@@ -89,6 +90,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pytest-textual-snapshot; extra == "dev"
 Requires-Dist: pytest-watcher; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff==0.9.6; extra == "dev"
@@ -134,6 +136,8 @@ Inspect provides many built-in components, including facilities for prompt engin
 To get started with Inspect, please see the documentation at <https://inspect.aisi.org.uk/>.
 
 Inspect also includes a collection of over 200 pre-built evaluations ready to run on any model (learn more at <https://inspect.aisi.org.uk/evals/>).
+
+> Coding agents: a structured index of the docs is published at <https://inspect.aisi.org.uk/llms.txt>. The user guide is concatenated as Markdown at <https://inspect.aisi.org.uk/llms-guide.txt>, and <https://inspect.aisi.org.uk/llms-full.txt> additionally bundles the API and CLI reference. Individual pages are available as Markdown by appending `.md` to the `.html` path (e.g. `/extensions/index.html.md`).
 
 ***
 

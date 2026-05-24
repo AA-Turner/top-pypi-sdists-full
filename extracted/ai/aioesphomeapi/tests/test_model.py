@@ -12,10 +12,13 @@ from aioesphomeapi.api_pb2 import (
     AlarmControlPanelStateResponse,
     AreaInfo as AreaInfoProto,
     BinarySensorStateResponse,
+    BluetoothConnectionsFreeResponse,
     BluetoothGATTCharacteristic,
     BluetoothGATTDescriptor,
     BluetoothGATTGetServicesResponse,
     BluetoothGATTService as BluetoothGATTServicePb,
+    BluetoothScannerMode,
+    BluetoothScannerState,
     BluetoothScannerStateResponse,
     ClimateStateResponse,
     CoverStateResponse,
@@ -91,11 +94,14 @@ from aioesphomeapi.model import (
     AreaInfo,
     BinarySensorInfo,
     BinarySensorState,
+    BluetoothConnectionsFree,
     BluetoothGATTCharacteristic as BluetoothGATTCharacteristicModel,
     BluetoothGATTDescriptor as BluetoothGATTDescriptorModel,
     BluetoothGATTService as BluetoothGATTServiceModel,
     BluetoothGATTServices as BluetoothGATTServicesModel,
     BluetoothProxyFeature,
+    BluetoothScannerMode as BluetoothScannerModeModel,
+    BluetoothScannerState as BluetoothScannerStateModel,
     BluetoothScannerStateResponse as BluetoothScannerStateResponseModel,
     ButtonInfo,
     CameraInfo,
@@ -352,6 +358,7 @@ def test_api_version_ord():
         (UpdateState, UpdateStateResponse),
         (NoiseEncryptionSetKeyResponseModel, NoiseEncryptionSetKeyResponse),
         (BluetoothScannerStateResponseModel, BluetoothScannerStateResponse),
+        (BluetoothConnectionsFree, BluetoothConnectionsFreeResponse),
         (ZWaveProxyFrame, ZWaveProxyFramePb),
         (ZWaveProxyRequest, ZWaveProxyRequestPb),
         (ExecuteServiceResponse, ExecuteServiceResponsePb),
@@ -364,6 +371,26 @@ def test_api_version_ord():
 )
 def test_basic_pb_conversions(model, pb):
     assert model.from_pb(pb()) == model()
+
+
+def test_bluetooth_scanner_state_surfaces_configured_mode() -> None:
+    pb = BluetoothScannerStateResponse(
+        state=BluetoothScannerState.BLUETOOTH_SCANNER_STATE_RUNNING,
+        mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_PASSIVE,
+        configured_mode=BluetoothScannerMode.BLUETOOTH_SCANNER_MODE_ACTIVE,
+    )
+    model = BluetoothScannerStateResponseModel.from_pb(pb)
+    assert model.state is BluetoothScannerStateModel.RUNNING
+    assert model.mode is BluetoothScannerModeModel.PASSIVE
+    assert model.configured_mode is BluetoothScannerModeModel.ACTIVE
+
+
+def test_bluetooth_connections_free_surfaces_allocated() -> None:
+    pb = BluetoothConnectionsFreeResponse(free=2, limit=3, allocated=[10, 20])
+    model = BluetoothConnectionsFree.from_pb(pb)
+    assert model.free == 2
+    assert model.limit == 3
+    assert model.allocated == [10, 20]
 
 
 @pytest.mark.parametrize(
@@ -932,6 +959,27 @@ def test_bluetooth_128bit_uuid_fallback() -> None:
     descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
     assert descriptor.uuid == "12345678-9abc-def0-1122-334455667788"
     assert descriptor.handle == 44
+
+
+def test_bluetooth_all_zero_uuid_from_pb() -> None:
+    """All-zero GATT UUID arrives as an empty uuid array (fixed_array_skip_zero)."""
+    # Firmware omits the split uuid field entirely when the UUID is all-zero,
+    # so neither short_uuid nor the uuid array is populated on the wire.
+    pb_descriptor = BluetoothGATTDescriptor()
+    pb_descriptor.handle = 7
+
+    descriptor = BluetoothGATTDescriptorModel.from_pb(pb_descriptor)
+    assert descriptor.uuid == "00000000-0000-0000-0000-000000000000"
+    assert descriptor.handle == 7
+
+
+def test_bluetooth_all_zero_uuid_from_dict() -> None:
+    """from_dict accepts an empty uuid list as the all-zero UUID."""
+    assert BluetoothGATTDescriptorModel.from_dict(
+        {"uuid": [], "handle": 7},
+    ) == BluetoothGATTDescriptorModel(
+        uuid="00000000-0000-0000-0000-000000000000", handle=7
+    )
 
 
 def test_bluetooth_characteristic_efficient_uuids() -> None:

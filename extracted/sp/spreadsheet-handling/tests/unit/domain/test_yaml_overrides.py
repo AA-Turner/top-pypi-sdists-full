@@ -6,12 +6,12 @@ import pytest
 import yaml
 
 from spreadsheet_handling.domain.yaml_overrides import load_overrides, apply_overrides
-from spreadsheet_handling.domain.meta_bootstrap import bootstrap_meta, _deep_merge
-from spreadsheet_handling.pipeline.pipeline import (
-    make_apply_overrides_step,
-    build_steps_from_config,
+from spreadsheet_handling.domain.meta_bootstrap import bootstrap_meta
+from spreadsheet_handling.pipeline import (
     REGISTRY,
+    build_steps_from_config,
 )
+from spreadsheet_handling.pipeline.steps import make_apply_overrides_step
 
 pytestmark = pytest.mark.ftr("FTR-YAML-OVERRIDES")
 
@@ -246,7 +246,7 @@ class TestComposerIntegration:
 class TestEndToEnd:
     def test_yaml_defaults_reach_render_plan(self, tmp_path):
         from spreadsheet_handling.rendering.composer.layout_composer import compose_workbook
-        from spreadsheet_handling.rendering.passes.core import StylePass, FilterPass, FreezePass
+        from spreadsheet_handling.rendering.passes import StylePass, FilterPass, FreezePass
         from spreadsheet_handling.rendering.flow import apply_ir_passes, build_render_plan
 
         ov_path = tmp_path / "overrides.yaml"
@@ -279,7 +279,7 @@ class TestEndToEnd:
 
     def test_yaml_overrides_reach_render_plan(self, tmp_path):
         from spreadsheet_handling.rendering.composer.layout_composer import compose_workbook
-        from spreadsheet_handling.rendering.passes.core import StylePass, FilterPass, FreezePass
+        from spreadsheet_handling.rendering.passes import StylePass, FilterPass, FreezePass
         from spreadsheet_handling.rendering.flow import apply_ir_passes, build_render_plan
 
         # Write overrides YAML

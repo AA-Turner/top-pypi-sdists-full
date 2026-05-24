@@ -753,6 +753,12 @@ def run_one(stop_after: str | None = None) -> dict:
     pty_log = pty_log_path.open("w", encoding="utf-8", errors="replace")
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    # 2026-05-23: enable new drydock improvements by default for harness runs.
+    # See test_harness_runner.py for the same block; matched here so both
+    # measurement vehicles exercise the same feature set.
+    env.setdefault("DRYDOCK_AUTOTEST", "1")
+    env.setdefault("DRYDOCK_COMPACT_PAIRS", "1")
+    env.setdefault("DRYDOCK_MULTIFILE_INTERCEPT", "1")
 
     child: pexpect.spawn | None = None
     last_message_index = 0

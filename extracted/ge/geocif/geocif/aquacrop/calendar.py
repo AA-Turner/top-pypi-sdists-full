@@ -2,12 +2,18 @@
 calendar.py — derive planting/harvest dates per calendar_region from the
 existing geocif calendar Excel (EWCM_*.xlsx / AMISCM_*.xlsx).
 
-The calendar Excel uses dekadal flags in columns jan_1, jan_2, jan_3,
-feb_1, ..., dec_3, with values:
+The calendar Excel uses bi-monthly flags in columns
+``jan_1, jan_15, feb_1, feb_15, ..., dec_1, dec_15`` (24 columns, two
+periods per month: ``<mon>_1`` covers days 1-14, ``<mon>_15`` covers
+days 15-end-of-month). Flag values:
     1 = season start (planting window)
     2 = mid-season
     3 = season end (harvest window)
     4 = off-season
+
+Older variants of this loader (pre-0.4.661) assumed 36 dekad columns
+(``<mon>_{1,2,3}``); the actual EWCM/AMISCM files have been bi-monthly
+the whole time. See git history for the dekad→bi-monthly migration.
 
 We expose:
     load_calendar(parser, country, crop, season)
@@ -37,14 +43,14 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-# Dekad columns in the calendar Excel, in chronological order.
+# Bi-monthly columns in the calendar Excel, in chronological order.
 _MONTHS = [
     "jan", "feb", "mar", "apr", "may", "jun",
     "jul", "aug", "sep", "oct", "nov", "dec",
 ]
-DEKAD_COLS: list[str] = [f"{m}_{d}" for m in _MONTHS for d in (1, 2, 3)]
-# 36 dekads. Dekad k (1..36) covers days-of-year roughly (k-1)*10+1 .. k*10
-# (with the third dekad of each month absorbing the remaining days).
+BIMONTH_COLS: list[str] = [f"{m}_{d}" for m in _MONTHS for d in (1, 15)]
+# 24 bins. Bin k (0..23) maps to (month=k//2+1, half=k%2): half 0 covers
+# days 1-14 of the month, half 1 covers days 15..last-day-of-month.
 
 # Flag semantics in the dekad columns
 FLAG_START = 1
@@ -53,25 +59,23 @@ FLAG_END = 3
 FLAG_OFF = 4
 
 
-def _dekad_to_doy(dekad_idx: int, year: int, *, edge: str = "start") -> int:
-    """Convert dekad index (0..35) to a day-of-year.
+def _bin_to_doy(bin_idx: int, year: int, *, edge: str = "start") -> int:
+    """Convert bi-monthly bin index (0..23) to a day-of-year.
 
-    ``edge='start'`` → first day of the dekad.
-    ``edge='end'``   → last day of the dekad.
+    Bin layout: ``<month>_1`` covers days 1-14, ``<month>_15`` covers
+    day 15 through the last day of the month.
 
-    Dekads 1 and 2 of a month are always days 1-10 / 11-20. Dekad 3 covers
-    day 21 through the last day of the month, so its length is 8-11 days.
+    ``edge='start'`` → first day of the bin.
+    ``edge='end'``   → last day of the bin.
     """
-    month = dekad_idx // 3 + 1  # 1..12
-    within = dekad_idx % 3      # 0, 1, 2
+    month = bin_idx // 2 + 1   # 1..12
+    within = bin_idx % 2       # 0 or 1
 
     if within == 0:
-        day = 1 if edge == "start" else 10
-    elif within == 1:
-        day = 11 if edge == "start" else 20
+        day = 1 if edge == "start" else 14
     else:
         if edge == "start":
-            day = 21
+            day = 15
         else:
             # Last day of the month
             if month == 12:
@@ -95,10 +99,10 @@ def _resolve_calendar_path(parser, country: str) -> Path:
 
 
 def _find_season_blocks(flags: np.ndarray) -> list[tuple[int, int]]:
-    """Find contiguous in-season blocks in a 36-dekad flag vector.
+    """Find contiguous in-season blocks in a 24-bin flag vector.
 
     A block is a maximal run of dekads with flag in {1, 2, 3}. Returns
-    a list of (start_dekad_idx, end_dekad_idx) tuples, sorted by the dekad
+    a list of (start_bin_idx, end_bin_idx) tuples, sorted by the bin
     that contains the FLAG_START sentinel (so block ordering matches the
     biological season order, not calendar position — important for seasons
     wrapping the year boundary).
@@ -149,31 +153,31 @@ def _block_to_dates(
 
     Returns ``(planting_date, harvest_date, growing_days)``.
     """
-    n = 36
+    n = 24
     s, e = block
     block_indices = [k % n for k in range(s, e + 1)]
 
     # Planting: first FLAG_START in the block
-    plant_dekad = next(
+    plant_bin = next(
         (k for k in block_indices if flags[k] == FLAG_START),
         block_indices[0],
     )
     # Harvest: last FLAG_END in the block
-    harvest_dekad = next(
+    harvest_bin = next(
         (k for k in reversed(block_indices) if flags[k] == FLAG_END),
         block_indices[-1],
     )
 
-    plant_doy = _dekad_to_doy(plant_dekad, year, edge="start")
+    plant_doy = _bin_to_doy(plant_bin, year, edge="start")
     plant_date = _dt.date(year, 1, 1) + _dt.timedelta(days=plant_doy - 1)
 
-    # Did the block wrap past Dec? If harvest_dekad < plant_dekad (after
-    # mod), harvest is in the next calendar year.
-    if harvest_dekad < plant_dekad:
+    # Did the block wrap past Dec? If harvest_bin < plant_bin (after mod),
+    # harvest is in the next calendar year.
+    if harvest_bin < plant_bin:
         harvest_year = year + 1
     else:
         harvest_year = year
-    harvest_doy = _dekad_to_doy(harvest_dekad, harvest_year, edge="end")
+    harvest_doy = _bin_to_doy(harvest_bin, harvest_year, edge="end")
     harvest_date = _dt.date(harvest_year, 1, 1) + _dt.timedelta(days=harvest_doy - 1)
 
     growing_days = (harvest_date - plant_date).days
@@ -244,17 +248,17 @@ def load_calendar(
             f"in {path}."
         )
 
-    # Verify required dekad columns are present
-    missing = [c for c in DEKAD_COLS if c not in df_country.columns]
+    # Verify required bi-monthly columns are present
+    missing = [c for c in BIMONTH_COLS if c not in df_country.columns]
     if missing:
         raise ValueError(
-            f"Calendar {path} missing dekad columns: {missing[:5]}..."
+            f"Calendar {path} missing bi-monthly columns: {missing[:5]}..."
         )
 
     out_rows = []
     for _, row in df_country.iterrows():
         region = row.get("calendar_region", row.get(country_col))
-        flags = row[DEKAD_COLS].to_numpy(dtype=float)
+        flags = row[BIMONTH_COLS].to_numpy(dtype=float)
         # Replace NaN with FLAG_OFF (4) so non-in-season treatment matches
         # the geomerge convention.
         flags = np.where(np.isnan(flags), FLAG_OFF, flags).astype(int)
@@ -262,8 +266,7 @@ def load_calendar(
         blocks = _find_season_blocks(flags)
         if not blocks:
             logger.warning(
-                "No in-season block for %s/%s/%s region=%s — skipping",
-                country, crop, season, region,
+                f"No in-season block for {country}/{crop}/{season} region={region} — skipping"
             )
             continue
 
@@ -272,8 +275,8 @@ def load_calendar(
         block_idx = season - 1
         if block_idx >= len(blocks):
             logger.warning(
-                "Region %s has only %d season(s), requested season=%d — skipping",
-                region, len(blocks), season,
+                f"Region {region} has only {len(blocks)} season(s), "
+                f"requested season={season} — skipping"
             )
             continue
 

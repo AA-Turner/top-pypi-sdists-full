@@ -2,6 +2,7 @@
 Tests for the utility functions from :mod:`simpy.util`.
 
 """
+
 import pytest
 
 from simpy import Interrupt
@@ -24,7 +25,7 @@ def test_start_delayed_error(env):
     def pem(env):
         yield env.timeout(1)
 
-    with pytest.raises(ValueError, match='delay.*must be > 0'):
+    with pytest.raises(ValueError, match=r'delay.*must be > 0'):
         start_delayed(env, pem(env), delay=-1)
 
 
@@ -63,7 +64,8 @@ def test_subscribe_terminated_proc(env):
     def parent(env):
         child_proc = env.process(child(env))
         yield env.timeout(2)
-        pytest.raises(RuntimeError, subscribe_at, child_proc)
+        with pytest.raises(RuntimeError):
+            subscribe_at(child_proc)
 
     env.process(parent(env))
     env.run()

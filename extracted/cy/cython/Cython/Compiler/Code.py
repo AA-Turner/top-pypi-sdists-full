@@ -95,7 +95,7 @@ basicsize_builtins_map = {
 }
 
 # Builtins as of Python version ...
-KNOWN_PYTHON_BUILTINS_VERSION = (3, 14, 0, 'beta', 1)
+KNOWN_PYTHON_BUILTINS_VERSION = (3, 15, 0, 'beta', 1)
 KNOWN_PYTHON_BUILTINS = frozenset([
     'ArithmeticError',
     'AssertionError',
@@ -125,6 +125,7 @@ KNOWN_PYTHON_BUILTINS = frozenset([
     'FutureWarning',
     'GeneratorExit',
     'IOError',
+    'ImportCycleError',
     'ImportError',
     'ImportWarning',
     'IndentationError',
@@ -176,6 +177,7 @@ KNOWN_PYTHON_BUILTINS = frozenset([
     '_IncompleteInputError',
     '__build_class__',
     '__debug__',
+    '__lazy_import__',
     '__import__',
     'abs',
     'aiter',
@@ -206,6 +208,7 @@ KNOWN_PYTHON_BUILTINS = frozenset([
     'filter',
     'float',
     'format',
+    'frozendict',
     'frozenset',
     'getattr',
     'globals',
@@ -240,6 +243,7 @@ KNOWN_PYTHON_BUILTINS = frozenset([
     'repr',
     'reversed',
     'round',
+    'sentinel',
     'set',
     'setattr',
     'slice',
@@ -257,6 +261,11 @@ KNOWN_PYTHON_BUILTINS = frozenset([
 uncachable_builtins = [
     # Global/builtin names that cannot be cached because they may or may not
     # be available at import time, for various reasons:
+    ## Python 3.15+
+    'frozendict',
+    'sentinel',
+    'ImportCycleError',
+    '__lazy_import__',
     ## Python 3.13+
     '_IncompleteInputError',
     'PythonFinalizationError',
@@ -267,11 +276,10 @@ uncachable_builtins = [
     'aiter',
     'anext',
     'EncodingWarning',
-    ## - Py3.7+
-    'breakpoint',  # might deserve an implementation in Cython
     ## - platform specific
     'WindowsError',
     ## - others
+    'breakpoint',  # Probably best left alone.
     '_',  # e.g. used by gettext
 ]
 

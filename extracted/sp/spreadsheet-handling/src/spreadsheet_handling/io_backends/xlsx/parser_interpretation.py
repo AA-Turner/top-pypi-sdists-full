@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Spreadsheet-semantic worksheet interpretation for the XLSX read path."""
+
+from __future__ import annotations
 
 from typing import Any, Mapping
 
@@ -9,13 +9,14 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from spreadsheet_handling.rendering.ir import DataValidationSpec, SheetIR, TableBlock
 
-
 OPTION_HINT_KEYS = (
     "freeze_header",
     "auto_filter",
     "header_fill_rgb",
     "helper_fill_rgb",
+    "helper_columns",
     "helper_prefix",
+    "protection",
 )
 
 
@@ -25,11 +26,7 @@ def build_sheet_meta_hints(
     sheet_name: str,
 ) -> dict[str, Any]:
     """Merge workbook defaults with sheet-local overrides for one visible sheet."""
-    meta_hints = {
-        key: workbook_meta[key]
-        for key in OPTION_HINT_KEYS
-        if key in workbook_meta
-    }
+    meta_hints = {key: workbook_meta[key] for key in OPTION_HINT_KEYS if key in workbook_meta}
 
     sheet_meta_hints = (workbook_meta.get("sheets") or {}).get(sheet_name, {})
     if isinstance(sheet_meta_hints, dict):
@@ -89,6 +86,10 @@ def build_visible_sheet_ir(
 
     if autofilter_ref:
         sh.meta["__autofilter_ref"] = autofilter_ref
+
+    column_widths = meta_hints.get("column_widths")
+    if column_widths:
+        sh.meta["__column_widths"] = column_widths
 
     return sh
 

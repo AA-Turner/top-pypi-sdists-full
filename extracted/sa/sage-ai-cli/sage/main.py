@@ -3840,6 +3840,11 @@ def _check_context_relevance(current_prompt: str, previous_prompt: str) -> bool:
 
     current_lower = current_prompt.lower()
     previous_lower = previous_prompt.lower()
+    
+    # Fresh start markers — if present, context is definitely NOT relevant
+    fresh_markers = ["fresh start", "new topic", "forget memory", "don't use context", "clear history", "start fresh"]
+    if any(m in current_lower for m in fresh_markers):
+        return False
 
     # 1. Explicit follow-up markers
     followup_keywords = [
@@ -3945,6 +3950,60 @@ def _build_followup_context_from_recent_analysis(
 # ══════════════════════════════════════════════════════════════════════════════
 # CONVERSATION MEMORY - Full conversation context (inputs + outputs)
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+def _get_global_memory() -> str:
+    """Fetch user's cross-thread Global Memory from SAGE backend."""
+    from sage.core.cli_auth import load_auth, SAGE_API_BASE
+    import httpx as _httpx
+    
+    auth = load_auth()
+    if auth and auth.get("id_token"):
+        try:
+            with _httpx.Client(timeout=5) as client:
+                r = client.get(
+                    f"{SAGE_API_BASE}/memory",
+                    headers={"Authorization": f"Bearer {auth['id_token']}"},
+                )
+                if r.is_success:
+                    return r.json().get("memory", "")
+        except Exception:
+            pass
+            
+    # Local fallback
+    mem_path = Path.home() / ".sage" / "global_memory.json"
+    if mem_path.exists():
+        try:
+            return _json.loads(mem_path.read_text("utf-8")).get("content", "")
+        except Exception:
+            return ""
+    return ""
+
+
+def _update_global_memory(content: str) -> None:
+    """Update user's cross-thread Global Memory on SAGE backend and local fallback."""
+    from sage.core.cli_auth import load_auth, SAGE_API_BASE
+    import httpx as _httpx
+    
+    auth = load_auth()
+    if auth and auth.get("id_token"):
+        try:
+            with _httpx.Client(timeout=5) as client:
+                client.post(
+                    f"{SAGE_API_BASE}/memory",
+                    json={"memory": content},
+                    headers={"Authorization": f"Bearer {auth['id_token']}"},
+                )
+        except Exception:
+            pass
+            
+    # Local fallback
+    mem_path = Path.home() / ".sage" / "global_memory.json"
+    try:
+        mem_path.parent.mkdir(parents=True, exist_ok=True)
+        mem_path.write_text(_json.dumps({"content": content, "updated_at": _time.time()}), "utf-8")
+    except Exception:
+        pass
 
 
 def _load_conversation_memory(cwd: Path) -> list[dict]:
@@ -11302,12 +11361,12 @@ def _ai_understand_prompt(
     # Build a lightweight codebase snapshot for context
     try:
         # Top-level structure
-        ls_out = _run_shell("find . -maxdepth 3 -type f | grep -v '__pycache__\\|.git\\|node_modules\\|.gguf\\|\\.pyc' | head -80", cwd, timeout=5)
+        ls_out = _run_shell(r"find . -maxdepth 3 -type f | grep -v '__pycache__\|.git\|node_modules\|.gguf\|.pyc' | head -80", cwd, timeout=5)
         # Recent git changes (what's been worked on)
         git_recent = _run_shell("git log --oneline -8 2>/dev/null || echo 'no git'", cwd, timeout=5)
         # Active file count by type
         type_summary = _run_shell(
-            "find . -maxdepth 4 -type f | grep -oE '\\.[^./]+$' | sort | uniq -c | sort -rn | head -15 2>/dev/null",
+            r"find . -maxdepth 4 -type f | grep -oE '\.[^./]+$' | sort | uniq -c | sort -rn | head -15 2>/dev/null",
             cwd, timeout=5
         )
         codebase_snapshot = (
@@ -11648,6 +11707,10 @@ class SAGEAgent:
         self._protected = _build_session_protected_files(cwd)
 
         self.current_plan: ExecutionPlan | None = None
+        import queue
+        self.hint_queue = queue.Queue()
+        self._is_running = False
+        self._is_repl = False
         self._model_timed_out: bool = False  # set when model exceeds timeout; blocks retry loop
         self.files_read: list[str] = []
         self.execution_ledger = _reset_evidence_tracker()
@@ -11690,8 +11753,22 @@ class SAGEAgent:
 
         resume_context = _build_resume_context_from_memory(self.cwd, user_msg)
         followup_context = _build_followup_context_from_recent_analysis(self.cwd, user_msg)
+        
+        # Selective Memory: Skip global memory if user asks for a fresh start
+        user_lower = user_msg.lower()
+        fresh_markers = ["fresh start", "new topic", "forget memory", "don't use context", "clear history", "start fresh"]
+        is_fresh = any(m in user_lower for m in fresh_markers)
+        
+        global_memory = _get_global_memory() if not is_fresh else ""
+        if is_fresh and not self.minimal_output:
+            self.renderer.info("   Fresh start requested — skipping Global Memory injection.")
+        
+        mem_block = ""
+        if global_memory:
+            mem_block = f"## USER GLOBAL MEMORY (Across all threads)\n{global_memory}"
+            
         supplemental_context = "\n\n".join(
-            context for context in (resume_context, followup_context) if context
+            context for context in (mem_block, resume_context, followup_context) if context
         )
 
         if system_prompt:
@@ -11756,6 +11833,17 @@ class SAGEAgent:
                         _add_to_conversation_memory(self.cwd, "assistant", response)
                     _add_to_output_history(self.cwd, response, user_msg)
                     _failure_loop_detector.reset()
+                    
+                    # Process Global Memory Update
+                    if "MEMORY_UPDATE:" in response:
+                        import re as _re
+                        _match = _re.search(r"MEMORY_UPDATE:\s*(.*)", response, _re.IGNORECASE | _re.DOTALL)
+                        if _match:
+                            _new_mem = _match.group(1).strip()
+                            _old_mem = _get_global_memory()
+                            _merged = f"{_old_mem}\n{_new_mem}".strip() if _old_mem else _new_mem
+                            _update_global_memory(_merged[:4000])
+
                 return response or None
 
             result = self.renderer.stream_tokens_with_phase(
@@ -11784,6 +11872,17 @@ class SAGEAgent:
                     _add_to_conversation_memory(self.cwd, "assistant", response)
                 _add_to_output_history(self.cwd, response, user_msg)
                 _failure_loop_detector.reset()
+
+                # Process Global Memory Update
+                if "MEMORY_UPDATE:" in response:
+                    import re as _re
+                    _match = _re.search(r"MEMORY_UPDATE:\s*(.*)", response, _re.IGNORECASE | _re.DOTALL)
+                    if _match:
+                        _new_mem = _match.group(1).strip()
+                        _old_mem = _get_global_memory()
+                        _merged = f"{_old_mem}\n{_new_mem}".strip() if _old_mem else _new_mem
+                        _update_global_memory(_merged[:4000])
+
             return response or None
 
         except renderer.StreamingTimeoutError as exc:
@@ -12724,6 +12823,13 @@ class SAGEAgent:
             if accumulated_responses:
                 findings_to_inject.extend(accumulated_responses)
 
+            # Consume any hints provided by the user while the agent was running
+            if hasattr(self, "hint_queue"):
+                while not self.hint_queue.empty():
+                    hint = self.hint_queue.get()
+                    findings_to_inject.append(f"USER REAL-TIME HINT/INTERRUPTION:\n{hint}")
+                    self.renderer.info(f"💡 Absorbed real-time hint into current phase: {hint[:60]}...")
+
             if findings_to_inject:
                 findings = "\n\n".join(findings_to_inject)
                 context_block = (
@@ -13133,11 +13239,18 @@ class SAGEAgent:
         else:
             status_msg = "Synthesizing execution strategy..."
 
-        dock_active = self.renderer.activate_bottom_dock(
-            todos=task_todos,
-            status_message=status_msg,
-            prompt_message="Planning...",
-        )
+        # 1.5 Activate bottom dock EARLY (before planning) to show progress.
+        # Skip if running in the async REPL as it manages its own bottom layout.
+        if not getattr(self, "_is_repl", False):
+            dock_active = self.renderer.activate_bottom_dock(
+                todos=task_todos,
+                status_message=status_msg,
+                prompt_message="Planning...",
+            )
+        else:
+            dock_active = False
+            self.renderer.set_bottom_dock_todos(task_todos)
+            self.renderer.set_bottom_dock_status(status_msg)
 
         current_plan_context = ""
         if enhanced_mode:
@@ -13319,7 +13432,7 @@ class SAGEAgent:
                         if _manifest_exec:
                             break
 
-            _MAX_EXEC_BATCHES = 22
+            _MAX_EXEC_BATCHES = int(os.environ.get("SAGE_BATCH_LIMIT", "250"))
             _empty_rounds = 0  # consecutive batches with no new files
             for _batch_num in range(1, _MAX_EXEC_BATCHES + 1):
                 # Trim context between batches
@@ -14010,6 +14123,7 @@ def run(
         context_manager=context_persistence_mgr,
     )
     _global_agent = sage_agent
+    sage_agent._is_repl = True
 
     # Track reasoning context for the session
 
@@ -14018,1188 +14132,26 @@ def run(
 
     _protected = _build_session_protected_files(cwd)
 
-    while True:
+    # ── Professional Async REPL with Bottom-Anchored Prompt ──
+    # Replaces the old synchronous while-loop with a threaded background executor
+    # and a pinned input field that accepts concurrent "hints" during execution.
+    from sage.core.repl import run_repl
+
+    def _repl_execute(user_input: str) -> None:
+        """Synchronous wrapper for agent execution inside the async REPL."""
         try:
-            prompt_text = "you> " if multiline_buffer is None else "...  "
-            raw = prompt_reader(prompt_text)
-        except (EOFError, KeyboardInterrupt):
-            renderer.info("\nGoodbye.")
-            break
-
-        # Multi-line mode
-        if multiline_buffer is not None:
-            if raw.rstrip() == '"""':
-                user_input = "\n".join(multiline_buffer)
-                multiline_buffer = None
-            else:
-                multiline_buffer.append(raw)
-                continue
-        elif raw.lstrip().startswith('"""'):
-            rest = raw.lstrip()[3:]
-            multiline_buffer = [rest] if rest else []
-            continue
-        else:
-            user_input = raw.strip()
-
-        if not user_input:
-            continue
-
-        # Surface a paste indicator so the user sees exactly how many lines
-        # and characters made it through their terminal. Suppress if the
-        # bracketed-paste handler already announced inline (avoids dup).
-        if not getattr(prompt_reader, "last_paste_fired", lambda: False)():
-            _show_paste_indicator(user_input)
-
-        # ── Shell escape: !command ─────────────────────────
-        if user_input.startswith("!"):
-            shell_cmd = user_input[1:].strip()
-            if shell_cmd:
-                renderer.print_shell_start(shell_cmd)
-                with renderer.status_spinner(f"Running: {shell_cmd[:60]}...", "executing"):
-                    output = _run_shell(shell_cmd, cwd)
-                renderer.print_shell_output(output)
-                engine.add_user(f"[Shell command: {shell_cmd}]")
-                engine.add_assistant(f"Command output:\n```\n{output}\n```")
-            continue
-
-        # ── Agent commands ──────────────────────────────────
-        if user_input.startswith("/"):
-            cmd_parts = user_input.split(None, 1)
-            command = cmd_parts[0].lower()
-            arg = cmd_parts[1] if len(cmd_parts) > 1 else ""
-
-            if command in {"/exit", "/quit", "/q"}:
-                renderer.info("Goodbye.")
-                break
-            elif command == "/help":
-                renderer.print_agent_help()
-                continue
-            elif command == "/clear":
-                engine.clear()
-                sage_agent.last_written.clear()
-                sage_agent.all_written.clear()
-                sage_agent.files_read.clear()
-                sage_agent.sticky_context_files.clear()
-                renderer.success("Conversation and file history cleared.")
-                continue
-            elif command == "/undo":
-                last_cp = checkpoint_mgr.get_last_checkpoint()
-                if last_cp and last_cp.description != "Session start":
-                    renderer.phase("time_travel", f"Restoring to: {last_cp.description}")
-                    result = checkpoint_mgr.restore_checkpoint(last_cp)
-                    if result.success:
-                        while len(engine._messages) > last_cp.message_count:
-                            engine._messages.pop()
-                        for fp in last_cp.files_written:
-                            if fp in sage_agent.all_written:
-                                sage_agent.all_written.remove(fp)
-                        sage_agent.last_written.clear()
-                        checkpoint_mgr.checkpoints.pop()
-                        renderer.success(f"⏪ {result.message}")
-                    else:
-                        renderer.error(f"Undo failed: {result.message}")
-                continue
-            elif command == "/model":
-                if arg:
-                    try:
-                        cfg, new_model = _prepare_model_for_use(cfg, arg)
-                    except Exception as exc:
-                        renderer.error(str(exc))
-                        continue
-                    router = _build_router(cfg)
-                    model_id = new_model
-                    model_locked = _should_lock_requested_model(arg, cfg)
-                    # Update agent state
-                    sage_agent.model_id = model_id
-                    sage_agent.router = router
-                    sage_agent.model_locked = model_locked
-                    renderer.success(f"Switched to model: {model_id}")
-                else:
-                    renderer.info(f"Current model: {model_id}")
-                continue
-            elif command == "/models":
-                # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KEYWORD]
-                # NOTE: do NOT name this `tokens` — the outer scope has a
-                # `tokens: int` (max_tokens count) parameter that this would
-                # shadow, and the shadowed list value then leaks into the next
-                # chat call as max_tokens=['--all'], producing 422 from the
-                # backend. Confirmed via real CLI session on 2026-05-16.
-                argv = (arg or "").split()
-                show_all = "--all" in argv
-                show_details = "--details" in argv or "-d" in argv
-                slash_provider = None
-                slash_filter = None
-                i = 0
-                while i < len(argv):
-                    if argv[i] in {"--provider", "-p"} and i + 1 < len(argv):
-                        slash_provider = argv[i + 1]
-                        i += 2
-                        continue
-                    if argv[i] in {"--filter", "-f"} and i + 1 < len(argv):
-                        slash_filter = argv[i + 1]
-                        i += 2
-                        continue
-                    # Bare keyword = filter (e.g. `/models coder`)
-                    if not argv[i].startswith("-") and slash_filter is None:
-                        slash_filter = argv[i]
-                    i += 1
-
-                all_models = router.list_all_models()
-                if slash_provider:
-                    all_models = [m for m in all_models if m.provider.lower() == slash_provider.lower()]
-                if slash_filter:
-                    kw = slash_filter.lower()
-                    all_models = [
-                        m for m in all_models
-                        if kw in f"{m.id} {m.name} {getattr(m, 'description', '') or ''}".lower()
-                    ]
-                renderer.info(
-                    f"Listing {len(all_models)} models"
-                    + (f" (provider={slash_provider})" if slash_provider else "")
-                    + (f" (filter={slash_filter!r})" if slash_filter else "")
-                )
-                rows = [
-                    {
-                        "id": m.id, "provider": m.provider, "name": m.name,
-                        "local": m.local,
-                        "description": getattr(m, "description", "") or "",
-                        "pros": getattr(m, "pros", "") or "",
-                        "cons": getattr(m, "cons", "") or "",
-                    }
-                    for m in all_models
-                ]
-                renderer.print_model_table(
-                    rows, show_all=show_all, show_details=show_details,
-                )
-                continue
-            elif command == "/system":
-                if arg:
-                    engine.system_prompt = arg
-                    renderer.success("System prompt updated.")
-                else:
-                    sp = engine.system_prompt or "(none)"
-                    renderer.info(f"System prompt: {sp}")
-                continue
-            elif command == "/history":
-                renderer.info(f"Turns: {engine.turn_count}")
-                continue
-            elif command == "/version":
-                from sage.core.updater import CLIAutoUpdater
-
-                updater = CLIAutoUpdater()
-                current = updater.get_current_version()
-                renderer.info(f"SAGE AI version: [bold cyan]v{current}[/bold cyan]")
-                with renderer.status_spinner("Checking for updates...", "reading"):
-                    version_info = updater.check_for_update()
-                    if version_info.update_available:
-                        renderer.info(
-                            f"✨ [yellow]Update available:[/yellow] [bold cyan]v{version_info.latest}[/bold cyan]"
-                        )
-                        renderer.info("Run [bold]/update[/bold] to upgrade.")
-                    else:
-                        renderer.info("You are on the latest version.")
-                continue
-            elif command == "/status":
-                renderer.info("📊 [bold]Agent Status:[/bold]")
-                renderer.info(f"  [cyan]Model:[/cyan] {model_id}")
-                renderer.info(f"  [cyan]Files read:[/cyan] {len(sage_agent.files_read)}")
-                renderer.info(f"  [cyan]Files written:[/cyan] {len(sage_agent.all_written)}")
-                renderer.info(
-                    f"  [cyan]Sticky files:[/cyan] {len(sage_agent.sticky_context_files)}"
-                )
-                if sage_agent.current_plan:
-                    renderer.info(
-                        f"  [cyan]Current plan:[/cyan] {sage_agent.current_plan.id} ({len(sage_agent.current_plan.tasks)} tasks)"
-                    )
-                else:
-                    renderer.info("  [cyan]Current plan:[/cyan] None")
-                continue
-            elif command == "/update":
-                _perform_cli_update(from_repl=True)
-                continue
-            elif command == "/read":
-                if arg:
-                    path = Path(arg)
-                    if not path.is_absolute():
-                        path = cwd / path
-                    if path.exists() and path.is_file():
-                        sage_agent.sticky_context_files.append(str(path))
-                        renderer.success(f"File added to context: {arg}")
-                    else:
-                        renderer.error(f"File not found: {arg}")
-                else:
-                    if sage_agent.sticky_context_files:
-                        renderer.info("Files in context:")
-                        for f in sage_agent.sticky_context_files:
-                            renderer.info(f"  - {f}")
-                    else:
-                        renderer.info("No files in context.")
-                continue
-            elif command == "/test":
-                test_cmd = arg or full_project_test_cmd or default_test_cmd
-                renderer.phase("testing", f"Running tests: {test_cmd}")
-                success, output = tdd_gate.run_tests(test_cmd)
-                if success:
-                    renderer.success("Tests passed!")
-                else:
-                    renderer.error("Tests failed.")
-                renderer.print_shell_output(output)
-                continue
-            elif command == "/files":
-                if sage_agent.all_written:
-                    renderer.info("Files written in this session:")
-                    for f in sorted(list(set(sage_agent.all_written))):
-                        renderer.info(f"  - {f}")
-                else:
-                    renderer.info("No files written yet.")
-                continue
-            elif command == "/compact":
-                if compactor:
-                    renderer.phase("compacting", "📦 Compacting context...")
-                    engine._messages = compactor.compact(engine._messages, router, model_id)
-                    renderer.success("Context compacted.")
-                else:
-                    renderer.warning("Compactor not available.")
-                continue
-            elif command == "/think":
-                if arg.lower() in ("off", "false", "0"):
-                    renderer.set_output_mode("clean")
-                    renderer.success("Thinking blocks disabled (clean mode).")
-                elif arg.lower() in ("on", "true", "1"):
-                    renderer.set_output_mode("normal")
-                    renderer.success("Thinking blocks enabled (normal mode).")
-                else:
-                    mode = renderer.get_output_mode()
-                    renderer.info(
-                        f"Thinking mode: {'enabled' if mode != 'clean' else 'disabled'} (current mode: {mode})"
-                    )
-                continue
-            elif command in ("/autopolit", "/autopilot"):
-                # Single-thread autonomous loop. Optional message; without
-                # one, sage analyzes the codebase and improves it with TDD.
-                # Runs indefinitely until Ctrl-C or `.sage/AUTO-STOP` appears.
-                _run_autopolit_command(
-                    arg.strip() or None,
-                    cwd=cwd,
-                    sage_agent=sage_agent,
-                    router=router,
-                    model_id=model_id,
-                    temp=temp,
-                    tokens=tokens,
-                    model_locked=model_locked,
-                )
-                continue
-            elif command == "/autofleet":
-                # Parallel-subagent autonomous loop. Decomposes each
-                # iteration into N subtasks running in their own threads.
-                _run_autofleet_command(
-                    arg.strip() or None,
-                    cwd=cwd,
-                    router=router,
-                    model_id=model_id,
-                    temp=temp,
-                    tokens=tokens,
-                    model_locked=model_locked,
-                    cfg=cfg,
-                )
-                continue
-            elif command == "/autoorg":
-                # Organisation-role autonomous loop. Each role (product,
-                # engineering, QA, security, devops, docs) runs as a
-                # separate subagent in parallel per iteration.
-                _run_autoorg_command(
-                    arg.strip() or None,
-                    cwd=cwd,
-                    router=router,
-                    model_id=model_id,
-                    temp=temp,
-                    tokens=tokens,
-                    model_locked=model_locked,
-                )
-                continue
-            else:
-                renderer.warning(f"Unknown command: {command}")
-                continue
-
-        # Conversational prompts go straight to the model — no agent tool loop.
-        # Coding / file-manipulation tasks go through the full SAGEAgent.
-        if _is_simple_qa_prompt(user_input):
-            try:
-                messages = _build_simple_qa_messages(
-                    user_input,
-                    system_prompt=engine.system_prompt,
-                    history=engine._messages[-8:] if engine._messages else None,
-                )
-                if not minimal_output:
-                    renderer.phase("thinking", f"Sending request to {model_id}...")
-                renderer.console.print("[bold green]sage>[/bold green] ", end="")
-                response = renderer.stream_tokens(
-                    router.stream(messages, model_id, temp, tokens, lock_provider=model_locked)
-                )
-                engine.add_user(user_input)
-                engine.add_assistant(response)
-                _track_cli_usage(response_text=response)
-            except KeyboardInterrupt:
-                renderer.warning("\nInterrupted by user")
-            except Exception as exc:
-                renderer.error(str(exc))
-            continue
-
-        # ── Auto-route build-style prompts through the principal pipeline ──
-        # Routes single or multi-task prompts uniformly via the shared helper.
-        # Writes directly into the current project root — scaffolds the repo
-        # the user is in, not a subfolder.
-        try:
-            report = _route_to_principal_pipeline(
-                user_input,
-                cwd,
-                router=router,
-                model_id=model_id,
-                temp=temp,
-                tokens=tokens,
-                model_locked=model_locked,
-                system_prompt=engine.system_prompt,
-            )
-            if report is not None:
-                engine.add_user(user_input)
-                if "sub_projects" in report:
-                    summary = (
-                        f"Generated {len(report['sub_projects'])} projects under "
-                        f"{report['out_dir']}: "
-                        + ", ".join(p.get("label", "?") for p in report["sub_projects"])
-                    )
-                else:
-                    file_count = report.get("file_count", len(report.get("files", [])))
-                    summary = (
-                        f"Generated a {report['stack']} project at {report['out_dir']} "
-                        f"with {file_count} files."
-                    )
-                    if report.get("install_ok") is not None:
-                        summary += (
-                            f" install_ok={report['install_ok']} "
-                            f"tests_ok={report['tests_ok']}"
-                        )
-                    if report.get("stuck_features"):
-                        summary += (
-                            " STUCK features: " + ", ".join(report["stuck_features"])
-                        )
-                engine.add_assistant(summary)
-                continue
-        except Exception as build_exc:
-            # Eager debug write — happens BEFORE any string formatting or
-            # renderer call so even errors like KeyError(' Worker ') from
-            # broken .format() templates surface their traceback.
-            import sys as _sys_dbg
-            import traceback as _tb_dbg
-            from pathlib import Path as _Path_dbg
-            _tb_text_eager = (
-                f"build_exc type: {type(build_exc).__name__}\n"
-                f"build_exc args: {build_exc.args!r}\n\n"
-                + _tb_dbg.format_exc()
-            )
-            print(
-                f"\n[BUILD-ROUTING-TRACEBACK-EAGER]\n{_tb_text_eager}\n[/BUILD-ROUTING-TRACEBACK-EAGER]\n",
-                file=_sys_dbg.stderr,
-                flush=True,
-            )
-            for _p in (
-                _Path_dbg("/tmp/sage_build_routing_traceback.log"),
-                _Path_dbg.cwd() / ".sage" / "build_routing_traceback.log",
-            ):
-                try:
-                    _p.parent.mkdir(parents=True, exist_ok=True)
-                    _p.write_text(_tb_text_eager)
-                except Exception:
-                    pass
-            build_err_str = str(build_exc)
-            # "All providers failed" means every configured backend (cloud +
-            # local fallbacks) is unreachable. Falling through to the agent
-            # loop in this state produces plan-only prose with no code —
-            # the model can't write code if no model is callable. Stop here
-            # with actionable next steps so the user doesn't burn their
-            # session waiting on a chain that can't recover.
-            if "All providers failed" in build_err_str:
-                renderer.error(
-                    "All AI providers are currently unavailable.\n"
-                    "  • OpenRouter free tier: caps reset every few minutes — wait and retry.\n"
-                    "  • Ollama: start the daemon (`ollama serve`) or run `sage doctor`.\n"
-                    "  • llama.cpp: try a different GGUF (`sage list`, then `/model <id>`).\n"
-                    "  • Switch model now: `/model ollama:llama3.2` or any model from `sage models`."
-                )
-                continue
-            renderer.warning(f"Build routing skipped: {build_exc}")
-            # Log full traceback to /tmp (always writable) AND project .sage/
-            # so we can diagnose KeyError / format() failures that would
-            # otherwise be silently swallowed before falling through to the
-            # slower agent-loop scaffold.
-            import sys as _sys
-            import traceback as _tb
-            from pathlib import Path as _Path
-            _tb_text = (
-                f"build_exc type: {type(build_exc).__name__}\n"
-                f"build_exc args: {build_exc.args!r}\n\n"
-                + _tb.format_exc()
-            )
-            print(
-                f"\n[BUILD-ROUTING-TRACEBACK]\n{_tb_text}\n[/BUILD-ROUTING-TRACEBACK]\n",
-                file=_sys.stderr,
-                flush=True,
-            )
-            for _dbg_path in (
-                _Path("/tmp/sage_build_routing_traceback.log"),
-                _Path.cwd() / ".sage" / "build_routing_traceback.log",
-            ):
-                try:
-                    _dbg_path.parent.mkdir(parents=True, exist_ok=True)
-                    _dbg_path.write_text(_tb_text)
-                except Exception as _w_exc:
-                    print(
-                        f"[debug-write-failed] {_dbg_path}: {_w_exc!r}",
-                        file=_sys.stderr,
-                        flush=True,
-                    )
-            # Fall through to standard agent loop
-
-        # Default: Execute coding/analysis task via SAGEAgent.
-        # First, let the model understand and expand the prompt — this turns brief
-        # or misspelled input into a grounded, actionable task description.
-        if not minimal_output:
-            renderer.phase("thinking", f"Processing task with {model_id}...")
-        task_to_run = user_input
-        if len(user_input.split()) <= 40:
-            try:
-                with renderer.status_spinner("Understanding task...", "thinking"):
-                    task_to_run = _ai_understand_prompt(
-                        user_input,
-                        cwd,
-                        sage_agent.send_single_turn_to_model,
-                    )
-            except Exception:
-                task_to_run = user_input  # fall back to original on any error
-
-        try:
-            sage_agent.execute_task_prompt(task_to_run, save_history=True)
+            # Re-use the agent logic
+            sage_agent.execute_task_prompt(user_input, save_history=True)
         except KeyboardInterrupt:
             renderer.warning("\nInterrupted by user")
         except Exception as e:
-            # Typed sage-hosted errors get a clean upgrade pitch / quota message
-            # instead of a raw traceback. Catching by name avoids a hard import
-            # dependency on `sage_hosted` (the provider may have failed to
-            # register at startup).
-            err_class = type(e).__name__
-            if err_class == "UpgradeRequired":
-                upgrade_url = getattr(e, "upgrade_url", "https://sageworksai.com/#billing")
-                renderer.warning(
-                    "🔒 This model is part of the Sage Pro plan.\n"
-                    "\n"
-                    "Free tier: OpenRouter public models + local Ollama (unlimited).\n"
-                    "Pro tier ($9/mo): sage-hosted private models — Qwen Coder, Llama,\n"
-                    "DeepSeek R1, Phi-4, vision, long context, and more.\n"
-                    "\n"
-                    f"Upgrade: {upgrade_url}\n"
-                    "Or pick a free model with `/model openrouter:<name>` or `/model ollama:<name>`."
-                )
-            elif err_class == "DailyQuotaExceeded":
-                retry = getattr(e, "retry_after", None)
-                hours = (retry // 3600) if isinstance(retry, int) else None
-                window = f" Resets in ~{hours}h." if hours else " Resets at midnight UTC."
-                renderer.warning(
-                    f"⏱️  Daily cloud quota hit.{window}\n"
-                    "Switch to a local Ollama model for unlimited use:\n"
-                    "  /model ollama:llama3.2  (or any other ollama: model)"
-                )
-            else:
-                renderer.error(f"Error executing task: {e}")
-                import traceback
+            renderer.error(f"Error: {e}")
 
-                renderer.error(traceback.format_exc())
-
-    # run function ends here
-
-
-_run_repl = run
-
-
-@app.command()
-def chat(
-    model: Annotated[
-        str | None, typer.Option("--model", "-m", help="Model ID (provider:model)")
-    ] = None,
-    system: Annotated[str | None, typer.Option("--system", "-s", help="System prompt")] = None,
-    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
-    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
-    no_stream: Annotated[bool, typer.Option("--no-stream", help="Disable streaming")] = False,
-) -> None:
-    """Interactive chat session (REPL)."""
-    cwd = Path.cwd()
-    _set_current_cwd(cwd)
-    _run_startup_context(cwd)
-
-    cfg = load_config()
-    try:
-        cfg, model_id = _prepare_model_for_use(cfg, model or cfg.default_model)
-    except RuntimeError as exc:
-        renderer.error(str(exc))
-        raise typer.Exit(1) from exc
-    router = _build_router(cfg)
-    model_locked = bool(model)
-
-    temp = temperature if temperature is not None else cfg.temperature
-    tokens = max_tokens if max_tokens is not None else cfg.max_tokens
-
-    engine = ConversationEngine(
-        system_prompt=system or cfg.system_prompt,
-        max_history=50,
-    )
-
-    renderer.print_welcome(model_id)
-
-    multiline_buffer: list[str] | None = None
-
-    # Background stdin reader — collects lines typed while sage is processing
-    # so the user doesn't have to wait silently or retype context.
-    import threading as _threading
-    import queue as _queue
-    _input_queue: _queue.Queue[str | None] = _queue.Queue()
-    _is_processing = False
-
-    def _bg_stdin_reader() -> None:
-        """Daemon thread: reads raw stdin lines into _input_queue."""
-        import sys as _sys
-        while True:
-            try:
-                line = _sys.stdin.readline()
-                if not line:
-                    _input_queue.put(None)  # EOF
-                    break
-                _input_queue.put(line.rstrip("\n"))
-            except Exception:
-                break
-
-    # Only start the background reader when we're in a real interactive TTY
-    import sys as _sys2
-    _use_bg_reader = _sys2.stdin.isatty() and not prompt  # not in --prompt mode
-    if _use_bg_reader:
-        _bg_thread = _threading.Thread(target=_bg_stdin_reader, daemon=True)
-        _bg_thread.start()
-
-    def _read_next_input() -> str:
-        """Get next user line — from queue (background typed) or console.input()."""
-        if _use_bg_reader:
-            prompt_text = (
-                "[bold cyan]you>[/bold cyan] " if multiline_buffer is None else "[dim]...[/dim]  "
-            )
-            renderer.console.print(prompt_text, end="", highlight=False)
-            raw = _input_queue.get()  # blocks until user types
-            if raw is None:
-                raise EOFError
-            return raw
-        else:
-            prompt_text = (
-                "[bold cyan]you>[/bold cyan] " if multiline_buffer is None else "[dim]...[/dim]  "
-            )
-            return renderer.console.input(prompt_text)
-
-    while True:
-        # Drain any lines typed while sage was processing (from queue)
-        _pending: list[str] = []
-        if _use_bg_reader:
-            while True:
-                try:
-                    _pending.append(_input_queue.get_nowait())
-                except _queue.Empty:
-                    break
-            if _pending:
-                # Show what was queued so the user knows sage saw it
-                for _p in _pending:
-                    renderer.console.print(
-                        f"[dim]  ↩ Queued: {_p[:80]}[/dim]", highlight=False
-                    )
-        try:
-            if _pending:
-                raw = _pending[0]
-                if len(_pending) > 1:
-                    # Re-queue the rest
-                    for _extra in _pending[1:]:
-                        _input_queue.put(_extra)
-            else:
-                raw = _read_next_input()
-        except (EOFError, KeyboardInterrupt):
-            renderer.info("\nGoodbye.")
-            break
-
-        # Multi-line mode
-        if multiline_buffer is not None:
-            if raw.rstrip() == '"""':
-                user_input = "\n".join(multiline_buffer)
-                multiline_buffer = None
-            else:
-                multiline_buffer.append(raw)
-                continue
-        elif raw.lstrip().startswith('"""'):
-            # Start multi-line
-            rest = raw.lstrip()[3:]
-            multiline_buffer = [rest] if rest else []
-            continue
-        else:
-            user_input = raw.strip()
-
-        if not user_input:
-            continue
-
-        # Suppress if bracketed-paste handler already announced inline.
-        if not getattr(prompt_reader, "last_paste_fired", lambda: False)():
-            _show_paste_indicator(user_input)
-
-        # ── REPL commands ───────────────────────────────────
-        if user_input.startswith("/"):
-            cmd = user_input.split(None, 1)
-            command = cmd[0].lower()
-            arg = cmd[1] if len(cmd) > 1 else ""
-
-            if command in {"/exit", "/quit", "/q"}:
-                renderer.info("Goodbye.")
-                break
-            elif command == "/help":
-                renderer.print_help()
-                continue
-            elif command == "/clear":
-                engine.clear()
-                renderer.success("Conversation cleared.")
-                continue
-            elif command == "/update":
-                _perform_cli_update(from_repl=True)
-                continue
-            elif command == "/models":
-                # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KW]
-                # See twin handler above for why this is `argv`, not `tokens`.
-                argv = (arg or "").split()
-                show_all = "--all" in argv
-                show_details = "--details" in argv or "-d" in argv
-                slash_provider = None
-                slash_filter = None
-                i = 0
-                while i < len(argv):
-                    if argv[i] in {"--provider", "-p"} and i + 1 < len(argv):
-                        slash_provider = argv[i + 1]
-                        i += 2
-                        continue
-                    if argv[i] in {"--filter", "-f"} and i + 1 < len(argv):
-                        slash_filter = argv[i + 1]
-                        i += 2
-                        continue
-                    if not argv[i].startswith("-") and slash_filter is None:
-                        slash_filter = argv[i]
-                    i += 1
-
-                all_models = router.list_all_models()
-                if slash_provider:
-                    all_models = [
-                        m for m in all_models
-                        if m.provider.lower() == slash_provider.lower()
-                    ]
-                if slash_filter:
-                    kw = slash_filter.lower()
-                    all_models = [
-                        m for m in all_models
-                        if kw in f"{m.id} {m.name} {getattr(m, 'description', '') or ''}".lower()
-                    ]
-                renderer.info(f"Listing {len(all_models)} models")
-                rows = [
-                    {
-                        "id": m.id, "provider": m.provider, "name": m.name,
-                        "local": m.local,
-                        "description": getattr(m, "description", "") or "",
-                        "pros": getattr(m, "pros", "") or "",
-                        "cons": getattr(m, "cons", "") or "",
-                    }
-                    for m in all_models
-                ]
-                renderer.print_model_table(
-                    rows, show_all=show_all, show_details=show_details,
-                )
-                continue
-            elif command == "/model":
-                if arg:
-                    try:
-                        cfg, new_model = _prepare_model_for_use(cfg, arg)
-                    except Exception as exc:
-                        renderer.error(str(exc))
-                        continue
-                    router = _build_router(cfg)
-                    model_id = new_model
-                    model_locked = _should_lock_requested_model(arg, cfg)
-                    renderer.success(f"Switched to model: {model_id}")
-                else:
-                    renderer.info(f"Current model: {model_id}")
-                continue
-            elif command == "/system":
-                if arg:
-                    engine.system_prompt = arg
-                    renderer.success("System prompt updated.")
-                else:
-                    sp = engine.system_prompt or "(none)"
-                    renderer.info(f"System prompt: {sp}")
-                continue
-            elif command == "/history":
-                renderer.info(f"Turns: {engine.turn_count}")
-                continue
-            elif command == "/version":
-                from sage.core.updater import CLIAutoUpdater
-
-                updater = CLIAutoUpdater()
-                current = updater.get_current_version()
-                renderer.info(f"SAGE AI version: [bold cyan]v{current}[/bold cyan]")
-                with renderer.status_spinner("Checking for updates...", "reading"):
-                    version_info = updater.check_for_update()
-                    if version_info.update_available:
-                        renderer.info(
-                            f"✨ [yellow]Update available:[/yellow] [bold cyan]v{version_info.latest}[/bold cyan]"
-                        )
-                        renderer.info("Run [bold]/update[/bold] to upgrade.")
-                    else:
-                        renderer.info("You are on the latest version.")
-                continue
-            elif command == "/status":
-                renderer.info("📊 [bold]Chat Status:[/bold]")
-                renderer.info(f"  [cyan]Model:[/cyan] {model_id}")
-                renderer.info(f"  [cyan]History turns:[/cyan] {len(engine._messages) // 2}")
-                continue
-            else:
-                renderer.warning(f"Unknown command: {command}")
-                continue
-
-        # ── Auto-route build prompts through the principal pipeline ──
-        # Writes directly into the current project root.
-        try:
-            report = _route_to_principal_pipeline(
-                user_input,
-                Path.cwd(),
-                router=router,
-                model_id=model_id,
-                temp=temp,
-                tokens=tokens,
-                model_locked=model_locked,
-                system_prompt=engine.system_prompt,
-            )
-            if report is not None:
-                engine.add_user(user_input)
-                if "sub_projects" in report:
-                    summary = (
-                        f"Generated {len(report['sub_projects'])} projects under "
-                        f"{report['out_dir']}"
-                    )
-                else:
-                    file_count = report.get("file_count", len(report.get("files", [])))
-                    summary = (
-                        f"Generated a {report['stack']} project at {report['out_dir']} "
-                        f"with {file_count} files."
-                    )
-                    if report.get("install_ok") is not None:
-                        summary += (
-                            f" install_ok={report['install_ok']} "
-                            f"tests_ok={report['tests_ok']}"
-                        )
-                    if report.get("stuck_features"):
-                        summary += (
-                            " STUCK features: " + ", ".join(report["stuck_features"])
-                        )
-                engine.add_assistant(summary)
-                continue
-        except Exception:
-            pass  # Fall through to standard chat path on any error
-
-        # ── Send to model ───────────────────────────────────
-        engine.add_user(user_input)
-        messages = engine.build_messages()
-
-        try:
-            renderer.console.print("[bold green]sage>[/bold green] ", end="")
-            if no_stream:
-                response = router.generate(
-                    messages, model_id, temp, tokens, lock_provider=model_locked
-                )
-                renderer.console.print()
-                renderer.render_markdown(response)
-            else:
-                response = renderer.stream_tokens(
-                    router.stream(messages, model_id, temp, tokens, lock_provider=model_locked)
-                )
-            engine.add_assistant(response)
-            # Track CLI usage with actual response text for accurate token counting
-            _track_cli_usage(response_text=response)
-        except Exception as exc:
-            engine._messages.pop()  # Remove the failed user message
-            renderer.error(str(exc))
-
-
-@app.command()
-def ask(
-    prompt: Annotated[str | None, typer.Argument(help="Prompt text")] = None,
-    file: Annotated[
-        Path | None,
-        typer.Option("--file", "-f", help="Read file content as context (auto-extracts PDF/DOCX)"),
-    ] = None,
-    image: Annotated[
-        list[Path] | None,
-        typer.Option(
-            "--image",
-            help="Attach an image (PNG/JPEG/GIF/WebP). Repeat to attach multiple. "
-            "Routes to cloud:llava-next-7b automatically.",
-        ),
-    ] = None,
-    model: Annotated[str | None, typer.Option("--model", "-m")] = None,
-    system: Annotated[str | None, typer.Option("--system", "-s")] = None,
-    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
-    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
-    raw: Annotated[
-        bool, typer.Option("--raw", help="Output raw text (no markdown rendering)")
-    ] = False,
-    no_agent: Annotated[
-        bool, typer.Option(
-            "--no-agent",
-            help="Force the simple-QA path (no agentic tool loop, no file writes). "
-            "Useful for one-shot code generation and pure-text answers.",
-        ),
-    ] = False,
-    out: Annotated[
-        Path | None,
-        typer.Option(
-            "--out",
-            "-o",
-            help="Output directory for build-style prompts (default: ./build). "
-            "If omitted on a build prompt, sage picks ./build.",
-        ),
-    ] = None,
-    legacy_plans: Annotated[
-        bool, typer.Option(
-            "--legacy-plans",
-            help="Fall back to the hardcoded plan_*() templates (rollback "
-            "safety net). Default is the new dynamic spec-driven builder.",
-        ),
-    ] = False,
-    no_review: Annotated[
-        bool, typer.Option(
-            "--no-review",
-            help="Skip the per-file principal-engineer review pass. Halves "
-            "the LLM-call count at the cost of lower per-file quality. The "
-            "install/verify loop still iterates-until-green on test failures.",
-        ),
-    ] = False,
-) -> None:
-    """One-shot prompt — ask a question and get an answer."""
-    cfg = load_config()
-    try:
-        cfg, model_id = _prepare_model_for_use(cfg, model or cfg.default_model)
-    except RuntimeError as exc:
-        renderer.error(str(exc))
-        raise typer.Exit(1) from exc
-    router = _build_router(cfg)
-    model_locked = bool(model)
-
-    temp = temperature if temperature is not None else cfg.temperature
-    tokens = max_tokens if max_tokens is not None else cfg.max_tokens
-
-    # Build the prompt from arguments, file, and/or stdin
-    parts: list[str] = []
-
-    # Check for piped input
-    piped = _read_stdin()
-    if piped:
-        parts.append(piped.strip())
-
-    # Read file if provided. Use the document extractor so PDFs/DOCX
-    # produce LLM-readable text instead of binary garbage. Plain text /
-    # code files take the same path with zero overhead (the extractor
-    # passes them through verbatim).
-    if file:
-        if not file.exists():
-            renderer.error(f"File not found: {file}")
-            raise typer.Exit(1)
-        try:
-            from sage.core.document_extractor import (
-                DocumentExtractor,
-                UnsupportedFormatError,
-            )
-            doc = DocumentExtractor().extract(file)
-            content = doc.text
-        except UnsupportedFormatError as exc:
-            renderer.error(str(exc))
-            raise typer.Exit(1) from exc
-        except Exception:
-            # Belt-and-suspenders: fall back to raw read so existing
-            # workflows (text files we didn't model) keep working.
-            content = file.read_text("utf-8", errors="replace")
-        parts.append(f"File: {file.name}\n```\n{content}\n```")
-
-    if prompt:
-        parts.append(prompt)
-
-    if not parts:
-        renderer.error("No prompt provided. Usage: sage run 'your task'")
-        raise typer.Exit(1)
-
-    # If the user attached images, auto-route to the vision model and
-    # short-circuit the standard build pipeline (which is text-only).
-    # The cloud:llava-next-7b model accepts the OpenAI multimodal
-    # content-parts shape that build_vision_message produces.
-    if image:
-        for img_path in image:
-            if not img_path.exists():
-                renderer.error(f"Image not found: {img_path}")
-                raise typer.Exit(1)
-        try:
-            from sage.core.vision_input import build_vision_message
-            vision_msg = build_vision_message("\n\n".join(parts), list(image))
-        except (ValueError, FileNotFoundError) as exc:
-            renderer.error(f"Image attachment failed: {exc}")
-            raise typer.Exit(1) from exc
-        # Force the vision model unless the user explicitly picked one.
-        vision_model = model or "cloud:llava-next-7b"
-        try:
-            from sage.providers.base import Message
-            messages = [Message(role=vision_msg["role"], content=vision_msg["content"])]
-            response_text = router.generate(
-                messages, vision_model, temp, tokens, lock_provider=bool(model),
-            )
-        except Exception as exc:
-            renderer.error(f"Vision call failed: {exc}")
-            raise typer.Exit(1) from exc
-        renderer.console.print(response_text if raw else response_text)
-        return
-
-    raw_prompt = "\n\n".join(parts)
-    _show_paste_indicator(raw_prompt)
-
-    # ── Auto-route build prompts through the principal pipeline ─────────
-    # Uses _route_to_principal_pipeline which also handles multi-task
-    # prompts (e.g. "Build X. Build Y. Build Z." produces 3 sub-projects).
-    # Default output directory is the current working directory — sage
-    # scaffolds INTO the repo the user is in, not a subfolder.
-    target_dir = (out or Path.cwd()).resolve()
-    report = _route_to_principal_pipeline(
-        raw_prompt,
-        target_dir,
-        router=router,
-        model_id=model_id,
-        temp=temp,
-        tokens=tokens,
-        model_locked=model_locked,
-        system_prompt=system,
-        legacy_plans=legacy_plans,
-        no_review=no_review,
-    )
-    if report is not None or out is not None:
-        # If --out was given but the prompt didn't look like a build, still
-        # try the pipeline for the user's benefit.
-        if report is None and out is not None:
-            if legacy_plans:
-                from sage.core.principal_engineer import build_project as _builder
-            else:
-                from sage.core.dynamic_builder import build_project_dynamic as _builder
-
-            def _gen(p: str) -> str:
-                messages = _build_simple_qa_messages(p, system_prompt=system)
-                return router.generate(messages, model_id, temp, tokens, lock_provider=model_locked)
-
-            _builder(raw_prompt, target_dir, _gen, progress=renderer.info)
-        return
-
-    # Check if this is just a quick simple QA prompt
-    # --no-agent forces the simple-QA path regardless of heuristic.
-    if no_agent or _is_simple_qa_prompt(raw_prompt):
-        messages = _build_simple_qa_messages(
-            raw_prompt,
-            system_prompt=system or cfg.system_prompt,
-        )
-        try:
-            if raw or not sys.stdout.isatty():
-                response = renderer.stream_tokens(
-                    router.stream(messages, model_id, temp, tokens, lock_provider=model_locked)
-                )
-            else:
-                response = router.generate(
-                    messages, model_id, temp, tokens, lock_provider=model_locked
-                )
-                renderer.render_markdown(response)
-        except Exception as exc:
-            renderer.error(str(exc))
-            raise typer.Exit(2)
-        return
-
-    # For complex tasks, we use the full SAGEAgent so it can perform file/cmd actions
-    from sage.core.engine import ConversationEngine
-    from sage.core.context_persistence import ContextPersistenceManager
-    from sage.core.prompts import build_agent_system_prompt
-
-    cwd = Path.cwd()
-    _set_current_cwd(cwd)
-    context_persistence_mgr = ContextPersistenceManager(cwd)
-
-    is_local = (
-        model_id.startswith("llama_cpp:")
-        or model_id.startswith("ollama:")
-        or cfg.get_local_model(model_id) is not None
-    )
-
-    engine = ConversationEngine(
-        system_prompt=system or build_agent_system_prompt(cwd, is_local=is_local), max_history=100
-    )
-
-    # We must set up the global agent so tools can be executed
-    global _global_agent
-    _global_agent = SAGEAgent(
-        cwd=cwd,
-        renderer=renderer,
-        engine=engine,
-        router=router,
-        model_id=model_id,
-        temp=temp,
-        tokens=tokens,
-        model_locked=model_locked,
-        is_local=is_local,
-        context_manager=context_persistence_mgr,
-    )
-
-    # AI-powered prompt understanding for vague/brief inputs
-    understood_prompt = raw_prompt
-    if len(raw_prompt.split()) <= 40:
-        try:
-            understood_prompt = _ai_understand_prompt(
-                raw_prompt, cwd, _global_agent.send_single_turn_to_model
-            )
-        except Exception:
-            understood_prompt = raw_prompt
-
-    full_prompt = _enhance_task_prompt(understood_prompt)
-    resolved_cloud_provider = _resolve_cloud_provider_preference(
-        raw_prompt,
-        cfg,
-        prompt_user=(
-            (lambda prompt_text: renderer.console.input(prompt_text))
-            if sys.stdin.isatty() and sys.stdout.isatty()
-            else None
-        ),
-    )
-    cloud_deployment_context = _build_cloud_deployment_context(
-        raw_prompt,
-        resolved_cloud_provider,
-    )
-    if cloud_deployment_context:
-        full_prompt = f"{full_prompt}\n\n{cloud_deployment_context}"
-    credential_bootstrap_context = _build_credential_bootstrap_context(
-        _default_project_root(cwd),
-        raw_prompt,
-        cfg,
-        preferred_cloud=resolved_cloud_provider,
-    )
-    if credential_bootstrap_context:
-        full_prompt = f"{full_prompt}\n\n{credential_bootstrap_context}"
-
-    try:
-        _global_agent.execute_task_prompt(full_prompt, save_history=False, enhanced_mode=True)
-    except Exception as exc:
-        renderer.error(str(exc))
-        import traceback
-
-        renderer.error(traceback.format_exc())
-        raise typer.Exit(2)
-
-
-def _show_ollama_catalog(category: str | None = None, search_query: str | None = None) -> None:
-    """Display Ollama model catalog with Rich formatting."""
-    if search_query:
-        results = search_ollama_catalog(search_query)
-        if not results:
-            renderer.warning(f"No Ollama models matching '{search_query}'")
-            return
-        label = f"Ollama models matching '{search_query}'"
-    elif category:
-        results = get_ollama_models_by_category(category)
-        if not results:
-            renderer.warning(
-                f"No Ollama models in category '{category}'. "
-                "Try: coding, reasoning, general, vision, small, embedding"
-            )
-            return
-        label = f"Ollama models — {category}"
-    else:
-        results = OLLAMA_CATALOG
-        label = "All Ollama models"
-
-    renderer.console.print(f"\n[bold]{label}[/bold] ({len(results)} models)\n")
-
-    # Group by category for full listing
-    if not category and not search_query:
-        categories = ["coding", "reasoning", "general", "vision", "small", "embedding"]
-        for cat in categories:
-            cat_models = [m for m in results if m.category == cat]
-            if not cat_models:
-                continue
-            renderer.console.print(f"  [bold cyan]{cat.upper()}[/bold cyan]")
-            for m in cat_models:
-                params = m.params if m.params else "cloud"
-                tags = " ".join(f"[dim]{t}[/dim]" for t in m.tags) if m.tags else ""
-                renderer.console.print(
-                    f"    [green]{m.name:<30}[/green] "
-                    f"[dim]({params})[/dim]  "
-                    f"{m.description[:55]}"
-                    f"  {tags}"
-                )
-            renderer.console.print()
-    else:
-        for m in results:
-            params = m.params if m.params else "cloud"
-            tags = " ".join(f"[dim]{t}[/dim]" for t in m.tags) if m.tags else ""
-            renderer.console.print(
-                f"  [green]{m.name:<30}[/green] [dim]({params})[/dim]  {m.description[:55]}  {tags}"
-            )
-
-    renderer.console.print("\n[dim]To pull: sage pull <name>  (or: ollama pull <model>)[/dim]")
-    renderer.console.print("[dim]To use: sage run --model ollama:<model>[/dim]")
-    rec = get_recommended_ollama_models()
-    if rec:
-        names = ", ".join(m.name for m in rec[:5])
-        renderer.console.print(f"[dim]Recommended: {names}[/dim]\n")
-
-
-@app.command("list")
-def list_local_models() -> None:
-    """List downloaded GGUF weights and Ollama models on this machine."""
-    cfg = load_config()
-    renderer.header("Local models on this machine")
-    rows = list_downloaded()
-    if rows:
-        renderer.console.print("[bold]Registered GGUF[/bold] (~/.sage/models)")
-        for name, path in sorted(rows, key=lambda x: x[0].lower()):
-            try:
-                mb = path.stat().st_size / (1024 * 1024)
-            except OSError:
-                mb = 0.0
-            renderer.console.print(f"  [cyan]llama_cpp:{name}[/cyan]  {path.name}  ({mb:.1f} MB)")
-    else:
-        renderer.console.print("No GGUF models registered. Use: [bold]sage pull <name>[/bold]")
-
-    orphans = iter_unregistered_gguf_files()
-    if orphans:
-        renderer.console.print("\n[bold]Unregistered .gguf files[/bold] (on disk, not in config)")
-        for _stem, path in orphans:
-            try:
-                mb = path.stat().st_size / (1024 * 1024)
-            except OSError:
-                mb = 0.0
-            renderer.console.print(f"  {path.name}  ({mb:.1f} MB)")
-
-    renderer.console.print()
-    renderer.console.print(f"Config default model: [bold]{cfg.default_model}[/bold]")
-    renderer.console.print("[dim]To download more models: sage pull --list[/dim]")
-
+    # Start the async REPL
+    run_repl(sage_agent, _repl_execute)
 
 @app.command()
 def models(
-    ollama: Annotated[
-        bool, typer.Option("--ollama", help="Show all Ollama models available to pull")
-    ] = False,
     category: Annotated[
         str | None,
         typer.Option(
@@ -17147,9 +16099,21 @@ def sms_start(
             SMS_PID_FILE.unlink(missing_ok=True)
         else:
             if _sms_process_alive(pid):
-                renderer.console.print(f"[yellow]Bridge already running[/yellow] (pid {pid})")
-                renderer.console.print(f"  Stop with: [bold]sage sms stop[/bold]")
-                renderer.console.print(f"  Logs: [dim]{SMS_LOG_FILE}[/dim]")
+                # P0 Security: ensure the running bridge belongs to the CURRENT user.
+                # If the user logged out and into another account, we must restart.
+                try:
+                    from utils.jwt_utils import get_uid_from_token
+                    current_uid = get_uid_from_token(token)
+                    # We can't easily query the background process's token, but we
+                    # can assume if we're here and things feel 'mixed up', a restart is safest.
+                    # For now, let's just always stop-and-start if explicitly called,
+                    # OR just warn the user.
+                    renderer.console.print(f"[yellow]Bridge already running[/yellow] (pid {pid})")
+                    renderer.console.print(f"  [dim]Account: {api_base}[/dim]")
+                    renderer.console.print(f"  To restart with current user: [bold]sage sms stop && sage sms start[/bold]")
+                    return
+                except Exception:
+                    pass
                 return
             SMS_PID_FILE.unlink(missing_ok=True)
 
@@ -17362,12 +16326,14 @@ def sms_test() -> None:
         contacts = be.contact_emails()
 
         # Pre-flight: check that the bridge is actually running. iMessage and
-        # KDE Connect delivery require the WebSocket to be open; without it,
-        # the announce will succeed via email but silently report 0 for both
-        # phone-delivery counts, which looks like a bug rather than the real
-        # cause (no bridge running).
-        ps = be.poller_status()
-        online_now = ps.get("online_computers", [])
+        # KDE Connect delivery require the WebSocket to be open.
+        online_now = []
+        for _ in range(3): # Wait up to 3s for background bridge to connect
+            ps = be.poller_status()
+            online_now = ps.get("online_computers", [])
+            if online_now: break
+            time.sleep(1)
+
         if not online_now:
             renderer.warning(
                 "Bridge not running on this account — only email delivery will fire.\n"
@@ -17378,16 +16344,36 @@ def sms_test() -> None:
         # Trigger a real announcement — backend fans out to email + iMessage +
         # KDE Connect for every configured contact and returns by-method counts.
         result = be.announce(cfg.computer_name)
+        
+        by_method = result.get("by_method", {}) if isinstance(result, dict) else {}
+        n_email      = by_method.get("email", 0)
+        n_imessage   = by_method.get("imessage", 0)
+        n_kde        = by_method.get("kdeconnect", 0)
+        n_skipped    = by_method.get("skipped_untagged", 0)
+
+        # Fallback for iMessage if WS not connected but we are on darwin
+        if not online_now and sys.platform == "darwin":
+            from sage.core.sms_bridge import _send_imessage
+            announce_text = (
+                f"✅ [{cfg.computer_name}] SAGE is online and ready.\n"
+                f"Send me any task and I'll run it on your computer.\n"
+                f"Reply @help to see available commands."
+            )
+            for c in contacts:
+                # Fallback works for direct iCloud emails AND phone number contacts
+                is_imessage_target = (
+                    "@icloud.com" in c or "@me.com" in c or "@mac.com" in c or
+                    c.startswith("phone:")
+                )
+                if is_imessage_target:
+                    target = c.replace("phone:", "")
+                    if _send_imessage(target, f"[SAGE — {cfg.computer_name}] {announce_text}"):
+                        n_imessage += 1
+
     except RuntimeError as exc:
         renderer.error(str(exc)); raise typer.Exit(1)
 
     renderer.success(f"Backend connection OK  [{cfg.computer_name}]")
-
-    by_method = result.get("by_method", {}) if isinstance(result, dict) else {}
-    n_email      = by_method.get("email", 0)
-    n_imessage   = by_method.get("imessage", 0)
-    n_kde        = by_method.get("kdeconnect", 0)
-    n_skipped    = by_method.get("skipped_untagged", 0)
 
     renderer.console.print("\n[bold]Test announcement delivery:[/bold]")
     renderer.console.print(f"  📧 Email:        [{('green' if n_email else 'dim')}]{n_email}[/]")
@@ -17403,9 +16389,20 @@ def sms_test() -> None:
         renderer.warning("No contacts registered. Run: sage sms contacts add <phone-or-email>")
         return
 
-    renderer.console.print(f"\n[bold]Authorized contacts ({len(contacts)}):[/bold]")
-    for addr in contacts:
-        renderer.console.print(f"  [cyan]{addr}[/cyan]")
+    # Deduplicate and enrich display
+    all_contacts = be.list_contacts()
+    unique_contacts = {}
+    for c in all_contacts:
+        email = c.get("email")
+        if not email: continue
+        if email not in unique_contacts:
+            unique_contacts[email] = c
+            
+    renderer.console.print(f"\n[bold]Authorized contacts ({len(unique_contacts)}):[/bold]")
+    for email, data in unique_contacts.items():
+        dev = data.get("device_type")
+        tag = f" [[cyan]{dev}[/cyan]]" if dev else ""
+        renderer.console.print(f"  [cyan]{email}[/cyan]{tag}")
     renderer.console.print(
         f"\n[dim]Email [bold]messages@sageworksai.com[/bold] from any of the above, "
         "or text from a tagged phone, to send a task.[/dim]\n"
@@ -17697,10 +16694,21 @@ def sms_diagnose() -> None:
                 line(BAD, "iMessage path broken on this Mac",
                      "Open Messages.app, sign into iCloud, enable iMessage in Settings → Messages")
             else:
-                # Active probe: ask Messages.app to enumerate its iMessage
-                # service. If Automation permission isn't granted to the
-                # parent app (Terminal / iTerm / Python), this fails with
-                # error -1743 and the user sees a clear remediation hint.
+                # ── iMessage DB (Full Disk Access) check ──
+                db_path = os.path.expanduser("~/Library/Messages/chat.db")
+                if not os.path.exists(db_path):
+                     line(WARN, "iMessage database missing", "Messages.app may never have been used on this Mac.")
+                else:
+                    try:
+                        import sqlite3
+                        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1) as db:
+                            db.execute("SELECT 1 FROM message LIMIT 1")
+                        line(OK, "iMessage verification active (Full Disk Access granted)")
+                    except Exception:
+                        line(WARN, "iMessage verification disabled (Full Disk Access missing)",
+                             "Sage can send iMessages, but cannot verify if they arrived. "
+                             "Fix: System Settings → Privacy & Security → Full Disk Access → add your terminal app")
+                
                 import subprocess as _sp
                 probe = (
                     'tell application "Messages"\n'

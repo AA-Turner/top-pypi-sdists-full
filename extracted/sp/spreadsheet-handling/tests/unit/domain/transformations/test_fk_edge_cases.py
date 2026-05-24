@@ -9,16 +9,13 @@ import pandas as pd
 import pytest
 
 from spreadsheet_handling.core.fk import (
-    build_registry,
-    build_id_label_maps,
-    detect_fk_columns,
-    apply_fk_helpers,
     assert_no_parentheses_in_columns,
 )
 from spreadsheet_handling.core.indexing import level0_series
-from spreadsheet_handling.pipeline.pipeline import (
+from spreadsheet_handling.pipeline import run_pipeline
+from spreadsheet_handling.pipeline.steps import (
     make_apply_fks_step,
-    run_pipeline,
+    make_reorder_helpers_step,
 )
 
 
@@ -93,6 +90,54 @@ class TestMultiFkTargets:
         assert list(level0_series(dfq, orte_helper[0])) == ["Insel", "Berg"]
         assert list(level0_series(dfq, kunden_helper[0])) == ["Anna", "Bob"]
 
+    def test_reorder_helpers_respects_configured_helper_order(self):
+        frames = {
+            "B": pd.DataFrame(
+                [
+                    {"id": 1, "name": "Alpha", "category": "A"},
+                    {"id": 2, "name": "Beta", "category": "B"},
+                ]
+            ),
+            "A": pd.DataFrame(
+                [
+                    {"id": 10, "other": "x", "id_(B)": 1},
+                    {"id": 20, "other": "y", "id_(B)": 2},
+                ]
+            ),
+        }
+        defaults = {
+            "id_field": "id",
+            "label_field": "name",
+            "helper_prefix": "_",
+            "detect_fk": True,
+            "levels": 3,
+            "helper_fields_by_fk": {"id_(B)": ["category", "name"]},
+        }
+
+        out = run_pipeline(
+            frames,
+            [
+                make_apply_fks_step(defaults=defaults),
+                make_reorder_helpers_step(helper_prefix="_"),
+            ],
+        )
+
+        lvl0 = [c[0] if isinstance(c, tuple) else c for c in out["A"].columns]
+        assert lvl0 == ["id", "other", "id_(B)", "_B_category", "_B_name"]
+
+    def test_reorder_helpers_moves_left_side_helpers_directly_behind_fk(self):
+        frames = {
+            "A": pd.DataFrame(
+                [[10, "Alpha", "A", 1, "tail"]],
+                columns=["id", "_B_name", "_B_category", "id_(B)", "tail"],
+            )
+        }
+
+        out = run_pipeline(frames, [make_reorder_helpers_step(helper_prefix="_")])
+
+        lvl0 = [c[0] if isinstance(c, tuple) else c for c in out["A"].columns]
+        assert lvl0 == ["id", "id_(B)", "_B_name", "_B_category", "tail"]
+
 
 @pytest.mark.ftr("FTR-PREHEX-TEST-CONSOLIDATION-P3C")
 class TestMissingLabelField:
@@ -139,7 +184,7 @@ class TestDuplicateIdsLastWins:
 class TestParenthesesGuard:
     def test_parentheses_in_non_fk_column_rejected(self):
         df = pd.DataFrame({"x(y)": [1], "id_(Ziel)": [1]})
-        with pytest.raises(ValueError, match="nicht erlaubt"):
+        with pytest.raises(ValueError, match="not allowed"):
             assert_no_parentheses_in_columns(df, "Bestellungen")
 
     def test_fk_column_parentheses_allowed(self):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from collections import defaultdict
 import csv
-import io
 import json
 from pathlib import Path
 import re
@@ -35,6 +34,7 @@ from spreadsheet_handling.rendering.ir import (
     SheetIR,
     WorkbookIR,
 )
+from spreadsheet_handling.core.formulas import ListLiteralFormulaSpec
 
 
 def _column_index(letters: str) -> int:
@@ -201,12 +201,59 @@ def _read_meta_payload(sheet: SheetIR) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             pass
         try:
+            # legacy: pre-JSON repr format
             result = ast.literal_eval(str(blob))
             if isinstance(result, dict):
                 return result
-        except (ValueError, SyntaxError):
+        except (ValueError, SyntaxError, TypeError):
             pass
     return {key: value for key, value in sheet.meta.items() if key != "_hidden"}
+
+
+def _legend_table_hints(
+    workbook_meta: dict[str, Any],
+    *,
+    sheet_name: str,
+) -> list[dict[str, Any]]:
+    raw = workbook_meta.get("legend_blocks") if isinstance(workbook_meta, dict) else None
+    if not isinstance(raw, dict):
+        return []
+
+    hints: list[dict[str, Any]] = []
+    for legend_name, spec in raw.items():
+        if not isinstance(spec, dict):
+            continue
+        resolved = spec.get("resolved")
+        if not isinstance(resolved, dict):
+            continue
+        if str(resolved.get("sheet")) != sheet_name:
+            continue
+        try:
+            hints.append({
+                "name": str(legend_name),
+                "frame_name": str(resolved.get("frame_name") or f"legend_{legend_name}"),
+                "top": int(resolved["top"]),
+                "left": int(resolved["left"]),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+    return hints
+
+
+def _apply_legend_table_hints(sheet: SheetIR, hints: list[dict[str, Any]]) -> None:
+    if not hints:
+        return
+    by_position = {
+        (int(hint["top"]), int(hint["left"])): hint
+        for hint in hints
+    }
+    sheet.meta["__legend_blocks"] = list(hints)
+    for table in sheet.tables:
+        hint = by_position.get((table.top, table.left))
+        if not hint:
+            continue
+        table.kind = "legend"
+        table.frame_name = str(hint["frame_name"])
 
 
 _ADDRESS_RE = re.compile(
@@ -242,14 +289,7 @@ def _parse_range_address(address: str) -> tuple[str, int, int, int, int]:
     return sheet, r1, c1, r2, c2
 
 
-def _xlsx_formula(values: list[str]) -> str:
-    output = io.StringIO()
-    writer = csv.writer(output, delimiter=",", quotechar='"', lineterminator="")
-    writer.writerow(values)
-    return f'"{output.getvalue()}"'
-
-
-def _parse_validation_formula(condition: str) -> str | None:
+def _parse_validation_formula(condition: str) -> ListLiteralFormulaSpec | None:
     match = re.search(r"cell-content-is-in-list\((?P<body>.*)\)", condition)
     if not match:
         return None
@@ -258,7 +298,7 @@ def _parse_validation_formula(condition: str) -> str | None:
         values = next(csv.reader([body], delimiter=";", quotechar='"'))
     except csv.Error:
         return None
-    return _xlsx_formula([value.replace('""', '"') for value in values])
+    return ListLiteralFormulaSpec(tuple(values))
 
 
 def _extract_validations(
@@ -355,13 +395,22 @@ def parse_workbook(path: str | Path) -> WorkbookIR:
         meta_hints = build_sheet_meta_hints(meta_payload, sheet_name=name)
         validations = _extract_validations(parsed, validation_defs)
         autofilter_ref = _extract_autofilter_ref(database_ranges, sheet_name=name)
+        legend_hints = _legend_table_hints(meta_payload, sheet_name=name)
+        legend_anchors = [
+            (hint["top"], hint["left"])
+            for hint in legend_hints
+            if isinstance(hint.get("top"), int) and isinstance(hint.get("left"), int)
+        ]
         sheet = build_visible_sheet_ir(
             parsed,
             sheet_name=name,
             meta_hints=meta_hints,
             validations=validations,
             autofilter_ref=autofilter_ref,
+            anchors=[(1, 1), *legend_anchors] if legend_anchors else None,
+            stop_on_empty_col=bool(legend_anchors),
         )
+        _apply_legend_table_hints(sheet, legend_hints)
         sheet.named_ranges = _extract_named_ranges(table, sheet_name=name)
         ir.sheets[name] = sheet
 

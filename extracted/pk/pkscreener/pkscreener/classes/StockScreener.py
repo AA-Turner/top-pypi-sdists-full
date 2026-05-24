@@ -730,7 +730,7 @@ class StockScreener:
                                 onlyMF=(executeOption == 21 and reversalOption in [5,6]),
                                 hostData=data,
                                 exchangeName=exchangeName,
-                                downloadOnly=downloadOnly
+                                downloadOnly=(downloadOnly or ("RUNNER" in os.environ.keys() and executeOption == 0 and PKDateUtilities.currentDateTime().weekday() >= 5))
                             )
                             hostRef.objectDictionaryPrimary[stock] = data.to_dict("split")
                         if userArgs is not None and userArgs.usertag is not None and "VCP" in userArgs.usertag:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-databases
-Version: 0.18.0
+Version: 0.19.0
 Summary: Reusable database fixtures for any and all databases.
 Project-URL: Documentation, https://github.com/litestar-org/pytest-databases#readme
 Project-URL: Issues, https://github.com/litestar-org/pytest-databases/issues

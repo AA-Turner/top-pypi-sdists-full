@@ -23,6 +23,7 @@ Internal helper functions
 
 __all__ = [
     'tname',
+    'mangle_name',
 ]
 
 
@@ -31,3 +32,17 @@ def tname(type_) -> str:
     Return a nice string for a type
     '''
     return getattr(type_, '__qualname__', str(type_))
+
+def mangle_name(loader_or_dumper, field) -> str | None:
+    '''
+    Return the mangled name of a field according to the loader/dumper
+    configuration, or None if the name is to be used as-is
+    '''
+    return (
+        field.metadata.get(loader_or_dumper.mangle_key)
+        or (
+            loader_or_dumper.mangler(field.name)
+            if loader_or_dumper.mangler
+            else None
+        )
+    )

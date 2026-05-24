@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.654"
+version = "0.4.661"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -50,12 +50,32 @@ dependencies = [
     "setuptools<81",
     "choix>=0.3.4",
     "scienceplots>=2.0.0",
+    # Production-path imports previously relying on transitive resolution:
+    "cartopy>=0.22",          # geocif/viz/plot.py (imported via yield_outlook)
+    "Rbeast>=0.1.20",         # geocif/production_analysis/_common.py (BEAST pipeline)
+    "scikit-learn>=1.4",      # geocif.py top-level + ml/cluster_analysis.py, ml/feature_selection.py
+    "bottleneck>=1.3",        # geocif/agmet/plot.py
+    # Transitive deps of pygeoutil (which has broken setup.py and is git-installed by the installer):
+    "cachetools>=5.0",        # pygeoutil/rgeo.py
+    "geopy>=2.0",             # pygeoutil/rgeo.py
+    "scikit-image>=0.21",     # pygeoutil/*
 ]
 
 [project.optional-dependencies]
 dashboard = [
     "panel>=1.4.0",
     "hvplot>=0.10.0",
+]
+aquacrop_calibration = [
+    "pygmo>=2.19",   # PSO + CMA-ES backbone for crop-param tuning
+    "SALib>=1.5",    # optional Sobol/eFAST/Morris sensitivity analysis
+]
+spatial = [
+    "pysal>=2.6",    # geocif/ml/spatial_autocorrelation.py (standalone module, not in main import chain)
+]
+gee = [
+    "earthengine-api>=1.0",  # geocif/playground/gee_access.py and wolayita_*.py
+    "geemap>=0.30",
 ]
 
 [project.urls]

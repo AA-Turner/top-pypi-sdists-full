@@ -1,0 +1,5 @@
+name: "demo-multibranch-svn-min"
+project-type: multibranch
+scm:
+    - svn:
+        url: "https://example.com/svnroot/"

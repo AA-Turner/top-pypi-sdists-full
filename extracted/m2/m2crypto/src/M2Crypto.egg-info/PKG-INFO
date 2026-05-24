@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: M2Crypto
-Version: 0.47.0
+Version: 0.48.0
 Summary: A Python crypto and SSL toolkit
 Author: Ng Pheng Siong
 Author-email: ngps@sandbox.rulemaker.net
@@ -8,10 +8,10 @@ Maintainer: Matej Cepl
 Maintainer-email: mcepl@cepl.eu
 License: BSD-2-Clause
 Project-URL: home_page, https://sr.ht/~mcepl/m2crypto/
-Project-URL: source, https://git.sr.ht/~mcepl/m2crypto
+Project-URL: source, https://codeberg.org/mcepl/m2crypto/
 Project-URL: documentation, https://m2crypto.readthedocs.io/en/latest/
 Project-URL: report, https://lists.sr.ht/~mcepl/m2crypto
-Project-URL: changelog, https://git.sr.ht/~mcepl/m2crypto/tree/master/item/CHANGES
+Project-URL: changelog, https://codeberg.org/mcepl/m2crypto/src/branch/master/CHANGES
 Keywords: cryptography,openssl
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -36,12 +36,12 @@ Dynamic: license-file
 
 **documentation**: <https://m2crypto.readthedocs.io/>\
 **email list**: <https://lists.sr.ht/~mcepl/m2crypto> ([subscribe via email])\
-**IRC channel**: <irc://irc.ergo.chat/#m2crypto>\
+**discussion channel**: <matrix:r/m2crypto:ceplovi.cz>\
 **issue tracker**: |-\
   <https://todo.sr.ht/~mcepl/m2crypto> (R/O, please\
   report issues via the email list).\
 **maintainer**: "Matěj Cepl"\
-**web-Site**: <https://sr.ht/~mcepl/m2crypto/>
+**web-Site**: <https://codeberg.org/mcepl/m2crypto/>
 
 # M2Crypto
 
@@ -52,10 +52,11 @@ Dynamic: license-file
 :target: https://builds.sr.ht/~mcepl?
 ~~~
 
-**NOTE: This library is currently in maintenance mode. We
-recommend using a more modern alternative such as**
-[PyCA/cryptography]. **Examples of how to migrate can be found
-in** [the documentation].
+**NOTE: This library is currently in maintenance mode (and it has been
+in it since 2014 and I don’t plan to stop maintaining it anytime soon).
+For new applications we recommend using a more modern alternative such
+as** [PyCA/cryptography]. **Examples of how to migrate can be found in**
+[the documentation].
 
 M2Crypto is a crypto and SSL toolkit for Python.
 

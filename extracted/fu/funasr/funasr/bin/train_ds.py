@@ -43,6 +43,11 @@ except:
 
 @hydra.main(config_name=None, version_base=None)
 def main_hydra(kwargs: DictConfig):
+    """Main hydra.
+    
+        Args:
+            kwargs: Additional keyword arguments.
+        """
     if kwargs.get("debug", False):
         import pdb
 
@@ -59,6 +64,11 @@ def main_hydra(kwargs: DictConfig):
 def main(**kwargs):
 
     # set random seed
+    """Main.
+    
+        Args:
+            **kwargs: Additional keyword arguments.
+        """
     set_all_random_seed(kwargs.get("seed", 0))
     torch.backends.cudnn.enabled = kwargs.get("cudnn_enabled", torch.backends.cudnn.enabled)
     torch.backends.cudnn.benchmark = kwargs.get("cudnn_benchmark", torch.backends.cudnn.benchmark)
@@ -110,7 +120,7 @@ def main(**kwargs):
     freeze_param = kwargs.get("freeze_param", None)
     if freeze_param is not None:
         if "," in freeze_param:
-            freeze_param = eval(freeze_param)
+            freeze_param = freeze_param.split(",")
         if not isinstance(freeze_param, (list, tuple)):
             freeze_param = (freeze_param,)
         logging.info("freeze_param is not None: %s", freeze_param)
@@ -119,6 +129,11 @@ def main(**kwargs):
                 if k.startswith(t + ".") or k == t:
                     logging.info(f"Setting {k}.requires_grad = False")
                     p.requires_grad = False
+    lora_only = kwargs.get("lora_only", False)
+    if lora_only:
+        lora_bias = kwargs.get("lora_bias", "none")
+        logging.info("Enable LoRA-only training with bias=%s", lora_bias)
+        mark_only_lora_as_trainable(model, bias=lora_bias)
     if local_rank == 0:
         logging.info(f"{model_summary(model)}")
 

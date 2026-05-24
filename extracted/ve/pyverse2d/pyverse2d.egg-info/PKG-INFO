@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyverse2d
-Version: 1.6.16
+Version: 1.6.31
 Summary: 2D Game Engine using pyglet (OpenGL) for rendering
 Author: WhiteWolf45380
 License: MIT
@@ -460,6 +460,7 @@ Available effects and their key parameters:
 | `DistortSwirl` | Vortex rotation | `angle`, `falloff` |
 | `DistortSqueeze` | Asymmetric directional stretch | `strength_x`, `strength_y`, `falloff` |
 | `DistortRipple` | Radial concentric wave | `amplitude`, `frequency`, `speed`, `falloff` |
+| `Fog` | FBM dynamic fog | `angle`, `velocity`, `density`, `softness`, `scale`, `octaves`, `lacunarity`, `gain`, `color` |
 
 Effects can be added, removed, replaced and reordered at runtime:
 

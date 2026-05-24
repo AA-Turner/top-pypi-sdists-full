@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,8 @@ import yaml
 from .base import BackendBase, BackendOptions, coerce_backend_options
 
 Frames = Dict[str, pd.DataFrame]
+
+_JSON_FORMAT_KEYS = ("pretty", "indent", "sort_keys", "ensure_ascii")
 
 
 def _is_empty_header_segment(x: Any) -> bool:
@@ -63,6 +66,14 @@ def _records_nested_from_multiindex(df: pd.DataFrame) -> list[dict[str, Any]]:
     return out
 
 
+def _json_format_overrides(options: BackendOptions | Mapping[str, Any] | None) -> dict[str, Any]:
+    if options is None:
+        return {}
+    if isinstance(options, BackendOptions):
+        return {key: options.extra[key] for key in _JSON_FORMAT_KEYS if key in options.extra}
+    return {key: options[key] for key in _JSON_FORMAT_KEYS if key in options}
+
+
 class JSONBackend(BackendBase):
     """
     Backend for a directory of JSON files, one file per sheet (e.g. products.json).
@@ -107,33 +118,32 @@ class JSONBackend(BackendBase):
         fmt = {
                 "pretty": True,
                 "indent": 2,
-                "sort_keys": False,     # bewahrt Spaltenreihenfolge aus dem DF
+                "sort_keys": False,     # preserve DataFrame column order
                 "ensure_ascii": False,
         }
-        if options:
-            fmt.update({k: options[k] for k in ("pretty", "indent", "sort_keys", "ensure_ascii") if k in options})
+        fmt.update(_json_format_overrides(options))
 
         for name, df in frames.items():
             if name == "_meta":
                 continue  # handled separately as sidecar below
             p = out_dir / f"{name}.json"
-            # NaNs -> "", Reihenfolge = DataFrame-Spaltenreihenfolge
+            # Normalize NaNs to ""; order follows the DataFrame columns.
             clean = df.where(pd.notnull(df), "")
             if isinstance(clean.columns, pd.MultiIndex):
                 # FTR-MULTIHEADER-P2 default: MultiIndex headers become nested JSON objects.
                 records = _records_nested_from_multiindex(clean)
             else:
                 records = clean.to_dict(orient="records")
-            # Schreiben
+            # Write records.
             with open(p, "w", encoding="utf-8", newline="\n") as fh:
                 if fmt["pretty"]:
                     json.dump(records, fh, ensure_ascii=fmt["ensure_ascii"],
                               indent=fmt["indent"],
                               sort_keys=fmt["sort_keys"])
-                    fh.write("\n")  # schöner Abschluss für Git
+                    fh.write("\n")  # keep Git diffs tidy
                 else:
                     json.dump(records, fh, ensure_ascii=fmt["ensure_ascii"],
-                              separators=(",", ":"),  # kompakt
+                              separators=(",", ":"),  # compact
                               sort_keys=fmt["sort_keys"])
                     fh.write("\n")
 

@@ -26,7 +26,7 @@ Pipeline (per country × crop × season × year in LOOCV):
     4.  Yield raster at {dir_output}/{project}/aquacrop/raster/.
     5.  Aggregate raster → admin polygons via geom_extract (crop fraction
         as AFI).
-    6.  LOOCV pan-Africa region_anomaly bias correction against HarvestStat.
+    6.  LOOCV cross-country region_anomaly bias correction against HarvestStat.
     7.  Write DB rows in yield_outlook schema (Model='aquacrop').
     8.  Diagnostics (rRMSEp, sMAPE, R², per-region scatter).
 """

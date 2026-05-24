@@ -1,0 +1,739 @@
+"""Session and context management CLI commands.
+
+Commands:
+    login   Log in to NotebookLM via browser
+    use     Set the current notebook context
+    status  Show current context
+    clear   Clear current notebook context
+    auth    Authentication management (logout / inspect / check / refresh)
+
+P3.T3 split this module into thin Click handlers over four service
+modules:
+
+* :mod:`notebooklm.cli.services.playwright_login` — Playwright login flow
+* :mod:`notebooklm.cli.services.session_context` — ``use`` / ``status``
+* :mod:`notebooklm.cli.services.auth_diagnostics` — ``auth check``
+* :mod:`notebooklm.cli.services.auth_source` — auth-source precedence
+
+Several names that *moved* into those services are re-imported here so
+the historical ``patch("notebooklm.cli.session_cmd.X")`` surface keeps
+working byte-for-byte. The constants tagged ``F401`` below are pure
+patch surfaces — they are not referenced from this module's body, but
+existing tests bind them on the ``notebooklm.cli.session_cmd`` namespace.
+"""
+
+from __future__ import annotations
+
+# ``time``, ``shutil``, ``sys``: kept as module-level imports so legacy
+# tests (e.g. ``patch("notebooklm.cli.session_cmd.time.sleep", ...)``,
+# ``patch("notebooklm.cli.session_cmd.shutil.rmtree", ...)``,
+# ``patch("notebooklm.cli.session_cmd.sys.platform", ...)``) keep working.
+import logging
+import shutil  # noqa: F401 — preserved patch surface
+import sys  # noqa: F401 — preserved patch surface
+import time  # noqa: F401 — preserved patch surface
+from pathlib import Path
+from typing import Any
+
+import click
+from rich.table import Table
+
+from ..client import NotebookLMClient
+from ..exceptions import AuthError, NotebookNotFoundError
+from ..paths import (  # noqa: F401 — get_browser_profile_dir / get_path_info / get_context_path / get_storage_path are patch surfaces
+    get_browser_profile_dir,
+    get_context_path,
+    get_path_info,
+    get_storage_path,
+)
+from .auth_runtime import handle_auth_error, run_client_workflow
+from .context import (
+    clear_context,
+    get_current_notebook,  # noqa: F401 — preserved patch surface
+    set_current_notebook,
+)
+from .error_handler import _output_error, exit_with_code, handle_errors
+from .rendering import console, json_output_response
+from .resolve import resolve_notebook_id  # noqa: F401 — preserved patch surface
+from .runtime import run_async
+from .services.auth_diagnostics import (
+    plan_from_click_context,
+    render_auth_inspect,
+    run_auth_check,
+)
+from .services.auth_source import AUTH_JSON_ENV_NAME, has_env_auth_json
+
+# Direct imports replace the D1-PR-3-retired forwarding wrappers; see ADR-008.
+# Several of these names also serve as ``notebooklm.cli.session_cmd.*`` monkeypatch
+# surfaces for tests that pre-date ADR-008's services-side patching convention
+# (e.g. ``_sync_server_language_to_config``, ``_login_browser_cookies_single``,
+# ``_refresh_from_browser_cookies``, ``_enumerate_browser_accounts``).
+#
+# The names tagged ``F401`` below are *only* patch surfaces — they are not
+# called from this module's body, but tests bind them on the
+# ``notebooklm.cli.session_cmd`` namespace either via direct import
+# (``test_cookie_domain_split.py``, ``test_auth_subcommands.py``) or via the
+# dual-patch fixture in ``tests/_fixtures/cli_session.py`` (whose
+# ``patch_session_login_dual`` requires the name to exist on both modules).
+from .services.login import (
+    _build_google_cookie_domains,  # noqa: F401 — patch surface
+    _enumerate_browser_accounts,
+    _enumerate_one_jar,  # noqa: F401 — patch surface only
+    _login_all_accounts_from_browser,
+    _login_browser_cookies_single,
+    _login_with_browser_cookies,  # noqa: F401 — patch surface only
+    _parse_include_domains,
+    _refresh_from_browser_cookies,
+    _resolve_optional_cookie_domains,  # noqa: F401 — patch surface only
+    _select_account,  # noqa: F401 — patch surface only
+    _sync_server_language_to_config,
+    _warn_missing_optional_domains,
+    _write_extracted_cookies,  # noqa: F401 — patch surface only
+)
+from .services.playwright_login import (
+    CHANNEL_BROWSERS as _CHANNEL_BROWSERS,
+)
+from .services.playwright_login import (
+    PlaywrightLoginPlan,
+    run_playwright_login,
+)
+from .services.playwright_login import (
+    connection_error_help as _connection_error_help,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    ensure_chromium_installed as _ensure_chromium_installed,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    filter_storage_state_cookies_by_domain_policy as _filter_storage_state_cookies_by_domain_policy,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    is_navigation_interrupted_error as _is_navigation_interrupted_error,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    prepare_login_paths as _prepare_login_paths,
+)
+from .services.playwright_login import (
+    recover_page as _recover_page,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    repair_playwright_account_metadata as _repair_playwright_account_metadata,
+)
+from .services.playwright_login import (
+    url_matches_base_host as _url_matches_base_host,  # noqa: F401 — patch surface
+)
+from .services.playwright_login import (
+    validate_login_flag_conflicts as _validate_login_flag_conflicts,
+)
+from .services.session_context import (
+    UseNotebookResult,
+    read_status,
+    render_status,
+    run_logout,
+    verify_and_set_notebook,
+)
+
+logger = logging.getLogger(__name__)
+
+
+async def fetch_tokens_with_domains(*args: Any, **kwargs: Any) -> Any:
+    """Patch-compatible forwarding wrapper for auth token refresh helpers."""
+    from ..auth import fetch_tokens_with_domains as auth_fetch_tokens_with_domains
+
+    return await auth_fetch_tokens_with_domains(*args, **kwargs)
+
+
+def _is_valid_account_metadata(metadata: dict[str, Any]) -> bool:
+    raw_authuser = metadata.get("authuser")
+    if type(raw_authuser) is not int or raw_authuser < 0:
+        return False
+    raw_email = metadata.get("email")
+    if raw_email is None:
+        return True
+    return isinstance(raw_email, str) and bool(raw_email.strip())
+
+
+# Legacy thin alias kept for the small set of session-cmd-internal helpers
+# below. The Playwright login flow now lives in
+# :mod:`notebooklm.cli.services.playwright_login`; this thunk preserves the
+# historical ``patch("notebooklm.cli.session_cmd._run_playwright_login")``
+# surface used by the unit tests.
+def _run_playwright_login(
+    *,
+    browser: str,
+    browser_profile: Path,
+    storage_path: Path,
+    include_domains: set[str] | None = None,
+) -> None:
+    """Backward-compat wrapper around :func:`run_playwright_login`."""
+    plan = PlaywrightLoginPlan(
+        browser=browser,
+        browser_profile=browser_profile,
+        storage_path=storage_path,
+        include_domains=include_domains,
+    )
+    run_playwright_login(plan)
+
+
+def _use_notebook_table() -> Table:
+    t = Table()
+    t.add_column("ID", style="cyan")
+    t.add_column("Title", style="green")
+    t.add_column("Owner")
+    t.add_column("Created", style="dim")
+    return t
+
+
+def register_session_commands(cli):
+    """Register session commands on the main CLI group."""
+
+    @cli.command("login")
+    @click.option(
+        "--storage",
+        type=click.Path(),
+        default=None,
+        help="Where to save storage_state.json (default: profile-specific location)",
+    )
+    @click.option(
+        "--browser",
+        type=click.Choice(["chromium", *_CHANNEL_BROWSERS], case_sensitive=False),
+        default="chromium",
+        help=(
+            "Browser to use for login (default: chromium). "
+            "Use 'chrome' for system Google Chrome (workaround when bundled "
+            "Chromium crashes, e.g. macOS 15+), 'msedge' for Microsoft Edge."
+        ),
+    )
+    @click.option(
+        "--browser-cookies",
+        "browser_cookies",
+        default=None,
+        is_flag=False,
+        flag_value="auto",
+        help=(
+            "Read cookies from an installed browser instead of launching Playwright. "
+            "Optionally specify browser: chrome, firefox, brave, edge, safari, arc, ... "
+            "For Chromium-family profiles, target one with 'chrome::<profile>' "
+            "(e.g. 'chrome::Profile 1' or 'brave::Work'). "
+            "For Firefox Multi-Account Containers, target a specific container with "
+            "'firefox::<container-name>' (or 'firefox::none' for the default). "
+            "Requires: pip install 'notebooklm-py[cookies]'"
+        ),
+    )
+    @click.option(
+        "--account",
+        "account_email",
+        default=None,
+        help=(
+            "Pick a signed-in Google account by email when several are present "
+            "in the browser. Only valid with --browser-cookies."
+        ),
+    )
+    @click.option(
+        "--all-accounts",
+        "all_accounts",
+        is_flag=True,
+        default=False,
+        help=(
+            "Extract every Google account signed in to the browser into its own "
+            "profile (auto-named from each account's email). Only valid with "
+            "--browser-cookies."
+        ),
+    )
+    @click.option(
+        "--update",
+        "update",
+        is_flag=True,
+        default=False,
+        help=(
+            "With --all-accounts: when an account's natural profile name "
+            "(e.g. 'alice' for alice@gmail.com) already exists but has no "
+            "account metadata, update that profile in place instead of "
+            "creating a suffixed 'alice-2'. Profiles that already bind a "
+            "different email are still given a suffix to avoid clobbering. "
+            "Only valid with --all-accounts."
+        ),
+    )
+    @click.option(
+        "--profile-name",
+        "profile_name",
+        default=None,
+        help=(
+            "Write a targeted --account browser-cookie login to this named profile "
+            "instead of the active profile. Only valid with --browser-cookies."
+        ),
+    )
+    @click.option(
+        "--fresh",
+        is_flag=True,
+        default=False,
+        help="Start with a clean browser session (deletes cached browser profile). Use to switch Google accounts.",
+    )
+    @click.option(
+        "--include-domains",
+        "include_domains_raw",
+        multiple=True,
+        default=(),
+        help=(
+            "Opt in to extracting sibling-product cookies (default: required "
+            "Google auth/Drive cookies only). Pass labels comma-separated or "
+            "repeat the flag: --include-domains=youtube,docs OR "
+            "--include-domains=youtube --include-domains=docs. Supported "
+            "labels: youtube, docs, myaccount, mail, all."
+        ),
+    )
+    @click.pass_context
+    def login(
+        ctx,
+        storage,
+        browser,
+        browser_cookies,
+        account_email,
+        all_accounts,
+        update,
+        profile_name,
+        fresh,
+        include_domains_raw,
+    ):
+        """Log in to NotebookLM via browser.
+
+        Opens a browser window for Google login. Authentication is saved
+        automatically once login is detected (no terminal interaction needed).
+
+        Use --browser chrome if the bundled Chromium crashes (e.g. macOS 15+).
+        Use --browser msedge if your organization requires Microsoft Edge for SSO.
+
+        Note: Cannot be used when the env-var auth fast path is active
+        (use file-based auth or unset the env var first).
+        """
+        # Wrap entire body in handle_errors so unexpected failures (e.g.
+        # Playwright internal crashes) emit a friendly 'Unexpected error:
+        # <msg>' line + exit 2 instead of a Python traceback. Existing
+        # ``exit_with_code(N)`` calls inside the body propagate unchanged.
+        with handle_errors():
+            if has_env_auth_json():
+                console.print(
+                    f"[red]Error: Cannot run 'login' when {AUTH_JSON_ENV_NAME} is set.[/red]\n"
+                    f"The {AUTH_JSON_ENV_NAME} environment variable provides inline authentication,\n"
+                    "which conflicts with browser-based login that saves to a file.\n\n"
+                    "Either:\n"
+                    f"  1. Unset {AUTH_JSON_ENV_NAME} and run 'login' again\n"
+                    f"  2. Continue using {AUTH_JSON_ENV_NAME} for authentication"
+                )
+                exit_with_code(1)
+
+            _validate_login_flag_conflicts(
+                browser_cookies=browser_cookies,
+                account_email=account_email,
+                all_accounts=all_accounts,
+                update=update,
+                profile_name=profile_name,
+                storage=storage,
+            )
+
+            include_domains = _parse_include_domains(include_domains_raw)
+
+            # rookiepy fast-path: skip Playwright entirely
+            if browser_cookies is not None:
+                if fresh:
+                    console.print(
+                        "[yellow]Warning: --fresh has no effect with --browser-cookies "
+                        "(no browser profile is used).[/yellow]"
+                    )
+                _warn_missing_optional_domains(include_domains)
+                if all_accounts:
+                    _login_all_accounts_from_browser(
+                        browser_cookies,
+                        update=update,
+                        include_domains=include_domains,
+                    )
+                    return
+                active_profile = ctx.obj.get("profile") if ctx.obj else None
+                _login_browser_cookies_single(
+                    browser_cookies,
+                    storage=storage,
+                    account_email=account_email,
+                    profile_name=profile_name,
+                    active_profile=active_profile,
+                    include_domains=include_domains,
+                )
+                return
+
+            profile = ctx.obj.get("profile") if ctx.obj else None
+            storage_path, browser_profile = _prepare_login_paths(profile, storage, fresh)
+            _run_playwright_login(
+                browser=browser,
+                browser_profile=browser_profile,
+                storage_path=storage_path,
+                include_domains=include_domains,
+            )
+            console.print(f"\n[green]Authentication saved to:[/green] {storage_path}")
+
+            # Sync server language setting to local config so generate commands
+            # respect the user's global language preference (fixes #121).
+            _sync_server_language_to_config(storage_path=storage_path, profile=profile)
+
+    @cli.command("use")
+    @click.argument("notebook_id")
+    @click.option(
+        "--force",
+        is_flag=True,
+        default=False,
+        help=(
+            "Skip the existence check and persist the notebook ID even if "
+            "verification fails. Use for offline work or debugging."
+        ),
+    )
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    @click.pass_context
+    def use_notebook(ctx, notebook_id, force, json_output):
+        """Set the current notebook context.
+
+        Once set, all commands will use this notebook by default.
+        You can still override by passing --notebook explicitly.
+
+        Supports partial IDs - 'notebooklm use abc' matches 'abc123...'
+
+        By default, the notebook must exist on the server; a typo or
+        unreachable backend results in a non-zero exit and the saved
+        context is left untouched. Pass --force to bypass verification.
+
+        \b
+        Example:
+          notebooklm use nb123
+          notebooklm ask "what is this about?"   # Uses nb123
+          notebooklm generate video "a fun explainer"  # Uses nb123
+        """
+        if force:
+            # --force path: persist immediately without any RPC verification.
+            set_current_notebook(notebook_id)
+            if json_output:
+                json_output_response(
+                    {
+                        "active_notebook_id": notebook_id,
+                        "success": True,
+                        "verified": False,
+                    }
+                )
+                return
+            table = _use_notebook_table()
+            table.add_row(notebook_id, "(not verified — --force)", "-", "-")
+            console.print(table)
+            return
+
+        async def _get(client: NotebookLMClient) -> UseNotebookResult:
+            # Pass the locally-bound ``resolve_notebook_id`` so legacy tests
+            # patching ``notebooklm.cli.session_cmd.resolve_notebook_id`` still
+            # intercept the call. The service module would otherwise import
+            # the symbol from ``cli.resolve`` directly and bypass the patch.
+            return await verify_and_set_notebook(
+                client,
+                notebook_id,
+                json_output=json_output,
+                resolver=resolve_notebook_id,
+            )
+
+        def _handle_use_verification_error(exc: Exception):
+            if isinstance(exc, click.ClickException):
+                raise exc
+            if isinstance(exc, NotebookNotFoundError):
+                _output_error(
+                    f"Error: Notebook {notebook_id!r} not found. "
+                    "Run 'notebooklm list' to see available notebooks, "
+                    "or pass --force to bypass verification.",
+                    "NOT_FOUND",
+                    json_output,
+                    1,
+                )
+                raise AssertionError("unreachable")
+            if isinstance(exc, AuthError):
+                handle_auth_error(json_output)
+                raise AssertionError("unreachable")
+            _output_error(
+                f"Error: Could not verify notebook {notebook_id!r}: {exc}. "
+                "Pass --force to persist without verification.",
+                "VERIFICATION_FAILED",
+                json_output,
+                1,
+            )
+            raise AssertionError("unreachable")
+
+        result = run_client_workflow(
+            ctx,
+            command_name="session_use",
+            json_output=json_output,
+            body=_get,
+            client_factory=NotebookLMClient,
+            body_error_handler=_handle_use_verification_error,
+        )
+
+        nb = result.notebook
+        resolved_id = result.resolved_id
+        created_str = nb.created_at.strftime("%Y-%m-%d") if nb.created_at else None
+        set_current_notebook(resolved_id, nb.title, nb.is_owner, created_str)
+
+        if json_output:
+            json_output_response(
+                {
+                    "active_notebook_id": resolved_id,
+                    "success": True,
+                    "verified": True,
+                    "notebook": {
+                        "id": resolved_id,
+                        "title": nb.title,
+                        "is_owner": nb.is_owner,
+                        "created_at": nb.created_at.isoformat() if nb.created_at else None,
+                    },
+                }
+            )
+            return
+
+        table = _use_notebook_table()
+        created = created_str or "-"
+        owner_status = "Owner" if nb.is_owner else "Shared"
+        table.add_row(nb.id, nb.title, owner_status, created)
+        console.print(table)
+
+    @cli.command("status")
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    @click.option("--paths", "show_paths", is_flag=True, help="Show resolved file paths")
+    @click.pass_context
+    def status(ctx, json_output, show_paths):
+        """Show current context (active notebook and conversation).
+
+        Use --paths to see where configuration files are located
+        (useful for debugging NOTEBOOKLM_HOME).
+        """
+        report = read_status(ctx, show_paths=show_paths)
+        render_status(report, json_output=json_output)
+
+    @cli.command("clear")
+    def clear_cmd():
+        """Clear current notebook context."""
+        clear_context()
+        console.print("[green]Context cleared[/green]")
+
+    @cli.group("auth")
+    def auth_group():
+        """Authentication management commands."""
+        pass
+
+    @auth_group.command("logout")
+    @click.pass_context
+    def auth_logout(ctx):
+        """Log out by clearing saved authentication.
+
+        Removes both the saved cookie file (storage_state.json) and the
+        cached browser profile. After logout, run 'notebooklm login' to
+        authenticate with a different Google account.
+
+        \b
+        Examples:
+          notebooklm auth logout                       # Clear auth for active profile
+          notebooklm -p work auth logout               # Clear auth for 'work' profile
+          notebooklm --storage A.json auth logout      # Clear the override auth file
+        """
+        run_logout(ctx)
+
+    @auth_group.command("inspect")
+    @click.option(
+        "--browser",
+        "browser_name",
+        default="auto",
+        help=(
+            "Browser to read cookies from (chrome, firefox, brave, edge, "
+            "safari, arc, ...). 'auto' picks the first one rookiepy can read. "
+            "Use 'chrome::<profile>' for one Chromium profile or "
+            "'firefox::<container>' for one Firefox container. "
+            "Requires: pip install 'notebooklm-py[cookies]'"
+        ),
+    )
+    @click.option(
+        "--include-domains",
+        "include_domains_raw",
+        multiple=True,
+        default=(),
+        help=(
+            "Opt in to enumerating accounts via sibling-product cookies. "
+            "Same syntax as 'notebooklm login --include-domains'. By "
+            "default this command only consults required Google auth "
+            "cookies, which is sufficient for account discovery on every "
+            "tested path."
+        ),
+    )
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    @click.option(
+        "-v",
+        "--verbose",
+        "verbose",
+        is_flag=True,
+        default=False,
+        help=(
+            "Also show which browser user-profile each account's cookies came "
+            "from. Useful for Chromium-family browsers with multiple "
+            "user-profiles."
+        ),
+    )
+    def auth_inspect(browser_name, include_domains_raw, json_output, verbose):
+        """List Google accounts visible to a browser's cookie store.
+
+        Read-only — never writes to disk. Use this before
+        ``notebooklm login --browser-cookies <browser> --account <email>`` to
+        see which account emails are available.
+
+        For Chromium-family browsers (chrome, brave, edge, …) with multiple
+        user-profiles, accounts from every populated profile are surfaced and
+        deduped by email. Pass ``-v`` to see the originating user-profile per
+        account, or ``--json`` for a structured ``browser_profile`` field.
+        Use ``chrome::<profile-name-or-directory>`` to inspect only one
+        Chromium user-profile.
+
+        \b
+        Examples:
+          notebooklm auth inspect --browser chrome
+          notebooklm auth inspect --browser 'chrome::Profile 1'
+          notebooklm auth inspect --browser chrome -v
+          notebooklm auth inspect --browser firefox --json
+        """
+        include_domains = _parse_include_domains(include_domains_raw)
+        _, accounts = _enumerate_browser_accounts(
+            browser_name, verbose=not json_output, include_domains=include_domains
+        )
+        render_auth_inspect(browser_name, list(accounts), json_output=json_output, verbose=verbose)
+
+    @auth_group.command("check")
+    @click.option(
+        "--test", "test_fetch", is_flag=True, help="Test token fetch (makes network request)"
+    )
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    @click.pass_context
+    def auth_check(ctx, test_fetch, json_output):
+        """Check authentication status and diagnose issues.
+
+        Validates that authentication is properly configured by checking:
+        - Storage file exists and is readable
+        - JSON structure is valid
+        - Required cookies (SID + ``__Secure-1PSIDTS``) are present
+        - Cookie domains are correct
+
+        Use --test to also verify tokens can be fetched from NotebookLM
+        (requires network access).
+
+        \b
+        Examples:
+          notebooklm auth check           # Quick local validation
+          notebooklm auth check --test    # Full validation with network test
+          notebooklm auth check --json    # Machine-readable output
+        """
+        plan = plan_from_click_context(ctx, test_fetch=test_fetch, json_output=json_output)
+        run_auth_check(plan)
+
+    @auth_group.command("refresh")
+    @click.option(
+        "--browser-cookies",
+        "--browser-cookie",
+        "browser_cookies",
+        default=None,
+        is_flag=False,
+        flag_value="auto",
+        help=(
+            "Re-extract cookies from an installed browser and match the profile "
+            "account from context.json. Optionally specify browser: chrome, "
+            "firefox, brave, edge, safari, arc, ... Use 'chrome::<profile>' "
+            "for one Chromium profile or 'firefox::<container>' for one "
+            "Firefox container."
+        ),
+    )
+    @click.option(
+        "--include-domains",
+        "include_domains_raw",
+        multiple=True,
+        default=(),
+        help=(
+            "Forward to the browser-cookie reader (only meaningful with "
+            "--browser-cookies). Same syntax as 'notebooklm login "
+            "--include-domains'."
+        ),
+    )
+    @click.option(
+        "--quiet", "-q", is_flag=True, help="Suppress success output (only print on error)"
+    )
+    @click.pass_context
+    def auth_refresh(ctx, browser_cookies, include_domains_raw, quiet):
+        """Refresh stored cookies by exercising the auth path once.
+
+        One-shot keepalive: opens a session, runs the layer-1 poke against
+        ``accounts.google.com`` to elicit ``__Secure-1PSIDTS`` rotation,
+        fetches CSRF + session ID from ``notebooklm.google.com`` (discarded;
+        their side effect is the cookie jar), and persists the rotated jar
+        to ``storage_state.json`` on close. Designed to be scheduled by the
+        OS (launchd / systemd / cron) so that an otherwise-idle profile
+        does not stale out between user-driven calls.
+
+        Cadence: 15-20 minutes is the recommended interval. Tighter is
+        wasteful; significantly looser may cross the SIDTS server-side
+        validity window for your account/region.
+
+        Transient errors (e.g. ``httpx.RequestError`` from a flaky network)
+        are surfaced as exit 1 rather than retried in-process; the OS
+        scheduler's next firing is the retry mechanism.
+
+        \b
+        Examples:
+          notebooklm auth refresh                 # one-shot, exit 0/1
+          notebooklm auth refresh --browser-cookies chrome
+          notebooklm --profile work auth refresh  # against a named profile
+          watch -n 1200 notebooklm auth refresh   # quick in-terminal loop
+
+        See docs/troubleshooting.md ("Cookie freshness for long-running /
+        unattended use") for launchd / systemd / cron recipes.
+        """
+        with handle_errors():
+            if has_env_auth_json():
+                click.echo(
+                    f"Error: 'auth refresh' is incompatible with {AUTH_JSON_ENV_NAME}. "
+                    "The keepalive needs a writable storage_state.json to persist "
+                    "rotated cookies. Either unset the env var for this "
+                    "process and use a profile-backed storage file, or arrange for "
+                    "the env var to be refreshed externally.",
+                    err=True,
+                )
+                exit_with_code(1)
+
+            include_domains = _parse_include_domains(include_domains_raw)
+            if include_domains and browser_cookies is None:
+                click.echo(
+                    "Error: --include-domains only applies when --browser-cookies "
+                    "is also set (the keepalive-only path does not re-extract cookies).",
+                    err=True,
+                )
+                exit_with_code(1)
+
+            profile = ctx.obj.get("profile") if ctx.obj else None
+            storage_path = get_storage_path(profile=profile)
+
+            if browser_cookies is not None:
+                _refresh_from_browser_cookies(
+                    browser_cookies,
+                    storage_path=storage_path,
+                    profile=profile,
+                    quiet=quiet,
+                    include_domains=include_domains,
+                )
+                return
+
+            run_async(fetch_tokens_with_domains(storage_path, profile))
+
+            from ..auth import read_account_metadata
+
+            if storage_path.exists():
+                metadata = read_account_metadata(storage_path)
+                if not _is_valid_account_metadata(metadata):
+                    _repair_playwright_account_metadata(storage_path, quiet=quiet)
+
+            if not quiet:
+                console.print(f"[green]ok[/green] refreshed: {storage_path}")
+
+
+# Backward-compat constant kept at module scope for tests that import it
+# directly. The Playwright service owns the canonical definition.
+GOOGLE_ACCOUNTS_URL = "https://accounts.google.com/"

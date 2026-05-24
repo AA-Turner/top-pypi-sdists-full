@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: honcho-ai
-Version: 2.1.1
+Version: 2.1.2
 Summary: Official DX Optimized Python SDK for Honcho
 Author-email: Plastic Labs <hello@plasticlabs.ai>
 License-Expression: Apache-2.0
@@ -24,6 +24,8 @@ Description-Content-Type: text/markdown
 Requires-Dist: httpx<1,>=0.28.0
 Requires-Dist: pydantic<3,>=2.0.0
 Requires-Dist: typing-extensions>=4.12.0; python_version < "3.12"
+Provides-Extra: cli
+Requires-Dist: honcho-cli>=0.1.0; extra == "cli"
 
 # Honcho Python SDK
 
@@ -186,6 +188,6 @@ Apache 2.0 - see [LICENSE](../../LICENSE) for details.
 
 ## Support
 
-- [Documentation](https://docs.honcho.dev)
+- [Documentation](https://honcho.dev/docs)
 - [GitHub Issues](https://github.com/plastic-labs/honcho/issues)
 - [Discord Community](https://discord.gg/honcho)

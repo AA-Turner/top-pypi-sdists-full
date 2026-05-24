@@ -20,6 +20,7 @@ Example by:
   Keith Smith
 
 """
+
 import simpy
 
 SIM_DURATION = 100

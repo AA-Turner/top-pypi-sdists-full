@@ -28,6 +28,7 @@ processes can define a request priority, and a :class:`PreemptiveResource`
 whose resource users can be preempted by requests with a higher priority.
 
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional, Type
@@ -276,7 +277,7 @@ class PreemptiveResource(PriorityResource):
     ) -> None:
         if len(self.users) >= self.capacity and event.preempt:
             # Check if we can preempt another process
-            preempt = sorted(self.users, key=lambda e: e.key)[-1]
+            preempt = max(self.users, key=lambda e: e.key)
             if preempt.key > event.key:
                 self.users.remove(preempt)
                 preempt.proc.interrupt(  # type: ignore

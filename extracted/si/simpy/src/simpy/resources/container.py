@@ -7,6 +7,7 @@ Tankers increase and refuelled cars decrease the amount of gas in the station's
 fuel tanks.
 
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Union

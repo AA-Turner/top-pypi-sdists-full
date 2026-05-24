@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ripgrep
-Version: 15.0.0
+Version: 15.1.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

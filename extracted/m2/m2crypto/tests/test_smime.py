@@ -83,12 +83,12 @@ class SMIMETestCase(unittest.TestCase):
 
         self.assertTrue(
             buf.startswith(b"-----BEGIN PKCS7-----"),
-            b"-----BEGIN PKCS7-----",
+            "Expected PEM PKCS7 header",
         )
         buf = buf.strip()
         self.assertTrue(
             buf.endswith(b"-----END PKCS7-----"),
-            buf[-len(b"-----END PKCS7-----") :],
+            "Expected PEM PKCS7 footer",
         )
         self.assertGreater(
             len(buf),
@@ -101,17 +101,41 @@ class SMIMETestCase(unittest.TestCase):
     def test_sign(self):
         self.do_test_sign()
 
+    def test_sign_detached_text_smime_roundtrip(self):
+        msg = b"line1\nline2\n"
+        s = SMIME.SMIME()
+        s.load_key("tests/signer_key.pem", "tests/signer.pem")
+
+        p7 = s.sign(BIO.MemoryBuffer(msg), SMIME.PKCS7_DETACHED | SMIME.PKCS7_TEXT)
+
+        out = BIO.MemoryBuffer()
+        s.write(out, p7, BIO.MemoryBuffer(msg), SMIME.PKCS7_TEXT)
+        smime = out.read()
+
+        self.assertIn(b"Content-Type: multipart/signed", smime)
+        self.assertIn(b"Content-Type: text/plain", smime)
+        self.assertIn(b'protocol="application/x-pkcs7-signature"', smime)
+        self.assertIn(b"Content-Type: application/x-pkcs7-signature", smime)
+
+        p7_loaded, data = SMIME.smime_load_pkcs7_bio(BIO.MemoryBuffer(smime))
+
+        sk = X509.X509_Stack()
+        sk.push(X509.load_cert("tests/signer.pem"))
+        s.set_x509_stack(sk)
+
+        st = X509.X509_Store()
+        st.load_info("tests/ca.pem")
+        s.set_x509_store(st)
+
+        verified = s.verify(p7_loaded, data)
+        self.assertEqual(verified, b"Content-Type: text/plain\r\n\r\nline1\r\nline2\r\n")
+
     def test_sign_unknown_digest(self):
         buf = BIO.MemoryBuffer(self.cleartext)
         s = SMIME.SMIME()
         s.load_key("tests/signer_key.pem", "tests/signer.pem")
-        self.assertRaises(
-            SMIME.SMIME_Error,
-            s.sign,
-            buf,
-            SMIME.PKCS7_DETACHED,
-            "invalid digest name",
-        )
+        with self.assertRaises(SMIME.SMIME_Error):
+            s.sign(buf, SMIME.PKCS7_DETACHED, "invalid digest name")
 
     def test_sign_nondefault_digest(self):
         buf = BIO.MemoryBuffer(self.cleartext)
@@ -211,7 +235,7 @@ class SMIMETestCase(unittest.TestCase):
         v = s.verify(p7, data)
         self.assertEqual(v, self.cleartext)
 
-    def test_verifyBad(self):
+    def test_verify_bad(self):
         s = SMIME.SMIME()
 
         x509 = X509.load_cert("tests/recipient.pem")
@@ -308,7 +332,7 @@ class SMIMETestCase(unittest.TestCase):
         s.set_cipher(SMIME.Cipher("des_ede3_cbc"))
 
         tmp = BIO.MemoryBuffer()
-        s.write(tmp, p7)
+        s.write(tmp, p7, BIO.MemoryBuffer(self.cleartext))
 
         p7 = s.encrypt(tmp)
 
@@ -336,7 +360,7 @@ class SMIMETestCase(unittest.TestCase):
 
         p7_bio = BIO.MemoryBuffer(out)
         p7, data = SMIME.smime_load_pkcs7_bio(p7_bio)
-        v = s.verify(p7)
+        v = s.verify(p7, data)
         self.assertEqual(v, self.cleartext)
 
 
@@ -358,8 +382,12 @@ class WriteLoadTestCase(unittest.TestCase):
             self.assertEqual(s.write(f, p7, BIO.MemoryBuffer(b"some text")), 1)
 
     def tearDown(self):
+        if os.path.exists(self.filename):
+            os.unlink(self.filename)
         if os.path.exists(self.filename_der):
             os.unlink(self.filename_der)
+        if os.path.exists(self.filenameSmime):
+            os.unlink(self.filenameSmime)
 
     def test_load_pkcs7(self):
         self.assertEqual(SMIME.load_pkcs7(self.filename).type(), SMIME.PKCS7_SIGNED)
@@ -381,6 +409,26 @@ class WriteLoadTestCase(unittest.TestCase):
             buf = BIO.MemoryBuffer(f.read())
 
         self.assertEqual(SMIME.load_pkcs7_bio_der(buf).type(), SMIME.PKCS7_SIGNED)
+
+    def test_write_load_der_multi_algo(self):
+        s = SMIME.SMIME()
+        s.load_key("tests/signer_key.pem", "tests/signer.pem")
+        for algo in ["sha1", "sha256", "sha512"]:
+            with self.subTest(algo=algo):
+                # Sign with specific algorithm
+                try:
+                    p7 = s.sign(BIO.MemoryBuffer(b"some text"), algo=algo)
+                except SMIME.SMIME_Error as e:
+                    if "invalid digest" in str(e):
+                        self.skipTest(f"Algorithm {algo} forbidden by system policy")
+                    raise
+
+                # Verify DER round-trip
+                buf = BIO.MemoryBuffer()
+                self.assertEqual(p7.write_der(buf), 1)
+
+                p7_loaded = SMIME.load_pkcs7_bio_der(buf)
+                self.assertEqual(p7_loaded.type(), SMIME.PKCS7_SIGNED)
 
     def test_load_smime(self):
         a, b = SMIME.smime_load_pkcs7(self.filenameSmime)
@@ -410,7 +458,6 @@ class DegenerateTestCase(unittest.TestCase):
 
     def tearDown(self):
         # Clean up test files
-        import os
         if os.path.exists(self.test_filename):
             os.unlink(self.test_filename)
 

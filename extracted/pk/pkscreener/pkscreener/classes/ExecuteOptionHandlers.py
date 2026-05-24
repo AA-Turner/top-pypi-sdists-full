@@ -17,7 +17,7 @@ import pkscreener.classes.ConfigManager as ConfigManager
 
 def handle_execute_option_3(userPassedArgs, configManager) -> int:
     """Handle execute option 3 - force evaluate all stocks"""
-    userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults, 2000)
+    userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults, 5000)
     return configManager.volumeRatio
 
 
@@ -165,7 +165,7 @@ def handle_execute_option_7(
         return None, None, None
     
     userPassedArgs.maxdisplayresults = (
-        max(configManager.maxdisplayresults, 2000) 
+        max(configManager.maxdisplayresults, 5000) 
         if respChartPattern in [3, 4, 5, 8, 9] 
         else min(
             configManager.maxdisplayresults,
@@ -544,7 +544,7 @@ def handle_execute_option_33(options: List[str], m2, selectedChoice: Dict[str, s
     selectedChoice["3"] = str(maLength)
     
     if maLength == 3:
-        userPassedArgs.maxdisplayresults = max(100, userPassedArgs.maxdisplayresults or 100) * 20
+        userPassedArgs.maxdisplayresults = max(5000, userPassedArgs.maxdisplayresults or 5000) * 20
     
     return maLength
 

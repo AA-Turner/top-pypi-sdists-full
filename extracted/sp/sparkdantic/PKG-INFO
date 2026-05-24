@@ -1,24 +1,17 @@
 Metadata-Version: 2.4
 Name: sparkdantic
-Version: 2.8.0
+Version: 2.8.2
 Summary: A pydantic -> spark schema library
+Author-email: Mitchell Lisle <m.lisle90@gmail.com>
 License-File: LICENSE
-Author: Mitchell Lisle
-Author-email: m.lisle90@gmail.com
-Requires-Python: >3.9.1,<4.0.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0.0,>=3.10
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: jmespath<2.0.0,>=1.0.1
+Requires-Dist: packaging<27.0,>=24.2
+Requires-Dist: pydantic<3.0.0,>=2.1.1
+Requires-Dist: pyparsing<4.0.0,>=3.1.1
 Provides-Extra: pyspark
-Requires-Dist: jinja2 (>=3.1.6)
-Requires-Dist: jmespath (>=1.0.1,<2.0.0)
-Requires-Dist: packaging (>=24.2,<27.0)
-Requires-Dist: pydantic (>=2.1.1,<3.0.0)
-Requires-Dist: pyparsing (>=3.1.1,<4.0.0)
-Requires-Dist: pyspark (>=3.3.0,<=4.2.0) ; extra == "pyspark"
+Requires-Dist: pyspark<=4.2.0,>=3.3.0; extra == 'pyspark'
 Description-Content-Type: text/markdown
 
 ##  SparkDantic
@@ -26,7 +19,7 @@ Description-Content-Type: text/markdown
 [![codecov](https://codecov.io/gh/mitchelllisle/sparkdantic/graph/badge.svg?token=O6PPQX4FEX)](https://codecov.io/gh/mitchelllisle/sparkdantic)
 [![PyPI version](https://badge.fury.io/py/sparkdantic.svg)](https://badge.fury.io/py/sparkdantic)
 
-> 1️⃣ version: 2.8.0
+> 1️⃣ version: 2.8.2
 
 > ✍️ author: Mitchell Lisle
 
@@ -199,7 +192,7 @@ json_spark_schema = create_json_spark_schema(EmployeeModel)
 ## Contributing
 Contributions welcome! If you would like to add a new feature / fix a bug feel free to raise a PR and tag me (`mitchelllisle`) as
 a reviewer. Please setup your environment locally to ensure all styling and development flow is as close to the standards set in
-this project as possible. To do this, the main thing you'll need is `poetry`. You should also run `make install-dev-local` which 
+this project as possible. To do this, the main thing you'll need is `uv`. You should also run `make install-dev-local` which 
 will install the `pre-commit-hooks` as well as install the project locally. PRs won't be accepted without sufficient tests and 
 we will be strict on maintaining a 100% test coverage.
 
@@ -217,4 +210,3 @@ we will be strict on maintaining a 100% test coverage.
 > Note: ⚠️ You can ignore bumping the version if you like. I periodically do releases of any dependency updates anyway so
 > if you can wait a couple of days for your code to be pushed to PyPi then just submit the change and I'll make sure it's
 > included in the next release. I'll do my best to make sure it's released ASAP after your PR is merged.
-

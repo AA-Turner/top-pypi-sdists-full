@@ -2,6 +2,7 @@
 Test asynchronous interrupts.
 
 """
+
 import re
 
 import pytest
@@ -110,7 +111,8 @@ def test_interrupt_terminated_process(env):
 
         # Wait long enough so that child_proc terminates.
         yield env.timeout(2)
-        ei = pytest.raises(RuntimeError, child_proc.interrupt)
+        with pytest.raises(RuntimeError) as ei:
+            child_proc.interrupt()
         assert re.match(
             r'<Process\(child\) object at 0x.*> has terminated '
             r'and cannot be interrupted.',
@@ -153,7 +155,8 @@ def test_interrupt_self(env):
     """A process should not be able to interrupt itself."""
 
     def pem(env):
-        pytest.raises(RuntimeError, env.active_process.interrupt)
+        with pytest.raises(RuntimeError):
+            env.active_process.interrupt()
         yield env.timeout(0)
 
     env.process(pem(env))

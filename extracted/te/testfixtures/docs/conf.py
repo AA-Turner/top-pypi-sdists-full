@@ -12,18 +12,25 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'django': ('https://django.readthedocs.io/en/latest/', None),
     'pytest': ('https://docs.pytest.org/en/latest/', None),
+    'loguru': ('https://loguru.readthedocs.io/en/stable/', None),
+    'structlog': ('https://www.structlog.org/en/stable/', None),
     'sybil': ('https://sybil.readthedocs.io/en/latest/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
+    'polars': ('https://docs.pola.rs/api/python/stable/', None),
 }
 
 # General
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 master_doc = 'index'
 project = 'testfixtures'
 copyright = '2008-2015 Simplistix Ltd, 2016 onwards Chris Withers'
 release = metadata.version(project)
 exclude_trees = ['_build']
 pygments_style = 'sphinx'
-autodoc_typehints = 'description'
+
+# Type hints
+autodoc_typehints = 'both'
+autodoc_typehints_description_target = "documented"
 
 # Options for HTML output
 html_theme = 'furo'
@@ -39,6 +46,8 @@ nitpick_ignore = [
     ('py:class', '~P'),  # param spec
     ('py:class', 'constantly._constants.NamedConstant'),  # twisted logging constants
     ('py:class', 'django.db.models.base.Model'),  # not documented upstream
+    ('py:class', 'polars.DataFrame'),  # polars inventory has no top-level class entry
+    ('py:class', 'polars.dataframe.frame.DataFrame'),  # same
     ('py:class', 'module'),  # ModuleType not documented.
     ('py:class', 'tempfile.TemporaryFile'),  # not documented as a class so type annotation broken
     ('py:class', 'testfixtures.comparison.S'),  # type var
@@ -50,6 +59,12 @@ nitpick_ignore = [
     ('py:class', 'testfixtures.tempdirectory.P'),  # type var
     ('py:class', 'testfixtures.utils.T'),  # type var
     ('py:class', 'testfixtures.utils.U'),  # type var
+    ('py:class', 'twisted.logger.Logger'),  # twisted doesn't use sphinx
+    ('py:class', 'twisted.logger.LogLevel'),  # twisted doesn't use sphinx
+    ('py:class', 'twisted.logger.FileLogObserver'),  # twisted doesn't use sphinx
+    ('py:class', 'twisted.python.failure.Failure'),  # twisted doesn't use sphinx
+    ('py:func', 'twisted.logger.formatEvent'),  # twisted doesn't use sphinx
+    ('py:class', 'twisted.trial._asynctest.TestCase'),  # twisted doesn't use sphinx
     ('py:class', 'twisted.trial.unittest.TestCase'),  # twisted doesn't use sphinx
     ('py:class', 'unittest.case.TestCase'),  # no docs, apparently
     ('py:class', 'unittest.mock._Call'),  # No docstring.

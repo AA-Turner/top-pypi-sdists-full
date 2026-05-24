@@ -79,15 +79,17 @@ class CSVBackend(BackendBase):
             df.columns = pd.MultiIndex.from_tuples(tuples)
             out[p.stem] = df
         if not out:
-            raise FileNotFoundError(f"Keine *.csv in {folder} gefunden.")
+            raise FileNotFoundError(f"No *.csv files found in {folder}.")
         return out
 
 
 def load_csv_dir(
     path: str,
     options: BackendOptions | None = None,
+    *,
+    header_levels: int = 1,
 ) -> dict[str, pd.DataFrame]:
-    return CSVBackend().read_multi(path, header_levels=1, options=options)
+    return CSVBackend().read_multi(path, header_levels=header_levels, options=options)
 
 
 def save_csv_dir(

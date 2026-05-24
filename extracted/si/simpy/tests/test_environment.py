@@ -2,6 +2,7 @@
 General test for the `simpy.core.Environment`.
 
 """
+
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
@@ -71,7 +72,63 @@ def test_run_with_processed_event(env):
 
 
 def test_run_with_untriggered_event(env):
-    excinfo = pytest.raises(RuntimeError, env.run, until=env.event())
+    with pytest.raises(RuntimeError) as excinfo:
+        env.run(until=env.event())
     assert str(excinfo.value).startswith(
         'No scheduled events left but "until" event was not triggered:'
     )
+
+
+def test_run_all_until_callbacks(env):
+    """Ensure `until` event callbacks are called when resuming simulation."""
+
+    class System:
+        def __init__(self, env):
+            self.env = env
+            self.counter = 0
+            self.periodic_event = env.event()
+
+        def periodic(self):
+            for _ in range(3):
+                yield self.env.timeout(1)
+                event, self.periodic_event = self.periodic_event, self.env.event()
+                event.succeed(self.counter)
+
+        def consumer(self):
+            while True:
+                yield self.periodic_event
+                self.counter += 1
+
+    system = System(env)
+    env.process(system.periodic())
+    for _ in range(5):
+        env.process(system.consumer())
+
+    period_counter = env.run(until=system.periodic_event)
+    assert env.now == 1
+    # The periodic process triggers the periodic_event before any consumers can
+    # respond to the periodic event. Thus the first period counter is 0.
+    assert period_counter == 0
+    # And because the simulation is supposed to stop when the `until` event is
+    # _triggered_, i.e. "its callbacks are about to be invoked", the consumer
+    # processes should not yet have observed the periodic_event and thus the
+    # system.counter should remain at 0.
+    assert system.counter == 0
+
+    period_counter = env.run(until=system.periodic_event)
+    assert env.now == 2
+    # When simulation stops again, system.counter must reflect that each of the
+    # consumer processes observed the first periodic_event, but not the second.
+    assert period_counter == 5
+    assert system.counter == 5
+
+    period_counter = env.run(until=system.periodic_event)
+    assert env.now == 3
+    assert period_counter == 10
+    assert system.counter == 10
+
+    env.run()
+    assert env.now == 3
+    # After processing all events, the consumers will have observed the last of
+    # the three periodic_events, incrementing system.counter to 3 * 5 = 15.
+    assert system.counter == 15

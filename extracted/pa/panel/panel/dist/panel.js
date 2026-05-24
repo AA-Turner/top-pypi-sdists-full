@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("529fb470ea") /* ./react_component */;
+    var react_component_1 = require("6a5b614d9b") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("a5f4225d5f") /* ./reactive_esm */;
+    var reactive_esm_1 = require("a097fbf152") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -778,7 +778,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("a5f4225d5f") /* ./reactive_esm */;
+    const reactive_esm_1 = require("a097fbf152") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -942,7 +942,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"a5f4225d5f": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"a097fbf152": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -1188,7 +1188,7 @@ export default {render}`;
             });
             const child_props = this.model.children.map((child) => this.model.data.properties[child]);
             for (const cp of child_props) {
-                cp.change.connect(() => this.update_children());
+                this.connect(cp.change, () => this.update_children());
             }
             this.on_change([], () => {
                 if (this.model.render_policy !== "manual") {
@@ -1359,7 +1359,8 @@ export default {render}`;
                 (this._lifecycle_handlers.get(lf) || []).splice(0);
             }
             this.model.disconnect_watchers(this);
-            this.model.render_module.then((mod) => mod.default.render(this.model.id));
+            const render_promise = this.model.render_module.then((mod) => mod.default.render(this.model.id));
+            this._await_ready(render_promise);
         }
         render_children() {
             for (const child of this.accessed_children) {
@@ -1580,11 +1581,34 @@ export default {render}`;
                                 check();
                             });
                         }
-                        orig_cb();
                         if (view && this.render_policy === "manual") {
+                            let resolve_ready;
+                            view.root._await_ready(new Promise((r) => { resolve_ready = r; }));
+                            orig_cb();
                             view.render_children();
                             view._update_children();
                             view.invalidate_layout();
+                            // Collect ready promises from all newly rendered descendants
+                            const collect_ready = (v) => {
+                                const promises = [v.ready];
+                                for (const child of v.child_views || []) {
+                                    promises.push(...collect_ready(child));
+                                }
+                                return promises;
+                            };
+                            const all_ready = [];
+                            for (const child_view of view.child_views) {
+                                all_ready.push(...collect_ready(child_view));
+                            }
+                            if (all_ready.length > 0) {
+                                Promise.all(all_ready).then(() => resolve_ready());
+                            }
+                            else {
+                                resolve_ready();
+                            }
+                        }
+                        else {
+                            orig_cb();
                         }
                     };
                 }
@@ -29501,7 +29525,7 @@ ${namesToRegister
         }));
     })();
 },
-"529fb470ea": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"6a5b614d9b": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -29509,7 +29533,7 @@ ${namesToRegister
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("a5f4225d5f") /* ./reactive_esm */;
+    const reactive_esm_1 = require("a097fbf152") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29570,7 +29594,9 @@ ${namesToRegister
             this.model_getter = reactive_esm_1.model_getter;
             this.model_setter = reactive_esm_1.model_setter;
             this.react_root = null;
+            this.mounted = false;
             this._force_update_callbacks = [];
+            this._mounted_resolve = null;
             this._scheduled_removals = [];
         }
         initialize() {
@@ -29588,6 +29614,7 @@ ${namesToRegister
             if (this.model.compiled === null || this.model.render_module === null) {
                 return;
             }
+            this._changing = true;
             if (this.model.usesMui) {
                 if (this.model.root_node) {
                     this.style_cache = document.head;
@@ -29602,9 +29629,13 @@ ${namesToRegister
                 (this._lifecycle_handlers.get(lf) || []).splice(0);
             }
             this.model.disconnect_watchers(this);
+            const mounted_promise = new Promise((resolve) => {
+                this._mounted_resolve = resolve;
+            });
             this.model.render_module.then((mod) => {
                 this.react_root = mod.default.render(this.model.id);
             });
+            this._await_ready(mounted_promise);
         }
         on_force_update(cb) {
             this._force_update_callbacks.push(cb);
@@ -29616,6 +29647,7 @@ ${namesToRegister
         }
         remove() {
             this._force_update_callbacks = [];
+            this.mounted = false;
             if (this.react_root && this.use_shadow_dom) {
                 super.remove();
                 this.react_root.then((root) => root && root.unmount());
@@ -29668,6 +29700,7 @@ ${namesToRegister
                 this.react_root.then((root) => root.unmount());
             }
             this._force_update_callbacks = [];
+            this.mounted = false;
             super.render();
         }
         r_after_render() {
@@ -29741,6 +29774,16 @@ ${namesToRegister
         }
         _on_mounted() {
             this.invalidate_layout();
+            this.mounted = true;
+        }
+        has_finished() {
+            if (!super.has_finished()) {
+                return false;
+            }
+            if (this._changing) {
+                return false;
+            }
+            return true;
         }
         patch_container(container) {
             this.el = this.container = container;
@@ -29759,6 +29802,21 @@ ${namesToRegister
                 }
             }
             this._rendered = true;
+            this._changing = false;
+            if (this._mounted_resolve) {
+                const resolve = this._mounted_resolve;
+                this._mounted_resolve = null;
+                const child_ready = [];
+                for (const child_view of this.child_views) {
+                    child_ready.push(child_view.ready);
+                }
+                if (child_ready.length > 0) {
+                    Promise.all(child_ready).then(() => resolve());
+                }
+                else {
+                    resolve();
+                }
+            }
         }
     }
     exports.ReactComponentView = ReactComponentView;
@@ -29864,31 +29922,29 @@ async function render(id) {
       const view = this.view
       this.render_callback = (new_views) => {
         const view = this.view
-        if (!view) {
+        if (!view || !new_views.includes(view)) {
           return
         }
         this.updateElement()
-        if (new_views.includes(view)) {
-          if (this.use_shadow_dom) {
+        if (this.use_shadow_dom) {
+          for (const view of this.props.parent._scheduled_removals) { view.remove() }
+          this.props.parent._scheduled_removals = []
+          this.props.parent.rerender_(view)
+          this.props.parent._child_rendered.set(view, true)
+        } else {
+          view.patch_container(this.containerRef.current)
+          view.model.render_module.then(async (mod) => {
             for (const view of this.props.parent._scheduled_removals) { view.remove() }
             this.props.parent._scheduled_removals = []
-            this.props.parent.rerender_(view)
-            this.props.parent._child_rendered.set(view, true)
-          } else {
-            view.patch_container(this.containerRef.current)
-            view.model.render_module.then(async (mod) => {
-              for (const view of this.props.parent._scheduled_removals) { view.remove() }
-              this.props.parent._scheduled_removals = []
-              this.setState(
-                {rendered: await mod.default.render(view.model.id)},
-                () => {
-                  this.props.parent.notify_mount(this.props.name, view.model.id)
-                  this.view.r_after_render()
-                  this.view.after_rendered()
-                }
-              )
-            })
-          }
+            this.setState(
+              {rendered: await mod.default.render(view.model.id)},
+              () => {
+                this.props.parent.notify_mount(this.props.name, view.model.id)
+                this.view.r_after_render()
+                this.view.after_rendered()
+              }
+            )
+          })
         }
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
@@ -30060,7 +30116,6 @@ async function render(id) {
         ${init_code}
         this.forceUpdate()
       })
-      this.props.view._changing = false
       this.props.view.after_rendered()
     }
 
@@ -30080,7 +30135,6 @@ async function render(id) {
     return rendered
   }
   if (rendered) {
-    view._changing = true
     let container
     if (view.model.root_node) {
       container = document.querySelector(view.model.root_node)
@@ -41321,5 +41375,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"a5f4225d5f","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"529fb470ea","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"a097fbf152","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"6a5b614d9b","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

@@ -1,0 +1,606 @@
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+
+from spreadsheet_handling.pipeline import (
+    REGISTRY,
+    build_steps_from_config,
+    run_pipeline,
+)
+from spreadsheet_handling.pipeline.types import StepRegistration
+
+RENAMED_PIPELINE_STEPS = {
+    "apply_fks": "add_fk_helpers",
+    "drop_helpers": "remove_fk_helpers",
+    "check_fk_helpers": "validate_fk_helpers",
+    "reorder_helpers": "reorder_fk_helpers",
+    "enrich_lookup": "add_lookup_helpers",
+}
+
+
+def test_registry_uses_descriptor_for_migrated_builder_step() -> None:
+    entry = REGISTRY["flatten_headers"]
+    assert isinstance(entry, StepRegistration)
+    assert entry.target == "spreadsheet_handling.domain.transformations.helpers:flatten_headers"
+
+
+def test_registry_uses_descriptor_for_migrated_frames_step() -> None:
+    entry = REGISTRY["bootstrap_meta"]
+    assert isinstance(entry, StepRegistration)
+    assert entry.target == "spreadsheet_handling.domain.meta_bootstrap:bootstrap_meta"
+
+
+def test_build_steps_from_config_binds_builder_style_domain_step() -> None:
+    frames = {
+        "Sheet1": pd.DataFrame(
+            [[1, 2]],
+            columns=pd.MultiIndex.from_tuples([("A", ""), ("B", "")]),
+        )
+    }
+    steps = build_steps_from_config([{"step": "flatten_headers", "mode": "level0"}])
+
+    assert steps[0].name == "flatten_headers"
+    assert steps[0].config["target"].endswith(":flatten_headers")
+
+    out = run_pipeline(frames, steps)
+    assert list(out["Sheet1"].columns) == ["A", "B"]
+
+
+def test_build_steps_from_config_binds_frames_first_domain_step() -> None:
+    frames = {"Sheet1": pd.DataFrame({"a": [1]})}
+    steps = build_steps_from_config(
+        [{"step": "bootstrap_meta", "profile_defaults": {"freeze_header": True}}]
+    )
+
+    assert steps[0].name == "bootstrap_meta"
+    assert steps[0].config["target"].endswith(":bootstrap_meta")
+
+    out = run_pipeline(frames, steps)
+    assert out["_meta"]["freeze_header"] is True
+
+
+def test_apply_overrides_generic_registration_binds_frames_first_step() -> None:
+    frames = {"Sheet1": pd.DataFrame({"a": [1]})}
+
+    steps = build_steps_from_config(
+        [{"step": "apply_overrides", "overrides": {"defaults": {"auto_filter": True}}}]
+    )
+    out = run_pipeline(frames, steps)
+
+    assert steps[0].config["target"].endswith(":load_and_apply_overrides")
+    assert out["_meta"]["auto_filter"] is True
+
+
+@pytest.mark.ftr("FTR-STANDARD-REFERENCE-VALIDATIONS-P4A")
+def test_validate_references_step_is_config_addressable() -> None:
+    frames = {
+        "variables": pd.DataFrame([{"ID": "v1"}]),
+        "variable_codes": pd.DataFrame([{"ID": "missing"}]),
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "validate_references",
+                "mode": "warn",
+                "findings": "reference_findings",
+                "rules": [
+                    {
+                        "type": "foreign_key",
+                        "frame": "variable_codes",
+                        "columns": ["ID"],
+                        "target": "variables",
+                        "target_columns": ["ID"],
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["validate_references"], StepRegistration)
+    assert steps[0].config["target"].endswith(":validate_references")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["reference_findings"].to_dict(orient="records") == [
+        {
+            "rule_type": "foreign_key",
+            "frame": "variable_codes",
+            "columns": "ID",
+            "row_index": 0,
+            "value": "missing",
+            "target_frame": "variables",
+            "target_columns": "ID",
+            "severity": "warn",
+            "message": "Foreign key value is not present in target frame.",
+        }
+    ]
+
+
+@pytest.mark.ftr("FTR-GRAPH-REFERENCE-VALIDATIONS-P4A")
+def test_validate_graph_step_is_config_addressable() -> None:
+    frames = {
+        "calculation_operations": pd.DataFrame([{"operation_id": "op1"}]),
+        "variables": pd.DataFrame([{"variable_id": "v1"}]),
+        "operation_outputs": pd.DataFrame([{"operation_id": "missing_op", "variable_id": "v1"}]),
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "validate_graph",
+                "mode": "warn",
+                "graph": "calculation_operation_network",
+                "nodes": [
+                    {
+                        "name": "operations",
+                        "frame": "calculation_operations",
+                        "key": "operation_id",
+                    },
+                    {"name": "variables", "frame": "variables", "key": "variable_id"},
+                ],
+                "edges": [
+                    {
+                        "name": "operation_outputs",
+                        "frame": "operation_outputs",
+                        "source_node": "operations",
+                        "source_column": "operation_id",
+                        "target_node": "variables",
+                        "target_column": "variable_id",
+                        "unique": True,
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["validate_graph"], StepRegistration)
+    assert steps[0].config["target"].endswith(":validate_graph")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["graph_validation_findings"].loc[0, "rule_type"] == "graph_endpoint"
+    assert out["graph_validation_findings"].loc[0, "value"] == "missing_op"
+
+
+@pytest.mark.ftr("FTR-PIPELINE-STEP-NAMING-P4")
+def test_pipeline_registry_uses_normalized_helper_step_names() -> None:
+    for old_name, new_name in RENAMED_PIPELINE_STEPS.items():
+        assert old_name not in REGISTRY
+        assert new_name in REGISTRY
+
+
+@pytest.mark.ftr("FTR-PIPELINE-STEP-NAMING-P4")
+def test_replaced_pipeline_step_names_fail_clearly() -> None:
+    for old_name in RENAMED_PIPELINE_STEPS:
+        with pytest.raises(KeyError, match=f"Unknown step '{old_name}'"):
+            build_steps_from_config([{"step": old_name}])
+
+
+def test_xref_crosstable_steps_are_config_addressable() -> None:
+    frames = {
+        "matrix": pd.DataFrame(
+            {
+                "feature_id": ["f1"],
+                "P-001": ["E"],
+                "P-002": ["S"],
+            }
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "expand_xref",
+                "matrix": "matrix",
+                "output": "long",
+                "row_keys": ["feature_id"],
+                "value_columns": ["P-001", "P-002"],
+            },
+            {
+                "step": "contract_xref",
+                "relation": "long",
+                "output": "roundtrip",
+                "row_keys": ["feature_id"],
+            },
+        ]
+    )
+
+    assert steps[0].config["target"].endswith(":expand_xref")
+    assert steps[1].config["target"].endswith(":contract_xref")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["long"].to_dict(orient="records") == [
+        {"feature_id": "f1", "column_key": "P-001", "value": "E"},
+        {"feature_id": "f1", "column_key": "P-002", "value": "S"},
+    ]
+    assert out["roundtrip"].to_dict(orient="records") == [
+        {"feature_id": "f1", "P-001": "E", "P-002": "S"},
+    ]
+
+
+@pytest.mark.ftr("FTR-SPARSE-CROSSTABLE-COLLAPSE-P4A")
+def test_sparse_default_steps_are_config_addressable() -> None:
+    frames = {
+        "matrix": pd.DataFrame(
+            {
+                "feature_id": ["f1"],
+                "P-001": ["nein"],
+                "P-002": ["ja"],
+            }
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "sparse_collapse",
+                "frame": "matrix",
+                "default_value": "nein",
+                "columns": ["P-001", "P-002"],
+            },
+            {
+                "step": "sparse_expand",
+                "frame": "matrix",
+            },
+        ]
+    )
+
+    assert isinstance(REGISTRY["sparse_collapse"], StepRegistration)
+    assert isinstance(REGISTRY["sparse_expand"], StepRegistration)
+    assert steps[0].config["target"].endswith(":sparse_collapse")
+    assert steps[1].config["target"].endswith(":sparse_expand")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["matrix"].to_dict(orient="records") == [
+        {"feature_id": "f1", "P-001": "nein", "P-002": "ja"},
+    ]
+
+
+@pytest.mark.ftr("FTR-RESOURCE-FALLBACK-OVERRIDE-SEMANTICS-P4A")
+def test_normalize_resource_overrides_step_is_config_addressable() -> None:
+    frames = {
+        "localized_values": pd.DataFrame([
+            {
+                "resource_key": "greeting",
+                "locale": "en",
+                "context_id": "default",
+                "text": "Hello",
+            },
+            {
+                "resource_key": "greeting",
+                "locale": "en",
+                "context_id": "product_a",
+                "text": "",
+            },
+        ])
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "normalize_resource_overrides",
+                "source": "localized_values",
+                "output": "normalized_values",
+                "row_keys": ["resource_key"],
+                "discriminator_column": "locale",
+                "context_column": "context_id",
+                "value_column": "text",
+                "resource_override_policy": {
+                    "default_context": "default",
+                    "empty_override": "omit_tuple",
+                },
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["normalize_resource_overrides"], StepRegistration)
+    assert steps[0].config["target"].endswith(":normalize_resource_overrides")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["normalized_values"].to_dict(orient="records") == [
+        {
+            "resource_key": "greeting",
+            "locale": "en",
+            "context_id": "default",
+            "text": "Hello",
+        }
+    ]
+
+
+@pytest.mark.ftr("FTR-SPLIT-BY-DISCRIMINATOR-P4A")
+def test_discriminator_split_steps_are_config_addressable() -> None:
+    frames = {
+        "subject_labels": pd.DataFrame(
+            [
+                {"subject": "sub_1", "label": "Eingang", "sprache": "de"},
+                {"subject": "sub_1", "label": "entrance", "sprache": "en"},
+            ]
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "split_by_discriminator",
+                "source_frame": "subject_labels",
+                "discriminator_column": "sprache",
+                "target_pattern": "subject_labels_{value}",
+            },
+            {
+                "step": "merge_by_discriminator",
+                "target_frame": "subject_labels",
+                "discriminator_column": "sprache",
+                "source_pattern": "subject_labels_{value}",
+            },
+        ]
+    )
+
+    assert isinstance(REGISTRY["split_by_discriminator"], StepRegistration)
+    assert isinstance(REGISTRY["merge_by_discriminator"], StepRegistration)
+    assert steps[0].config["target"].endswith(":split_by_discriminator")
+    assert steps[1].config["target"].endswith(":merge_by_discriminator")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["subject_labels_de"].to_dict(orient="records") == [
+        {"subject": "sub_1", "label": "Eingang"},
+    ]
+    assert out["subject_labels"].to_dict(orient="records") == [
+        {"subject": "sub_1", "label": "Eingang", "sprache": "de"},
+        {"subject": "sub_1", "label": "entrance", "sprache": "en"},
+    ]
+
+
+@pytest.mark.ftr("FTR-GENERIC-FRAME-EXTRACTIONS-P4A")
+def test_extract_frame_step_is_config_addressable() -> None:
+    frames = {
+        "variables": pd.DataFrame(
+            [
+                {"ID": "v2", "label": "Amount", "active": False},
+                {"ID": "v1", "label": "Rate", "active": True},
+            ]
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "extract_frame",
+                "source": "variables",
+                "output": "active_variables",
+                "columns": ["ID", "label"],
+                "where": {"column": "active", "equals": True},
+                "sort_by": ["ID"],
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["extract_frame"], StepRegistration)
+    assert steps[0].config["target"].endswith(":extract_frame")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["active_variables"].to_dict(orient="records") == [
+        {"ID": "v1", "label": "Rate"},
+    ]
+
+
+@pytest.mark.ftr("FTR-DECLARATIVE-TABULAR-VIEW-OPS-P4A")
+def test_pivot_frame_step_is_config_addressable() -> None:
+    frames = {
+        "mapping_rows": pd.DataFrame(
+            [
+                {"variable_id": "v1", "mapping_name": "request", "display": "amount"},
+                {"variable_id": "v1", "mapping_name": "response", "display": "result"},
+            ]
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "pivot_frame",
+                "source": "mapping_rows",
+                "output": "mapping_view",
+                "index_columns": ["variable_id"],
+                "column_key": "mapping_name",
+                "value_column": "display",
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["pivot_frame"], StepRegistration)
+    assert steps[0].config["target"].endswith(":pivot_frame")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["mapping_view"].to_dict(orient="records") == [
+        {"variable_id": "v1", "request": "amount", "response": "result"},
+    ]
+
+
+@pytest.mark.ftr("FTR-SIMPLE-JOIN-VIEWS-P4A")
+def test_join_frames_step_is_config_addressable() -> None:
+    frames = {
+        "variables": pd.DataFrame([{"variable_id": "v1", "label": "Rate"}]),
+        "metadata": pd.DataFrame([{"variable_id": "v1", "component": "cashflow"}]),
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "join_frames",
+                "left": "variables",
+                "right": "metadata",
+                "output": "variable_view",
+                "key": "variable_id",
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["join_frames"], StepRegistration)
+    assert steps[0].config["target"].endswith(":join_frames")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["variable_view"].to_dict(orient="records") == [
+        {"variable_id": "v1", "label": "Rate", "component": "cashflow"},
+    ]
+
+
+@pytest.mark.ftr("FTR-DECLARATIVE-WORKBOOK-VIEWS-P4A")
+def test_configure_workbook_view_step_is_config_addressable() -> None:
+    frames = {"variables_view": pd.DataFrame([{"variable_id": "v1"}])}
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "configure_workbook_view",
+                "sheets": [{"frame": "variables_view", "sheet": "Variables"}],
+            }
+        ]
+    )
+
+    assert isinstance(REGISTRY["configure_workbook_view"], StepRegistration)
+    assert steps[0].config["target"].endswith(":configure_workbook_view")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["_meta"]["workbook_view"]["sheets"] == [
+        {"frame": "variables_view", "sheet": "Variables", "order": 0}
+    ]
+
+
+def test_cell_codec_steps_are_config_addressable() -> None:
+    frames = {
+        "matrix": pd.DataFrame(
+            {
+                "feature_id": ["f1"],
+                "P-001": ["E-R-K"],
+            }
+        ),
+        "_meta": {
+            "legend_blocks": {
+                "status_codes": {
+                    "entries": [
+                        {"token": "E", "label": "Editable"},
+                        {"token": "E-R-K", "label": "Composite whole code"},
+                    ],
+                }
+            }
+        },
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "expand_xref",
+                "matrix": "matrix",
+                "output": "long",
+                "row_keys": ["feature_id"],
+                "value_columns": ["P-001"],
+            },
+            {
+                "step": "decode_cell_values",
+                "source": "long",
+                "output": "decoded",
+                "passthrough_columns": ["feature_id", "column_key"],
+                "allowed_from_legend": "status_codes",
+            },
+            {
+                "step": "encode_cell_values",
+                "source": "decoded",
+                "output": "encoded",
+                "group_by": ["feature_id", "column_key"],
+                "allowed_from_legend": "status_codes",
+            },
+            {
+                "step": "contract_xref",
+                "relation": "encoded",
+                "output": "roundtrip",
+                "row_keys": ["feature_id"],
+                "column_keys": ["P-001"],
+            },
+        ]
+    )
+
+    assert steps[1].config["target"].endswith(":decode_cell_values")
+    assert steps[2].config["target"].endswith(":encode_cell_values")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["decoded"].to_dict(orient="records") == [
+        {"feature_id": "f1", "column_key": "P-001", "code": "E-R-K"},
+    ]
+    assert out["roundtrip"].to_dict(orient="records") == [
+        {"feature_id": "f1", "P-001": "E-R-K"},
+    ]
+
+
+def test_compact_multiaxis_steps_are_config_addressable() -> None:
+    frames = {
+        "matrix": pd.DataFrame(
+            {
+                "feature_id": ["f1"],
+                "P-001": ["K-E"],
+            }
+        )
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "expand_compact_multiaxis",
+                "matrix": "matrix",
+                "output": "explicit",
+                "row_keys": ["feature_id"],
+                "value_columns": ["P-001"],
+                "mode": "split_tokens",
+                "delimiter": "-",
+                "allowed_tokens": ["E", "K"],
+            },
+            {
+                "step": "contract_compact_multiaxis",
+                "relation": "explicit",
+                "output": "roundtrip",
+                "row_keys": ["feature_id"],
+                "mode": "split_tokens",
+                "delimiter": "-",
+                "allowed_tokens": ["E", "K"],
+                "canonical_order": ["E", "K"],
+            },
+        ]
+    )
+
+    assert steps[0].config["target"].endswith(":expand_compact_multiaxis")
+    assert steps[1].config["target"].endswith(":contract_compact_multiaxis")
+
+    out = run_pipeline(frames, steps)
+
+    assert out["explicit"].to_dict(orient="records") == [
+        {"feature_id": "f1", "column_key": "P-001", "code": "K"},
+        {"feature_id": "f1", "column_key": "P-001", "code": "E"},
+    ]
+    assert out["roundtrip"].to_dict(orient="records") == [
+        {"feature_id": "f1", "P-001": "E-K"},
+    ]
+
+
+def test_legacy_registry_entry_still_builds_and_runs() -> None:
+    assert not isinstance(REGISTRY["validate"], StepRegistration)
+
+    frames = {
+        "A": pd.DataFrame({"id": ["1"], "name": ["Alpha"]}),
+        "B": pd.DataFrame({"id_(A)": ["1"]}),
+    }
+    steps = build_steps_from_config(
+        [
+            {
+                "step": "validate",
+                "mode_duplicate_ids": "warn",
+                "mode_missing_fk": "warn",
+                "defaults": {
+                    "id_field": "id",
+                    "label_field": "name",
+                    "detect_fk": True,
+                    "helper_prefix": "_",
+                },
+            }
+        ]
+    )
+
+    out = run_pipeline(frames, steps)
+    assert set(out) == {"A", "B"}

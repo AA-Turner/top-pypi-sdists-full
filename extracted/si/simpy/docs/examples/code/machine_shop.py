@@ -15,6 +15,7 @@ Scenario:
   with the machine repair. The workshop works continuously.
 
 """
+
 import random
 
 import simpy
@@ -48,7 +49,7 @@ def time_to_failure():
 
 
 class Machine:
-    """A machine produces parts and my get broken every now and then.
+    """A machine produces parts and may get broken every now and then.
 
     If it breaks, it requests a *repairman* and continues the production
     after the it is repaired.

@@ -95,6 +95,9 @@ class CellTask:
     crop_aquacrop_name: str       # e.g. 'Maize', 'Wheat', 'Rice'
     planting_date_str: str        # 'MM/DD' for aquacrop.Crop()
     harvest_year: int             # for the DB row Harvest Year
+    # Optional overrides set by AquaCropParamSpec.apply (param_calibration.py).
+    # None ⇒ AquaCrop defaults; otherwise dict like {"HI0": 0.42, "WP": 17.5}.
+    crop_param_overrides: Optional[dict] = None
 
 
 @dataclass(slots=True)
@@ -132,11 +135,18 @@ def _worker_init(config_files: list[str], country: str, country_bounds=None):
     global _WEATHER, _SOIL, _PARSER
     from configparser import ConfigParser, ExtendedInterpolation
 
-    parser = ConfigParser(interpolation=ExtendedInterpolation())
+    # inline_comment_prefixes=(';',) matches geoprepare.utils.read_config —
+    # without it, `key = value ; comment` is parsed with the comment kept
+    # inside the value, so subsequent parser.getint/getfloat calls explode
+    # on the trailing text.
+    parser = ConfigParser(
+        interpolation=ExtendedInterpolation(),
+        inline_comment_prefixes=(';',),
+    )
     parser.read(config_files)
     _PARSER = parser
     _WEATHER = WeatherReader(parser, country=country, country_bounds=country_bounds)
-    _SOIL = SoilReader(parser)
+    _SOIL = SoilReader(parser, country=country)
 
 
 def _worker_simulate(task: CellTask) -> CellResult:
@@ -175,6 +185,9 @@ def _worker_simulate(task: CellTask) -> CellResult:
         irr_mngt = IrrigationManagement(irrigation_method=irr_method)
 
         crop = Crop(task.crop_aquacrop_name, planting_date=task.planting_date_str)
+        if task.crop_param_overrides:
+            for _k, _v in task.crop_param_overrides.items():
+                setattr(crop, _k, _v)
 
         model = AquaCropModel(
             sim_start_time=task.sim_start.strftime("%Y/%m/%d"),

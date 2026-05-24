@@ -545,7 +545,7 @@ class Camera(Space, Transformable):
         tx, ty = -cx, -cy
         theta = radians(-rotation)
         theta_cos, theta_sin = cos(theta), sin(theta)
-        sx = sy = 1 / zoom
+        sx = sy = zoom
 
         # Construction de la matrice
         return Mat4(

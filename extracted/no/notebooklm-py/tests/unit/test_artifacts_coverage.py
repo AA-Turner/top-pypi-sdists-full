@@ -5,12 +5,14 @@ These tests target specific uncovered lines identified by coverage analysis.
 
 import asyncio
 import warnings
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from notebooklm._artifacts import ArtifactsAPI
+from notebooklm._polling_registry import PollRegistry
 from notebooklm.rpc.decoder import RPCError
 from notebooklm.types import ArtifactDownloadError
 
@@ -21,13 +23,35 @@ def mock_artifacts_api():
     mock_core = MagicMock()
     mock_core.rpc_call = AsyncMock()
     mock_core.get_source_ids = AsyncMock(return_value=[])
-    mock_notes = MagicMock()
-    mock_notes.list_mind_maps = AsyncMock(return_value=[])
-    mock_note = MagicMock()
-    mock_note.id = "created_note_123"
-    mock_notes.create = AsyncMock(return_value=mock_note)
-    api = ArtifactsAPI(mock_core, notes_api=mock_notes)
+    # Real registry backing. A MagicMock attribute would return a child Mock
+    # and confuse the ``existing is not None`` branch.
+    mock_core.poll_registry = PollRegistry()
+    mock_core.operation_scope = MagicMock(side_effect=lambda _label: _noop_operation_scope())
+    # ``bound_loop`` must be ``None`` (silent-no-op for the affinity
+    # guard) so the artifact polling helper does not raise on a
+    # ``MagicMock``-shaped loop value.
+    mock_core.bound_loop = None
+    mock_core.assert_bound_loop = MagicMock(return_value=None)
+    from notebooklm._mind_map import NoteBackedMindMapService
+    from notebooklm._note_service import NoteService
+
+    mind_maps = MagicMock(spec=NoteBackedMindMapService)
+    mind_maps.list_mind_maps = AsyncMock(return_value=[])
+    note_service = MagicMock(spec=NoteService)
+    mock_notebooks = MagicMock()
+    mock_notebooks.get_source_ids = AsyncMock(return_value=[])
+    api = ArtifactsAPI(
+        mock_core,
+        notebooks=mock_notebooks,
+        mind_maps=mind_maps,
+        note_service=note_service,
+    )
     return api, mock_core
+
+
+@asynccontextmanager
+async def _noop_operation_scope():
+    yield None
 
 
 # =============================================================================
@@ -66,13 +90,22 @@ class TestDownloadUrlsBatch:
 
             result = await api._download_urls_batch(urls_and_paths)
 
-        assert len(result) == 2
-        assert str(tmp_path / "file1.mp4") in result
-        assert str(tmp_path / "file2.mp4") in result
+        assert result.all_succeeded
+        assert len(result.succeeded) == 2
+        assert str(tmp_path / "file1.mp4") in result.succeeded
+        assert str(tmp_path / "file2.mp4") in result.succeeded
+        assert result.failed == []
 
     @pytest.mark.asyncio
-    async def test_batch_download_html_response_rejected(self, mock_artifacts_api, tmp_path):
-        """Test that HTML responses raise ArtifactDownloadError (auth expired)."""
+    async def test_batch_download_html_response_aggregated(self, mock_artifacts_api, tmp_path):
+        """HTML-payload ``ArtifactDownloadError`` is aggregated into ``failed``.
+
+        The batch surface now treats policy violations the same as
+        transport errors: they land in ``result.failed`` so siblings can
+        still complete. The single-URL ``download_url`` path still
+        raises this error to its caller — see the pinned tests in
+        ``tests/integration/test_artifacts_integration.py``.
+        """
         api, _ = mock_artifacts_api
 
         # Mock response returning HTML instead of media
@@ -95,9 +128,14 @@ class TestDownloadUrlsBatch:
                 ("https://storage.googleapis.com/file.mp4", str(tmp_path / "file.mp4")),
             ]
 
-            # HTML response should raise ArtifactDownloadError
-            with pytest.raises(ArtifactDownloadError, match="Received HTML instead of media"):
-                await api._download_urls_batch(urls_and_paths)
+            result = await api._download_urls_batch(urls_and_paths)
+
+        assert result.succeeded == []
+        assert len(result.failed) == 1
+        url, exc = result.failed[0]
+        assert url == "https://storage.googleapis.com/file.mp4"
+        assert isinstance(exc, ArtifactDownloadError)
+        assert "Received HTML instead of media" in str(exc)
 
     @pytest.mark.asyncio
     async def test_batch_download_partial_failure(self, mock_artifacts_api, tmp_path):
@@ -126,9 +164,14 @@ class TestDownloadUrlsBatch:
 
             result = await api._download_urls_batch(urls_and_paths)
 
-        # Only first file should succeed
-        assert len(result) == 1
-        assert str(tmp_path / "file1.mp4") in result
+        # Only first file should succeed; second is recorded in failed.
+        assert not result.all_succeeded
+        assert result.partial
+        assert result.succeeded == [str(tmp_path / "file1.mp4")]
+        assert len(result.failed) == 1
+        failed_url, failed_exc = result.failed[0]
+        assert failed_url == "https://storage.googleapis.com/file2.mp4"
+        assert isinstance(failed_exc, httpx.HTTPError)
 
 
 # =============================================================================
@@ -287,21 +330,32 @@ class TestWaitForCompletion:
 class TestParseGenerationResult:
     """Test _parse_generation_result parsing logic."""
 
-    def test_parse_null_result(self, mock_artifacts_api):
-        """Test parsing None result returns failed status."""
+    def test_parse_null_result(self, mock_artifacts_api, monkeypatch):
+        """Test parsing None result returns failed status.
+
+        Soft-mode opt-in: post-PR 13.9a the strict-decode default raises on
+        the missing artifact_id descent. The "GenerationStatus(failed, '')"
+        sentinel is the legacy fallback this test pins, so opt back into
+        soft mode explicitly. Strict-mode coverage of the same input lives
+        in ``tests/integration/test_artifacts_drift.py``.
+        """
+        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
         api, _ = mock_artifacts_api
 
-        result = api._parse_generation_result(None)
+        with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
+            result = api._parse_generation_result(None, method_id="R7cb6c")
 
         assert result.status == "failed"
         assert result.task_id == ""
         assert "no artifact_id" in result.error.lower()
 
-    def test_parse_empty_list_result(self, mock_artifacts_api):
+    def test_parse_empty_list_result(self, mock_artifacts_api, monkeypatch):
         """Test parsing empty list returns failed status."""
+        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
         api, _ = mock_artifacts_api
 
-        result = api._parse_generation_result([])
+        with pytest.warns(DeprecationWarning, match="safe_index soft-mode"):
+            result = api._parse_generation_result([], method_id="R7cb6c")
 
         assert result.status == "failed"
         assert result.task_id == ""
@@ -312,7 +366,9 @@ class TestParseGenerationResult:
         api, _ = mock_artifacts_api
 
         # Valid result with status code 1 (in_progress)
-        result = api._parse_generation_result([["artifact_001", "Title", 1, None, 1]])
+        result = api._parse_generation_result(
+            [["artifact_001", "Title", 1, None, 1]], method_id="R7cb6c"
+        )
 
         assert result.task_id == "artifact_001"
         assert result.status == "in_progress"
@@ -321,7 +377,9 @@ class TestParseGenerationResult:
         """Test parsing valid completed status (code 3)."""
         api, _ = mock_artifacts_api
 
-        result = api._parse_generation_result([["artifact_002", "Title", 1, None, 3]])
+        result = api._parse_generation_result(
+            [["artifact_002", "Title", 1, None, 3]], method_id="R7cb6c"
+        )
 
         assert result.task_id == "artifact_002"
         assert result.status == "completed"
@@ -330,7 +388,9 @@ class TestParseGenerationResult:
         """Test parsing unknown status code returns unknown."""
         api, _ = mock_artifacts_api
 
-        result = api._parse_generation_result([["artifact_003", "Title", 1, None, 99]])
+        result = api._parse_generation_result(
+            [["artifact_003", "Title", 1, None, 99]], method_id="R7cb6c"
+        )
 
         assert result.task_id == "artifact_003"
         assert result.status == "unknown"  # Unknown codes return "unknown"
@@ -373,6 +433,7 @@ class TestDeprecationWarnings:
         assert len(w) == 1
         assert issubclass(w[0].category, DeprecationWarning)
         assert "poll_interval is deprecated" in str(w[0].message)
+        assert "v0.6.0" in str(w[0].message)
 
 
 # =============================================================================

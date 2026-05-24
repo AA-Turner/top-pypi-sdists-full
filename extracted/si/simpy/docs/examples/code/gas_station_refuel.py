@@ -17,6 +17,7 @@ Scenario:
   below a threshold.
 
 """
+
 import itertools
 import random
 

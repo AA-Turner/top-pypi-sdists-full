@@ -677,7 +677,9 @@ class TestUserInjection:
         content = al.messages[-1].content or ""
         assert "first follow-up" in content
         assert "second follow-up" in content
-        assert content.index("first follow-up") < content.index("second follow-up")
+        # Injections are emitted newest-first (2026-05-22 behaviour change:
+        # last queued = highest priority, shown as item (1)).
+        assert content.index("second follow-up") < content.index("first follow-up")
 
     def test_idempotent_drain(self):
         al = self._make()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jenkins-job-builder
-Version: 6.4.4
+Version: 6.5.0
 Summary: Manage Jenkins jobs with YAML
 Home-page: https://jenkins-job-builder.readthedocs.io/en/latest/
 Author: OpenStack Infrastructure Team

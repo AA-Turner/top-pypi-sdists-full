@@ -12,6 +12,7 @@ from ._glitch import Glitch
 from ._flicker import Flicker
 from ._edge_detect import EdgeDetect
 from ._motion_blur import MotionBlur
+from ._fog import Fog
 
 from ._zone import PostFxZone
 
@@ -33,6 +34,7 @@ __all__ = [
     "Flicker",
     "EdgeDetect",
     "MotionBlur",
+    "Fog",
 
     "PostFxZone",
 

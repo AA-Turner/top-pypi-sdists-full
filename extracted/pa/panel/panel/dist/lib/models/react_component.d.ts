@@ -20,7 +20,9 @@ export declare class ReactComponentView extends ReactiveESMView {
     model_getter: typeof model_getter;
     model_setter: typeof model_setter;
     react_root: any;
+    mounted: boolean;
     _force_update_callbacks: (() => void)[];
+    _mounted_resolve: (() => void) | null;
     _scheduled_removals: DOMView[];
     initialize(): void;
     get use_shadow_dom(): boolean;
@@ -36,6 +38,7 @@ export declare class ReactComponentView extends ReactiveESMView {
     build_child_views(): Promise<UIElementView[]>;
     update_children(): Promise<void>;
     _on_mounted(): void;
+    has_finished(): boolean;
     patch_container(container: HTMLDivElement): void;
     after_rendered(): void;
 }

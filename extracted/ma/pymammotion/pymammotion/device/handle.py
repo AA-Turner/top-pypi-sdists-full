@@ -8,12 +8,13 @@ import contextlib
 import dataclasses
 import logging
 import time
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from pymammotion.aliyun.exceptions import DeviceOfflineException, TooManyRequestsException
 from pymammotion.data.mqtt.event import DeviceProtobufMsgEventParams
 from pymammotion.data.mqtt.status import StatusType
 from pymammotion.device.ble_loop import ble_activity_loop, ble_polling_loop
+from pymammotion.device.dynamics_line_loop import dynamics_line_loop
 from pymammotion.device.modes import _DeviceMode
 from pymammotion.device.mqtt_loop import mqtt_activity_loop, poll_interval
 from pymammotion.device.state_reducer import StateReducer, get_state_reducer
@@ -227,12 +228,21 @@ class DeviceHandle:
         #: Task running the BLE polling/streaming loop (renews continuous stream while
         #: mowing, falls back to count=1 polls when docked).
         self._ble_polling_task: asyncio.Task[None] | None = None
+        #: Task running the dynamics-line poll loop — sends NavGetCommData(action=8,
+        #: type=18) every 10 s while the device is in ACTIVE mode, for device types
+        #: where DeviceType.is_support_dynamics_line() is true.  Mirrors APK
+        #: HashDataManager.handlerType_getDynamicsLine.
+        self._dynamics_line_task: asyncio.Task[None] | None = None
         #: True while the BLE continuous (count=0) report stream is active.  The MQTT
         #: activity loop checks this and skips its own poll while the stream is feeding.
         self._ble_stream_active: bool = False
         #: Monotonic timestamp of the last successfully-parsed inbound LubaMsg.
         #: Used by ensure_fresh_state to decide whether a snapshot poll is needed.
         self._last_report_at: float = 0.0
+        #: Snapshot of the previous active_transport selection / availability so
+        #: the DEBUG log can suppress repeats — only the transitions matter.
+        #: Tuple of (selection_path, prefer_ble, ble_usable, mqtt_usable).
+        self._last_active_transport_log: tuple[str, bool, bool, bool] | None = None
         #: Timer handle for the transient continuous-stream auto-stop.
         self._report_stream_timer: asyncio.TimerHandle | None = None
         # Wire up critical error propagation from queue
@@ -300,6 +310,11 @@ class DeviceHandle:
                         task = self._ble_polling_task
                         if task is not None and not task.done():
                             task.cancel()
+                        # Dynamics-line polling is BLE-only — cancel here so it
+                        # restarts cleanly on the next _on_ble_connected.
+                        dl_task = self._dynamics_line_task
+                        if dl_task is not None and not dl_task.done():
+                            dl_task.cancel()
                         self._ble_stream_active = False
             elif state == TransportAvailability.CONNECTING:
                 # MQTT subscription is not yet active — commands sent now would time
@@ -335,6 +350,7 @@ class DeviceHandle:
         self._rearm_event.set()  # wake MQTT loop early so it sees BLE is now connected
         self._start_ble_loop()
         self._start_ble_polling_loop()
+        self._start_dynamics_line_loop()
         cmd = self.commands.get_report_cfg()
 
         async def _send_report_cfg() -> None:
@@ -827,6 +843,9 @@ class DeviceHandle:
         self.queue.start()
         if not self._is_rtk and (self._keep_alive_task is None or self._keep_alive_task.done()):
             self._keep_alive_task = asyncio.get_running_loop().create_task(mqtt_activity_loop(self))
+        # _dynamics_line_task is BLE-gated and starts/stops from _on_ble_connected
+        # / the BLE availability handler — not from start().  Dynamics-line polling
+        # only makes sense over BLE (10 s cadence would be MQTT-quota-expensive).
 
     def _start_ble_loop(self) -> None:
         """Start (or restart) the BLE heartbeat task if not already running."""
@@ -843,6 +862,24 @@ class DeviceHandle:
         if self._ble_polling_task is None or self._ble_polling_task.done():
             _logger.debug("start_ble_polling_loop [%s]: starting BLE polling loop", self.device_name)
             self._ble_polling_task = asyncio.get_running_loop().create_task(ble_polling_loop(self))
+
+    def _start_dynamics_line_loop(self) -> None:
+        """Start (or restart) the dynamics-line poll loop if the device type supports it.
+
+        BLE-gated — only called from ``_on_ble_connected``.  Skipped entirely for
+        device types that can never support dynamics line; LUBA_VA is included
+        because its eligibility flips on firmware >= 1.15.3.4422, which the loop
+        re-checks on every tick using the live ``main_controller`` version.
+        """
+        if self._is_rtk or self._stopping:
+            return
+        if self._dynamics_line_task is not None and not self._dynamics_line_task.done():
+            return
+        dt = DeviceType.value_of_str(self.device_name)
+        if not (dt.is_support_dynamics_line() or dt is DeviceType.LUBA_VA):
+            return
+        _logger.debug("start_dynamics_line_loop [%s]: starting dynamics-line poll loop", self.device_name)
+        self._dynamics_line_task = asyncio.get_running_loop().create_task(dynamics_line_loop(self))
 
     async def restart_keep_alive(self) -> None:
         """Restart the MQTT activity loop if it has exited or was never started."""
@@ -871,7 +908,12 @@ class DeviceHandle:
         if self._report_stream_timer is not None:
             self._report_stream_timer.cancel()
             self._report_stream_timer = None
-        for task in (self._keep_alive_task, self._ble_keep_alive_task, self._ble_polling_task):
+        for task in (
+            self._keep_alive_task,
+            self._ble_keep_alive_task,
+            self._ble_polling_task,
+            self._dynamics_line_task,
+        ):
             if task is not None and not task.done():
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -879,6 +921,7 @@ class DeviceHandle:
         self._keep_alive_task = None
         self._ble_keep_alive_task = None
         self._ble_polling_task = None
+        self._dynamics_line_task = None
         self._ble_stream_active = False
         await self.queue.stop()
         await self.broker.close()
@@ -1183,6 +1226,69 @@ class DeviceHandle:
         if t is not None and t.is_connected:
             await t.disconnect()
 
+    async def wait_until_connected(self, *, timeout: float = 30.0, mqtt_stable_for: float = 10.0) -> bool:
+        """Block until a transport is ready to carry commands, or *timeout* elapses.
+
+        Readiness mirrors how the transports actually behave at startup:
+
+        * **BLE** counts as ready the moment it reports connected — it's the
+          preferred, lowest-latency path with no cloud-side settling delay.
+        * **MQTT** (either cloud variant) counts as ready only once it has stayed
+          continuously connected for *mqtt_stable_for* seconds. A freshly opened
+          MQTT session can drop and re-subscribe in its first few seconds, and
+          commands sent during that window would time out waiting for a reply; if
+          the connection drops, the stability timer restarts.
+
+        This only *waits* — it does not initiate connects. MQTT auto-connects
+        after login; callers that want BLE connected (e.g. when ``prefer_ble``)
+        must call :meth:`connect_transport` before awaiting this.
+
+        Args:
+            timeout:         Maximum time to wait, in seconds. On expiry the
+                             method returns ``False`` so the caller can proceed
+                             anyway rather than block startup indefinitely.
+            mqtt_stable_for: How long MQTT must stay continuously connected before
+                             it counts as ready.
+
+        Returns:
+            ``True`` if a transport became ready within *timeout*, ``False`` if it
+            timed out (caller should continue regardless).
+
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        mqtt_connected_since: float | None = None
+        poll_interval = 0.25
+
+        while True:
+            now = loop.time()
+
+            # BLE is ready as soon as it connects — no settling window needed.
+            if self.is_transport_connected(TransportType.BLE):
+                return True
+
+            # MQTT is ready only after holding the connection for mqtt_stable_for.
+            mqtt_connected = self.is_transport_connected(TransportType.CLOUD_MAMMOTION) or self.is_transport_connected(
+                TransportType.CLOUD_ALIYUN
+            )
+            if mqtt_connected:
+                if mqtt_connected_since is None:
+                    mqtt_connected_since = now
+                elif now - mqtt_connected_since >= mqtt_stable_for:
+                    return True
+            else:
+                mqtt_connected_since = None
+
+            remaining = deadline - now
+            if remaining <= 0:
+                _logger.debug(
+                    "DeviceHandle[%s]: no transport ready after %.0fs — continuing anyway",
+                    self.device_name,
+                    timeout,
+                )
+                return False
+            await asyncio.sleep(min(poll_interval, remaining))
+
     async def send_raw(self, payload: bytes, *, prefer_ble: bool | None = None) -> None:
         """Send raw bytes via the best available transport, with BLE fallback on offline."""
         _logger.debug(
@@ -1414,43 +1520,41 @@ class DeviceHandle:
         mqtt_registered = mqtt is not None
         mqtt_usable = mqtt is not None and not mqtt_reported_offline and mqtt.is_usable
 
-        _logger.debug(
-            "active_transport '%s': prefer_ble=%s ble_connected=%s ble_usable=%s"
-            " mqtt_registered=%s mqtt_usable=%s mqtt_offline=%s",
-            self.device_name,
-            use_ble_first,
-            ble_connected,
-            ble_usable,
-            mqtt_registered,
-            mqtt_usable,
-            mqtt_reported_offline,
-        )
+        def _log_selection(path: str, *args: Any) -> None:
+            """Log only when the (path, prefer_ble, ble_usable, mqtt_usable) tuple changes.
+
+            Senders churn on this every poll; logging on every call buries the
+            transitions that actually matter (BLE drop / recover, MQTT offline).
+            """
+            key = (path, use_ble_first, ble_usable, mqtt_usable)
+            if self._last_active_transport_log == key:
+                return
+            self._last_active_transport_log = key
+            _logger.debug(path, self.device_name, *args)
 
         # Rule 1: an actively-connected BLE link always wins.
         if ble_connected and ble is not None:
-            _logger.debug("active_transport '%s': selected BLE (actively connected)", self.device_name)
+            _log_selection("active_transport '%s': selected BLE (actively connected)")
             return ble
 
         if use_ble_first:
             if ble_usable and ble is not None:
-                _logger.debug(
-                    "active_transport '%s': BLE preferred and usable — returning BLE for caller to (re)connect",
-                    self.device_name,
+                _log_selection(
+                    "active_transport '%s': BLE preferred and usable — returning BLE for caller to (re)connect"
                 )
                 return ble
             if mqtt_usable and mqtt is not None:
-                _logger.debug(
+                _log_selection(
                     "active_transport '%s': BLE preferred but not usable — falling back to %s",
-                    self.device_name,
                     mqtt.transport_type,
                 )
                 return mqtt
         else:
             if mqtt_usable and mqtt is not None:
-                _logger.debug("active_transport '%s': selected %s", self.device_name, mqtt.transport_type)
+                _log_selection("active_transport '%s': selected %s", mqtt.transport_type)
                 return mqtt
             if ble_usable and ble is not None:
-                _logger.debug("active_transport '%s': MQTT unusable — falling back to BLE", self.device_name)
+                _log_selection("active_transport '%s': MQTT unusable — falling back to BLE")
                 return ble
 
         transport_states = (

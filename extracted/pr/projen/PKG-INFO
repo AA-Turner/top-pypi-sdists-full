@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: projen
-Version: 0.99.63
+Version: 0.99.64
 Summary: CDK for software projects
 Home-page: https://github.com/projen/projen.git
 Author: Amazon Web Services
@@ -16,11 +16,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.129.0
+Requires-Dist: jsii<2.0.0,>=1.131.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

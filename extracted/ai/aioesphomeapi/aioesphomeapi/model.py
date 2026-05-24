@@ -1506,7 +1506,12 @@ class ExecuteServiceResponse(APIModelBase):
 
 def _join_split_uuid(value: list[int]) -> str:
     """Convert a high/low uuid into a single string."""
-    return _join_split_uuid_high_low(value[0], value[1])
+    # The firmware omits the whole split-uuid array when the UUID is all-zero
+    # (fixed_array_skip_zero in api.proto), so a short array means the missing
+    # words are zero.
+    high = value[0] if len(value) > 0 else 0
+    low = value[1] if len(value) > 1 else 0
+    return _join_split_uuid_high_low(high, low)
 
 
 @lru_cache(maxsize=256)
@@ -1783,6 +1788,7 @@ class ESPHomeBluetoothGATTServices:
 class BluetoothConnectionsFree(APIModelBase):
     free: int = 0
     limit: int = 0
+    allocated: list[int] = converter_field(default_factory=list, converter=list)
 
 
 @_frozen_dataclass_decorator
@@ -1822,6 +1828,9 @@ class BluetoothScannerStateResponse(APIModelBase):
         default=BluetoothScannerState.IDLE, converter=BluetoothScannerState.convert
     )
     mode: BluetoothScannerMode | None = converter_field(
+        default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
+    )
+    configured_mode: BluetoothScannerMode | None = converter_field(
         default=BluetoothScannerMode.PASSIVE, converter=BluetoothScannerMode.convert
     )
 

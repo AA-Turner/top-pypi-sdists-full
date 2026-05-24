@@ -23,6 +23,11 @@ except:
 
 @contextmanager
 def maybe_autocast(enabled):
+    """Maybe autocast.
+    
+        Args:
+            enabled: TODO.
+        """
     if enabled:
         with autocast():
             yield
@@ -375,7 +380,7 @@ class Trainer:
             time1 = time.perf_counter()
             speed_stats["data_load"] = f"{time1-time_beg:0.3f}"
 
-            batch = to_device(batch, self.device)
+            batch = to_device(batch, self.device, non_blocking=True)
 
             my_context = nullcontext
             if self.use_ddp or self.use_fsdp:
@@ -456,7 +461,7 @@ class Trainer:
                 # Clear gradients for the next accumulation stage
                 optim.zero_grad(set_to_none=True)
 
-                if self.use_ddp or self.use_fsdp:
+                if (self.use_ddp or self.use_fsdp) and (batch_idx + 1) % self.log_interval == 0:
                     train_loss_avg = torch.tensor(self.train_loss_avg, dtype=torch.float32).to(
                         self.device
                     )
@@ -562,7 +567,7 @@ class Trainer:
                         break
                 time1 = time.perf_counter()
                 speed_stats["data_load"] = f"{time1 - time5:0.3f}"
-                batch = to_device(batch, self.device)
+                batch = to_device(batch, self.device, non_blocking=True)
 
                 time2 = time.perf_counter()
                 retval = model(**batch)
@@ -661,6 +666,24 @@ class Trainer:
         **kwargs,
     ):
 
+        """Log.
+        
+            Args:
+                epoch: TODO.
+                batch_idx: TODO.
+                step_in_epoch: TODO.
+                batch_num_epoch: TODO.
+                lr: TODO.
+                loss: TODO.
+                speed_stats: TODO.
+                stats: TODO.
+                writer: TODO.
+                tag: TODO.
+                data_split_i: TODO.
+                data_split_num: TODO.
+                log_step: TODO.
+                **kwargs: Additional keyword arguments.
+            """
         if (batch_idx + 1) % self.log_interval == 0:
             batch_idx = log_step if log_step is not None else batch_idx
             gpu_info = (
@@ -709,9 +732,9 @@ class Trainer:
                     description_dict[f"stats_rank{self.rank}_{key}/{tag}"] = var.item()
                 for key, var in speed_stats.items():
                     writer.add_scalar(
-                        f"stats_rank{self.rank}_{key}/{tag}", eval(var), self.batch_total
+                        f"stats_rank{self.rank}_{key}/{tag}", float(var), self.batch_total
                     )
-                    description_dict[f"stats_rank{self.rank}_{key}/{tag}"] = eval(var)
+                    description_dict[f"stats_rank{self.rank}_{key}/{tag}"] = float(var)
             if self.use_wandb and wandb is not None:
                 wandb.log(
                     description_dict,
@@ -720,6 +743,11 @@ class Trainer:
 
     def close(self, writer=None):
 
+        """Close.
+        
+            Args:
+                writer: TODO.
+            """
         if self.use_ddp or self.use_fsdp:
             dist.barrier()
 

@@ -2,6 +2,7 @@
 Tests for ``simpy.events.Event``.
 
 """
+
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import re
 
@@ -79,7 +80,7 @@ def test_unavailable_value(env):
     trying to access it will result in a AttributeError."""
     event = env.event()
 
-    with pytest.raises(AttributeError, match='.* is not yet available$'):
+    with pytest.raises(AttributeError, match=r'.* is not yet available$'):
         _ = event.value
 
 

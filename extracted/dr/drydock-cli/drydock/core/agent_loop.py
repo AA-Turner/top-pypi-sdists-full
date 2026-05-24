@@ -9,6 +9,9 @@ import json
 import logging
 import os
 from pathlib import Path
+import re
+import subprocess
+import sys
 from threading import Thread
 import time
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -2382,6 +2385,22 @@ class AgentLoop:
             except Exception as _e:
                 logger.debug("surprise scoring skipped: %s", _e)
 
+        # === AUTO-TEST: pytest after file-modifying tool calls ===
+        # Catches the "add a flag, break the default" pattern (Bucket 2 in
+        # the 9-run failure-mode analysis): the model writes a file, claims
+        # done, but the existing test suite is now red. The harness check
+        # green(>=N) catches it on the run-finalize side; auto-test catches
+        # it WITHIN the session so the model can see the failure and fix.
+        #
+        # Gated by DRYDOCK_AUTOTEST=1 for the first-24h ramp (default off).
+        if status == "success" and os.environ.get(
+            "DRYDOCK_AUTOTEST", "0"
+        ).strip().lower() in ("1", "true", "yes"):
+            try:
+                self._maybe_auto_test(tool_call)
+            except Exception as e:
+                logger.debug("auto-test skipped: %s", e)
+
     def _maybe_log_surprise(self, tool_call: Any, tool_text: str) -> None:
         """Score the last assistant assertion against this tool result;
         enqueue an EVIDENCE_CONFLICT curiosity item if surprise is high."""
@@ -2433,6 +2452,172 @@ class AgentLoop:
     # calls. Replaced by token-level sampling bumps (see agent_loop's
     # _loop_detected path) plus tool-level ToolError escalation in
     # read_file/bash/search_replace.
+
+    # ── auto-test hook (DRYDOCK_AUTOTEST=1) ───────────────────────────
+
+    _AUTOTEST_FILE_TOOLS = ("write_file", "search_replace", "apply_patch")
+    _AUTOTEST_TIMEOUT_S = 20
+    _AUTOTEST_OUTPUT_CAP = 2048
+    _AUTOTEST_RESULT_CACHE_KEY = "_autotest_last_result"
+
+    def _maybe_auto_test(self, tool_call: Any) -> None:
+        """Run pytest after a successful file-modifying tool call.
+
+        Skip rules (each is a fast bail-out — keep the hook cheap):
+          - Tool not in _AUTOTEST_FILE_TOOLS
+          - Couldn't extract a file_path
+          - File isn't .py
+          - No tests/ peer dir reachable from the file's package root
+          - Same test scope produced identical result last edit (throttle)
+          - This file is in the per-session disable set (timed out before)
+        """
+        # ResolvedToolCall stores the name as a top-level attribute (NOT
+        # tool_call.function.name — that's the raw API shape). Use the right
+        # one or this hook silently bails for every edit (observed
+        # 2026-05-23: 35 COMPACT_PAIRS firings in the first post-respawn
+        # harness but 0 AUTO-TEST firings because tool_name was always "").
+        tool_name = getattr(tool_call, "tool_name", "") or ""
+        if tool_name not in self._AUTOTEST_FILE_TOOLS:
+            return
+
+        # Extract the edited path from validated_args (already parsed Pydantic
+        # model) — fall back to args_dict for the raw view.
+        try:
+            args = tool_call.args_dict
+        except Exception:
+            args = {}
+        if not isinstance(args, dict):
+            return
+        edited_path_str = None
+        for k in ("file_path", "path"):
+            v = args.get(k)
+            if isinstance(v, str) and v.strip():
+                edited_path_str = v.strip()
+                break
+        if not edited_path_str:
+            return
+
+        edited_path = Path(edited_path_str)
+        if edited_path.suffix != ".py":
+            return  # only test on .py edits — markdown, json, etc. are safe to skip
+
+        if not edited_path.is_absolute():
+            edited_path = (Path.cwd() / edited_path).resolve()
+        if not edited_path.is_file():
+            return  # file no longer exists (weird; skip)
+
+        # Find tests/ — walk up the directory tree until we hit a tests/ peer.
+        tests_dir, project_root = self._autotest_find_scope(edited_path)
+        if not tests_dir:
+            return
+
+        # Per-session disable list for paths that previously timed out.
+        disabled = getattr(self, "_autotest_disabled_files", set())
+        if str(edited_path) in disabled:
+            return
+
+        # Pick the most targeted test file: tests/test_<modname>.py if it
+        # exists; otherwise fall back to the whole tests/ dir.
+        test_target = tests_dir / f"test_{edited_path.stem}.py"
+        if not test_target.is_file():
+            test_target = tests_dir
+
+        # Throttle: skip if same target produced same result on the previous
+        # auto-test invocation (no point reporting the same red/green twice).
+        cache = getattr(self, "_autotest_cache", {})
+        cache_key = str(test_target)
+
+        try:
+            r = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "--tb=short",
+                 "--no-header", str(test_target)],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=self._AUTOTEST_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            # Don't re-run this file again — pytest is hung on something.
+            disabled.add(str(edited_path))
+            self._autotest_disabled_files = disabled
+            logger.warning(
+                "[AUTO-TEST] %s timed out after %ds; disabling for this session",
+                test_target, self._AUTOTEST_TIMEOUT_S,
+            )
+            return
+        except Exception as e:
+            logger.debug("[AUTO-TEST] subprocess failed: %s", e)
+            return
+
+        output = ((r.stdout or "") + (r.stderr or "")).strip()
+        # Hash output sans line numbers/timing so flaky text doesn't bust the cache.
+        stable = re.sub(r"\b\d+\.\d+s\b", "Ns", output)  # 0.42s → Ns
+        stable = re.sub(r"\bin \d+\.\d+s\b", "in Ns", stable)
+        result_hash = hash(stable[:1000])
+        if cache.get(cache_key) == result_hash:
+            return  # same result as last time; don't spam
+        cache[cache_key] = result_hash
+        self._autotest_cache = cache
+
+        # Truncate output to AUTOTEST_OUTPUT_CAP and surface to the model.
+        cap = self._AUTOTEST_OUTPUT_CAP
+        if len(output) > cap:
+            output = output[:cap] + f"\n…[truncated; ran out of {cap} char cap]"
+
+        passed = r.returncode == 0
+        status_word = "GREEN" if passed else "RED"
+        rel_edited = edited_path
+        try:
+            rel_edited = edited_path.relative_to(project_root)
+        except ValueError:
+            pass
+        rel_test = test_target
+        try:
+            rel_test = test_target.relative_to(project_root)
+        except ValueError:
+            pass
+
+        note = (
+            f"[AUTO-TEST after edit to {rel_edited}]\n"
+            f"Ran: pytest -q {rel_test}\n"
+            f"Result: {status_word} (exit={r.returncode})\n"
+            f"---\n{output}\n---\n"
+        )
+        if not passed:
+            note += (
+                f"\nThe test suite went RED after your edit. Read the failure "
+                f"above, fix the cause BEFORE declaring done or moving to a "
+                f"different file. Re-running pytest manually if you need a "
+                f"fresh view.\n"
+            )
+        self._inject_system_note(note)
+        logger.warning(
+            "[AUTO-TEST] %s after %s → %s (rc=%d, %d chars)",
+            rel_test, rel_edited, status_word, r.returncode, len(output),
+        )
+
+    def _autotest_find_scope(self, edited_path: Path) -> tuple[Path | None, Path | None]:
+        """Walk up from edited_path looking for a tests/ peer dir.
+
+        Returns (tests_dir, project_root) or (None, None).
+
+        Stops at first hit; bounded to 6 levels up so we don't crawl out
+        of the project into HOME or /.
+        """
+        current = edited_path.parent.resolve()
+        for _ in range(6):
+            tests = current / "tests"
+            if tests.is_dir() and any(tests.glob("test_*.py")):
+                return tests, current
+            # Also accept the parent-is-tests-peer arrangement
+            # (e.g. edited file is /proj/pkg/mod.py, tests is /proj/tests/)
+            parent_tests = current.parent / "tests"
+            if parent_tests.is_dir() and any(parent_tests.glob("test_*.py")):
+                return parent_tests, current.parent
+            if current == current.parent:
+                break
+            current = current.parent
+        return None, None
 
     def _prune_duplicate_writes(self, target_path: str) -> None:
         """Remove assistant-write_file / tool-result pairs for a looping path.
@@ -2554,6 +2739,144 @@ class AgentLoop:
         except Exception as e:
             logger.debug("Proactive write prune failed: %s", e)
 
+    def _compact_old_tool_pairs(self) -> None:
+        """Level-3 fix for the placeholder-replication trap.
+
+        Older versions kept the (assistant-with-tool_calls, tool-result)
+        message pairs in history forever, just shrinking the
+        tool_calls.function.arguments JSON to a stub. Gemma 4 then
+        treated that stub as a valid argument template and copied it
+        back into fresh tool calls — the "your call used a truncated
+        history entry as a template" loop the operator hit on
+        2026-05-23 in the slides project.
+
+        This method removes the trap structurally: for assistant
+        messages with tool_calls older than KEEP_PAIRS (i.e. there are
+        at least KEEP_PAIRS more recent assistant-tool-call messages
+        after them), the pair (assistant message + its matching tool
+        responses) is REPLACED with a single text-only assistant
+        message summarizing what happened. There is no JSON shape left
+        for the model to copy.
+
+        Gated behind DRYDOCK_COMPACT_PAIRS=1 for the first 24h after
+        ship so we can revert without a deploy if vLLM rejects the
+        pair-deleted sequences. Default off.
+
+        Preserves the retrieve-tool exemption from
+        _truncate_old_tool_results: any pair whose tool_call is
+        `retrieve` is left intact (cookbook chunks need to stay full
+        for the model to act on them).
+        """
+        if os.environ.get("DRYDOCK_COMPACT_PAIRS", "0").strip().lower() not in ("1", "true", "yes"):
+            return
+
+        KEEP_PAIRS = 4
+
+        msgs = list(self.messages)
+        # Index assistant messages that have tool_calls.
+        asst_tc_idxs = [
+            i for i, m in enumerate(msgs)
+            if m.role == Role.assistant and m.tool_calls
+        ]
+        if len(asst_tc_idxs) <= KEEP_PAIRS:
+            return
+
+        # Pairs to compact: every asst-with-tool_calls msg EXCEPT the last KEEP_PAIRS.
+        compact_set = set(asst_tc_idxs[:-KEEP_PAIRS])
+
+        delete_tool_idxs: set[int] = set()
+        summaries: dict[int, str] = {}
+
+        for ai in sorted(compact_set):
+            asst_msg = msgs[ai]
+            tcs = asst_msg.tool_calls or []
+            tc_ids = {tc.id for tc in tcs if getattr(tc, "id", None)}
+
+            # Exempt pairs where any tool_call is retrieve — those chunks
+            # are still load-bearing context (see _truncate_old_tool_results
+            # comment from 2026-05-23 for the same reason).
+            if any(getattr(tc.function, "name", None) == "retrieve" for tc in tcs):
+                continue
+
+            # Find the consecutive tool messages following this assistant
+            # message whose tool_call_id matches.
+            paired_tool_idxs: list[int] = []
+            j = ai + 1
+            while j < len(msgs):
+                tm = msgs[j]
+                if tm.role != Role.tool:
+                    break
+                tcid = getattr(tm, "tool_call_id", None)
+                if tcid and tcid in tc_ids:
+                    paired_tool_idxs.append(j)
+                    j += 1
+                else:
+                    break
+
+            # If we found no tool responses, leave the message alone —
+            # orphaned tool_calls are someone else's problem to clean up.
+            if not paired_tool_idxs and tc_ids:
+                continue
+
+            # Build a synthesis line: name(target-arg) per tool_call.
+            parts: list[str] = []
+            for tc in tcs:
+                name = getattr(tc.function, "name", "?") or "?"
+                args_str = getattr(tc.function, "arguments", "") or ""
+                target = ""
+                try:
+                    import json as _json
+                    args = _json.loads(args_str) if args_str else {}
+                    if isinstance(args, dict):
+                        for k in ("path", "file_path", "command", "cmd",
+                                  "url", "query", "pattern"):
+                            v = args.get(k)
+                            if isinstance(v, str):
+                                target = v if len(v) <= 60 else v[:60] + "…"
+                                break
+                except Exception:
+                    pass
+                parts.append(f"{name}({target})" if target else f"{name}()")
+
+            preserved_content = ""
+            if asst_msg.content:
+                # Keep any leading text the model emitted alongside the
+                # tool_calls; it might be a planning note worth preserving.
+                pc = str(asst_msg.content).strip()
+                if pc:
+                    preserved_content = pc[:200] + ("…" if len(pc) > 200 else "")
+
+            summary = "[compacted earlier turn: " + "; ".join(parts) + "]"
+            if preserved_content:
+                summary = preserved_content + "\n" + summary
+            summaries[ai] = summary
+            for tj in paired_tool_idxs:
+                delete_tool_idxs.add(tj)
+
+        if not summaries:
+            return
+
+        # Rebuild the message list.
+        new_msgs: list[LLMMessage] = []
+        for i, m in enumerate(msgs):
+            if i in delete_tool_idxs:
+                continue
+            if i in summaries:
+                new_msgs.append(LLMMessage(
+                    role=Role.assistant,
+                    content=summaries[i],
+                    tool_calls=None,
+                ))
+                continue
+            new_msgs.append(m)
+
+        self.messages.reset(new_msgs)
+        logger.warning(
+            "[COMPACT_PAIRS] compacted %d (assistant tool_call → tool response) pair(s); "
+            "history now %d messages (was %d)",
+            len(summaries), len(new_msgs), len(msgs),
+        )
+
     def _truncate_old_tool_results(self) -> None:
         """Shrink old verbose tool results before they bloat context.
 
@@ -2569,6 +2892,11 @@ class AgentLoop:
 
         Runs every turn but is a no-op when nothing exceeds the caps.
         Truncation is in-place and idempotent.
+
+        When DRYDOCK_COMPACT_PAIRS=1 is in effect, _compact_old_tool_pairs
+        runs FIRST (called from the same site) and may have already
+        deleted the old pairs entirely — in which case this method's
+        argument-stubbing loop will find nothing to do, which is fine.
         """
         KEEP_RECENT = 4              # last N tool messages stay full
         SOFT_CAP_BYTES = 500         # tool result longer than this gets shrunk
@@ -2686,7 +3014,9 @@ class AgentLoop:
         This runs as a safety net before every LLM call.
         """
         # Proactive context shrinkage runs first so the LLM call sees the
-        # smaller payload.
+        # smaller payload. Pair-compaction (gated) runs FIRST so any pairs
+        # it eliminates aren't processed twice.
+        self._compact_old_tool_pairs()
         self._truncate_old_tool_results()
         self._proactive_prune_write_oscillation()
 

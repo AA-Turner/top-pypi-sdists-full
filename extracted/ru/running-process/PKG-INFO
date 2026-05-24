@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: running_process
-Version: 3.4.1
+Version: 4.0.0
 License-File: LICENSE
 Summary: A Rust-backed subprocess wrapper with split stdout/stderr streaming
 Home-Page: https://github.com/zackees/running-process
@@ -14,7 +14,7 @@ Project-URL: Repository, https://github.com/zackees/running-process
 
 # running-process
 
-[![PyPI](https://img.shields.io/pypi/v/running-process)](https://pypi.org/project/running-process/) [![Crates.io](https://img.shields.io/crates/v/running-process-core)](https://crates.io/crates/running-process-core) [![codecov](https://codecov.io/gh/zackees/running-process/graph/badge.svg)](https://codecov.io/gh/zackees/running-process)
+[![PyPI](https://img.shields.io/pypi/v/running-process)](https://pypi.org/project/running-process/) [![Crates.io](https://img.shields.io/crates/v/running-process)](https://crates.io/crates/running-process) [![codecov](https://codecov.io/gh/zackees/running-process/graph/badge.svg)](https://codecov.io/gh/zackees/running-process)
 
 `running-process` is what you wished python's subprocess was. Blazing fast, highly concurrent, huge feature list, dead process tracking, pty support. Built in Rust with a thin python api.
 

@@ -3,6 +3,11 @@ from funasr.register import tables
 
 @tables.register("tokenizer_classes", "WhisperTokenizer")
 def WhisperTokenizer(**kwargs):
+    """Whispertokenizer.
+    
+        Args:
+            **kwargs: Additional keyword arguments.
+        """
     try:
         from whisper.tokenizer import get_tokenizer
     except:
@@ -24,10 +29,12 @@ def WhisperTokenizer(**kwargs):
 
 @tables.register("tokenizer_classes", "SenseVoiceTokenizer")
 def SenseVoiceTokenizer(**kwargs):
-    try:
-        from funasr.models.sense_voice.whisper_lib.tokenizer import get_tokenizer
-    except:
-        print("Notice: If you want to use whisper, please `pip install -U openai-whisper`")
+    """Sensevoicetokenizer.
+    
+        Args:
+            **kwargs: Additional keyword arguments.
+        """
+    from funasr.models.sense_voice.whisper_lib.tokenizer import get_tokenizer
 
     language = kwargs.get("language", None)
     task = kwargs.get("task", None)

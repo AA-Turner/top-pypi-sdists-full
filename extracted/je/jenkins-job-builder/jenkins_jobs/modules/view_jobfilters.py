@@ -149,6 +149,10 @@ def regex_job(xml_parent, data):
         ("match-type", "includeExcludeTypeString", "includeMatched"),
         ("regex-name", "valueTypeString", ""),
         ("regex", "regex", ""),
+        ("match-name", "matchName", False),
+        ("match-full-name", "matchFullName", False),
+        ("match-display-name", "matchDisplayName", False),
+        ("match-full-display-name", "matchFullDisplayName", False),
     ]
     helpers.convert_mapping_to_xml(xml, data, mapping, fail_required=True)
 

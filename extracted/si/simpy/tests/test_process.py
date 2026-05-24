@@ -2,6 +2,7 @@
 Tests for the ``simpy.events.Process``.
 
 """
+
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
@@ -180,4 +181,5 @@ def test_error_and_interrupted_join(env):
         yield env.timeout(0)
 
     env.process(parent(env))
-    pytest.raises(AttributeError, env.run)
+    with pytest.raises(AttributeError):
+        env.run()

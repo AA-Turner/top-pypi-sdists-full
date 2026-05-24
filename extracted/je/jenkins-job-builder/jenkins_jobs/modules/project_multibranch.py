@@ -49,6 +49,9 @@ Plugins required:
         * **github** (`dict`): Refer to
           :func:`~github_scm <github_scm>` for documentation.
 
+        * **svn** (`dict`): Refer to
+          :func:`~svn_scm <svn_scm>` for documentation.
+
     * **periodic-folder-trigger** (`str`): How often to scan for new branches
       or pull/change requests. Valid values: 1m, 2m, 5m, 10m, 15m, 20m, 25m,
       30m, 1h, 2h, 4h, 8h, 12h, 1d, 2d, 1w, 2w, 4w. (default none)
@@ -287,7 +290,7 @@ class WorkflowMultiBranch(jenkins_jobs.modules.base.Base):
             sources, "owner", {"class": self.jenkins_class, "reference": "../.."}
         )
 
-        valid_scm = ["bitbucket", "gerrit", "git", "github"]
+        valid_scm = ["bitbucket", "gerrit", "git", "github", "svn"]
         for scm_data in data.get("scm", None):
             for scm in scm_data:
                 bs = XML.SubElement(sources_data, "jenkins.branch.BranchSource")
@@ -303,6 +306,9 @@ class WorkflowMultiBranch(jenkins_jobs.modules.base.Base):
 
                 elif scm == "github":
                     github_scm(bs, scm_data[scm])
+
+                elif scm == "svn":
+                    svn_scm(bs, scm_data[scm])
 
                 else:
                     raise InvalidAttributeError("scm", scm_data, valid_scm)
@@ -957,6 +963,8 @@ def git_scm(xml_parent, data):
     if data.get("build-strategies", None):
         build_strategies(xml_parent, data)
 
+    add_filter_by_name_wildcard_behaviors(traits, data)
+
     # handle the default git extensions like:
     # - clean
     # - shallow-clone
@@ -1238,6 +1246,212 @@ def github_scm(xml_parent, data):
             "".join([disable_github_status_path_dscore, ".DisableStatusUpdateTrait"]),
             {"plugin": "disable-github-multibranch-status"},
         )
+
+
+def svn_scm(xml_parent, data):
+    r"""Configure SVN SCM
+
+    Requires the :jenkins-plugins:`Subversion Plugin <subversion>`.
+
+    :arg str url: The SVN repo url. (required)
+    :arg str credentials-id: The credentials to use to connect to the SVN repo.
+        (default '')
+    :arg list include-branches: List of branch patterns to include.
+        (default: ['trunk', 'branches/*', 'tags/*'])
+    :arg list exclude-branches: List of branch patterns to exclude.
+        (default: [])
+
+    :arg bool update-strategy: Updates the checkout with a specific strategy.
+        Valid options: checkout, update, noop, update-with-clean, update-with-revert (default 'update')
+    :arg dict property-strategies: Provides control over how to build a branch
+        (like to disable SCM triggering or to override the pipeline durability)
+        (optional)
+
+        Refer to :func:`~property_strategies <property_strategies>`.
+
+    :arg dict browser: SVN repository browser. Keys depend on specified `browser-type`. (optional)
+
+        * **browser-type** (`str`) -- Browser type (required, any of the following)
+
+        :assembla:
+            * **space** (`str`) -- Assembla space (required)
+
+        :collabnet:
+            * **url** (`str`) -- Repository URL (required)
+
+        :fisheye:
+            * **url** (`str`) -- Base URL (required)
+            * **repository** (`str`) -- Root module path (e.g., /ant) (required)
+
+        :phabricator:
+            * **url** (`str`) -- Base URL (required)
+            * **repository** (`str`) -- Repository path (required)
+
+        :svnweb:
+            * **url** (`str`) -- Repository URL (required)
+
+        :sventon:
+            * **url** (`str`) -- Base URL without repobrowser.svn (required)
+            * **repository** (`str`) -- Repository parameter (`local` in `?name=local`) (required)
+
+        :sventon2:
+            * **url** (`str`) -- Base URL without repobrowser.svn (required)
+            * **repository** (`str`) -- Repository parameter (`local` in `?name=local`) (required)
+
+        :viewsvn:
+            * **url** (`str`) -- Repository URL (required)
+
+        :viewvc: Requires the :jenkins-plugins:`ViewVC Plugin <viewVC>`.
+
+            * **url** (`str`) -- Base URL (required)
+            * **repository** (`str`) -- Repository path (required)
+
+        :visualsvn:
+            * **url** (`str`) -- Repository URL (required)
+
+        :websvn:
+            * **url** (`str`) -- Repository URL (required)
+
+    Minimal Example:
+
+    .. literalinclude:: /../../tests/multibranch/fixtures/scm_svn_minimal.yaml
+
+    Full Example:
+
+    .. literalinclude:: /../../tests/multibranch/fixtures/scm_svn_full.yaml
+    """
+    source = XML.SubElement(
+        xml_parent,
+        "source",
+        {
+            "class": "jenkins.scm.impl.subversion.SubversionSCMSource",
+            "plugin": "subversion",
+        },
+    )
+    source_mapping = [
+        ("", "id", "-".join(["sn", data.get("url", "")])),
+        ("url", "remoteBase", None),
+        ("credentials-id", "credentialsId", ""),
+        (
+            "",
+            "includes",
+            ",".join(data.get("include-branches", ["trunk", "branches/*", "tags/*"])),
+        ),
+        ("", "excludes", ",".join(data.get("exclude-branches", []))),
+    ]
+    helpers.convert_mapping_to_xml(source, data, source_mapping, fail_required=True)
+
+    browser_data = data.get("browser", {})
+    if browser_data:
+        browsers_and_mappings = {
+            "assembla": (
+                {"class": "hudson.scm.browsers.Assembla"},
+                [
+                    ("space", "spaceName", None),
+                ],
+            ),
+            "collabnet": (
+                {"class": "hudson.scm.browsers.CollabNetSVN"},
+                [
+                    ("url", "url", None),
+                ],
+            ),
+            "fisheye": (
+                {"class": "hudson.plugins.viewVC.FishEyeSVN"},
+                [
+                    ("url", "url", None),
+                    ("repository", "rootModule", None),
+                ],
+            ),
+            "phabricator": (
+                {"class": "hudson.scm.browsers.Phabricator"},
+                [
+                    ("repository", "repo", None),
+                    ("url", "url", None),
+                ],
+            ),
+            "svnweb": (
+                {"class": "hudson.scm.browsers.SVNWeb"},
+                [
+                    ("url", "url", None),
+                ],
+            ),
+            "sventon": (
+                {"class": "hudson.scm.browsers.Sventon"},
+                [
+                    ("url", "url", None),
+                    ("repository", "repositoryInstance", None),
+                ],
+            ),
+            "sventon2": (
+                {"class": "hudson.scm.browsers.Sventon"},
+                [
+                    ("url", "url", None),
+                    ("repository", "repositoryInstance", None),
+                ],
+            ),
+            "viewsvn": (
+                {"class": "hudson.scm.browsers.ViewSVN"},
+                [
+                    ("url", "url", None),
+                ],
+            ),
+            "viewvc": (
+                {
+                    "class": "hudson.plugins.viewVC.ViewVCRepositoryBrowser",
+                    "plugin": "viewVC",
+                },
+                [
+                    ("url", "url", None),
+                    ("repository", "location", None),
+                    ("", "urlFixed", True),
+                ],
+            ),
+            "visualsvn": (
+                {"class": "hudson.scm.browsers.VisualSVN"},
+                [
+                    ("url", "url", None),
+                ],
+            ),
+            "websvn": (
+                {"class": "hudson.scm.browsers.WebSVN"},
+                [
+                    ("url", "url", None),
+                ],
+            ),
+        }
+        browser_type = browser_data.get("browser-type", None)
+        try:
+            browser_spec, browser_mapping = browsers_and_mappings[browser_type]
+        except KeyError:
+            raise InvalidAttributeError(
+                "browser-type", browser_type, list(browsers_and_mappings.keys())
+            )
+        browser = XML.SubElement(source, "browser", browser_spec)
+        helpers.convert_mapping_to_xml(
+            browser, browser_data, browser_mapping, fail_required=True
+        )
+
+    update_strategies = {
+        "checkout": "hudson.scm.subversion.CheckoutUpdater",
+        "update": "hudson.scm.subversion.UpdateUpdater",
+        "noop": "hudson.scm.subversion.NoopUpdater",
+        "update-with-clean": "hudson.scm.subversion.UpdateWithCleanUpdater",
+        "update-with-revert": "hudson.scm.subversion.UpdateWithRevertUpdater",
+    }
+    update_strategy = data.get("update-strategy", "update")
+    if update_strategy not in update_strategies:
+        raise InvalidAttributeError(
+            "update-strategy", update_strategy, list(update_strategies.keys())
+        )
+    XML.SubElement(
+        source,
+        "workspaceUpdater",
+        {"class": update_strategies[update_strategy]},
+    )
+
+    if data.get("property-strategies", None):
+        property_strategies(xml_parent, data)
 
 
 def build_strategies(xml_parent, data):

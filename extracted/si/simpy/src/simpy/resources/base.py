@@ -6,6 +6,7 @@ Base classes of for SimPy's shared resource types.
 These events are triggered once the request has been completed.
 
 """
+
 from __future__ import annotations
 
 from typing import (

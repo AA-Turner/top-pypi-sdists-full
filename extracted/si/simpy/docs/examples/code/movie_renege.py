@@ -13,6 +13,7 @@ Scenario:
   to buy tickets for that movie renege (leave queue).
 
 """
+
 from __future__ import annotations
 
 import random
@@ -94,10 +95,10 @@ movies = ['Python Unchained', 'Kill Process', 'Pulp Implementation']
 theater = Theater(
     counter=simpy.Resource(env, capacity=1),
     movies=movies,
-    available={movie: TICKETS for movie in movies},
+    available=dict.fromkeys(movies, TICKETS),
     sold_out={movie: env.event() for movie in movies},
-    when_sold_out={movie: None for movie in movies},
-    num_renegers={movie: 0 for movie in movies},
+    when_sold_out=dict.fromkeys(movies),
+    num_renegers=dict.fromkeys(movies, 0),
 )
 
 # Start process and run

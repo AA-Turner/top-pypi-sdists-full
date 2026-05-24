@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: insightface
-Version: 1.0
+Version: 1.0.1
 Summary: InsightFace Python Library
 Home-page: https://github.com/deepinsight/insightface
 Author: InsightFace Contributors
 Author-email: contact@insightface.ai
-License: MIT
 Description-Content-Type: text/markdown
 Requires-Dist: numpy
 Requires-Dist: onnx
@@ -13,25 +12,22 @@ Requires-Dist: onnxruntime
 Requires-Dist: opencv-python
 Requires-Dist: tqdm
 Requires-Dist: requests
-Requires-Dist: matplotlib
-Requires-Dist: Pillow
 Requires-Dist: scipy
-Requires-Dist: scikit-learn
 Requires-Dist: scikit-image
-Requires-Dist: easydict
-Requires-Dist: prettytable
 Provides-Extra: gui
 Requires-Dist: PySide6-Essentials>=6.5; extra == "gui"
+Requires-Dist: Pillow; extra == "gui"
 Requires-Dist: reportlab; extra == "gui"
+Requires-Dist: scikit-learn; extra == "gui"
 Provides-Extra: face3d
 Requires-Dist: cython; extra == "face3d"
 Requires-Dist: albumentations; extra == "face3d"
+Requires-Dist: matplotlib; extra == "face3d"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: license
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
@@ -56,7 +52,7 @@ You have to install ``onnxruntime-gpu`` manually to enable GPU inference, or ins
 
 ### Install InsightFace Evaluation Studio GUI
 
-InsightFace 1.0 includes a local desktop GUI:
+InsightFace 1.0.1 includes a local desktop GUI:
 
 ```
 pip install "insightface[gui]"
@@ -128,7 +124,7 @@ model only when a swap is run.
 
 ### Optional face3d Build
 
-InsightFace 1.0 does not build the optional ``face3d`` Cython/C++ extension by
+InsightFace 1.0.1 does not build the optional ``face3d`` Cython/C++ extension by
 default. This keeps the default install lighter and avoids local compiler
 requirements. Users who need the legacy mask renderer / face3d path can opt in:
 
@@ -150,6 +146,14 @@ More details:
 - ``docs/gui_packaging.md``
 
 ## Change Log
+
+### [1.0.1] - 2026-05-23
+
+#### Changed
+
+- Remove the PyPI package metadata license classifier field while keeping the README license guidance.
+- Move direct `Pillow` and `scikit-learn` requirements to the GUI extra, and `matplotlib` to the optional `face3d` extra.
+- Remove unused base dependencies on `easydict` and `prettytable`.
 
 ### [1.0] - 2026-05-23
 

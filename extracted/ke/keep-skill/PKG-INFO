@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keep-skill
-Version: 0.154.1
+Version: 0.156.1
 Summary: Reflective memory - remember and search documents by meaning
 Project-URL: Homepage, https://keep.generalbusiness.ai
 Project-URL: Documentation, https://docs.generalbusiness.ai/guides/
@@ -25,6 +25,7 @@ Requires-Dist: chromadb<2.0,>=1.5
 Requires-Dist: common-expression-language>=0.5
 Requires-Dist: google-genai>=1.0.0
 Requires-Dist: httpx<1.0,>=0.27
+Requires-Dist: idna>=3.15
 Requires-Dist: lxml>=6.1.0
 Requires-Dist: mcp<2.0,>=1.0
 Requires-Dist: openai>=1.0
@@ -38,6 +39,7 @@ Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: python-pptx>=1.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: questionary>=2.0
+Requires-Dist: starlette>=1.0.1
 Requires-Dist: tinytag>=2.2.1
 Requires-Dist: tomli-w>=1.0
 Requires-Dist: typer>=0.9

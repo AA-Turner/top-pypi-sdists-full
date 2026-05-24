@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-router
-Version: 0.1.14
+Version: 0.1.15
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -10,7 +10,7 @@ Requires-Dist: aiohttp<4,>=3.10.11
 Requires-Dist: aurelio-sdk>=0.0.19
 Requires-Dist: colorama<0.5,>=0.4.6
 Requires-Dist: colorlog<7,>=6.8.0
-Requires-Dist: litellm>=1.61.3
+Requires-Dist: litellm>=1.83.7
 Requires-Dist: numpy>=1.25.2
 Requires-Dist: openai<3.0.0,>=1.10.0
 Requires-Dist: pydantic<3,>=2.10.2
@@ -28,7 +28,7 @@ Requires-Dist: fastembed<0.4,>=0.3.0; (python_version < '3.13') and extra == 'al
 Requires-Dist: google-cloud-aiplatform<2,>=1.45.0; extra == 'all'
 Requires-Dist: ipykernel<7,>=6.25.0; extra == 'all'
 Requires-Dist: llama-cpp-python<0.2.86,>=0.2.28; (python_version < '3.13') and extra == 'all'
-Requires-Dist: mistralai<0.1.0,>=0.0.12; extra == 'all'
+Requires-Dist: mistralai<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: mypy<2,>=1.7.1; extra == 'all'
 Requires-Dist: ollama>=0.1.7; extra == 'all'
 Requires-Dist: pillow<11.0.0,>=10.2.0; (python_version < '3.13') and extra == 'all'
@@ -84,7 +84,7 @@ Requires-Dist: tokenizers>=0.19; (python_version < '3.13') and extra == 'local'
 Requires-Dist: torch>=2.6.0; (python_version < '3.13') and extra == 'local'
 Requires-Dist: transformers>=4.36.2; (python_version < '3.13') and extra == 'local'
 Provides-Extra: mistralai
-Requires-Dist: mistralai<0.1.0,>=0.0.12; extra == 'mistralai'
+Requires-Dist: mistralai<2.0.0,>=1.0.0; extra == 'mistralai'
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.1.7; extra == 'ollama'
 Provides-Extra: pinecone

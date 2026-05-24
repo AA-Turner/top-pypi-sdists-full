@@ -1,29 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pythonnet
-Version: 3.0.5
+Version: 3.1.0
 Summary: .NET and Mono integration for Python
 Author-email: "The Contributors of the Python.NET Project" <pythonnet@python.org>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://pythonnet.github.io/
 Project-URL: Sources, https://github.com/pythonnet/pythonnet
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: C#
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
-Requires-Python: <3.14,>=3.7
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: clr_loader<0.3.0,>=0.2.7
+License-File: LICENSE
+License-File: AUTHORS.md
+Requires-Dist: clr_loader<0.4.0,>=0.3.1
+Dynamic: license-file
 
 pythonnet - Python.NET
 ===========================

@@ -242,7 +242,7 @@ def startMarketMonitor(mp_dict, keyboardevent):
         from PKDevTools.classes.NSEMarketStatus import NSEMarketStatus
         NSEMarketStatus(mp_dict,keyboardevent).startMarketMonitor()
 
-def finishScreening(downloadOnly, testing, stockDictPrimary, configManager, loadCount, testBuild, screenResults, saveResults, user=None):
+def finishScreening(downloadOnly, testing, stockDictPrimary, configManager, loadCount, testBuild, screenResults, saveResults, user=None, executeOption=-1):
     """
     Complete the screening process by saving/downloading results and sending notifications.
     
@@ -261,10 +261,13 @@ def finishScreening(downloadOnly, testing, stockDictPrimary, configManager, load
         None
     """
     global defaultAnswer, menuChoiceHierarchy, userPassedArgs, selectedChoice
-    if "RUNNER" not in os.environ.keys() or downloadOnly:
+    download_job = ("RUNNER" in os.environ.keys()) and (downloadOnly or PKDateUtilities.currentDateTime().weekday() >= 5 and executeOption==0)
+    if download_job:
+        print("Running in download job mode...")
+    if "RUNNER" not in os.environ.keys() or downloadOnly or download_job:
         # There's no need to prompt the user to save xls report or to save data locally.
         # This scan must have been triggered by github workflow by a user or scheduled job
-        saveDownloadedData(downloadOnly, testing, stockDictPrimary, configManager, loadCount)
+        saveDownloadedData(download_job, testing, stockDictPrimary, configManager, loadCount)
     if not testBuild and not downloadOnly and not testing and ((userPassedArgs is not None and "|" not in userPassedArgs.options) or userPassedArgs is None):
         saveNotifyResultsFile(
             screenResults, saveResults, defaultAnswer, menuChoiceHierarchy, user=user
@@ -1158,7 +1161,7 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
     executeOption = int(executeOption)
     volumeRatio = configManager.volumeRatio
     if executeOption == 3:
-        userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,2000) # force evaluate all stocks before getting the top results
+        userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,5000) # force evaluate all stocks before getting the top results
     if executeOption == 4:
         daysForLowestVolume = handleScannerExecuteOption4(executeOption, options)
     if executeOption == 5:
@@ -1219,7 +1222,7 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
             else:
                 listStockCodes = ",".join(list(screenResults.index))
         else:
-            userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,2000) # force evaluate all stocks before getting the top results
+            userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,5000) # force evaluate all stocks before getting the top results
             reversalOption = popOption
     if executeOption == 22:
         selectedMenu = m2.find(str(executeOption))
@@ -1315,7 +1318,7 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
         else:
             selectedChoice["3"] = str(maLength)
         if maLength == 3:
-            userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,2000)
+            userPassedArgs.maxdisplayresults = max(configManager.maxdisplayresults,5000)
             
     if executeOption == 34:
         handle_execute_option_34(userPassedArgs, configManager)
@@ -1739,6 +1742,7 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
                 screenResults,
                 saveResults,
                 user,
+                executeOption = executeOption
             )
 
         if menuOption == "B":
@@ -2935,7 +2939,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
     addedList = []
     printableColumns = []
     lastReportDateTime = "Unknown"
-    
+    MAX_RESULTS_TO_SEND = 50
     if userPassedArgs.monitor is not None:
         return
     
@@ -2966,7 +2970,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
         common_df = screenResults[screenResults.index.isin(passedList)]
         addedList = list(set(passedList) - set(common_df.index))
     
-    MAX_ALLOWED = (configManager.maxdisplayresults if userPassedArgs.maxdisplayresults is None else (int(userPassedArgs.maxdisplayresults) if not testing else 1))
+    MAX_ALLOWED = MAX_RESULTS_TO_SEND # (configManager.maxdisplayresults if userPassedArgs.maxdisplayresults is None else (int(userPassedArgs.maxdisplayresults) if not testing else 1))
     tabulated_backtest_summary = ""
     tabulated_backtest_detail = ""
     recordDate = PKDateUtilities.tradingDate().strftime('%Y-%m-%d') if (userPassedArgs.backtestdaysago is None) else (PKDateUtilities.nthPastTradingDateStringFromFutureDate(int(userPassedArgs.backtestdaysago)))
@@ -3053,7 +3057,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
             # The truth value of a Series is ambiguous.
             pass
         tabulated_results = colorText.miniTabulator().tabulate(
-            screenResults, headers="keys", tablefmt=colorText.No_Pad_GridFormat,
+            screenResults.head(MAX_RESULTS_TO_SEND), headers="keys", tablefmt=colorText.No_Pad_GridFormat,
             maxcolwidths=Utility.tools.getMaxColumnWidths(screenResults)
         ).encode("utf-8").decode(STD_ENCODING)
         copyScreenResults = screenResults.copy()
@@ -3074,7 +3078,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
         saved_screen_results = screenResults
         try:
             console_results = colorText.miniTabulator().tabulate(
-                                    copyScreenResults, headers="keys", tablefmt=colorText.No_Pad_GridFormat,
+                                    copyScreenResults.head(MAX_RESULTS_TO_SEND), headers="keys", tablefmt=colorText.No_Pad_GridFormat,
                                     maxcolwidths=Utility.tools.getMaxColumnWidths(copyScreenResults)
                                 ).encode("utf-8").decode(STD_ENCODING)
             console_results = console_results

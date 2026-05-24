@@ -15,6 +15,7 @@ Scenario:
   to finish. If not, they wait until they can use one.
 
 """
+
 import itertools
 import random
 

@@ -3,14 +3,14 @@
 from setuptools import setup
 setup(
     name='typedload',
-    version='2.40',
+    version='2.41',
     description='Load and dump data from json-like format into typed data structures',
     readme='README.md',
     url='https://ltworf.codeberg.page/typedload/',
     author="Salvo 'LtWorf' Tomaselli",
     author_email='tiposchi@tiscali.it',
     license='GPL-3.0-only',
-    classifiers=['Development Status :: 5 - Production/Stable', 'Intended Audience :: Developers', 'Typing :: Typed', 'Programming Language :: Python :: 3.10', 'Programming Language :: Python :: 3.11', 'Programming Language :: Python :: 3.12', 'Programming Language :: Python :: 3.13', 'Programming Language :: Python :: 3.14'],
+    classifiers=['Development Status :: 5 - Production/Stable', 'Intended Audience :: Developers', 'Typing :: Typed', 'Programming Language :: Python :: 3.10', 'Programming Language :: Python :: 3.11', 'Programming Language :: Python :: 3.12', 'Programming Language :: Python :: 3.13', 'Programming Language :: Python :: 3.14', 'Programming Language :: Python :: 3.15'],
     keywords='typing types mypy json schema json-schema python3 namedtuple enums dataclass pydantic',
     packages=['typedload'],
     package_data={"typedload": ["py.typed", "__init__.pyi"]},

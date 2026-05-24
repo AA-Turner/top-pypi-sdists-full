@@ -1,49 +1,62 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rasterstats
-Version: 0.20.0
+Version: 0.21.0
 Summary: Summarize geospatial raster datasets based on vector geometries
-Author-email: Matthew Perry <perrygeo@gmail.com>
-License: BSD-3-Clause
 Project-URL: Documentation, https://pythonhosted.org/rasterstats/
 Project-URL: Source Code, https://github.com/perrygeo/python-rasterstats
-Keywords: gis,geospatial,geographic,raster,vector,zonal statistics
+Author-email: Matthew Perry <perrygeo@gmail.com>
+License: BSD-3-Clause
+License-File: LICENSE.txt
+Keywords: geographic,geospatial,gis,raster,vector,zonal statistics
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.7
-Description-Content-Type: text/x-rst
-License-File: LICENSE.txt
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
 Requires-Dist: affine
-Requires-Dist: click>7.1
+Requires-Dist: click!=8.2.1,>7.1
 Requires-Dist: cligj>=0.4
-Requires-Dist: fiona
 Requires-Dist: numpy>=1.9
+Requires-Dist: pyogrio
 Requires-Dist: rasterio>=1.0
-Requires-Dist: simplejson
 Requires-Dist: shapely
-Provides-Extra: progress
-Requires-Dist: tqdm; extra == "progress"
-Provides-Extra: test
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: geopandas; extra == "test"
-Requires-Dist: pyshp>=1.1.4; extra == "test"
-Requires-Dist: pytest>=4.6; extra == "test"
-Requires-Dist: pytest-cov>=2.2.0; extra == "test"
-Requires-Dist: simplejson; extra == "test"
+Requires-Dist: simplejson
 Provides-Extra: dev
-Requires-Dist: rasterstats[test]; extra == "dev"
-Requires-Dist: numpydoc; extra == "dev"
-Requires-Dist: twine; extra == "dev"
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: fiona; extra == 'dev'
+Requires-Dist: geopandas; extra == 'dev'
+Requires-Dist: pyshp>=1.1.4; extra == 'dev'
+Requires-Dist: pytest-cov>=2.2.0; extra == 'dev'
+Requires-Dist: pytest>=4.6; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: simplejson; extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: numpydoc; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Provides-Extra: fiona
+Requires-Dist: fiona; extra == 'fiona'
+Provides-Extra: progress
+Requires-Dist: tqdm; extra == 'progress'
+Provides-Extra: test
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: geopandas; extra == 'test'
+Requires-Dist: pyshp>=1.1.4; extra == 'test'
+Requires-Dist: pytest-cov>=2.2.0; extra == 'test'
+Requires-Dist: pytest>=4.6; extra == 'test'
+Requires-Dist: simplejson; extra == 'test'
+Description-Content-Type: text/x-rst
 
 rasterstats
 ===========

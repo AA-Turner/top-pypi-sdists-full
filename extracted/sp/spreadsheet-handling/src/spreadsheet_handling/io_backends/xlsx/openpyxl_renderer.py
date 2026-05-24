@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Font, PatternFill
 
 from spreadsheet_handling.rendering.plan import (
+    RenderOp,
     RenderPlan,
     DefineSheet,
     SetHeader,
@@ -19,11 +22,16 @@ from spreadsheet_handling.rendering.plan import (
     ApplyColumnStyle,
     SetAutoFilter,
     SetFreeze,
+    SetColumnWidth,
     AddValidation,
     WriteDataBlock,
     WriteMeta,
     DefineNamedRange,
+    SetSheetProtection,
+    ApplyCellLock,
 )
+from spreadsheet_handling.core.formulas import FormulaSpec, ListLiteralFormulaSpec
+from spreadsheet_handling.core.formulas import LookupFormulaSpec
 
 
 # --------------------------------------------------------------------------------------
@@ -48,6 +56,280 @@ def _write(ws: Worksheet, row: int, col: int, value: Any) -> None:
     ws.cell(row=row, column=col, value=value)
 
 
+def _xlsx_validation_formula(formula: FormulaSpec) -> str:
+    if isinstance(formula, ListLiteralFormulaSpec):
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=",", quotechar='"', lineterminator="")
+        writer.writerow(formula.values)
+        return f'"{output.getvalue()}"'
+    raise TypeError(f"Unsupported formula spec: {type(formula).__name__}")
+
+
+def _collect_formula_context(
+    plan: RenderPlan,
+) -> tuple[dict[str, dict[str, int]], dict[str, tuple[int, int]]]:
+    sheet_headers: dict[str, dict[str, int]] = {}
+    sheet_data_bounds: dict[str, tuple[int, int]] = {}
+    for op in plan.ops:
+        if isinstance(op, SetHeader):
+            sheet_headers.setdefault(op.sheet, {}).setdefault(op.text, op.col)
+        elif isinstance(op, WriteDataBlock) and op.data:
+            start = op.r1
+            end = op.r1 + len(op.data) - 1
+            if op.sheet in sheet_data_bounds:
+                old_start, old_end = sheet_data_bounds[op.sheet]
+                sheet_data_bounds[op.sheet] = (min(old_start, start), max(old_end, end))
+            else:
+                sheet_data_bounds[op.sheet] = (start, end)
+    return sheet_headers, sheet_data_bounds
+
+
+def _quote_xlsx_sheet_name(sheet: str) -> str:
+    return "'" + str(sheet).replace("'", "''") + "'"
+
+
+def _xlsx_string_literal(value: object) -> str:
+    return '"' + str(value).replace('"', '""') + '"'
+
+
+def _header_col(
+    sheet_headers: dict[str, dict[str, int]],
+    *,
+    sheet: str,
+    column: str,
+) -> int:
+    try:
+        return sheet_headers[sheet][column]
+    except KeyError as exc:
+        raise KeyError(f"Formula column {column!r} not found on sheet {sheet!r}") from exc
+
+
+def _data_bounds(
+    sheet_data_bounds: dict[str, tuple[int, int]],
+    *,
+    sheet: str,
+) -> tuple[int, int]:
+    try:
+        return sheet_data_bounds[sheet]
+    except KeyError as exc:
+        raise KeyError(f"Formula lookup sheet {sheet!r} has no data block") from exc
+
+
+def _xlsx_lookup_formula(
+    formula: LookupFormulaSpec,
+    *,
+    current_sheet: str,
+    row: int,
+    sheet_headers: dict[str, dict[str, int]],
+    sheet_data_bounds: dict[str, tuple[int, int]],
+) -> str:
+    source_col = _header_col(
+        sheet_headers,
+        sheet=current_sheet,
+        column=formula.source_key_column,
+    )
+    lookup_key_col = _header_col(
+        sheet_headers,
+        sheet=formula.lookup_sheet,
+        column=formula.lookup_key_column,
+    )
+    lookup_value_col = _header_col(
+        sheet_headers,
+        sheet=formula.lookup_sheet,
+        column=formula.lookup_value_column,
+    )
+    lookup_start, lookup_end = _data_bounds(sheet_data_bounds, sheet=formula.lookup_sheet)
+
+    source_ref = f"${get_column_letter(source_col)}{row}"
+    lookup_sheet = _quote_xlsx_sheet_name(formula.lookup_sheet)
+    key_range = (
+        f"{lookup_sheet}!${get_column_letter(lookup_key_col)}${lookup_start}:"
+        f"${get_column_letter(lookup_key_col)}${lookup_end}"
+    )
+    value_range = (
+        f"{lookup_sheet}!${get_column_letter(lookup_value_col)}${lookup_start}:"
+        f"${get_column_letter(lookup_value_col)}${lookup_end}"
+    )
+    missing = _xlsx_string_literal(formula.missing)
+    return f"=XLOOKUP({source_ref},{key_range},{value_range},{missing})"
+
+
+def _xlsx_cell_value(
+    value: Any,
+    *,
+    current_sheet: str,
+    row: int,
+    sheet_headers: dict[str, dict[str, int]],
+    sheet_data_bounds: dict[str, tuple[int, int]],
+) -> Any:
+    if isinstance(value, LookupFormulaSpec):
+        return _xlsx_lookup_formula(
+            value,
+            current_sheet=current_sheet,
+            row=row,
+            sheet_headers=sheet_headers,
+            sheet_data_bounds=sheet_data_bounds,
+        )
+    return value
+
+
+def _define_plan_sheets(wb: Workbook, plan: RenderPlan) -> None:
+    defined: set[str] = set()
+
+    for op in plan.ops:
+        if isinstance(op, DefineSheet) and op.sheet not in defined:
+            _get_ws(wb, op.sheet)
+            defined.add(op.sheet)
+
+    for sheet_name in plan.sheet_order:
+        if sheet_name and sheet_name not in defined:
+            _get_ws(wb, sheet_name)
+            defined.add(sheet_name)
+
+    if not defined:
+        _get_ws(wb, "Sheet1")
+
+
+def _write_data_block(
+    op: WriteDataBlock,
+    wb: Workbook,
+    sheet_headers: dict[str, dict[str, int]],
+    sheet_data_bounds: dict[str, tuple[int, int]],
+) -> None:
+    ws = _get_ws(wb, op.sheet)
+    for row_off, row_data in enumerate(op.data):
+        for col_off, val in enumerate(row_data):
+            row = op.r1 + row_off
+            ws.cell(
+                row=row,
+                column=op.c1 + col_off,
+                value=_xlsx_cell_value(
+                    val,
+                    current_sheet=op.sheet,
+                    row=row,
+                    sheet_headers=sheet_headers,
+                    sheet_data_bounds=sheet_data_bounds,
+                ),
+            )
+
+
+def _write_meta(op: WriteMeta, wb: Workbook) -> None:
+    sheet_name = op.sheet or "_meta"
+    ws = _get_ws(wb, sheet_name)
+    row = 1
+    for k, v in op.kv.items():
+        ws.cell(row=row, column=1, value=str(k))
+        ws.cell(row=row, column=2, value=str(v))
+        row += 1
+    if op.hidden:
+        ws.sheet_state = "hidden"
+
+
+def _define_named_range(op: DefineNamedRange, wb: Workbook) -> None:
+    ref = (
+        f"'{op.sheet}'!"
+        f"${get_column_letter(op.c1)}${op.r1}:"
+        f"${get_column_letter(op.c2)}${op.r2}"
+    )
+    wb.defined_names.add(DefinedName(op.name, attr_text=ref))
+
+
+def _execute_render_op(
+    op: RenderOp,
+    wb: Workbook,
+    sheet_headers: dict[str, dict[str, int]],
+    sheet_data_bounds: dict[str, tuple[int, int]],
+) -> None:
+    if isinstance(op, DefineSheet):
+        return
+
+    if isinstance(op, SetHeader):
+        ws = _get_ws(wb, op.sheet)
+        _write(ws, op.row, op.col, op.text)
+        return
+
+    if isinstance(op, MergeCells):
+        ws = _get_ws(wb, op.sheet)
+        ws.merge_cells(
+            start_row=op.r1, start_column=op.c1,
+            end_row=op.r2, end_column=op.c2,
+        )
+        return
+
+    if isinstance(op, ApplyHeaderStyle):
+        ws = _get_ws(wb, op.sheet)
+        cell = ws.cell(row=op.row, column=op.col)
+        if op.bold:
+            cell.font = Font(bold=True)
+        if op.fill_rgb:
+            cell.fill = PatternFill("solid", fgColor=op.fill_rgb.lstrip("#"))
+        return
+
+    if isinstance(op, ApplyColumnStyle):
+        if op.fill_rgb:
+            ws = _get_ws(wb, op.sheet)
+            fill = PatternFill("solid", fgColor=op.fill_rgb.lstrip("#"))
+            for r in range(op.from_row, op.to_row + 1):
+                ws.cell(row=r, column=op.col).fill = fill
+        return
+
+    if isinstance(op, WriteDataBlock):
+        _write_data_block(op, wb, sheet_headers, sheet_data_bounds)
+        return
+
+    if isinstance(op, SetFreeze):
+        ws = _get_ws(wb, op.sheet)
+        ws.freeze_panes = f"{get_column_letter(op.col)}{op.row}"
+        return
+
+    if isinstance(op, SetColumnWidth):
+        ws = _get_ws(wb, op.sheet)
+        ws.column_dimensions[get_column_letter(op.col)].width = op.width
+        return
+
+    if isinstance(op, SetAutoFilter):
+        ws = _get_ws(wb, op.sheet)
+        ref = _area_to_ref(op.r1, op.c1, op.r2, op.c2)
+        ws.auto_filter.ref = ref
+        return
+
+    if isinstance(op, AddValidation):
+        ws = _get_ws(wb, op.sheet)
+        ref = _area_to_ref(op.r1, op.c1, op.r2, op.c2)
+        dv = DataValidation(
+            type="list",
+            formula1=_xlsx_validation_formula(op.formula),
+            allow_blank=op.allow_empty,
+        )
+        dv.add(ref)
+        ws.add_data_validation(dv)
+        return
+
+    if isinstance(op, WriteMeta):
+        _write_meta(op, wb)
+        return
+
+    if isinstance(op, DefineNamedRange):
+        _define_named_range(op, wb)
+        return
+
+    if isinstance(op, SetSheetProtection):
+        ws = _get_ws(wb, op.sheet)
+        ws.protection.sheet = True
+        if op.password is not None:
+            ws.protection.password = op.password
+        return
+
+    if isinstance(op, ApplyCellLock):
+        ws = _get_ws(wb, op.sheet)
+        from openpyxl.styles import Protection as CellProtection
+
+        prot = CellProtection(locked=op.locked)
+        for r in range(op.from_row, op.to_row + 1):
+            ws.cell(row=r, column=op.col).protection = prot
+        return
+
+
 # --------------------------------------------------------------------------------------
 # Typed renderer — dispatches on isinstance checks against plan.py dataclasses
 # --------------------------------------------------------------------------------------
@@ -57,106 +339,10 @@ def _render_from_plan(plan: RenderPlan, out_path: Path) -> None:
     default = wb.active
     wb.remove(default)
 
-    defined: set[str] = set()
-
-    # First pass: create sheets deterministically
+    sheet_headers, sheet_data_bounds = _collect_formula_context(plan)
+    _define_plan_sheets(wb, plan)
     for op in plan.ops:
-        if isinstance(op, DefineSheet) and op.sheet not in defined:
-            _get_ws(wb, op.sheet)
-            defined.add(op.sheet)
-
-    for s in plan.sheet_order:
-        if s and s not in defined:
-            _get_ws(wb, s)
-            defined.add(s)
-
-    if not defined:
-        _get_ws(wb, "Sheet1")
-
-    # Second pass: execute operations
-    for op in plan.ops:
-
-        if isinstance(op, DefineSheet):
-            continue
-
-        if isinstance(op, SetHeader):
-            ws = _get_ws(wb, op.sheet)
-            _write(ws, op.row, op.col, op.text)
-            continue
-
-        if isinstance(op, MergeCells):
-            ws = _get_ws(wb, op.sheet)
-            ws.merge_cells(
-                start_row=op.r1, start_column=op.c1,
-                end_row=op.r2, end_column=op.c2,
-            )
-            continue
-
-        if isinstance(op, ApplyHeaderStyle):
-            ws = _get_ws(wb, op.sheet)
-            cell = ws.cell(row=op.row, column=op.col)
-            if op.bold:
-                cell.font = Font(bold=True)
-            if op.fill_rgb:
-                cell.fill = PatternFill("solid", fgColor=op.fill_rgb.lstrip("#"))
-            continue
-
-        if isinstance(op, ApplyColumnStyle):
-            if op.fill_rgb:
-                ws = _get_ws(wb, op.sheet)
-                fill = PatternFill("solid", fgColor=op.fill_rgb.lstrip("#"))
-                for r in range(op.from_row, op.to_row + 1):
-                    ws.cell(row=r, column=op.col).fill = fill
-            continue
-
-        if isinstance(op, WriteDataBlock):
-            ws = _get_ws(wb, op.sheet)
-            for row_off, row_data in enumerate(op.data):
-                for col_off, val in enumerate(row_data):
-                    ws.cell(row=op.r1 + row_off, column=op.c1 + col_off, value=val)
-            continue
-
-        if isinstance(op, SetFreeze):
-            ws = _get_ws(wb, op.sheet)
-            ws.freeze_panes = f"{get_column_letter(op.col)}{op.row}"
-            continue
-
-        if isinstance(op, SetAutoFilter):
-            ws = _get_ws(wb, op.sheet)
-            ref = _area_to_ref(op.r1, op.c1, op.r2, op.c2)
-            ws.auto_filter.ref = ref
-            continue
-
-        if isinstance(op, AddValidation):
-            ws = _get_ws(wb, op.sheet)
-            ref = _area_to_ref(op.r1, op.c1, op.r2, op.c2)
-            dv = DataValidation(
-                type="list", formula1=op.formula, allow_blank=op.allow_empty,
-            )
-            dv.add(ref)
-            ws.add_data_validation(dv)
-            continue
-
-        if isinstance(op, WriteMeta):
-            sheet_name = op.sheet or "_meta"
-            ws = _get_ws(wb, sheet_name)
-            row = 1
-            for k, v in op.kv.items():
-                ws.cell(row=row, column=1, value=str(k))
-                ws.cell(row=row, column=2, value=str(v))
-                row += 1
-            if op.hidden:
-                ws.sheet_state = "hidden"
-            continue
-
-        if isinstance(op, DefineNamedRange):
-            ref = (
-                f"'{op.sheet}'!"
-                f"${get_column_letter(op.c1)}${op.r1}:"
-                f"${get_column_letter(op.c2)}${op.r2}"
-            )
-            wb.defined_names.add(DefinedName(op.name, attr_text=ref))
-            continue
+        _execute_render_op(op, wb, sheet_headers, sheet_data_bounds)
 
     wb.save(out_path)
 

@@ -27,6 +27,7 @@ Example By:
   Keith Smith
 
 """
+
 import random
 
 import simpy

@@ -161,6 +161,16 @@ view_contents_keys = {
     "start-with-parameters",
     "refresh-frequency",
     "definition-header",
+    # Dashboard.
+    "include-std-job-list",
+    "hide-jenkins-panels",
+    "use-css-style",
+    "left-portlet-width",
+    "right-portlet-width",
+    "top-portlets",
+    "left-portlets",
+    "right-portlets",
+    "bottom-portlets",
 }
 
 

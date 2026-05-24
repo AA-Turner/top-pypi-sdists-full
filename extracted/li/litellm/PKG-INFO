@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.85.1
+Version: 1.86.0
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -49,12 +49,13 @@ Requires-Dist: azure-identity==1.25.2 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob==12.28.0 ; extra == 'proxy'
 Requires-Dist: mcp==1.26.0 ; extra == 'proxy'
 Requires-Dist: litellm-proxy-extras==0.4.72 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.40 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.41 ; extra == 'proxy'
 Requires-Dist: restrictedpython==8.1 ; extra == 'proxy'
 Requires-Dist: rich==13.9.4 ; extra == 'proxy'
 Requires-Dist: polars==1.38.1 ; extra == 'proxy'
 Requires-Dist: soundfile==0.12.1 ; extra == 'proxy'
 Requires-Dist: pyroscope-io==0.8.16 ; sys_platform != 'win32' and extra == 'proxy'
+Requires-Dist: pydantic-settings>=2.14.1 ; extra == 'proxy'
 Requires-Dist: google-cloud-aiplatform==1.133.0 ; extra == 'proxy-runtime'
 Requires-Dist: google-genai==1.37.0 ; extra == 'proxy-runtime'
 Requires-Dist: anthropic[vertex]==0.84.0 ; extra == 'proxy-runtime'

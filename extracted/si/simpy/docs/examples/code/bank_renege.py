@@ -11,6 +11,7 @@ Scenario:
   program bank08.py from TheBank tutorial of SimPy 2. (KGM)
 
 """
+
 import random
 
 import simpy

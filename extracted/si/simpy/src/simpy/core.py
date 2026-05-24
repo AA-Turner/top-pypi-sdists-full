@@ -2,6 +2,7 @@
 Core components for event-discrete simulation environments.
 
 """
+
 from __future__ import annotations
 
 from heapq import heappop, heappush
@@ -192,8 +193,15 @@ class Environment:
         # Process callbacks of the event. Set the events callbacks to None
         # immediately to prevent concurrent modifications.
         callbacks, event.callbacks = event.callbacks, None  # type: ignore
-        for callback in callbacks:
-            callback(event)
+        try:
+            for callback in callbacks:
+                callback(event)
+        except StopSimulation:
+            # Reassociate any remaining callbacks with the event and reschedule
+            # the event to be processed when the simulation resumes.
+            event.callbacks = callbacks[callbacks.index(callback) + 1 :]
+            self.schedule(event, EventPriority(-1))
+            raise
 
         if not event._ok and not hasattr(event, '_defused'):
             # The event has failed and has not been defused. Crash the

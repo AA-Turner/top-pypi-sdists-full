@@ -19,4 +19,23 @@ class taxable_earnings_for_state_unemployment_tax(Variable):
         wage_base = select_state_unemployment_tax_parameter(
             person, period, parameters, "taxable_wage_base"
         )
-        return min_(person("payroll_tax_gross_wages", period), wage_base)
+        state_code = person.household("state_code_str", period)
+        payroll_tax_gross_wages = person("payroll_tax_gross_wages", period)
+        gross_state_payroll_wages = person("state_payroll_tax_gross_wages", period)
+        income_tax_wages = person("irs_employment_income", period)
+        return min_(
+            select(
+                [
+                    state_code == "CA",
+                    (state_code == "MA") | (state_code == "NJ"),
+                    state_code == "RI",
+                ],
+                [
+                    person("ca_payroll_tax_gross_wages", period),
+                    gross_state_payroll_wages,
+                    income_tax_wages,
+                ],
+                default=payroll_tax_gross_wages,
+            ),
+            wage_base,
+        )
